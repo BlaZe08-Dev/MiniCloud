@@ -1,8 +1,8 @@
 # Binaries
 bin/
-coordinator
-worker
-mc
+/coordinator
+/worker
+/mc
 *.exe
 *.exe~
 *.dll
