@@ -255,3 +255,28 @@ Worker reports task completion or failure.
   }
 }
 ```
+
+---
+
+## 5. Compatibility Policy
+
+### 5.1 Additive-Only Evolution within `/v1`
+All changes to the MiniCloud HTTP API and Worker Protocol within the `/v1` namespace must be strictly backwards-compatible:
+1. **Request Schemas:** New fields added to requests must be optional. Omitting a newly introduced field must preserve existing behavior.
+2. **Response Schemas:** New fields may be added to responses. Clients and workers must ignore unrecognized fields.
+3. **No Field Removal:** Existing request/response fields cannot be renamed, removed, or have their types/semantics altered.
+4. **Status Codes:** Existing endpoint status code semantics cannot be changed without an API major version bump.
+
+### 5.2 Deprecation Process
+If an endpoint or parameter is planned for removal or replacement:
+1. An ADR must document the deprecation rationale, migration path, and timeline.
+2. The endpoint or parameter will be marked deprecated in `docs/protocol.md` and `CHANGELOG.md`.
+3. The coordinator will log deprecation warnings when deprecated features are accessed.
+4. Deprecated functionality will remain fully operational until the next major API version (`/v2`).
+
+### 5.3 Breaking Changes & Version Migration
+Any change that cannot be expressed additively requires:
+1. An approved Architecture Decision Record (ADR).
+2. A new URL namespace prefix (`/v2/...`).
+3. Parallel coexistence during a migration window where the coordinator serves both `/v1` and `/v2` endpoints.
+
