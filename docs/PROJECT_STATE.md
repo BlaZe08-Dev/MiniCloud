@@ -1,90 +1,75 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Phase 0:** Context Engineering & Design Docs — **COMPLETED**
-- **Milestone 1:** Local Core — **COMPLETED & VERIFIED**
-- **Next Milestone:** Phase 2 — Independent Workers (worker failure detection, heartbeat timeouts, attempt versioning, dispatch decoupling).
-- **Exit Criteria for Milestone 1:**
-  - [x] Go module initialized (`github.com/BlaZe08-Dev/Minicloud`, Go 1.22.2, standard library only).
-  - [x] Pure domain model in `internal/domain` with Job, Attempt, Worker, central FSM validation, and typed errors.
-  - [x] In-memory thread-safe repository in `internal/storage`.
-  - [x] Task executor with allowlist (`echo`, `sleep`, `sha256_loop`), bounded execution timeout, payload and output caps.
-  - [x] HTTP coordinator server (`POST /v1/jobs`, `GET /v1/jobs/{id}`, `GET /v1/jobs/{id}/attempts`, `GET /v1/workers`, `GET /healthz`, `GET /readyz`).
-  - [x] Worker pull-based coordination protocol (register, heartbeat, poll/claim, report result with attempt verification).
-  - [x] Deterministic round-robin scheduler with decision logging.
-  - [x] CLI `cmd/mc` (`submit`, `get`, `attempts`, `workers`) and daemons `cmd/coordinator`, `cmd/worker`.
-  - [x] Makefile with `build`, `test`, `test-race`, `fmt`, `vet`, `run-coordinator`, `run-worker`, `demo`.
-  - [x] Comprehensive unit test suite (transition matrix, executor limits, scheduler, stale rejection) and multi-process integration test passing with `-race`.
+- **Current Branch:** `docs/version-boundaries`
+- **Current Milestone:** Version Boundaries, Architecture Boundaries, & Compatibility Alignment — **COMPLETED & VERIFIED**
+- **Next Milestone:** Phase 2 — Independent Workers (worker heartbeat reaper, dead worker detection, attempt versioning, dispatch decoupling).
+- **Target Release:** MiniCloud V1 (Phases 0–4).
 
 ---
 
 ## 2. Done
 - `f5a4968` — `docs: add MiniCloud blueprint and instructions`
 - `2fb7958` — `docs: establish Phase 0 architecture, state machine, and context layer`
-- Milestone 1 implementation:
-  - `go.mod` module setup.
-  - `internal/domain`: `JobState`, `AttemptState`, `WorkerStatus`, `ValidateJobTransition`, `Job`, `Attempt`, `Worker`.
-  - `internal/storage`: `Repository` interface and concurrent-safe `InMemoryRepository`.
-  - `internal/executor`: `Task` interface, `Registry`, `EchoTask`, `SleepTask`, `SHA256LoopTask`, timeout and size bounds.
-  - `internal/scheduler`: `Scheduler` interface, `RoundRobinScheduler`, deterministic candidate sorting, decision logging.
-  - `internal/coordinator`: `Service` with `SubmitJob`, `GetJob`, `ListAttempts`, `CancelJob`, `RegisterWorker`, `Heartbeat`, `PollWork`, and `CommitResult` with stale attempt rejection.
-  - `internal/api`: `Server` and `Handler` with Go 1.22 route patterns, size limits, and JSON error envelope.
-  - `internal/worker`: `Agent` client loop with registration, heartbeats, polling, execution, and reporting.
-  - `internal/config`: Startup validation and environment variable parsing.
-  - `cmd/coordinator`, `cmd/worker`, `cmd/mc`: Executable entry points.
-  - `Makefile` and `scripts/demo.sh`: Automated multi-process build, test, and demo harness.
-  - Table-driven unit tests for 81 transition matrix pairs, executor limits, scheduler determinism, API validation, stale rejection, and multi-process integration test.
+- `eabcc22` / `78f2aa2` — `feat: implement Milestone 1 local core coordinator, worker protocol, and CLI` (Merged PR #1 to `main`).
+- **Owner Decisions & Architecture Boundary Alignment (`docs/version-boundaries`):**
+  - Accepted Owner Decision: Docker isolation deferred to V3 ([ADR 0005](file:///home/blazeee/MiniCloud/docs/adr/0005-docker-isolation-in-v3.md)).
+  - Accepted Owner Decision: Redis Streams evaluated against PostgreSQL baseline in V2 ([ADR 0006](file:///home/blazeee/MiniCloud/docs/adr/0006-redis-streams-dispatch-evaluation-in-v2.md)).
+  - Established V1/V2/V3 version boundaries and additive compatibility policy ([ADR 0004](file:///home/blazeee/MiniCloud/docs/adr/0004-version-boundaries-and-compatibility.md)).
+  - Published phase-to-version mapping and exit criteria in [`docs/roadmap.md`](file:///home/blazeee/MiniCloud/docs/roadmap.md).
+  - Enforced domain package independence via automated architecture test [`tests/architecture/boundaries_test.go`](file:///home/blazeee/MiniCloud/tests/architecture/boundaries_test.go).
+  - Added Compatibility Policy section to [`docs/protocol.md`](file:///home/blazeee/MiniCloud/docs/protocol.md).
+  - Updated [`GEMINI.md`](file:///home/blazeee/MiniCloud/GEMINI.md) handbook with the 10 supplemental engineering rules and roadmap links (76 lines).
 
 ---
 
-## 3. In Progress
-- Final verification, commit, and push of `milestone/1-local-core`.
-- Code review and PR preparation for Milestone 1.
+## 3. Repository Inspection Findings (Supplemental Requirements)
+Verified against active codebase:
+- **(a) Domain logic independence:** SATISFIED. `internal/domain` has zero imports of `net/http`, storage, scheduler, api, coordinator, worker, or executor. Enforced by automated test.
+- **(b) Pluggable scheduler interface:** SATISFIED. `scheduler.Scheduler` interface enables new policies without altering job lifecycle state machine.
+- **(c) Executor independence:** SATISFIED. `internal/executor` is isolated from scheduler and coordinator, operating purely on byte payloads and context deadlines.
+- **(d) Storage repository abstraction:** SATISFIED. `storage.Repository` interface separates coordinator logic from storage implementation; ready for PostgreSQL implementation in Phase 3.
+- **(e) `/v1` API versioning:** SATISFIED. All client and worker endpoints explicitly versioned under `/v1/` prefix with health probes at `/healthz` and `/readyz`.
+- **(f) Correctness primitives:** SATISFIED. Stable job IDs, distinct monotonic attempt numbers, central FSM validation, stale-attempt rejection (HTTP 409), and bounded payload/output/runtime enforced.
 
 ---
 
-## 4. Next Smallest Step (Phase 2 - Independent Workers)
-- **First Step:** Implement worker health monitoring and heartbeat timeout detection loop in the coordinator (evicting or marking workers `UNHEALTHY` when `now - last_heartbeat_at > worker_timeout`).
+## 4. Remaining Follow-Up Gaps (Do not implement in this branch)
+1. **Dispatch-Transport Abstraction:** "Define a dispatch-transport interface (`internal/queue`) for the Postgres pull baseline so Redis can be swapped in during V2, and keep the executor interface free of in-process assumptions."
+2. **Phase 2 (Independent Workers):** Background worker reaper loop in coordinator to detect dead/timed-out workers (`now - last_heartbeat_at > worker_timeout`).
+3. **Phase 3 (Durable State):** PostgreSQL schema, forward-only migrations, and coordinator restart recovery.
+4. **Phase 4 (Retry & Recovery):** Automated lease expiry background sweeper and re-dispatch of abandoned jobs.
+5. **Phase 6 / V2 Evaluation:** Redis Streams comparative benchmark harness vs. PostgreSQL baseline.
+6. **Phase 5 / V3 Isolation:** Docker container executor and multi-machine mutual TLS/auth.
 
 ---
 
-## 5. Open Questions & Ambiguities
-- *None.* All Milestone 1 requirements verified against Blueprint v1.0 and Instructions.
+## 5. Known Defects & Limitations
+- Durability is currently in-memory only (PostgreSQL arrives in Phase 3).
+- Queue transport is in-memory only (PostgreSQL pull baseline in V1; Redis Streams evaluation in V2).
+- Dead worker eviction is manual/implicit until Phase 2 worker reaper loop is added.
+- Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
 
 ---
 
-## 6. Known Defects & Limitations
-- **Storage Durability:** In-memory repository only; state does not survive coordinator restarts (PostgreSQL arrives in Phase 3).
-- **Transport:** In-memory dispatch; no external message broker (Redis Streams arrives in Phase 5).
-- **Lease Expiry Sweeper:** Attempt matching prevents stale overwrites on commit; background lease sweeper for automatic re-queueing of abandoned jobs arrives in Phase 4.
-- **Task Sandbox:** Execution is constrained by Go context timeouts and size caps using allowlisted task implementations; containerized process isolation arrives in Phase 5.
-
----
-
-## 7. Last Verified Commands & Actual Results
-- **Date:** 2026-10-19
+## 6. Last Verified Commands & Actual Results
+- **Date:** 2026-10-20
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
 
 $ gofmt -s -w .
-(clean, no output)
+(clean exit, code 0)
 
 $ go vet ./...
-(clean, no output)
+(clean exit, code 0)
 
-$ go test -v -race ./...
-?   	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	[no test files]
-?   	github.com/BlaZe08-Dev/Minicloud/cmd/mc	[no test files]
-?   	github.com/BlaZe08-Dev/Minicloud/cmd/worker	[no test files]
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.057s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.290s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.084s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.029s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.030s
-?   	github.com/BlaZe08-Dev/Minicloud/internal/worker	[no test files]
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.029s
-
-$ make demo
-(Clean run: starts coordinator + 2 workers, executes echo, sha256_loop, sleep jobs, prints mc status and attempt history, terminates cleanly)
+$ go test -v -race -count=1 ./...
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	(passed with race detector)
 ```

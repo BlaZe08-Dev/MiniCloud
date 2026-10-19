@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Architecture Boundaries, Version Gating & Owner Decisions (`docs/version-boundaries`):**
+  - `docs/adr/0004-version-boundaries-and-compatibility.md`: V1/V2/V3 platform boundaries and additive-only compatibility policy (Accepted).
+  - `docs/adr/0005-docker-isolation-in-v3.md`: Deferring Docker container execution to V3 with unprivileged allowlisted task execution in V1/V2 (Accepted).
+  - `docs/adr/0006-redis-streams-dispatch-evaluation-in-v2.md`: Comparative evaluation of Redis Streams vs. PostgreSQL baseline in V2 with `internal/queue` transport abstraction (Accepted for evaluation).
+  - `docs/roadmap.md`: Consolidated phase-to-version mapping and exit criteria across V1, V2, and V3.
+  - `tests/architecture/boundaries_test.go`: Automated architecture boundary test enforcing complete independence of `internal/domain`.
+  - `docs/protocol.md`: Added Section 5 defining additive compatibility guarantees, deprecation windows, and migration rules.
+  - `GEMINI.md`: Integrated 10 supplemental engineering rules and version boundaries within a concise 76-line manual.
 - **Phase 0 Context & Architecture:**
   - `GEMINI.md`: Repository operating manual, invariant list, and session protocol.
   - `docs/PROJECT_STATE.md`: Living handoff state and verified command log.
