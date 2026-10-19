@@ -1,0 +1,35 @@
+# Binaries
+bin/
+coordinator
+worker
+mc
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts and coverage
+*.out
+*.test
+coverage.html
+profile.pprof
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary, data, and untracked root assets
+tmp/
+data/
+scratch/
+MiniCloud_Project_Blueprint_for_Claude.pdf
