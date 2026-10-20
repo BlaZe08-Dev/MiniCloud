@@ -16,10 +16,13 @@ var (
 	ErrOutputTooLarge     = errors.New("output exceeds maximum allowed size")
 	ErrTaskTimeout        = errors.New("task execution timed out")
 	ErrNoWorkersAvailable = errors.New("no healthy workers with available capacity")
-	ErrWorkerUnhealthy    = errors.New("worker is unhealthy; heartbeat required to resume work")
-	ErrNoQueuedJobs       = errors.New("no queued jobs available")
-	ErrInvalidRequest     = errors.New("invalid request payload or parameters")
-	ErrJobAlreadyTerminal = errors.New("job is already in a terminal state")
+	ErrWorkerUnhealthy         = errors.New("worker is unhealthy; heartbeat required to resume work")
+	ErrNoQueuedJobs            = errors.New("no queued jobs available")
+	ErrInvalidRequest          = errors.New("invalid request payload or parameters")
+	ErrJobAlreadyTerminal      = errors.New("job is already in a terminal state")
+	ErrJobNotQueued            = errors.New("job is not in QUEUED state")
+	ErrWorkerTaskUnsupported   = errors.New("worker does not support task type")
+	ErrWorkerNoCapacity        = errors.New("worker has no available capacity")
 )
 
 // InvalidStateTransitionError is returned when a requested state transition violates the state machine.
