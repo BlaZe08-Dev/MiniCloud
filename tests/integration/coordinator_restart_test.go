@@ -39,14 +39,14 @@ func listenWithReuse(addr string) (net.Listener, error) {
 }
 
 // TestWorker_CoordinatorRestart_AutoReRegistrationAndCompletion verifies Scope 5 & Adjustment 6:
-// 1. Worker is running against coordinator 1 and claims a job.
-// 2. Coordinator 1 is shut down and restarted as coordinator 2 with a fresh in-memory repository
-//    (simulating process restart and in-memory state loss before Slice 3c PostgreSQL durability).
-// 3. When worker reports the in-flight job outcome to restarted coordinator 2, it receives HTTP 404.
-//    Worker classifies 404 as non-retryable, logs warning, and does NOT loop forever.
-// 4. On subsequent heartbeat or poll, worker receives HTTP 404 (WORKER_NOT_FOUND), automatically
-//    re-registers itself with coordinator 2, and continues polling.
-// 5. A newly submitted job to coordinator 2 is claimed by the re-registered worker and completed successfully.
+//  1. Worker is running against coordinator 1 and claims a job.
+//  2. Coordinator 1 is shut down and restarted as coordinator 2 with a fresh in-memory repository
+//     (simulating process restart and in-memory state loss before Slice 3c PostgreSQL durability).
+//  3. When worker reports the in-flight job outcome to restarted coordinator 2, it receives HTTP 404.
+//     Worker classifies 404 as non-retryable, logs warning, and does NOT loop forever.
+//  4. On subsequent heartbeat or poll, worker receives HTTP 404 (WORKER_NOT_FOUND), automatically
+//     re-registers itself with coordinator 2, and continues polling.
+//  5. A newly submitted job to coordinator 2 is claimed by the re-registered worker and completed successfully.
 //
 // NOTE (Slice 3a Invariant): In-memory coordinator state (including in-flight jobs submitted before restart)
 // is lost on process restart until Slice 3c brings durable PostgreSQL storage. This test does NOT assert

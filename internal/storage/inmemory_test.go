@@ -602,4 +602,3 @@ func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t *testing.T) {
 		t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 	}
 }
-

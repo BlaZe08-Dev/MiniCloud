@@ -27,4 +27,3 @@ type AttemptOutcome struct {
 	Error               string
 	ErrorClassification string // placeholder for future classification
 }
-

@@ -698,4 +698,3 @@ func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t *testing
 		t.Fatalf("expected no Ack on worker no capacity, got acked: %v", acked)
 	}
 }
-

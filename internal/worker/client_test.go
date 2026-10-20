@@ -213,4 +213,3 @@ func TestAgent_AutoReRegistration_On404HeartbeatAndPoll(t *testing.T) {
 		t.Fatalf("expected worker to re-register on 404, got %d registrations", registerCount.Load())
 	}
 }
-

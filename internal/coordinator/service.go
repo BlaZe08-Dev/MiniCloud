@@ -400,4 +400,3 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 
 	return job, nil
 }
-

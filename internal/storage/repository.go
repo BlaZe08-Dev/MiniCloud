@@ -38,4 +38,3 @@ type Repository interface {
 	// Event operations
 	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
 }
-
