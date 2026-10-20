@@ -9,6 +9,7 @@ build:
 	go build -o $(BIN_DIR)/coordinator ./cmd/coordinator
 	go build -o $(BIN_DIR)/worker ./cmd/worker
 	go build -o $(BIN_DIR)/mc ./cmd/mc
+	go build -o $(BIN_DIR)/migrate ./cmd/migrate
 	@echo "Build complete. Executables located in $(BIN_DIR)/"
 
 test:

@@ -61,13 +61,17 @@ The repository owner has **APPROVED** `jackc/pgx/v5` + `pgxpool` and `postgres:1
 2. **Toolchain Auto-Download Guardrail (`GOTOOLCHAIN=local`):**
    - Development and CI environments must enforce `GOTOOLCHAIN=local`.
    - This guarantees that Go will never silently auto-download a newer toolchain or bump the `go` directive in `go.mod`.
-3. **Staged Introduction (Slice 3c):**
-   - No external dependencies are added to `go.mod` during design or Slices 3a/3b.
-   - The dependency is introduced strictly in Slice 3c when the concrete PostgreSQL repository implementation begins.
+3. **Staged Introduction & Owner Staging Correction (Slice 3b):**
+   - *Owner Staging Correction:* Because the forward-only migration runner executes SQL directly against PostgreSQL to provision and verify schema invariants, the `pgx` dependency was **APPROVED for introduction in Slice 3b** (rather than waiting for Slice 3c repository implementation).
+   - *Verification Evidence:*
+     - Added via `GOTOOLCHAIN=local go get github.com/jackc/pgx/v5@v5.7.1`.
+     - `git diff go.mod` confirms `go 1.22.2` directive remains unchanged with zero `toolchain` directives added.
+     - `go list -m all` confirms all direct and transitive dependencies (`github.com/jackc/pgx/v5 v5.7.1`, `github.com/jackc/pgpassfile v1.0.0`, `github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761`, `github.com/jackc/puddle/v2 v2.2.2`, `golang.org/x/crypto v0.27.0`, `golang.org/x/text v0.18.0`) declare `go <= 1.22`.
+     - `go mod verify` confirmed: `all modules verified`.
 
 ## Invariants Enforced
-- **Zero Third-Party Domain Leakage:** `internal/domain` remains completely decoupled from database drivers and SQL types.
-- **Deterministic Toolchain:** Pinned driver major version (`v5`), pinned Go toolchain guardrail (`GOTOOLCHAIN=local`), and pinned database image (`16-alpine`) prevent drift.
+- **Zero Third-Party Domain Leakage:** `internal/domain` and `internal/coordinator` remain completely decoupled from database drivers and SQL types (enforced by `tests/architecture/boundaries_test.go`).
+- **Deterministic Toolchain:** Pinned driver major version (`v5.7.1`), pinned Go toolchain guardrail (`GOTOOLCHAIN=local`), and pinned database image (`16-alpine`) prevent drift.
 - **Race-Clean Execution:** Pure Go driver runs deterministically under `go test -race -count=1`.
 
 ## Consequences
@@ -76,4 +80,4 @@ The repository owner has **APPROVED** `jackc/pgx/v5` + `pgxpool` and `postgres:1
   - Precise SQLSTATE error code handling for unique constraint violations (`23505`) and serialization conflicts (`40001`).
   - High-performance binary parameter serialization for UUIDs, timestamps, and byte arrays.
 - **Negative:**
-  - Introduces MiniCloud's first external Go module dependency tree (`github.com/jackc/pgx/v5`) starting in Slice 3c.
+  - Introduces MiniCloud's first external Go module dependency tree (`github.com/jackc/pgx/v5`) in Slice 3b for the migration runner and schema invariant testing.
