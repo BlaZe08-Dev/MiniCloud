@@ -39,13 +39,15 @@ minicloud/
 ├── internal/
 │   ├── domain/             # Core entities (Job, Attempt, Worker), states, transition rules (no external deps)
 │   ├── storage/            # Repository interface & in-memory implementation (PostgreSQL in Phase 3)
+│   ├── queue/              # Dispatch transport interface & in-memory queue (Redis Streams in V2)
 │   ├── executor/           # Task interface, allowlist registry (echo, sleep, sha256_loop), resource limits
 │   ├── scheduler/          # Scheduler interface & deterministic round-robin implementation
-│   ├── coordinator/        # Orchestrator coordinating storage, scheduling, and attempt tracking
+│   ├── coordinator/        # Orchestrator coordinating storage, scheduling, queue, and attempt tracking
 │   ├── api/                # net/http server, routes, request validation, structured error responses
 │   ├── worker/             # Worker agent client loop: register, heartbeat, poll/claim, execute, report
 │   └── config/             # Environment variable parsing and startup validation
 ├── tests/
+│   ├── architecture/       # Package boundary and dependency invariant tests
 │   └── integration/        # End-to-end integration tests with multiple processes
 └── docs/                   # Architecture, state machine, protocol, ADRs
 ```
@@ -69,6 +71,7 @@ sequenceDiagram
     actor Client as CLI / Client
     participant API as HTTP API
     participant Coord as Coordinator
+    participant Queue as Queue (Transport)
     participant Store as Repository (Storage)
     participant Sched as Scheduler
     participant Worker as Worker Process
@@ -77,6 +80,7 @@ sequenceDiagram
     Client->>API: POST /v1/jobs (task_type, payload, timeout)
     API->>API: Validate schema, bounds & task type
     API->>Store: Create Job (State: SUBMITTED -> QUEUED)
+    API->>Queue: Enqueue Delivery Signal (JobID, TaskType)
     API-->>Client: 201 Created (job_id, state: QUEUED)
 
     Worker->>API: POST /v1/workers/register (worker_id, capacity)
@@ -89,8 +93,9 @@ sequenceDiagram
 
     Worker->>API: POST /v1/workers/{id}/poll (claim work)
     API->>Coord: Request Next Assignment for Worker
-    Coord->>Sched: Select Eligible Job from Queue
-    Sched-->>Coord: Selected Job
+    Coord->>Queue: Claim Item(supported_tasks)
+    Queue-->>Coord: Queue Item (job_id, task_type)
+    Coord->>Store: Re-validate Job is still QUEUED & Read Payload/Timeout
     Coord->>Store: Create Attempt & Transition Job to RUNNING
     Coord-->>Worker: 200 OK (JobAttempt: job_id, attempt_id, lease_token, task_type, payload)
 
@@ -100,20 +105,21 @@ sequenceDiagram
     Worker->>API: POST /v1/jobs/{id}/attempts/{attempt_id}/result (lease_token, result)
     API->>Coord: Commit Attempt Result
     Coord->>Coord: Validate Attempt Token & Monotonic Attempt State
-    alt Valid Attempt
+    alt Valid Attempt (ACCEPTED)
         Coord->>Store: Commit Job Result (SUCCEEDED / FAILED)
+        Coord->>Queue: Ack Queue Delivery
         Coord-->>Worker: 200 OK (Accepted)
-    else Stale / Invalid Attempt
-        Coord-->>Worker: 409 Conflict (Stale Attempt Rejected)
+    else Stale / Invalid Attempt (No Ack)
+        Coord-->>Worker: 409 Conflict / 403 Forbidden
     end
 ```
 
 ---
 
 ## 5. Deployment Progression
-- **Stage A (Milestone 1 - Current):** In-process storage, single coordinator, 2+ independent worker processes on one host over HTTP.
-- **Stage B (Phase 2):** Enhanced independent worker lifecycle, heartbeats, and attempt versioning.
+- **Stage A (Milestone 1):** In-process storage, single coordinator, 2+ independent worker processes on one host over HTTP.
+- **Stage B (Milestone 2 - Current):** Enhanced independent worker lifecycle, heartbeats, worker liveness/reaper, and dispatch-transport queue interface.
 - **Stage C (Phase 3):** PostgreSQL durable storage and restart recovery.
-- **Stage D (Phase 5):** Redis Streams dispatch transport with pending-message tracking.
-- **Stage E (Phase 5):** Docker executor isolation with CPU/memory/PID limits.
-- **Stage F (Phase 7):** Multi-machine network deployment with mutual authentication and TLS.
+- **Stage D (Phase 4):** Leases, timeouts, and automatic retry/requeue failure recovery.
+- **Stage E (Phase 6 / V2):** Redis Streams dispatch transport evaluation against PostgreSQL baseline (ADR-0006).
+- **Stage F (V3):** Docker executor isolation with CPU/memory/PID limits (ADR-0005) and multi-machine network deployment with mutual TLS.

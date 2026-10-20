@@ -74,7 +74,9 @@ func (a *Agent) Run(ctx context.Context) error {
 		default:
 			assignment, err := a.pollWork(ctx)
 			if err != nil {
-				if !errors.Is(err, domain.ErrNoQueuedJobs) {
+				if errors.Is(err, domain.ErrWorkerUnhealthy) {
+					slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
+				} else if !errors.Is(err, domain.ErrNoQueuedJobs) {
 					slog.Warn("work poll error", "err", err)
 				}
 				time.Sleep(pollBackoff)
@@ -164,6 +166,19 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 
 	if resp.StatusCode == http.StatusNoContent {
 		return nil, domain.ErrNoQueuedJobs
+	}
+	if resp.StatusCode == http.StatusServiceUnavailable {
+		var errEnvelope struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errEnvelope); err == nil {
+			if errEnvelope.Error.Code == "WORKER_UNHEALTHY" {
+				return nil, domain.ErrWorkerUnhealthy
+			}
+		}
+		return nil, domain.ErrNoWorkersAvailable
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("poll returned HTTP %d", resp.StatusCode)

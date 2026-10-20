@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -100,5 +101,51 @@ func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
 				t.Fatalf("IsNonRetryableReportError(%d) = %v, want %v", status, worker.IsNonRetryableReportError(status), tt.expectNonRetryable)
 			}
 		})
+	}
+}
+
+func TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating(t *testing.T) {
+	var pollCount atomic.Int64
+	var heartbeatCount atomic.Int64
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/workers/register":
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/v1/workers/test-worker/heartbeat":
+			heartbeatCount.Add(1)
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/v1/workers/test-worker/poll":
+			pollCount.Add(1)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"code":"WORKER_UNHEALTHY","message":"worker is unhealthy"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := &config.WorkerConfig{
+		WorkerID:          "test-worker",
+		CoordinatorURL:    ts.URL,
+		HeartbeatInterval: 25 * time.Millisecond,
+		TotalSlots:        1,
+	}
+	reg := executor.NewRegistry()
+	agent := worker.NewAgent(cfg, reg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	err := agent.Run(ctx)
+	if err != nil {
+		t.Fatalf("expected Agent.Run to exit cleanly on context cancellation, got: %v", err)
+	}
+
+	if pollCount.Load() < 2 {
+		t.Fatalf("expected agent to keep polling despite WORKER_UNHEALTHY, got %d polls", pollCount.Load())
+	}
+	if heartbeatCount.Load() < 2 {
+		t.Fatalf("expected agent to keep heartbeating despite WORKER_UNHEALTHY, got %d heartbeats", heartbeatCount.Load())
 	}
 }
