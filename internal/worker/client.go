@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/config"
@@ -18,6 +19,7 @@ import (
 
 // Agent runs an independent worker process communicating strictly over HTTP.
 type Agent struct {
+	mu         sync.Mutex
 	cfg        *config.WorkerConfig
 	registry   *executor.Registry
 	httpClient *http.Client
@@ -95,6 +97,9 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 func (a *Agent) register(ctx context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	payload, err := json.Marshal(map[string]any{
 		"id":              a.cfg.WorkerID,
 		"version":         "v0.1.0",
@@ -145,6 +150,14 @@ func (a *Agent) sendHeartbeat(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		slog.Warn("worker not found on coordinator during heartbeat (404); re-registering", "worker_id", a.cfg.WorkerID)
+		if regErr := a.register(ctx); regErr != nil {
+			return fmt.Errorf("re-registration failed after 404 heartbeat: %w", regErr)
+		}
+		return nil
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("heartbeat returned status %d", resp.StatusCode)
 	}
@@ -163,6 +176,14 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		slog.Warn("worker not found on coordinator during poll (404); re-registering", "worker_id", a.cfg.WorkerID)
+		if regErr := a.register(ctx); regErr != nil {
+			return nil, fmt.Errorf("re-registration failed after 404 poll: %w", regErr)
+		}
+		return nil, domain.ErrNoQueuedJobs
+	}
 
 	if resp.StatusCode == http.StatusNoContent {
 		return nil, domain.ErrNoQueuedJobs
@@ -195,9 +216,10 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 }
 
 // IsNonRetryableReportError returns true if coordinator rejected the commit permanently
-// (e.g. 403 Forbidden for WORKER_MISMATCH or 409 Conflict for STALE_ATTEMPT_REJECTED / JOB_ALREADY_TERMINAL).
+// (e.g. 403 Forbidden for WORKER_MISMATCH, 404 Not Found for missing job/attempt on restarted coordinator,
+// or 409 Conflict for STALE_ATTEMPT_REJECTED / JOB_ALREADY_TERMINAL).
 func IsNonRetryableReportError(statusCode int) bool {
-	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict
+	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict || statusCode == http.StatusNotFound
 }
 
 // ReportResult sends the execution outcome to the coordinator.
