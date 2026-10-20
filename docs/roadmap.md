@@ -12,8 +12,9 @@ MiniCloud development is structured into three major releases. Each version buil
 | **V1** | **Phase 0: Design** | Requirements, state machine, invariants, failure model, protocol. | Design docs reviewed; risks and non-goals explicit. | **DONE** |
 | **V1** | **Phase 1: Local Core** | Go module, CLI/API, allowlisted task types (`echo`, `sleep`, `sha256_loop`), multi-process workers. | End-to-end jobs execute across independent processes; unit & integration tests pass `-race`. | **DONE** |
 | **V1** | **Phase 2: Independent Workers** | Worker failure detection loop, heartbeat reaper, attempt IDs, capacity tracking, dispatch transport queue interface. | Worker processes communicate only through HTTP protocol; dead workers detected and evicted; 3-worker batch integration passes `-race`. | **DONE** |
-| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional dispatch. | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **In Progress** (Design: Driver, Migrations, Option A Dispatch Accepted; Scheduler Model Proposed) |
+| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **In Progress** (Design Specifications Accepted by Owner) |
 | **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | Planned |
+| **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire and requeue; audit decisions logged; hard gate for V1 release. | Planned (Post-Phase 4) |
 | **V2** | **Phase 6: Scheduling Research** | Resource-aware scheduling policy, repeatable workload generator, comparative metrics. | Fair comparison with round-robin; p50/p95/p99 latency, queue wait, and throughput recorded. | Planned |
 | **V2** | **Transport Evaluation** | Evaluate Redis Streams dispatch against PostgreSQL pull baseline via `internal/queue`. | Benchmark report comparing throughput, recovery, and duplicate delivery; ADR records choice. | Planned |
 | **V3** | **Execution Isolation** | Docker container executor with CPU, memory, PID, and hard runtime limits. | Constrained task execution; non-root isolation; no shell execution on host. | Planned |
@@ -36,19 +37,28 @@ MiniCloud development is structured into three major releases. Each version buil
    - Introduce `jackc/pgx/v5 v5.7.1` (`go 1.21 <= 1.22`) with `GOTOOLCHAIN=local` guardrail; verify all transitive dependencies in `go.mod`/`go.sum` against Go <= 1.22.
    - Implement `internal/storage/postgres.Repository` using `pgxpool.Pool`.
    - Enforce SQL invariants (partial unique active attempt index, monotonic attempt sequence, hashed lease tokens, dynamic capacity).
-4. **Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & Scheduler Integration:**
+4. **Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch:**
    - Implement `internal/queue.Queue` using transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
-   - Implement the owner-selected scheduler participation model (Candidate A pre-assignment with accept window vs Candidate C honest FIFO pull baseline with structured decision logging) to eliminate the first-poller-wins gap.
+   - Dispatch uses honest FIFO pull baseline (`fifo_pull`) where polling workers claim available work matching their capacity slots.
+   - Dispatch logs record real facts only: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`.
+   - `internal/scheduler` is intentionally not used in the V1 dispatch loop during Phase 3 (temporary until post-Phase 4 assignment slice).
 5. **Slice 3e: Coordinator Restart Recovery & Multi-Process Tests:**
    - Automated tests verifying surviving worker result commits across restarts and multi-worker execution against PostgreSQL.
 
 ---
 
-## 4. Key Follow-Ups Across Phases
+## 4. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
+- **Context & Blueprint Deviation:** In V1 Phase 3, dispatch is FIFO pull (`fifo_pull`). Blueprint Section 6 requires scheduler-driven assignment with round-robin policy.
+- **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+- **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
+
+---
+
+## 5. Key Follow-Ups Across Phases
 - **Worker Re-Registration:** Automatic recovery when worker ID is unknown to coordinator (Slice 3a).
 - **Queue Release Verification:** Coordinator must call `Queue.Release` when attempt creation fails after a claim (Slice 3a).
 - **Dispatch Atomicity & Dynamic Capacity:** Job state transition to `RUNNING` and attempt creation must be transactional; capacity derived in SQL from active attempts to prevent counter drift (Slice 3a/3b/3c).
-- **Scheduler Active Participation:** Fulfill blueprint requirement for structured decision logging via Candidate A (pre-assignment) or Candidate C (honest FIFO pull baseline) (Slice 3d).
+- **Scheduler Active Participation & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Assignment-based round-robin must be implemented after Phase 4 before V1 completion or V2 benchmarking.
 - **Phase 4 Lease Expiry & In-Flight Requeue:** Handling unacked in-flight queue items and recovering jobs abandoned by dead workers will be implemented in Phase 4.
 
 ---

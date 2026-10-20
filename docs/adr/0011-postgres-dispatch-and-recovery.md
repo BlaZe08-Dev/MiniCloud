@@ -1,9 +1,9 @@
 # ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants
 
 ## Status
-Partially Accepted by Owner (2026-10-20)
-- **Accepted:** Option A Dispatch (`SELECT ... FOR UPDATE SKIP LOCKED`), Dynamic Capacity Derivation in SQL, Coordinator Restart Guarantees, SHA-256 Hashed Lease Tokens, and Database-level Invariants.
-- **PROPOSED (Under Evaluation):** Scheduler Participation Architecture in Pull Dispatch (Candidates A, B, and C).
+Accepted by Owner (2026-10-20)
+- **Accepted:** Option A Dispatch (`SELECT ... FOR UPDATE SKIP LOCKED`), Dynamic Capacity Derivation in SQL, Coordinator Restart Guarantees, SHA-256 Hashed Lease Tokens, Database-level Invariants, and **Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`) for Phase 3 and Slices 3a–3e**.
+- **Post-Phase 4 Hard Gate:** Candidate A (pre-assignment with bounded accept window) is held as the leading design for the post-Phase 4 "Assignment-Based Round-Robin" slice required before V1 completion and V2 benchmarking. Candidate B (hold window) is **REJECTED**.
 
 ## Context
 In Milestones 1 and 2, MiniCloud's coordinator orchestrated work in-memory. In Phase 3, state durability is established in PostgreSQL. To guarantee correctness in a distributed environment:
@@ -80,28 +80,29 @@ An inspection of the active codebase confirms that **`scheduler.Scheduler` is cu
 - In the active dispatch loop, when a worker polls, the coordinator claims the next FIFO item from the queue matching the worker's tasks and immediately assigns it to the caller.
 - **Result:** Dispatch is currently strictly **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go:32](file:///home/blazeee/MiniCloud/internal/scheduler/round_robin_test.go#L32)).
 
-### 2.2 Blueprint Data Flow Alignment
-Section 4 of the MiniCloud project blueprint specifies:
-> *"A client submits a computational job, the control plane validates and tracks it, a scheduler assigns attempts to independent workers, and the platform records structured results."*
-> *"Scheduler selects worker by policy (deterministic round-robin baseline)... Every decision logged (policy, candidates, selected, reason)."*
+### 2.2 Blueprint Architecture & Data Flow Alignment
+The MiniCloud project blueprint specifies worker coordination across two primary sections:
+- **Section 4 (System Architecture & Data Flow):** Outlines the end-to-end processing pipeline where client submissions are validated and tracked by the control plane, a scheduler selects an eligible worker, the dispatch mechanism makes the attempt available to that worker, and structured results are recorded.
+- **Section 6 (Scheduling & Worker Coordination):** Specifies that the scheduler selects workers by policy—with deterministic round-robin as the baseline—filtering candidate workers by health, available capacity slots, and task support, and recording structured audit logs for every decision.
 
 In an unconstrained pull model, workers poll independently. When a worker polls, the coordinator must decide which job to dispatch. We evaluate exactly three architectural candidates for how the scheduler participates in this data flow.
 
 ---
 
-### 2.3 Candidate Comparison Matrix
+### 2.3 Candidate Comparison Matrix (Record of Alternatives Considered)
 
 | Evaluation Criteria | Candidate A: Scheduler Assigns, Worker Pulls (Pre-Assignment) | Candidate B: Hold Window at Poll Time (Poll Arbitration / Model 4) | Candidate C: Honest FIFO Pull Baseline (`fifo_pull`) |
 |---|---|---|---|
+| **Owner Decision** | **Leading Design for Post-Phase 4 Assignment Slice** (Deferred). | **REJECTED.** | **ACCEPTED for Phase 3 (Slices 3a–3e).** |
 | **Core Architecture** | Coordinator/Scheduler assigns `assigned_worker_id` when job is queued. Workers poll **only** for work assigned to them (`WHERE assigned_worker_id = $id`). Assignment is bounded by `assignment_expires_at`. | Worker $W_1$ polls. Coordinator inspects candidate job; scheduler picks $W_2$ by policy. Coordinator holds job for $W_2$ with a ~500ms window and returns HTTP 204 to $W_1$. | Honest admission that pull dispatch is first-poller-wins. Policy explicitly named `"fifo_pull"`. No round-robin claim in V1. Advanced scheduling deferred to V2. |
-| **Blueprint Conformance** | **High.** Faithfully implements blueprint Section 4: scheduler actively selects worker before worker claims attempt. | **Medium.** Scheduler runs at poll time, but artificially holds jobs and rejects ready workers. | **Pragmatic.** Conforms to real distributed pull queues (e.g. SQS, Celery, Redis). Replaces theoretical round-robin with honest FIFO pull. |
+| **Blueprint Conformance** | **High.** Faithfully implements blueprint Section 4 and Section 6: scheduler actively selects worker before worker claims attempt. | **Medium.** Scheduler runs at poll time, but artificially holds jobs and rejects ready workers. | **Known Deviation from Blueprint Section 6.** V1 dispatch is FIFO pull, not round-robin. Hard-gated by post-Phase 4 assignment slice before V1 completion. |
 | **Deterministic Testability** | **High.** Completely deterministic. No wall-clock sleeps or hold timeouts. Assignment is verified directly by worker ID query. | **Low / Flaky.** A 500ms hold window introduces wall-clock races in fast unit/integration tests (`go test -race`), risking timing flakes. | **Highest.** 100% deterministic. Standard FIFO ordering with zero timing dependencies. |
 | **Correctness Under Worker Death / Slowness** | **High.** If assigned worker dies or lags, `assignment_expires_at` bounds the delay. Phase 4 lease/reaper sweep revokes stale assignment (`assigned_worker_id = NULL`) and re-schedules. | **Medium.** If target worker $W_2$ dies, job is trapped for 500ms before falling back to next poller. | **Highest.** Dead workers stop polling; only live, healthy workers with capacity pull jobs. Zero orphaned assignments. |
 | **Implementation Complexity** | **Medium-High.** Adds `assigned_worker_id`, `assigned_at`, `assignment_expires_at` to `jobs`. Adds reassignment logic and sweep loop. | **High.** Complicates `SKIP LOCKED` query with hold-window filtering; requires tracking held rows in SQL or memory. | **Lowest.** Standard `SELECT ... FOR UPDATE SKIP LOCKED` without extra columns, state transitions, or hold timers. |
 | **Fit with V2 Resource-Aware Scheduler** | **High.** Natural fit: V2 scheduler scores worker resources (CPU, memory) at assignment time and binds job to the optimal worker. | **Poor.** Score-based scheduling becomes unstable when evaluated ad-hoc per individual polling worker. | **High.** Provides the clean, unencumbered baseline against which V2 resource-aware policies are benchmarked. |
 | **Fit with Redis Streams (ADR-0006)** | **Moderate.** Requires dedicated per-worker stream keys (e.g., `jobs:worker-1`) or partition routing. | **Very Poor.** Redis consumer groups (`XREADGROUP`) have no native hold-window primitive; requires custom Lua scripts. | **Native.** Directly maps to standard Redis Streams consumer groups (`XREADGROUP` where idle workers pull next stream message). |
 | **Fairness of V1 vs V2 Benchmark** | Can introduce queue head-of-line delay if assigned workers have slight polling jitter. | Poor: introduces artificial 500ms wait penalties under load. | **Ideal Baseline.** Measures raw, unconstrained pull queue throughput and latency against which V2 scheduler overhead is measured. |
-| **Decision Logging** | Logged at assignment time: `policy=round_robin, candidates=[...], selected=W_k, reason="assigned by policy"`. | Logged at poll time: `policy=round_robin, candidates=[...], selected=W_k, reason="held for target worker"`. | Logged at dispatch time: `policy=fifo_pull, candidates=[W_eligible...], selected=W_caller, reason="polled with available capacity"`. |
+| **Dispatch / Audit Logging** | Logged at assignment time: `policy=round_robin, candidates=[...], selected=W_k, reason="assigned by policy"`. | Logged at poll time: `policy=round_robin, candidates=[...], selected=W_k, reason="held for target worker"`. | **Real facts only:** Logged at dispatch time: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`. `internal/scheduler` is intentionally unused. |
 
 ---
 
@@ -166,56 +167,63 @@ Candidate B attempts to arbitrate scheduling at poll time by holding jobs for no
 ---
 
 ### 2.6 Detailed Analysis of Candidate C (Honest FIFO Pull Baseline: Architectural & Benchmark Integrity)
-Candidate C resolves the tension by embracing the reality of pull-based distributed queues:
+Candidate C resolves the tension by embracing the operational reality of pull-based distributed queues:
 
 1. **Architectural Honesty:**
    - In any pull-based architecture where workers poll a central queue, work is fundamentally dispatched first-poller-wins.
    - Calling this "round-robin" is false. Naming the policy `"fifo_pull"` restores architectural honesty and engineering integrity.
-2. **Repurposing or Deferring the Scheduler Interface:**
-   - In V1, the scheduler interface can either:
-     - **Option C.1 (Repurposed for Eligibility & Audit):** In `PollWork`, `s.scheduler.SelectWorker` evaluates all currently registered healthy workers with capacity, verifies the calling worker is an eligible candidate, and logs the decision:
-       ```go
-       slog.Info("scheduler decision",
-           "policy", "fifo_pull",
-           "candidates", eligibleWorkerIDs,
-           "selected", callerWorkerID,
-           "reason", "worker polled with available capacity",
-       )
-       ```
-       This fulfills the blueprint's mandate that every assignment decision is logged with policy, candidates, selected, and reason.
-     - **Option C.2 (Deferred to V2):** In V1, dispatch is handled directly by `queue.Queue` / PostgreSQL `SKIP LOCKED`, and the scheduler interface is deferred to V2 where resource-aware scoring (CPU, memory, affinity) genuinely selects among workers.
-3. **Benchmark Fairness for V2 (ADR-0006):**
+2. **Intentional Non-Use of `internal/scheduler` in V1 Dispatch:**
+   - In V1 Phase 3 pull dispatch, `internal/scheduler` is **intentionally not called** in `PollWork`.
+   - Dispatch is performed directly by the queue transport layer using PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED`.
+   - The scheduler interface is preserved in the repository, exercised in unit tests, and will be re-introduced to the production dispatch loop in the post-Phase 4 assignment slice.
+3. **Honest Dispatch Logging (No Misleading Scheduler Logs):**
+   - Under `fifo_pull`, the coordinator does **not** call `scheduler.SelectWorker` at poll time and does **not** emit a `"scheduler decision"` log claiming the polling caller was "selected" by policy.
+   - Instead, dispatch logging records the real facts only:
+     ```go
+     slog.Info("job dispatched to worker",
+         "job_id", job.ID,
+         "attempt_id", attempt.ID,
+         "worker_id", worker.ID,
+         "policy", "fifo_pull",
+         "reason", "claimed by polling worker with capacity",
+     )
+     ```
+4. **Known Blueprint Deviation & Hard Gate Before V1 Completion / V2 Benchmarking:**
+   - **Known Deviation from Blueprint Section 6:** In V1 Phase 3, dispatch is FIFO pull rather than scheduler-driven round-robin.
+   - **Hard Gate:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+   - **Staged Implementation:** The assignment-based round-robin mechanism is planned as an explicit slice **AFTER Phase 4** (leases, bounded retries, and automated requeue), because assignment expiry and reassignment fundamentally depend on the lease expiry and reaper machinery built in Phase 4. Candidate A (pre-assignment with bounded accept window) is the leading design for that slice and will be formalized in a dedicated ADR.
+5. **Benchmark Fairness for V2 (ADR-0006):**
    - ADR-0006 mandates comparing PostgreSQL against Redis Streams.
    - A scientific benchmark requires both dispatch backends to implement identical, unencumbered FIFO pull semantics.
-   - If PostgreSQL is artificially slowed down by hold windows or pre-assignment locking, the benchmark results will be skewed. Candidate C provides the pure, high-throughput baseline needed for a legitimate comparison.
-4. **Zero Operational Fragility:**
+   - Candidate C provides the pure, high-throughput baseline needed for a legitimate comparison without confounding delays or lock contention.
+6. **Zero Operational Fragility:**
    - Dead workers do not poll. Fast workers pull work faster; slow workers pull work slower.
-   - No hold timeouts, no reassignment sweepers, and zero orphaned assignments.
+   - No hold timeouts, no reassignment sweepers, and zero orphaned assignments in Phase 3.
 
 ---
 
 ### 2.7 Cost Breakdown Across Slices 3a–3e
 
-| Sub-Slice | Candidate A (Scheduler Pre-Assignment) | Candidate B (Hold Window / Model 4) | Candidate C (Honest FIFO Pull Baseline) |
+| Sub-Slice | Candidate A (Scheduler Pre-Assignment) | Candidate B (Hold Window / Model 4) | Candidate C (Honest FIFO Pull Baseline - Accepted) |
 |---|---|---|---|
-| **Slice 3a (In-Memory Atomicity Refactor)** | **Moderate:** Update `InMemoryRepository` to store assignment fields; update `SubmitJob` or add `ScheduleNextJobs` calling `s.scheduler.SelectWorker`; filter `PollWork` by assigned worker ID; add accept-timeout unit tests. | **High:** Add hold-window map and timer synchronization in memory; add tests for hold expiration. | **Minimal:** Integrate `s.scheduler` into `PollWork` to log `fifo_pull` decisions with eligible candidates. Zero schema or timer changes. |
+| **Slice 3a (In-Memory Atomicity Refactor)** | **Moderate:** Update `InMemoryRepository` to store assignment fields; add assignment filtering in `PollWork`; add accept-timeout unit tests. | **High:** Add hold-window map and timer synchronization in memory; add tests for hold expiration. | **Minimal:** Refactor `InMemoryRepository` methods for atomic execution; worker auto-re-registration on 404; assert `Queue.Release` on claim failure. Zero scheduler changes. |
 | **Slice 3b (Migrations & Schema)** | **Moderate:** Add `assigned_worker_id`, `assigned_at`, `assignment_expires_at` columns, foreign keys, and index `idx_jobs_assigned` in `000001_initial_schema.sql`. | **Moderate:** Add `held_for_worker_id`, `held_until` columns and indexes in initial schema. | **Minimal:** Standard initial schema with `jobs.state = 'QUEUED'` and `idx_jobs_dispatch`. Zero extra columns. |
 | **Slice 3c (Postgres Repository)** | **Moderate:** Implement assignment update query and expired assignment reclamation query in PostgreSQL. | **High:** Implement complex conditional `SKIP LOCKED` query evaluating hold windows and timestamps. | **Minimal:** Implement standard transactional `SELECT ... FOR UPDATE SKIP LOCKED` query. |
-| **Slice 3d (Dispatch Transport)** | **Moderate:** Queue interface carries assigned worker routing hints or queries assigned jobs. | **High:** Complex queue claim logic with hold fallbacks; high risk of V2 Redis incompatibility. | **Minimal:** Direct `internal/queue.Queue` backed by `PostgresQueue`. Clean, high-throughput, native Redis alignment. |
+| **Slice 3d (Dispatch Transport)** | **Moderate:** Queue interface carries assigned worker routing hints or queries assigned jobs. | **High:** Complex queue claim logic with hold fallbacks; high risk of V2 Redis incompatibility. | **Minimal:** Direct `internal/queue.Queue` backed by `PostgresQueue`. Clean, high-throughput, native Redis alignment. Real-facts dispatch logging (`policy="fifo_pull"`). |
 | **Slice 3e (Restart Recovery Tests)** | **Moderate:** Add test verifying that unaccepted assignments recover across coordinator reboot. | **High:** Timing-sensitive integration tests with high risk of race flakes. | **Minimal:** Fast, deterministic restart recovery tests verifying queued jobs and running attempt commits. |
 
 ---
 
-### 2.8 Recommendation & Rationale
+### 2.8 Owner Decision & Post-Phase 4 Roadmap Staging
 
-**Recommendation:** The design team recommends **Candidate C (FIFO Pull Baseline, renamed honestly)** for MiniCloud V1, with the following rationale:
+**Owner Decision:** The repository owner has **ACCEPTED Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`)** for Phase 3 and Slices 3a–3e.
 
-1. **Architectural Honesty:** In distributed systems, pull-based worker architectures are fundamentally queue-driven. Naming the policy `"fifo_pull"` accurately reflects the system's operational model rather than simulating push scheduling through artificial hold delays.
-2. **Benchmark Integrity for V2 (ADR-0006):** In V2, we introduce resource-aware scheduling and Redis Streams. To scientifically prove the benefit of complex scheduling algorithms, one must compare against a lean, high-throughput FIFO baseline. If V1 is burdened with complex pre-assignment or hold timers, benchmark comparisons against V2 will be confounded by artificial delays.
-3. **Structured Audit Conformance:** Candidate C fully satisfies the blueprint's audit logging mandate. On every poll dispatch, the coordinator evaluates all currently registered healthy workers with capacity and logs the decision.
-4. **Fallback Path:** If the owner strictly insists on coordinator-driven worker selection prior to pull in V1, **Candidate A** is the only sound alternative. Candidate B (hold window) is rejected due to test flakiness, idle worker stalling, and friction with Redis Streams.
-
-*Status: PROPOSED for Owner Decision prior to Slice 3d.*
+1. **Accepted Baseline for Phase 3:** Slices 3a–3e will implement clean PostgreSQL pull queueing using `SELECT ... FOR UPDATE SKIP LOCKED`. Dispatch logs will record real facts only (`policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`). `internal/scheduler` is intentionally unused in the V1 dispatch loop during Phase 3.
+2. **Rejection of Candidate B:** Candidate B (hold window at poll time) is strictly **REJECTED** due to severe test determinism risks, artificial idle worker latency penalties, and complete incompatibility with native Redis Streams consumer groups.
+3. **Hard Gate & Post-Phase 4 Assignment Slice:**
+   - To satisfy Blueprint Section 6 before V1 completion, an explicit slice—**Assignment-Based Round-Robin**—is scheduled **immediately following Phase 4**.
+   - **Rationale for Staging:** Pre-assignment requires assignment expiration, dead-worker detection, and automated requeueing. Because Phase 4 builds this exact lease and requeue engine, implementing assignment-based scheduling after Phase 4 avoids implementing duplicate or disposable recovery machinery in Phase 3.
+   - **Hard Gate:** V1 will not be tagged as complete, and V2 scheduling research / Redis Streams benchmarking will not commence, until the assignment-based round-robin slice is implemented and verified. Candidate A is the leading design for that slice.
 
 ---
 
@@ -314,4 +322,9 @@ To adhere to the principle of least privilege and protect worker execution crede
 2. **Dynamic Capacity:** **ACCEPTED**. Derive worker capacity in SQL from active attempts to prevent counter drift.
 3. **Surviving Worker Restart Guarantees:** **ACCEPTED**. Surviving workers can commit completed attempts after a coordinator reboot.
 4. **Hashed Tokens:** **ACCEPTED**. Store `SHA-256(lease_token)` in PostgreSQL; verify incoming raw tokens via hash comparison.
-5. **Scheduler Participation Architecture:** **PROPOSED (Awaiting Final Owner Selection)** between Candidate A (Pre-Assignment with Bounded Accept Window) and Candidate C (Honest FIFO Pull Baseline with Decision Logging). Candidate B is not accepted.
+5. **Scheduler Participation Architecture:** **Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`) is ACCEPTED** for Phase 3 and Slices 3a–3e.
+   - Dispatch logs record real facts only: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`.
+   - `internal/scheduler` is intentionally unused in the V1 dispatch loop during Phase 3.
+   - Candidate B (hold window) is **REJECTED**.
+   - Candidate A (pre-assignment with bounded accept window) is designated as the leading design for the post-Phase 4 "Assignment-Based Round-Robin" slice.
+   - **Hard Gate:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.

@@ -2,9 +2,9 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `docs/phase3-design`
-- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **OWNER REVIEW COMPLETED (Driver, Migrations, Option A Dispatch & Dynamic Capacity Accepted; Scheduler Participation Architecture PROPOSED)**
+- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **COMPLETED & ACCEPTED BY OWNER** (Driver, Migrations, Option A Dispatch, Dynamic Capacity, and Candidate C `"fifo_pull"` Accepted; Post-Phase 4 Hard Gate Recorded)
 - **Next Milestone:** Phase 3, Slice 3a — In-Memory Repository Atomicity Refactor & Worker Re-Registration.
-- **Target Release:** MiniCloud V1 (Phases 0–4).
+- **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
@@ -17,12 +17,12 @@
 - **Phase 3 — Durable State Design Specifications (`docs/phase3-design`):**
   - **ADR 0009 Accepted with Conditions:** [ADR 0009: PostgreSQL Persistence and Driver Selection](file:///home/blazeee/MiniCloud/docs/adr/0009-postgres-persistence-and-driver.md) selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine`. Conditions: pin `pgx` to version requiring Go <= 1.22 (`v5.7.1` uses `go 1.21`), enforce `GOTOOLCHAIN=local`, inspect all transitive dependencies in `go.mod`/`go.sum` against Go <= 1.22 during Slice 3c, and gate dependency addition to Slice 3c.
   - **ADR 0010 Accepted with Correction:** [ADR 0010: Database Migrations Policy and Runner Architecture](file:///home/blazeee/MiniCloud/docs/adr/0010-migrations-policy.md) establishing forward-only migrations and expand/contract rules. Correction: use `pg_advisory_xact_lock` inside migration transactions (or a dedicated connection) rather than session-level advisory locks on pooled connections.
-  - **ADR 0011 Partially Accepted (Scheduler Choice PROPOSED):** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED` (Option A), dynamic worker capacity derivation in SQL (no counter drift), surviving-worker restart recovery guarantees, and SHA-256 hashed lease tokens. Re-analyzed scheduler participation against blueprint Section 4 across three candidates:
-    - *Candidate A:* Scheduler pre-assigns worker with bounded accept window; concrete failure analysis for dead/slow/unhealthy workers; schema fields `assigned_worker_id`, `assigned_at`, `assignment_expires_at`.
-    - *Candidate B:* Hold window at poll time (Model 4); documented severe operational friction with `SKIP LOCKED`, idle worker starvation, test determinism flakes under `go test -race`, and Redis Streams consumer groups in V2. (Rejected).
-    - *Candidate C (Recommended):* Honest FIFO pull baseline (`fifo_pull`); zero fictitious round-robin claims; preserves benchmark integrity against V2 Redis Streams (ADR-0006); structured decision logging on every poll.
-    - *Status:* Candidate A vs Candidate C is **PROPOSED** for owner selection prior to Slice 3d.
-  - **ADR 0003 Amended:** [ADR 0003: Pull-Based Worker Protocol](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md) updated to document Candidates A, B, and C for scheduler participation under pull-based coordination.
+  - **ADR 0011 Accepted by Owner:** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED` (Option A), dynamic worker capacity derivation in SQL (no counter drift), surviving-worker restart recovery guarantees, SHA-256 hashed lease tokens, and **Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`)** for Phase 3 dispatch:
+    - *Candidate C Accepted:* Dispatch is honest FIFO pull; dispatch logs record real facts only (`job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`). `internal/scheduler` is intentionally unused in the V1 dispatch loop during Phase 3 (temporary).
+    - *Candidate B Rejected:* Hold window at poll time rejected due to test race flakiness, idle worker delay, and Redis Streams incompatibility.
+    - *Candidate A Staged Post-Phase 4:* Pre-assignment with bounded accept window is held as the leading design for the post-Phase 4 "Assignment-Based Round-Robin" slice.
+    - *Hard Gate Recorded:* V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+  - **ADR 0003 Amended:** [ADR 0003: Pull-Based Worker Protocol](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md) updated to document owner acceptance of Candidate C (`fifo_pull`), honest dispatch logging, intentional non-use of `internal/scheduler` in V1 dispatch, and the post-Phase 4 hard gate.
   - **Database Schema Updated:** [docs/schema.md](file:///home/blazeee/MiniCloud/docs/schema.md) specifying PostgreSQL tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP` vs `clock_timestamp()`), and dynamic worker capacity derivation (`worker_capacity` view).
   - **Testing & Provisioning Specification:** [docs/testing-postgres.md](file:///home/blazeee/MiniCloud/docs/testing-postgres.md) documenting Docker Compose local provisioning, host confinement rules, `.env.example` secret hygiene, `_test` database safety guardrails, and planned Makefile targets.
 
@@ -58,12 +58,13 @@
   - Add unit/integration tests running against `minicloud_test` with mandatory `_test` database name check.
 - **Exit Criteria:** `internal/storage/postgres` satisfies all repository tests with race detector enabled.
 
-### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & Scheduler Integration
+### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch
 - **Scope:**
   - Implement `internal/queue.Queue` backed by PostgreSQL transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
-  - Implement the owner-selected scheduler participation model (Candidate A pre-assignment with accept window vs Candidate C honest FIFO pull baseline with structured decision logging).
-  - Verify structured decision logs (`policy`, `candidates`, `selected`, `reason`) are emitted.
-- **Exit Criteria:** Zero duplicate deliveries under parallel polling; structured scheduler decisions logged; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
+  - Polling workers claim available queued work matching their capability slots using honest FIFO pull (`fifo_pull`).
+  - Dispatch logs record real facts only: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`.
+  - `internal/scheduler` is intentionally not called in the V1 dispatch loop during Phase 3 (temporary until assignment slice).
+- **Exit Criteria:** Zero duplicate deliveries under parallel polling; real-facts dispatch logging verified; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
 
 ### Slice 3e: Coordinator Restart Recovery & Multi-Process Tests
 - **Scope:**
@@ -75,12 +76,19 @@
 
 ---
 
-## 4. Key Follow-Ups & Invariants
+## 4. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
+- **Blueprint Alignment:** Blueprint Section 6 requires scheduler-driven round-robin assignment. V1 Phase 3 implements an honest FIFO pull baseline (`fifo_pull`).
+- **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+- **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
+
+---
+
+## 5. Key Follow-Ups & Invariants
 
 1. **Worker Re-Registration on 404:** Worker client must automatically re-register if heartbeat or poll receives `WORKER_NOT_FOUND` (scheduled for Slice 3a).
 2. **Coordinator Queue Release Test:** A coordinator-level test verifying that `Queue.Release` is explicitly called when attempt creation fails after a claim (scheduled for Slice 3a).
 3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in SQL rather than relying on mutable increment/decrement counters.
-4. **Active Scheduler in Pull:** Owner decision pending between Candidate A (pre-assignment with accept window) and Candidate C (honest FIFO pull baseline) prior to Slice 3d. Candidate B (hold window) rejected.
+4. **Honest FIFO Pull & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Dispatch logs record real facts only. Assignment-based round-robin must be implemented after Phase 4 before V1 completion or V2 benchmarking.
 5. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue).
 
 ---

@@ -27,11 +27,10 @@ We adopt a **pull-based** worker coordination model. Workers register with the c
 ---
 
 ## Amendment: Scheduler Participation in a Pull Model (Phase 3)
-In an unconstrained pull protocol, dispatch defaults to "first-poller-wins", leaving the scheduler inactive in the production dispatch loop.
+In an unconstrained pull protocol, dispatch defaults to first-poller-wins, leaving the scheduler inactive in the production dispatch loop.
 
-To fulfill the architectural requirement that the scheduler policy actively governs execution and emits structured decision logs (`policy`, `candidates`, `selected`, `reason`), ADR 0011 re-evaluates three candidate models against blueprint Section 4:
-1. **Candidate A (Scheduler Pre-Assignment with Bounded Accept Window):** Coordinator/scheduler selects a worker when the job is queued; workers poll only for their assigned jobs; stale assignments are bounded by an accept window and re-scheduled upon timeout or worker unhealthiness.
-2. **Candidate B (Hold Window at Poll Time):** Coordinator arbitrates poll requests using a temporary hold window for round-robin target workers (rejected due to test determinism risks and idle worker delays).
-3. **Candidate C (Honest FIFO Pull Baseline):** Acknowledge that V1 pull dispatch is FIFO queue-driven, name the policy `"fifo_pull"`, log structured candidate/selection decisions on every poll, and reserve advanced resource-aware scheduling for V2.
-
-*The selection between Candidate A and Candidate C is PROPOSED in ADR 0011, to be settled prior to Slice 3d.*
+In ADR 0011, three candidate models were evaluated against Blueprint Section 4 and Section 6. The repository owner has **ACCEPTED Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`)** for Phase 3 and Slices 3a–3e:
+1. **FIFO Pull Dispatch:** In V1 Phase 3, dispatch is executed directly by the transactional queue transport (`SELECT ... FOR UPDATE SKIP LOCKED`).
+2. **Intentional Scheduler Non-Use:** `internal/scheduler` is **intentionally not called** in the V1 poll dispatch path. This non-use is temporary and preserves engineering honesty.
+3. **Honest Dispatch Logging:** Dispatch logs record real facts only (`job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`). The system does not call `scheduler.SelectWorker` at poll time or emit misleading "scheduler decision" logs whose "selected" worker is merely the polling caller.
+4. **Known Blueprint Deviation & Hard Gate:** While Blueprint Section 6 specifies scheduler-driven round-robin, V1 Phase 3 dispatch is FIFO pull. **Hard Gate:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists. This is planned as an explicit "Assignment-Based Round-Robin" slice immediately following Phase 4 leases and automated requeue (with Candidate A as the leading design).
