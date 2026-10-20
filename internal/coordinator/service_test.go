@@ -351,6 +351,14 @@ func (s *spyQueue) getAcked() []string {
 	return copied
 }
 
+func (s *spyQueue) getReleased() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	copied := make([]string, len(s.releasedJobs))
+	copy(copied, s.releasedJobs)
+	return copied
+}
+
 // TestService_Claim_JobNoLongerQueued_Dropped tests Instruction 2:
 // After Claim, the coordinator re-validates that the job is still QUEUED in the repository;
 // if not, it drops the item, acknowledges it, and claims again.
@@ -531,3 +539,163 @@ func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T) {
 		t.Fatalf("expected no duplicate Ack on already terminal job, got: %v", spy.getAcked())
 	}
 }
+
+type failingRepoStub struct {
+	storage.Repository
+	dispatchErr error
+}
+
+func (f *failingRepoStub) DispatchJob(ctx context.Context, jobID string, workerID string) (*domain.Attempt, error) {
+	if f.dispatchErr != nil {
+		return nil, f.dispatchErr
+	}
+	return f.Repository.DispatchJob(ctx, jobID, workerID)
+}
+
+// TestService_ClaimOutcome_TransientFailure_QueueReleased verifies Scope 6 and Adjustment 4(b):
+// When attempt creation / dispatch fails with a transient error after a queue claim,
+// Queue.Release MUST be called with the job ID so the item is available for redelivery.
+func TestService_ClaimOutcome_TransientFailure_QueueReleased(t *testing.T) {
+	ctx := context.Background()
+	innerRepo := storage.NewInMemoryRepository()
+	transientErr := errors.New("transient database connection error")
+	stubRepo := &failingRepoStub{
+		Repository:  innerRepo,
+		dispatchErr: transientErr,
+	}
+
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{
+		ID:             "worker-fail-test",
+		Status:         domain.WorkerStatusHealthy,
+		TotalSlots:     1,
+		SupportedTasks: []string{"echo"},
+	}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	// Worker polls: claim succeeds from queue, but DispatchJob fails with transientErr.
+	// Coordinator must call Queue.Release and return error.
+	assignment, err := svc.PollWork(ctx, "worker-fail-test")
+	if !errors.Is(err, transientErr) {
+		t.Fatalf("expected transientErr, got %v (assignment=%v)", err, assignment)
+	}
+
+	// Verify Queue.Release was called for job.ID
+	released := spy.getReleased()
+	if len(released) != 1 || released[0] != job.ID {
+		t.Fatalf("expected job %s to be Released, got released: %v", job.ID, released)
+	}
+	// Verify Queue.Ack was NOT called
+	acked := spy.getAcked()
+	if len(acked) != 0 {
+		t.Fatalf("expected no Ack on transient failure, got acked: %v", acked)
+	}
+}
+
+// TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased verifies Adjustment 4(a):
+// When job is no longer QUEUED or not found, coordinator drops and Acks the item (never Releases it).
+func TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased(t *testing.T) {
+	ctx := context.Background()
+	innerRepo := storage.NewInMemoryRepository()
+	stubRepo := &failingRepoStub{
+		Repository:  innerRepo,
+		dispatchErr: domain.ErrJobNotFound,
+	}
+
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{
+		ID:             "worker-ack-test",
+		Status:         domain.WorkerStatusHealthy,
+		TotalSlots:     1,
+		SupportedTasks: []string{"echo"},
+	}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	// Worker polls: DispatchJob returns ErrJobNotFound. Coordinator drops and Acks item.
+	assignment, err := svc.PollWork(ctx, "worker-ack-test")
+	if !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs after dropping missing job, got %v (assignment=%v)", err, assignment)
+	}
+
+	// Verify Queue.Ack was called and Queue.Release was NEVER called
+	acked := spy.getAcked()
+	if len(acked) != 1 || acked[0] != job.ID {
+		t.Fatalf("expected job %s to be Acked, got acked: %v", job.ID, acked)
+	}
+	released := spy.getReleased()
+	if len(released) != 0 {
+		t.Fatalf("expected no Release for missing job, got released: %v", released)
+	}
+}
+
+// TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released verifies Adjustment 4(c):
+// When worker lacks capacity or is unhealthy, coordinator Releases the item without creating an attempt.
+func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t *testing.T) {
+	ctx := context.Background()
+	innerRepo := storage.NewInMemoryRepository()
+	stubRepo := &failingRepoStub{
+		Repository:  innerRepo,
+		dispatchErr: domain.ErrWorkerNoCapacity,
+	}
+
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{
+		ID:             "worker-cap-test",
+		Status:         domain.WorkerStatusHealthy,
+		TotalSlots:     1,
+		SupportedTasks: []string{"echo"},
+	}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	assignment, err := svc.PollWork(ctx, "worker-cap-test")
+	if !errors.Is(err, domain.ErrWorkerNoCapacity) {
+		t.Fatalf("expected ErrWorkerNoCapacity, got %v (assignment=%v)", err, assignment)
+	}
+
+	// Verify item was Released (not Acked)
+	released := spy.getReleased()
+	if len(released) != 1 || released[0] != job.ID {
+		t.Fatalf("expected job %s to be Released, got released: %v", job.ID, released)
+	}
+	acked := spy.getAcked()
+	if len(acked) != 0 {
+		t.Fatalf("expected no Ack on worker no capacity, got acked: %v", acked)
+	}
+}
+
