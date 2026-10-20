@@ -281,11 +281,13 @@ func TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt(t *testing.T) {
 	var successCount int64
 	var conflictCount int64
 	var mu sync.Mutex
+	start := make(chan struct{})
 
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-start
 			_, err := repo.DispatchJob(ctx, "job_target", "worker_race")
 			mu.Lock()
 			defer mu.Unlock()
@@ -297,6 +299,7 @@ func TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt(t *testing.T) {
 		}()
 	}
 
+	close(start)
 	wg.Wait()
 
 	if successCount != 1 {
@@ -352,11 +355,13 @@ func TestInMemoryRepository_ConcurrentCommit_ExactlyOneAccepted(t *testing.T) {
 	var successCount int64
 	var conflictCount int64
 	var mu sync.Mutex
+	start := make(chan struct{})
 
 	for i := 0; i < goroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-start
 			_, err := repo.CommitAttempt(ctx, "job_to_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 				ExitCode: 0,
 				Output:   `{"msg":"success"}`,
@@ -371,6 +376,7 @@ func TestInMemoryRepository_ConcurrentCommit_ExactlyOneAccepted(t *testing.T) {
 		}()
 	}
 
+	close(start)
 	wg.Wait()
 
 	if successCount != 1 {
