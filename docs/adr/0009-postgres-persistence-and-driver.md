@@ -1,7 +1,7 @@
 # ADR 0009: PostgreSQL Persistence and Driver Selection
 
 ## Status
-PROPOSED (Awaiting Owner Approval)
+Accepted by Owner (2026-10-20, with Staged Conditions)
 
 ## Context
 In Milestones 1 and 2 (Phases 0–2), MiniCloud operated with an in-memory storage repository (`internal/storage/inmemory.go`). While sufficient for validating domain finite state machine (FSM) transitions, worker HTTP protocol polling, and liveness reaper semantics, in-memory state is non-durable: any coordinator process restart loses all registered workers, submitted jobs, execution attempts, and audit logs.
@@ -15,7 +15,7 @@ To implement the PostgreSQL repository, we must select:
 
 ## Driver Options Evaluated
 
-### Option 1: `jackc/pgx/v5` with `pgxpool` (Recommended)
+### Option 1: `jackc/pgx/v5` with `pgxpool` (Selected)
 - **Architecture:** Pure Go PostgreSQL driver and toolkit providing native wire protocol v3 support, connection pooling (`pgxpool`), and direct binary encoding/decoding.
 - **Performance & Features:** Native support for PostgreSQL binary format, parameterized queries with typed arrays, batched queries (`pgx.Batch`), native transaction management (`pgx.Tx`), direct `COPY` protocol for bulk operations, and structured error inspection with SQLSTATE error code extraction (`*pgconn.PgError`).
 - **Dependency Footprint:** Minimal and modern pure Go dependencies (`github.com/jackc/pgx/v5`, `github.com/jackc/pgconn`, `github.com/jackc/puddle/v2` for pooling). Zero Cgo dependencies; builds cleanly across all platforms with `-race`.
@@ -41,7 +41,7 @@ To implement the PostgreSQL repository, we must select:
 - A specific major version tag must be pinned: `postgres:16-alpine`.
 
 ### Alternatives Evaluated:
-1. `postgres:16-alpine` (Recommended):
+1. `postgres:16-alpine` (Selected):
    - Fast pull times and minimal storage footprint (~130 MB vs ~450 MB for Debian-based images).
    - Fully reproducible, contains standard PostgreSQL 16 server utilities (`psql`, `pg_isready`), and runs unprivileged in container runtimes.
 2. `postgres:16-bookworm` / Debian:
@@ -49,16 +49,24 @@ To implement the PostgreSQL repository, we must select:
 3. `postgres:15-alpine`:
    - Stable previous generation, but PostgreSQL 16 brings improvements in query parallelism, VACUUM performance, and modern SQL/JSON capabilities.
 
-## Decision Proposal
+## Owner Decision & Staged Conditions
 
-1. **Adopt `jackc/pgx/v5` with `pgxpool`** as the sole database driver and pooling dependency for `internal/storage/postgres`.
-2. **Pin `postgres:16-alpine`** for all development, CI, and local Docker Compose environments.
-3. **Dependency Isolation:** The `pgx` dependency will be confined strictly to `internal/storage/postgres` and database migration runners; `internal/domain`, `internal/scheduler`, and `internal/executor` remain 100% free of database imports.
-4. **Approval Gate:** No dependencies are added to `go.mod` until the repository owner grants explicit approval for this ADR.
+The repository owner has **APPROVED** `jackc/pgx/v5` + `pgxpool` and `postgres:16-alpine` subject to the following explicit operational conditions:
+
+1. **Go Toolchain Compatibility (Go <= 1.22):**
+   - The development and host environment runs `go1.22.2`.
+   - The selected pgx version must declare `go <= 1.22` in its `go.mod`.
+   - **Verification:** Version `github.com/jackc/pgx/v5 v5.7.1` declares `go 1.21` in its `go.mod` (as does `v5.6.0`). This strictly satisfies the condition (`1.21 <= 1.22`).
+2. **Toolchain Auto-Download Guardrail (`GOTOOLCHAIN=local`):**
+   - Development and CI environments must enforce `GOTOOLCHAIN=local`.
+   - This guarantees that Go will never silently auto-download a newer toolchain or bump the `go` directive in `go.mod`.
+3. **Staged Introduction (Slice 3c):**
+   - No external dependencies are added to `go.mod` during design or Slices 3a/3b.
+   - The dependency is introduced strictly in Slice 3c when the concrete PostgreSQL repository implementation begins.
 
 ## Invariants Enforced
 - **Zero Third-Party Domain Leakage:** `internal/domain` remains completely decoupled from database drivers and SQL types.
-- **Deterministic Toolchain:** Pinned driver major version (`v5`) and pinned database image (`16-alpine`) prevent drift.
+- **Deterministic Toolchain:** Pinned driver major version (`v5`), pinned Go toolchain guardrail (`GOTOOLCHAIN=local`), and pinned database image (`16-alpine`) prevent drift.
 - **Race-Clean Execution:** Pure Go driver runs deterministically under `go test -race -count=1`.
 
 ## Consequences
@@ -67,4 +75,4 @@ To implement the PostgreSQL repository, we must select:
   - Precise SQLSTATE error code handling for unique constraint violations (`23505`) and serialization conflicts (`40001`).
   - High-performance binary parameter serialization for UUIDs, timestamps, and byte arrays.
 - **Negative:**
-  - Introduces MiniCloud's first external Go module dependency tree (`github.com/jackc/pgx/v5`).
+  - Introduces MiniCloud's first external Go module dependency tree (`github.com/jackc/pgx/v5`) starting in Slice 3c.

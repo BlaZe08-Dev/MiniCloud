@@ -1,7 +1,7 @@
 # ADR 0010: Database Migrations Policy and Runner Architecture
 
 ## Status
-PROPOSED (Awaiting Owner Approval)
+Accepted by Owner (2026-10-20, with Advisory Lock Correction)
 
 ## Context
 As MiniCloud introduces durable PostgreSQL storage in Phase 3, the database schema must evolve predictably across development, testing, and multi-version production deployments.
@@ -31,7 +31,7 @@ Destructive changes (renaming columns, dropping columns, changing types, splitti
 
 ## Migration Runner Options Evaluated
 
-### Option 1: Embedded SQL Files with Minimal In-Tree Runner (Recommended)
+### Option 1: Embedded SQL Files with Minimal In-Tree Runner (Selected)
 - **Architecture:** Migration files stored as raw, numbered SQL scripts (`migrations/000001_initial_schema.sql`, `migrations/000002_add_index.sql`) embedded directly into the Go binary using Go 1.16+ `//go:embed migrations/*.sql`.
 - **Mechanism:**
   - A dedicated schema tracking table:
@@ -43,9 +43,11 @@ Destructive changes (renaming columns, dropping columns, changing types, splitti
         applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     ```
-  - **Concurrency Safety via Advisory Locks:** Before running migrations, the runner acquires a PostgreSQL transaction-level advisory lock:
-    `SELECT pg_advisory_lock(hashtext('minicloud_migrations'));`
-    This ensures that when multiple coordinator replicas start concurrently, exactly one instance executes pending migrations while others wait.
+  - **Concurrency Safety via Transaction-Level Advisory Locks (Owner Correction):**
+    A session-level advisory lock (`pg_advisory_lock`) on a pooled connection (`pgxpool`) introduces dangerous leak hazards: if the connection returns to the pool or statements execute on different connections, the lock may remain held or release prematurely.
+    **Correction Applied:** The migration runner must use either:
+    1. **`SELECT pg_advisory_xact_lock(hashtext('minicloud_migrations'));`** inside the migration transaction (`BEGIN ... COMMIT`). Transaction-level advisory locks are automatically and deterministically released when the transaction commits or aborts.
+    2. Or acquire a **single dedicated connection** (`pool.Acquire(ctx)`) explicitly held for the entirety of the migration run, ensuring connection affinity.
   - **Checksum Verification:** Each migration file's SHA-256 hash is recorded upon application. On startup, the runner verifies that previously applied migrations match their recorded checksums. If a previously applied migration file was modified in source code, the runner refuses to proceed, preventing silent schema drift.
   - **Zero Third-Party Dependency:** Built purely using `pgxpool` and standard library `embed`, `crypto/sha256`, and `sort`.
 
@@ -57,19 +59,15 @@ Destructive changes (renaming columns, dropping columns, changing types, splitti
 - **Architecture:** Lightweight migration tool supporting SQL and Go-based migrations.
 - **Trade-offs:** Adds an external module dependency. Go-based migration files encourage executing arbitrary application logic inside schema migrations, violating the boundary between structural SQL definitions and application business logic.
 
-## Decision Proposal
+## Owner Decision & Staged Conditions
 
-1. **Adopt Forward-Only Embedded SQL Migrations** with a minimal in-tree migration runner in `internal/storage/postgres/migrations.go`.
-2. **Schema Tracking & Safety:**
-   - Sequential, zero-padded integer numbering (`000001_name.sql`, `000002_name.sql`).
-   - Dedicated `schema_migrations` table tracking version, name, SHA-256 checksum, and execution timestamp.
-   - Mandatory PostgreSQL advisory lock (`pg_advisory_lock`) during migration runs.
-   - Startup verification that applied migrations match filesystem checksums exactly.
-3. **Enforce Expand/Contract:** Destructive schema alterations must follow the three-phase expand/contract lifecycle across separate pull requests and release boundaries.
+The repository owner has **APPROVED** the forward-only embedded migrations approach with the following explicit correction:
+1. **Advisory Lock Precision:** The migration runner must not use session-level `pg_advisory_lock` on pooled connections. It must use **`pg_advisory_xact_lock`** inside the migration transaction or acquire a single dedicated connection held for the entire migration sequence.
+2. **Expand/Contract Enforcement:** Destructive schema alterations must follow the three-phase expand/contract lifecycle across separate pull requests and release boundaries.
 
 ## Invariants Enforced
 - **Atomic Migrations:** Each migration script executes within an explicit single transaction (`BEGIN ... COMMIT`).
-- **Cluster Bootstrapping Safety:** PostgreSQL advisory locking prevents concurrent migration races during coordinator cluster startups.
+- **Cluster Bootstrapping Safety:** PostgreSQL transaction-level advisory locking (`pg_advisory_xact_lock`) prevents concurrent migration races during coordinator cluster startups without connection pool leak risks.
 - **Immutable Migration History:** SHA-256 checksum enforcement guarantees that applied migrations cannot be tampered with or edited post-facto.
 
 ## Consequences

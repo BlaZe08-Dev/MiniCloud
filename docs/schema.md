@@ -7,8 +7,12 @@ In MiniCloud V1 Phase 3, PostgreSQL serves as the authoritative, durable system 
 ### Core Database Design Principles
 1. **Invariants Enforced in SQL:** Rather than relying exclusively on application memory checks, critical distributed system invariants (such as at most one active attempt per job, single terminal result, and non-overlapping attempt numbers) are enforced by database schema constraints and partial unique indexes.
 2. **Bounded Row Storage:** In accordance with MiniCloud's bounded resource invariant, all variable-length fields (`payload`, `output`, `error`) have explicit `CHECK` constraints enforcing hard length limits. Unbounded blobs (`TEXT` or `BYTEA` without length checks) are strictly prohibited.
-3. **Database Clock Authority:** All heartbeat timestamps, lease tracking, event ordering, and timeout checks use PostgreSQL's authoritative database clock (`CURRENT_TIMESTAMP` / `now()`). Clock drift between worker nodes or coordinator processes cannot corrupt lease or heartbeat validity.
-4. **Audit Immutability:** Execution attempts, audit events, and committed results are append-only. Foreign keys prevent accidental orphaned data or cascading deletions during normal operations.
+3. **Database Clock Authority & Transaction Timestamp Semantics:**
+   - In PostgreSQL, `now()` and `CURRENT_TIMESTAMP` return the **start time of the current transaction**, which remains frozen across all statements within that transaction block.
+   - Where sub-statement execution freshness inside a multi-statement transaction matters (e.g., audit event recording or precise dispatch duration logging), the schema and queries use **`clock_timestamp()`**.
+   - All lease tracking, heartbeat evaluations, and timeout checks stay strictly on database time. Clock drift between worker nodes or coordinator processes cannot corrupt lease or heartbeat validity.
+4. **Dynamic Capacity Derivation (No Counter Drift):** Storing mutable integer counters (`available_slots`) that are incremented on commit and decremented on dispatch is vulnerable to counter drift during coordinator crashes, dropped connections, or worker reaps. MiniCloud derives available capacity directly from active running attempts in SQL.
+5. **Audit Immutability:** Execution attempts, audit events, and committed results are append-only. Foreign keys prevent accidental orphaned data or cascading deletions during normal operations.
 
 ---
 
@@ -61,7 +65,6 @@ erDiagram
         text id PK
         varchar version
         int total_slots
-        int available_slots
         varchar status
         text[] supported_tasks
         timestamptz registered_at
@@ -131,22 +134,21 @@ CREATE INDEX idx_jobs_created_at
     ON jobs (created_at DESC);
 ```
 
-### 3.2 Table: `workers`
-Tracks registered worker processes and heartbeat liveness telemetry.
+### 3.2 Table: `workers` & Dynamic Capacity View
+Tracks registered worker processes and static capacity.
 
 ```sql
 CREATE TABLE workers (
     id TEXT PRIMARY KEY,
     version VARCHAR(64) NOT NULL,
     total_slots INTEGER NOT NULL,
-    available_slots INTEGER NOT NULL,
     status VARCHAR(32) NOT NULL,
     supported_tasks TEXT[] NOT NULL,
     registered_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_workers_slots 
-        CHECK (total_slots > 0 AND available_slots >= 0 AND available_slots <= total_slots),
+        CHECK (total_slots > 0),
     CONSTRAINT chk_workers_status 
         CHECK (status IN ('HEALTHY', 'UNHEALTHY', 'DRAINING', 'TERMINATED'))
 );
@@ -155,6 +157,22 @@ CREATE TABLE workers (
 CREATE INDEX idx_workers_liveness 
     ON workers (last_heartbeat_at ASC) 
     WHERE status = 'HEALTHY';
+
+-- Dynamic Capacity View: Derives available slots from active RUNNING attempts
+-- Eliminates counter drift caused by coordinator crashes, transaction rollbacks, or dead workers.
+CREATE VIEW worker_capacity AS
+SELECT 
+    w.id,
+    w.version,
+    w.total_slots,
+    w.status,
+    w.supported_tasks,
+    w.registered_at,
+    w.last_heartbeat_at,
+    GREATEST(0, w.total_slots - COUNT(a.id) FILTER (WHERE a.state = 'RUNNING'))::integer AS available_slots
+FROM workers w
+LEFT JOIN attempts a ON a.worker_id = w.id
+GROUP BY w.id;
 ```
 
 ### 3.3 Table: `attempts`
@@ -240,7 +258,7 @@ CREATE TABLE job_events (
     from_state VARCHAR(32),
     to_state VARCHAR(32),
     details JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
 
 CREATE INDEX idx_job_events_job_timeline 
@@ -257,10 +275,11 @@ CREATE INDEX idx_job_events_type
 | Invariant | Implementation in Schema | Violation Behavior |
 |---|---|---|
 | **At most one active attempt per job** | `CREATE UNIQUE INDEX idx_attempts_active_per_job ON attempts (job_id) WHERE state = 'RUNNING';` | Database rejects concurrent dispatch with `SQLSTATE 23505` (unique constraint violation). |
+| **No Capacity Counter Drift** | `worker_capacity` view deriving `available_slots = total_slots - count(attempts WHERE state = 'RUNNING')`. | Capacity is physically derived from active attempts; zero counter drift across restarts or crashes. |
 | **Exactly one committed result per job** | `PRIMARY KEY (job_id)` on `results` table with foreign key to `jobs(id)`. | Stale or duplicate commits fail immediately at the database layer. |
 | **Monotonically unique attempt numbers** | `CONSTRAINT uq_attempts_job_attempt_no UNIQUE (job_id, attempt_no)`. | Attempt numbers for a job can never duplicate or collide. |
 | **Bounded Payload (64 KiB)** | `CHECK (octet_length(payload) <= 65536)`. | Rejects oversized payloads at SQL insert time. |
 | **Bounded Output (64 KiB)** | `CHECK (octet_length(output) <= 65536)`. | Prevents rogue worker output buffer exhaustion in storage. |
 | **Bounded Error Summary (10 KiB)** | `CHECK (octet_length(error) <= 10240)`. | Prevents massive stack traces or core dumps from ballooning database size. |
-| **Database-Authoritative Timestamps** | `DEFAULT CURRENT_TIMESTAMP` on all timestamps; queries use `CURRENT_TIMESTAMP`. | Eliminates worker/coordinator clock skew vulnerability. |
+| **Database-Authoritative Timestamps** | `CURRENT_TIMESTAMP` for transaction boundaries; `clock_timestamp()` for event sequencing. | Eliminates worker/coordinator clock skew vulnerability. |
 | **Token Privacy** | `lease_token_hash CHAR(64)` storing SHA-256 digest. | Database dumps never reveal live bearer credentials. |

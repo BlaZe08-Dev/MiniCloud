@@ -1,14 +1,16 @@
 # ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants
 
 ## Status
-PROPOSED (Awaiting Owner Approval)
+Accepted by Owner (2026-10-20, Conditional on Scheduler Integration)
 
 ## Context
 In Milestones 1 and 2, MiniCloud's coordinator orchestrated work in-memory. In Phase 3, state durability is established in PostgreSQL. To guarantee correctness in a distributed environment:
 1. We must select the dispatch mechanism for pulling jobs from durable storage.
-2. We must define the coordinator restart recovery rules, explicitly documenting what Phase 3 guarantees and what is deferred to Phase 4.
-3. We must secure lease tokens against database compromise by storing only cryptographic hashes.
-4. We must enforce redelivery idempotency and prevent duplicate attempts using PostgreSQL database-level constraints.
+2. We must resolve how the scheduler participates in a pull-based coordination protocol (addressing the first-poller-wins gap).
+3. We must define coordinator restart recovery rules, explicitly documenting what Phase 3 guarantees and what is deferred to Phase 4.
+4. We must eliminate capacity counter drift by dynamically deriving worker slot availability in SQL.
+5. We must secure lease tokens against database compromise by storing only cryptographic hashes.
+6. We must enforce redelivery idempotency and prevent duplicate attempts using PostgreSQL database-level constraints.
 
 ---
 
@@ -16,23 +18,30 @@ In Milestones 1 and 2, MiniCloud's coordinator orchestrated work in-memory. In P
 
 We evaluate two architectural approaches for dispatching work from PostgreSQL to polling workers:
 
-### Option A: PostgreSQL-as-Queue using `SELECT ... FOR UPDATE SKIP LOCKED` (Recommended)
+### Option A: PostgreSQL-as-Queue using `SELECT ... FOR UPDATE SKIP LOCKED` (Selected by Owner)
 - **Mechanism:**
   When an idle worker with capacity calls `POST /v1/workers/{id}/poll`, the coordinator executes a single, atomic PostgreSQL transaction:
   ```sql
-  WITH candidate AS (
-      SELECT id, task_type, payload, timeout_seconds
-      FROM jobs
-      WHERE state = 'QUEUED'
-        AND task_type = ANY($1) -- worker.SupportedTasks
-      ORDER BY created_at ASC
-      FOR UPDATE SKIP LOCKED
+  WITH worker_check AS (
+      SELECT w.id
+      FROM workers w
+      WHERE w.id = $1
+        AND w.status = 'HEALTHY'
+        AND (w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state = 'RUNNING')) > 0
+  ),
+  candidate AS (
+      SELECT j.id, j.task_type, j.payload, j.timeout_seconds
+      FROM jobs j, worker_check wc
+      WHERE j.state = 'QUEUED'
+        AND j.task_type = ANY($2) -- worker.SupportedTasks
+      ORDER BY j.created_at ASC
+      FOR UPDATE OF j SKIP LOCKED
       LIMIT 1
   ),
   updated_job AS (
       UPDATE jobs
       SET state = 'RUNNING',
-          current_attempt_id = $2,
+          current_attempt_id = $3,
           updated_at = CURRENT_TIMESTAMP
       FROM candidate
       WHERE jobs.id = candidate.id
@@ -42,8 +51,8 @@ We evaluate two architectural approaches for dispatching work from PostgreSQL to
       id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at
   )
   SELECT
-      $2, uj.id, (SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM attempts WHERE job_id = uj.id),
-      $3, $4, 'RUNNING', CURRENT_TIMESTAMP
+      $3, uj.id, (SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM attempts WHERE job_id = uj.id),
+      $1, $4, 'RUNNING', CURRENT_TIMESTAMP
   FROM updated_job uj
   RETURNING job_id;
   ```
@@ -58,14 +67,66 @@ We evaluate two architectural approaches for dispatching work from PostgreSQL to
 - **Crash Behavior:** Vulnerable to state divergence. If the coordinator crashes while jobs are in-flight in memory, in-flight markers vanish. If multiple coordinator instances run, their independent in-memory queues cause race conditions and duplicate claim attempts.
 - **Evaluation:** Rejected. It creates a dual-source-of-truth hazard, increases coordination complexity, and does not represent an authentic PostgreSQL queue baseline.
 
-### Dispatch Recommendation
-Implement a `PostgresQueue` satisfying `internal/queue.Queue` backed by `SELECT ... FOR UPDATE SKIP LOCKED`.
+---
+
+## 2. Scheduler Participation in a Pull Model (Investigation & Resolution)
+
+### 2.1 Codebase Investigation: Confirmation of Unused Scheduler
+An inspection of the active codebase confirms that **`scheduler.Scheduler` is currently unused in the production dispatch path**:
+- In [internal/coordinator/service.go:58](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L58), `scheduler scheduler.Scheduler` is stored on the `Service` struct, and injected via `NewService` / `NewServiceWithQueue` ([service.go:66-80](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L66-L80)).
+- In `PollWork` ([service.go:290-386](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L290-L386)), `s.scheduler` is **never called**.
+- In the active dispatch loop, when a worker polls, the coordinator claims the next FIFO item from the queue matching the worker's tasks and immediately assigns it to the caller.
+- **Result:** Dispatch is currently **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go:32](file:///home/blazeee/MiniCloud/internal/scheduler/round_robin_test.go#L32)).
+
+### 2.2 How Scheduler Participates Under a Pull Protocol
+In a push model, the coordinator schedules a job across all workers. In a pull model, workers poll asynchronously. To satisfy the blueprint requirement that every scheduling decision is evaluated and logged (`policy`, `candidates`, `selected`, `reason`), we evaluate four models:
+
+#### Model 1: Worker Match Decision at Poll Time (Scheduler-Gated Pull)
+- **Concept:** When Worker $W_i$ polls, coordinator inspects the next pending job $J$. The coordinator calls `s.scheduler.SelectWorker(eligibleWorkers, J.TaskType)`.
+- If the selected worker is $W_i$, the job is dispatched to $W_i$, and the decision is logged.
+- If another worker $W_k$ is selected, the coordinator returns HTTP 204 `NO_QUEUED_JOBS` to $W_i$, preserving job $J$ for $W_k$.
+- **Trade-off:** Strictly enforces round-robin across workers, but risks head-of-line delay if $W_k$ has a slow polling cycle or jitter.
+
+#### Model 2: Candidate Job Ranking at Poll Time (`SelectJob`)
+- **Concept:** When Worker $W_i$ polls, coordinator queries the top $N$ queued jobs compatible with $W_i$. The scheduler policy ranks and selects the *best job* for $W_i$ (e.g., shortest job first, priority, or FIFO tie-breaking).
+- **Trade-off:** Fast and non-stalling, but does not balance work across multiple idle workers if one worker polls at a higher frequency.
+
+#### Model 3: Central Pre-Assignment with Pull Pickup
+- **Concept:** Coordinator runs an internal scheduling loop that assigns `target_worker_id` onto queued jobs in the database. Workers poll only for jobs matching their worker ID.
+- **Trade-off:** High complexity. If an assigned worker dies or delays, the job is stuck until a re-scheduling timeout fires.
+
+#### Model 4: Hybrid Pull with Scheduler Arbitration (Recommended)
+- **Concept:**
+  When Worker $W_i$ polls for work:
+  1. The coordinator checks for candidate `QUEUED` jobs supporting $W_i$'s task types.
+  2. For the candidate job, the coordinator evaluates currently eligible workers (healthy workers with available slots supporting the task).
+  3. The coordinator invokes `s.scheduler.SelectWorker(eligibleWorkers, taskType)`.
+  4. The structured scheduling decision is logged:
+     `slog.Info("scheduler decision", "policy", decision.Policy, "candidates", decision.Candidates, "selected", decision.Selected, "reason", decision.Reason)`
+  5. If $W_i$ is selected, dispatch proceeds immediately.
+  6. If multiple eligible workers are idle and $W_k$ is chosen by round-robin, the coordinator reserves the job for $W_k$ with a short scheduling window (e.g., 500ms). If $W_k$ does not claim it within the window, the job falls back to the next poller. If $W_i$ is the only idle worker with capacity, `SelectWorker` naturally chooses $W_i$.
+- **Recommendation:** Adopt Model 4 for Slice 3d. This brings `scheduler.Scheduler` into the real execution path, emits audit decision logs on every dispatch, and provides an authentic, policy-driven baseline for V2.
 
 ---
 
-## 2. Coordinator Restart Recovery Rules (Phase 3 Semantics)
+## 3. Dynamic Capacity Derivation (No Counter Drift)
 
-Because Phase 4 introduces automated lease renewal and lease expiration sweeps, we must state precisely what Phase 3 guarantees and what it does not:
+In distributed execution systems, storing a mutable `available_slots` integer column that is incremented on commit and decremented on dispatch is an anti-pattern. If a coordinator process crashes, a transaction rolls back, or a worker process is reaped, stored counters drift.
+
+In MiniCloud PostgreSQL storage:
+- `workers` stores `total_slots INTEGER NOT NULL CHECK (total_slots > 0)`.
+- Available capacity is **derived dynamically in SQL from active running attempts**:
+  ```sql
+  available_slots = total_slots - (SELECT COUNT(*) FROM attempts WHERE worker_id = workers.id AND state = 'RUNNING')
+  ```
+- This derivation is evaluated directly in the dispatch transaction (`worker_check` CTE) and exposed via the `worker_capacity` view.
+- This guarantees zero counter drift across restarts, crashes, or ungraceful worker terminations.
+
+---
+
+## 4. Coordinator Restart Recovery Rules (Phase 3 Semantics)
+
+Because Phase 4 introduces automated lease renewal and lease expiration sweeps, we state precisely what Phase 3 guarantees and what it does not:
 
 | Entity / State | Behavior on Coordinator Restart | Phase 3 Guarantee |
 |---|---|---|
@@ -78,7 +139,7 @@ Because Phase 4 introduces automated lease renewal and lease expiration sweeps, 
 
 ---
 
-## 3. Cryptographic Hashing of Lease Tokens
+## 5. Cryptographic Hashing of Lease Tokens
 
 To adhere to the principle of least privilege and protect worker execution credentials against passive database inspection or SQL snapshot exposure:
 1. **Token Generation:** When dispatching an attempt, the coordinator generates a cryptographically random 256-bit hexadecimal string (`lease_token`).
@@ -93,9 +154,7 @@ To adhere to the principle of least privilege and protect worker execution crede
 
 ---
 
-## 4. Redelivery & Duplicate-Attempt Prevention at the Database Level
-
-To guarantee at-least-once execution without corrupted state under network partitions or concurrent worker delivery:
+## 6. Redelivery & Duplicate-Attempt Prevention at the Database Level
 
 1. **State-Guarded Transition:**
    Job state transitions require an explicit expected source state in the `WHERE` clause:
@@ -112,7 +171,7 @@ To guarantee at-least-once execution without corrupted state under network parti
    ON attempts (job_id)
    WHERE state = 'RUNNING';
    ```
-   This index enforces that **no job can ever have more than one non-terminal (`RUNNING`) attempt** at any point in time. Any race condition attempting to start a parallel attempt triggers a PostgreSQL unique constraint violation (`SQLSTATE 23505`).
+   Enforces that **no job can ever have more than one non-terminal (`RUNNING`) attempt** at any point in time. Any race condition attempting to start a parallel attempt triggers a PostgreSQL unique constraint violation (`SQLSTATE 23505`).
 
 3. **Monotonic Sequence Integrity:**
    ```sql
@@ -131,16 +190,19 @@ To guarantee at-least-once execution without corrupted state under network parti
        committed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
    );
    ```
-   The primary key on `job_id` guarantees that exactly one committed result can exist per job.
+   Guarantees that exactly one committed result can exist per job.
 
-5. **Database-Time Invariant:**
-   All lease timeouts, heartbeat comparisons, and attempt durations must use PostgreSQL database timestamps (`CURRENT_TIMESTAMP` / `now()`), eliminating clock drift between distributed worker hosts.
+5. **Database-Time Invariant & Clock Semantics:**
+   - All lease timeouts, heartbeat comparisons, and attempt durations must use PostgreSQL database timestamps (`CURRENT_TIMESTAMP` for transaction boundaries; `clock_timestamp()` where statement freshness matters).
+   - Eliminates worker/coordinator clock skew vulnerabilities.
 
 ---
 
-## Decision Proposal
+## Owner Decision & Staged Conditions
 
-1. **Adopt `SELECT ... FOR UPDATE SKIP LOCKED`** as the dispatch mechanism for PostgreSQL in Phase 3.
-2. **Guarantee Surviving-Worker Commits across Restarts:** Formally guarantee that surviving workers can commit completed attempts after a coordinator restart.
-3. **Store Lease Tokens Hashed with SHA-256.**
-4. **Enforce Invariants in SQL:** Use partial unique indexes, foreign key constraints, and state-guarded `UPDATE` statements to prevent duplicate attempts and invalid transitions at the storage engine level.
+The repository owner has **APPROVED** Option A (`SELECT ... FOR UPDATE SKIP LOCKED`) subject to resolving scheduler participation in Slice 3d:
+1. **Postgres-as-Queue Baseline:** Adopt `SELECT ... FOR UPDATE SKIP LOCKED` for Phase 3 dispatch.
+2. **Scheduler Participation:** Implement Hybrid Pull with Scheduler Arbitration (Model 4) in Slice 3d so that `scheduler.SelectWorker` is actively invoked at dispatch time and structured decision logs are emitted.
+3. **Dynamic Capacity:** Derive worker capacity in SQL from active attempts to prevent counter drift.
+4. **Surviving Worker Restart Guarantees:** Guarantee that surviving workers can commit completed attempts after a coordinator reboot.
+5. **Hashed Tokens:** Store `SHA-256(lease_token)` in PostgreSQL; verify incoming raw tokens via hash comparison.

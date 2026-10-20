@@ -2,8 +2,8 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `docs/phase3-design`
-- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **COMPLETED**
-- **Next Milestone:** Phase 3, Slice 3a — Repository Atomicity Refactor (Awaiting Owner Approval).
+- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **COMPLETED & ACCEPTED BY OWNER**
+- **Next Milestone:** Phase 3, Slice 3a — In-Memory Repository Atomicity Refactor & Worker Re-Registration.
 - **Target Release:** MiniCloud V1 (Phases 0–4).
 
 ---
@@ -15,49 +15,50 @@
 - `a636ba0` — `feat: implement Phase 2 Slice 1 worker liveness, reaper loop, and failure recovery` (Merged PR #3 to `main`).
 - `8763113` — `feat: implement dispatch-transport queue interface and delivery semantics` (Merged PR #4 to `main`).
 - **Phase 3 — Durable State Design Specifications (`docs/phase3-design`):**
-  - Authored [ADR 0009: PostgreSQL Persistence and Driver Selection](file:///home/blazeee/MiniCloud/docs/adr/0009-postgres-persistence-and-driver.md) proposing `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine`.
-  - Authored [ADR 0010: Database Migrations Policy and Runner Architecture](file:///home/blazeee/MiniCloud/docs/adr/0010-migrations-policy.md) establishing forward-only migrations, expand/contract rules, and an embedded SQL runner with advisory locks.
-  - Authored [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) defining `SELECT ... FOR UPDATE SKIP LOCKED` dispatch, coordinator restart recovery rules, SHA-256 hashed lease tokens, and SQL-level duplicate attempt prevention.
-  - Authored [docs/schema.md](file:///home/blazeee/MiniCloud/docs/schema.md) specifying PostgreSQL tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP`), and SQL invariants.
-  - Authored [docs/testing-postgres.md](file:///home/blazeee/MiniCloud/docs/testing-postgres.md) documenting Docker Compose local provisioning, host confinement rules, `.env.example` secret hygiene, `_test` database safety guardrails, and planned Makefile targets.
+  - **ADR 0009 Accepted with Conditions:** [ADR 0009: PostgreSQL Persistence and Driver Selection](file:///home/blazeee/MiniCloud/docs/adr/0009-postgres-persistence-and-driver.md) selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine`. Conditions: pin `pgx` to version requiring Go <= 1.22 (`v5.7.1` uses `go 1.21`), enforce `GOTOOLCHAIN=local`, and gate dependency addition to Slice 3c.
+  - **ADR 0010 Accepted with Correction:** [ADR 0010: Database Migrations Policy and Runner Architecture](file:///home/blazeee/MiniCloud/docs/adr/0010-migrations-policy.md) establishing forward-only migrations and expand/contract rules. Correction: use `pg_advisory_xact_lock` inside migration transactions (or a dedicated connection) rather than session-level advisory locks on pooled connections.
+  - **ADR 0011 Accepted Conditional on Scheduler Integration:** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED`, investigating the first-poller-wins gap, defining Hybrid Pull with Scheduler Arbitration (Model 4) to ensure `scheduler.SelectWorker` actively governs dispatch, surviving-worker restart recovery guarantees, and SHA-256 hashed lease tokens.
+  - **ADR 0003 Amended:** [ADR 0003: Pull-Based Worker Protocol](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md) updated to document scheduler participation under pull-based coordination.
+  - **Database Schema Updated:** [docs/schema.md](file:///home/blazeee/MiniCloud/docs/schema.md) specifying PostgreSQL tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP` vs `clock_timestamp()`), and dynamic worker capacity derivation (no counter drift).
+  - **Testing & Provisioning Specification:** [docs/testing-postgres.md](file:///home/blazeee/MiniCloud/docs/testing-postgres.md) documenting Docker Compose local provisioning, host confinement rules, `.env.example` secret hygiene, `_test` database safety guardrails, and planned Makefile targets.
 
 ---
 
-## 3. Proposed Phase 3 Sub-Slices & Exit Criteria
+## 3. Approved Phase 3 Sub-Slices & Exit Criteria
 
-To ensure reviewable diffs and maintain working tests at every step, Phase 3 is divided into five incremental sub-slices:
-
-### Slice 3a: Repository Atomicity & Interface Refactoring (In-Memory Baseline)
+### Slice 3a: Repository Atomicity Refactor, Worker Auto-Re-Registration & In-Memory Baseline
 - **Scope:**
-  - Refactor `storage.Repository` interface to unify multi-step repository calls into atomic transactional operations:
+  - Reshape repository methods so the PostgreSQL implementation can run each as ONE transaction:
     - `DispatchJob(ctx, workerID, supportedTasks)`: Atomically transitions job from `QUEUED` to `RUNNING`, creates attempt record, and updates worker capacity.
     - `CommitResult(ctx, jobID, attemptID, ...)`: Atomically transitions attempt to `COMPLETED`/`FAILED`, transitions job to terminal state, commits result record, records lifecycle event, and releases worker slot.
     - `SubmitJob(ctx, job)`: Atomically inserts job and initial audit event.
+    - `CancelJob(ctx, jobID)`: Atomically applies state-guarded cancellation and records audit event.
   - Implement atomic methods in `InMemoryRepository`.
-  - Add coordinator unit test asserting `Queue.Release` is invoked when dispatch or attempt creation fails after a claim.
-- **Exit Criteria:** Zero non-atomic mutation gaps in coordinator; all existing tests pass `-race`.
+  - Add worker client auto-re-registration when receiving HTTP 404 `WORKER_NOT_FOUND` on heartbeat or poll (with unit and integration tests).
+  - Add coordinator-level test asserting `Queue.Release` is invoked when dispatch or attempt creation fails after a claim.
+- **Exit Criteria:** Zero non-atomic mutation gaps in coordinator; worker automatically heals on 404 `WORKER_NOT_FOUND`; `Queue.Release` verified; all tests pass `-race`.
 
 ### Slice 3b: Database Provisioning, Schema & Forward-Only Migrations
 - **Scope:**
   - Create `deployments/docker-compose.yml`, `init-test-db.sh`, `.env.example`, and update `.gitignore`.
-  - Author initial embedded migration: `internal/storage/postgres/migrations/000001_initial_schema.sql`.
-  - Implement minimal in-tree migration runner with `schema_migrations`, advisory lock (`pg_advisory_lock`), and SHA-256 checksum verification.
+  - Author initial embedded migration: `internal/storage/postgres/migrations/000001_initial_schema.sql` incorporating dynamic capacity view `worker_capacity` and timestamp semantics.
+  - Implement minimal in-tree migration runner with `schema_migrations`, transaction-level advisory locks (`pg_advisory_xact_lock`), and SHA-256 checksum verification.
   - Add Makefile targets (`db-up`, `db-down`, `db-psql`, `test-db`).
-- **Exit Criteria:** Migration runner successfully applies schema to `minicloud` and `minicloud_test`; concurrent runners serialized by advisory lock; checksum tampering detected.
+- **Exit Criteria:** Migration runner successfully applies schema to `minicloud` and `minicloud_test`; concurrent runners serialized by transaction advisory lock; checksum tampering detected.
 
 ### Slice 3c: PostgreSQL Repository Implementation
 - **Scope:**
-  - Add `jackc/pgx/v5` dependency upon owner approval.
+  - Add `jackc/pgx/v5 v5.7.1` (`go 1.21 <= 1.22`) with `GOTOOLCHAIN=local`.
   - Implement `internal/storage/postgres.Repository` using `pgxpool.Pool`.
-  - Enforce SQL invariants: partial unique index `idx_attempts_active_per_job`, monotonic attempt sequence, and SHA-256 lease token hashing.
+  - Enforce SQL invariants: partial unique index `idx_attempts_active_per_job`, monotonic attempt sequence, dynamic capacity derivation (no counter drift), and SHA-256 lease token hashing.
   - Add unit/integration tests running against `minicloud_test` with mandatory `_test` database name check.
 - **Exit Criteria:** `internal/storage/postgres` satisfies all repository tests with race detector enabled.
 
-### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`)
+### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & Scheduler Arbitration
 - **Scope:**
   - Implement `internal/queue.Queue` backed by PostgreSQL transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
-  - Integrate with coordinator's `PollWork` loop.
-- **Exit Criteria:** Zero duplicate deliveries under parallel polling; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
+  - Integrate Hybrid Pull with Scheduler Arbitration (Model 4) into `PollWork` loop so `scheduler.SelectWorker` is actively called and structured decision logs (`policy`, `candidates`, `selected`, `reason`) are emitted.
+- **Exit Criteria:** Zero duplicate deliveries under parallel polling; structured scheduler decisions logged; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
 
 ### Slice 3e: Coordinator Restart Recovery & Multi-Process Tests
 - **Scope:**
@@ -71,9 +72,11 @@ To ensure reviewable diffs and maintain working tests at every step, Phase 3 is 
 
 ## 4. Key Follow-Ups & Invariants
 
-1. **Coordinator Queue Release Test:** A coordinator-level test verifying that `Queue.Release` is explicitly called when attempt creation fails after a claim (identified in Phase 2 Slice 2; scheduled for Slice 3a).
-2. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue). The Phase 4 implementation plan must explicitly address both.
-3. **Dispatch Atomicity:** In-memory dispatch currently executes as two separate repository calls (`CreateAttempt` then `UpdateJob`); Phase 3 must make this single-transaction atomic in PostgreSQL (`DispatchJob`).
+1. **Worker Re-Registration on 404:** Worker client must automatically re-register if heartbeat or poll receives `WORKER_NOT_FOUND` (scheduled for Slice 3a).
+2. **Coordinator Queue Release Test:** A coordinator-level test verifying that `Queue.Release` is explicitly called when attempt creation fails after a claim (scheduled for Slice 3a).
+3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in SQL rather than relying on mutable increment/decrement counters.
+4. **Active Scheduler in Pull:** Scheduler must actively participate in poll-time dispatch arbitration (Model 4) to eliminate the first-poller-wins gap (scheduled for Slice 3d).
+5. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue).
 
 ---
 
