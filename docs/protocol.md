@@ -219,19 +219,19 @@ Worker polls for an eligible task assignment.
 ```
 
 **Response (204 No Content):**
-No queued work available for this worker.
+No queued work available for this worker (`NO_QUEUED_JOBS`).
 
-**Response (503 Service Unavailable — Unhealthy Worker or No Capacity):**
+**Response (503 Service Unavailable — Worker Unhealthy):**
 ```json
 {
   "error": {
-    "code": "NO_WORKERS_AVAILABLE",
-    "message": "no workers available",
+    "code": "WORKER_UNHEALTHY",
+    "message": "worker is marked UNHEALTHY; heartbeats required before polling",
     "details": null
   }
 }
 ```
-*Note:* A poll from an `UNHEALTHY` worker does **not** count as liveness telemetry and returns `503 Service Unavailable` until a heartbeat restores `HEALTHY` status.
+*Note (Phase 2 correction):* A poll from an `UNHEALTHY` worker does **not** count as liveness telemetry and returns HTTP 503 `WORKER_UNHEALTHY` until a heartbeat restores `HEALTHY` status. Worker clients handle `WORKER_UNHEALTHY` explicitly by continuing their heartbeat and polling loops without terminating.
 
 ---
 

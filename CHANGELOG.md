@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 2, Slice 2 — Dispatch-Transport Interface & 3-Worker Integration:**
+  - `docs/adr/0008-dispatch-transport-queue-interface.md`: ADR defining the minimal queue interface, at-least-once delivery semantics, result-commit acknowledgement, and repository single source of truth invariant.
+  - `docs/adr/0005-docker-isolation-in-v3.md`: Added "Known Gaps for V3 Container Executor" reviewing `internal/executor` against container requirements (cgroup limits, image mapping, stream handling).
+  - `docs/protocol.md` & `docs/adr/0007-worker-liveness-and-recovery.md`: Documented Phase 2 correction distinguishing empty queue (HTTP 204 `NO_QUEUED_JOBS`) from unhealthy worker (HTTP 503 `WORKER_UNHEALTHY`).
+  - `internal/domain`: Added `ErrWorkerUnhealthy` typed domain error.
+  - `internal/api`: Mapped `ErrWorkerUnhealthy` to HTTP 503 `WORKER_UNHEALTHY`.
+  - `internal/worker`: Handled HTTP 503 `WORKER_UNHEALTHY` in worker client, maintaining active heartbeats and polling without process termination.
+  - `internal/queue`: Introduced `Queue` interface (`Enqueue`, `Claim`, `Release`, `Ack`, `Len`) and `Item` routing signal struct (`JobID`, `TaskType` only; payload and timeout read from repository at dispatch time).
+  - `internal/queue`: Implemented thread-safe `InMemoryQueue` with FIFO ordering, capability matching, and in-flight delivery tracking.
+  - `internal/coordinator`: Added `NewServiceWithQueue` constructor while keeping `NewService` signature defaulting to `InMemoryQueue`; integrated queue enqueue on submit, claim with repository state re-validation on poll (dropping non-QUEUED items and preventing duplicate attempts on redelivery), and queue ack strictly after accepted result commits.
+  - `tests/architecture/boundaries_test.go`: Added boundary tests ensuring `internal/executor` does not depend on scheduler or queue, and `internal/queue` does not depend on api, coordinator, worker, or scheduler.
+  - `tests/integration/multi_worker_batch_test.go`: Added 3-worker batch integration test executing 6 jobs across 3 independent worker processes, verifying parallel execution and distribution.
 - **Phase 2, Slice 1 — Worker Liveness & Failure Recovery:**
   - `docs/adr/0007-worker-liveness-and-recovery.md`: Architecture Decision Record for worker liveness, atomic reaper loop, and failure recovery semantics.
   - `internal/storage`: Atomic `ReapStaleWorkers` and `RecordHeartbeat` methods in `InMemoryRepository` protecting against heartbeat/reap race conditions.

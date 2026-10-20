@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/queue"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
@@ -55,19 +57,29 @@ type Service struct {
 	repo          storage.Repository
 	scheduler     scheduler.Scheduler
 	executorReg   *executor.Registry
+	queue         queue.Queue
 	clock         Clock
 	workerTimeout time.Duration
 }
 
-// NewService constructs a new Coordinator Service.
+// NewService constructs a new Coordinator Service with the default in-memory queue.
 func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+	return NewServiceWithQueue(repo, sched, reg, queue.NewInMemoryQueue(), workerTimeout)
+}
+
+// NewServiceWithQueue constructs a new Coordinator Service with a specified dispatch Queue.
+func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, q queue.Queue, workerTimeout time.Duration) *Service {
 	if workerTimeout <= 0 {
 		workerTimeout = 10 * time.Second
+	}
+	if q == nil {
+		q = queue.NewInMemoryQueue()
 	}
 	return &Service{
 		repo:          repo,
 		scheduler:     sched,
 		executorReg:   reg,
+		queue:         q,
 		clock:         realClock{},
 		workerTimeout: workerTimeout,
 	}
@@ -123,6 +135,14 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		return nil, err
 	}
 
+	// Enqueue lightweight delivery signal in dispatch transport
+	if err := s.queue.Enqueue(ctx, &queue.Item{
+		JobID:    job.ID,
+		TaskType: job.TaskType,
+	}); err != nil {
+		return nil, err
+	}
+
 	slog.Info("job submitted and queued",
 		"job_id", job.ID,
 		"task_type", job.TaskType,
@@ -164,6 +184,7 @@ func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error)
 	var targetState domain.JobState
 	if job.State == domain.StateQueued {
 		targetState = domain.StateCancelled
+		_ = s.queue.Ack(ctx, job.ID)
 	} else if job.State == domain.StateRunning {
 		targetState = domain.StateCancelRequested
 	} else {
@@ -265,7 +286,7 @@ func (s *Service) StartReaper(ctx context.Context, interval time.Duration) {
 }
 
 // PollWork allows an idle worker with capacity to claim an eligible queued job.
-// A poll from an UNHEALTHY worker does not count as liveness and returns no work.
+// A poll from an UNHEALTHY worker does not count as liveness and returns ErrWorkerUnhealthy.
 func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -275,87 +296,94 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 		return nil, err
 	}
 
-	// Poll from an UNHEALTHY worker returns no work
+	// Poll from an UNHEALTHY worker returns ErrWorkerUnhealthy
 	if worker.Status != domain.WorkerStatusHealthy {
-		return nil, domain.ErrNoWorkersAvailable
+		return nil, domain.ErrWorkerUnhealthy
 	}
 
 	if !worker.HasCapacity() {
 		return nil, domain.ErrNoWorkersAvailable
 	}
 
-	queuedJobs, err := s.repo.ListQueuedJobs(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(queuedJobs) == 0 {
-		return nil, domain.ErrNoQueuedJobs
-	}
-
-	// Find the first queued job that this worker supports
-	var selectedJob *domain.Job
-	for _, j := range queuedJobs {
-		if worker.SupportsTask(j.TaskType) {
-			selectedJob = j
-			break
+	for {
+		item, err := s.queue.Claim(ctx, worker)
+		if err != nil {
+			if errors.Is(err, queue.ErrNoWork) {
+				return nil, domain.ErrNoQueuedJobs
+			}
+			return nil, err
 		}
+
+		// Re-validate job is still QUEUED in the repository (Instruction 2)
+		selectedJob, err := s.repo.GetJob(ctx, item.JobID)
+		if err != nil {
+			// Job no longer exists in repository, drop and claim again
+			_ = s.queue.Ack(ctx, item.JobID)
+			continue
+		}
+
+		if selectedJob.State != domain.StateQueued {
+			// Job is no longer QUEUED (e.g. cancelled, or already running if redelivered), drop and claim again
+			_ = s.queue.Ack(ctx, item.JobID)
+			continue
+		}
+
+		// Fetch existing attempts for this job to determine attempt_no
+		prevAttempts, err := s.repo.ListAttemptsByJob(ctx, selectedJob.ID)
+		if err != nil {
+			_ = s.queue.Release(ctx, item.JobID)
+			return nil, err
+		}
+		attemptNo := len(prevAttempts) + 1
+
+		now := s.clock.Now()
+		attempt := &domain.Attempt{
+			ID:         generateID("att"),
+			JobID:      selectedJob.ID,
+			AttemptNo:  attemptNo,
+			WorkerID:   worker.ID,
+			LeaseToken: generateID("lease"),
+			State:      domain.AttemptRunning,
+			StartedAt:  now,
+		}
+
+		// Transition job to RUNNING
+		if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
+			_ = s.queue.Release(ctx, item.JobID)
+			return nil, err
+		}
+		selectedJob.CurrentAttemptID = attempt.ID
+
+		if err := s.repo.CreateAttempt(ctx, attempt); err != nil {
+			_ = s.queue.Release(ctx, item.JobID)
+			return nil, err
+		}
+		if err := s.repo.UpdateJob(ctx, selectedJob); err != nil {
+			_ = s.queue.Release(ctx, item.JobID)
+			return nil, err
+		}
+
+		// Deduct 1 available slot from worker
+		worker.AvailableSlots--
+		_ = s.repo.UpsertWorker(ctx, worker)
+
+		slog.Info("job dispatched to worker",
+			"job_id", selectedJob.ID,
+			"attempt_id", attempt.ID,
+			"attempt_no", attempt.AttemptNo,
+			"worker_id", worker.ID,
+		)
+
+		return &WorkAssignment{
+			JobID:          selectedJob.ID,
+			AttemptID:      attempt.ID,
+			AttemptNo:      attempt.AttemptNo,
+			LeaseToken:     attempt.LeaseToken,
+			TaskType:       selectedJob.TaskType,
+			Payload:        selectedJob.Payload,
+			TimeoutSeconds: selectedJob.TimeoutSeconds,
+		}, nil
 	}
-
-	if selectedJob == nil {
-		return nil, domain.ErrNoQueuedJobs
-	}
-
-	// Fetch existing attempts for this job to determine attempt_no
-	prevAttempts, err := s.repo.ListAttemptsByJob(ctx, selectedJob.ID)
-	if err != nil {
-		return nil, err
-	}
-	attemptNo := len(prevAttempts) + 1
-
-	now := s.clock.Now()
-	attempt := &domain.Attempt{
-		ID:         generateID("att"),
-		JobID:      selectedJob.ID,
-		AttemptNo:  attemptNo,
-		WorkerID:   worker.ID,
-		LeaseToken: generateID("lease"),
-		State:      domain.AttemptRunning,
-		StartedAt:  now,
-	}
-
-	// Transition job to RUNNING
-	if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
-		return nil, err
-	}
-	selectedJob.CurrentAttemptID = attempt.ID
-
-	if err := s.repo.CreateAttempt(ctx, attempt); err != nil {
-		return nil, err
-	}
-	if err := s.repo.UpdateJob(ctx, selectedJob); err != nil {
-		return nil, err
-	}
-
-	// Deduct 1 available slot from worker
-	worker.AvailableSlots--
-	_ = s.repo.UpsertWorker(ctx, worker)
-
-	slog.Info("job dispatched to worker",
-		"job_id", selectedJob.ID,
-		"attempt_id", attempt.ID,
-		"attempt_no", attempt.AttemptNo,
-		"worker_id", worker.ID,
-	)
-
-	return &WorkAssignment{
-		JobID:          selectedJob.ID,
-		AttemptID:      attempt.ID,
-		AttemptNo:      attempt.AttemptNo,
-		LeaseToken:     attempt.LeaseToken,
-		TaskType:       selectedJob.TaskType,
-		Payload:        selectedJob.Payload,
-		TimeoutSeconds: selectedJob.TimeoutSeconds,
-	}, nil
 }
 
 // CommitResult commits an execution outcome reported by a worker.
@@ -451,6 +479,9 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 	if err := s.repo.UpdateJob(ctx, job); err != nil {
 		return nil, err
 	}
+
+	// Settle delivery in dispatch transport ONLY after an accepted commit
+	_ = s.queue.Ack(ctx, job.ID)
 
 	// Reclaim worker slot
 	if w, err := s.repo.GetWorker(ctx, workerID); err == nil {

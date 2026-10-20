@@ -10,6 +10,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/queue"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
@@ -105,10 +106,10 @@ func TestService_WorkerLiveness_ReaperAndRecovery(t *testing.T) {
 		t.Fatalf("SubmitJob failed: %v", err)
 	}
 
-	// Poll from UNHEALTHY worker: must return ErrNoWorkersAvailable and no assignment
+	// Poll from UNHEALTHY worker: must return ErrWorkerUnhealthy and no assignment
 	assignment, err := svc.PollWork(ctx, "worker-1")
-	if !errors.Is(err, domain.ErrNoWorkersAvailable) {
-		t.Fatalf("expected ErrNoWorkersAvailable when polling from unhealthy worker, got %v (assignment=%v)", err, assignment)
+	if !errors.Is(err, domain.ErrWorkerUnhealthy) {
+		t.Fatalf("expected ErrWorkerUnhealthy when polling from unhealthy worker, got %v (assignment=%v)", err, assignment)
 	}
 
 	// Send heartbeat: restores HEALTHY status
@@ -310,5 +311,223 @@ func TestService_ReaperHeartbeatRace(t *testing.T) {
 	}
 	if worker.Status != domain.WorkerStatusHealthy {
 		t.Fatalf("expected worker to be HEALTHY after final heartbeat, got %v", worker.Status)
+	}
+}
+
+type spyQueue struct {
+	queue.Queue
+	mu           sync.Mutex
+	ackedJobs    []string
+	releasedJobs []string
+}
+
+func newSpyQueue(inner queue.Queue) *spyQueue {
+	return &spyQueue{
+		Queue:        inner,
+		ackedJobs:    make([]string, 0),
+		releasedJobs: make([]string, 0),
+	}
+}
+
+func (s *spyQueue) Ack(ctx context.Context, jobID string) error {
+	s.mu.Lock()
+	s.ackedJobs = append(s.ackedJobs, jobID)
+	s.mu.Unlock()
+	return s.Queue.Ack(ctx, jobID)
+}
+
+func (s *spyQueue) Release(ctx context.Context, jobID string) error {
+	s.mu.Lock()
+	s.releasedJobs = append(s.releasedJobs, jobID)
+	s.mu.Unlock()
+	return s.Queue.Release(ctx, jobID)
+}
+
+func (s *spyQueue) getAcked() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	copied := make([]string, len(s.ackedJobs))
+	copy(copied, s.ackedJobs)
+	return copied
+}
+
+// TestService_Claim_JobNoLongerQueued_Dropped tests Instruction 2:
+// After Claim, the coordinator re-validates that the job is still QUEUED in the repository;
+// if not, it drops the item, acknowledges it, and claims again.
+func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	// Submit job 1 and job 2
+	job1, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"one"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob 1 failed: %v", err)
+	}
+	job2, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"two"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob 2 failed: %v", err)
+	}
+
+	// Directly modify job 1 in repository to simulate cancellation or out-of-band state change
+	storedJob1, _ := repo.GetJob(ctx, job1.ID)
+	_ = storedJob1.TransitionTo(domain.StateCancelled)
+	_ = repo.UpdateJob(ctx, storedJob1)
+
+	// Worker polls: coordinator claims job 1, checks repository, sees it's CANCELLED, drops it,
+	// and claims job 2!
+	assignment, err := svc.PollWork(ctx, "worker-1")
+	if err != nil {
+		t.Fatalf("PollWork failed: %v", err)
+	}
+	if assignment.JobID != job2.ID {
+		t.Fatalf("expected assignment for job 2 (%s), got %s", job2.ID, assignment.JobID)
+	}
+
+	// Verify job 1 was acked/dropped from queue
+	acked := spy.getAcked()
+	foundJob1 := false
+	for _, id := range acked {
+		if id == job1.ID {
+			foundJob1 = true
+		}
+	}
+	if !foundJob1 {
+		t.Fatalf("expected dropped job 1 to be acked from queue, got acked: %v", acked)
+	}
+}
+
+// TestService_Claim_Redelivery_NoDuplicateAttempt tests Instruction 3:
+// Redelivery of an already-dispatched job must not create a second attempt.
+func TestService_Claim_Redelivery_NoDuplicateAttempt(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	q := queue.NewInMemoryQueue()
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, q, 10*time.Second)
+
+	w := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 2, AvailableSlots: 2, SupportedTasks: []string{"echo"}}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	// Initial claim: attempt 1 created, job is now RUNNING
+	assignment, err := svc.PollWork(ctx, "worker-1")
+	if err != nil {
+		t.Fatalf("PollWork failed: %v", err)
+	}
+	if assignment.JobID != job.ID {
+		t.Fatalf("expected job %s, got %s", job.ID, assignment.JobID)
+	}
+
+	// Simulate duplicate delivery signal in queue (at-least-once redelivery of already dispatched job)
+	_ = q.Enqueue(ctx, &queue.Item{JobID: job.ID, TaskType: job.TaskType})
+
+	// Worker polls again: coordinator claims duplicate item, re-validates repository,
+	// sees job is already RUNNING (not QUEUED), drops item, and returns ErrNoQueuedJobs.
+	secondAssignment, err := svc.PollWork(ctx, "worker-1")
+	if !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs for duplicate delivery, got %v (assignment=%v)", err, secondAssignment)
+	}
+
+	// Assert exactly 1 attempt exists for the job
+	attempts, err := svc.ListAttempts(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("ListAttempts failed: %v", err)
+	}
+	if len(attempts) != 1 {
+		t.Fatalf("expected exactly 1 attempt despite redelivery, got %d", len(attempts))
+	}
+}
+
+// TestService_CommitResult_AckOnlyOnAccepted tests Instruction 4:
+// Ack only after an ACCEPTED result commit. Stale, mismatched or rejected results must not Ack.
+func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+
+	w1 := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
+	w2 := &domain.Worker{ID: "worker-2", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
+	if err := svc.RegisterWorker(ctx, w1); err != nil {
+		t.Fatalf("RegisterWorker w1 failed: %v", err)
+	}
+	if err := svc.RegisterWorker(ctx, w2); err != nil {
+		t.Fatalf("RegisterWorker w2 failed: %v", err)
+	}
+
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	assignment, err := svc.PollWork(ctx, "worker-1")
+	if err != nil {
+		t.Fatalf("PollWork failed: %v", err)
+	}
+
+	// 1. Worker Mismatch: worker-2 attempts to report result -> rejected with ErrWorkerMismatch
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "out", "")
+	if !errors.Is(err, domain.ErrWorkerMismatch) {
+		t.Fatalf("expected ErrWorkerMismatch, got %v", err)
+	}
+	if len(spy.getAcked()) != 0 {
+		t.Fatalf("expected no Ack on worker mismatch, got %v", spy.getAcked())
+	}
+
+	// 2. Stale Attempt: wrong lease token -> rejected with ErrStaleAttempt
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, "wrong-lease", "worker-1", 0, "out", "")
+	if !errors.Is(err, domain.ErrStaleAttempt) {
+		t.Fatalf("expected ErrStaleAttempt, got %v", err)
+	}
+	if len(spy.getAcked()) != 0 {
+		t.Fatalf("expected no Ack on wrong lease token, got %v", spy.getAcked())
+	}
+
+	// 3. Stale Attempt: wrong attempt ID -> rejected with ErrStaleAttempt
+	_, err = svc.CommitResult(ctx, job.ID, "wrong-att", assignment.LeaseToken, "worker-1", 0, "out", "")
+	if !errors.Is(err, domain.ErrStaleAttempt) {
+		t.Fatalf("expected ErrStaleAttempt, got %v", err)
+	}
+	if len(spy.getAcked()) != 0 {
+		t.Fatalf("expected no Ack on wrong attempt ID, got %v", spy.getAcked())
+	}
+
+	// 4. Valid Report: ACCEPTED -> Must trigger Ack
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "")
+	if err != nil {
+		t.Fatalf("CommitResult failed on valid report: %v", err)
+	}
+	acked := spy.getAcked()
+	if len(acked) != 1 || acked[0] != job.ID {
+		t.Fatalf("expected exactly 1 Ack for job %s, got: %v", job.ID, acked)
+	}
+
+	// 5. Duplicate Report on terminal job -> rejected with ErrJobAlreadyTerminal
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "")
+	if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+		t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+	}
+	if len(spy.getAcked()) != 1 {
+		t.Fatalf("expected no duplicate Ack on already terminal job, got: %v", spy.getAcked())
 	}
 }

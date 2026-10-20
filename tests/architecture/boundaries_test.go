@@ -18,27 +18,41 @@ var forbiddenDomainImports = []string{
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator",
 	"github.com/BlaZe08-Dev/Minicloud/internal/worker",
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor",
+	"github.com/BlaZe08-Dev/Minicloud/internal/queue",
 }
 
-func TestArchitecture_DomainPackageIndependence(t *testing.T) {
-	// Locate internal/domain relative to test file or repo root
-	domainDir := filepath.Join("..", "..", "internal", "domain")
-	if _, err := os.Stat(domainDir); os.IsNotExist(err) {
-		// Fallback to absolute or workspace relative if running from different cwd
-		domainDir = filepath.Join("internal", "domain")
+// forbiddenExecutorImports defines packages that internal/executor must not import.
+var forbiddenExecutorImports = []string{
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler",
+	"github.com/BlaZe08-Dev/Minicloud/internal/queue",
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator",
+	"github.com/BlaZe08-Dev/Minicloud/internal/api",
+}
+
+// forbiddenQueueImports defines packages that internal/queue must not import.
+var forbiddenQueueImports = []string{
+	"github.com/BlaZe08-Dev/Minicloud/internal/api",
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator",
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker",
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler",
+}
+
+func checkPackageBoundaries(t *testing.T, relDir string, forbidden []string, boundaryDescription string) {
+	pkgDir := filepath.Join("..", "..", relDir)
+	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
+		pkgDir = relDir
 	}
 
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, domainDir, nil, parser.ImportsOnly)
+	pkgs, err := parser.ParseDir(fset, pkgDir, nil, parser.ImportsOnly)
 	if err != nil {
-		t.Fatalf("failed to parse domain directory %s: %v", domainDir, err)
+		t.Fatalf("failed to parse directory %s: %v", pkgDir, err)
 	}
 
 	var violations []string
 
 	for _, pkg := range pkgs {
 		for fileName, file := range pkg.Files {
-			// Check production domain source files (skip external test files if in separate test package)
 			baseName := filepath.Base(fileName)
 			if strings.HasSuffix(baseName, "_test.go") {
 				continue
@@ -46,8 +60,8 @@ func TestArchitecture_DomainPackageIndependence(t *testing.T) {
 
 			for _, imp := range file.Imports {
 				importPath := strings.Trim(imp.Path.Value, `"`)
-				for _, forbidden := range forbiddenDomainImports {
-					if importPath == forbidden || strings.HasPrefix(importPath, forbidden+"/") {
+				for _, f := range forbidden {
+					if importPath == f || strings.HasPrefix(importPath, f+"/") {
 						violations = append(violations, baseName+": imports forbidden package "+importPath)
 					}
 				}
@@ -56,7 +70,22 @@ func TestArchitecture_DomainPackageIndependence(t *testing.T) {
 	}
 
 	if len(violations) > 0 {
-		t.Errorf("Architecture boundary violation! internal/domain must not depend on transport, storage, scheduler, or execution.\nFound violations:\n%s",
-			strings.Join(violations, "\n"))
+		t.Errorf("Architecture boundary violation! %s\nFound violations:\n%s",
+			boundaryDescription, strings.Join(violations, "\n"))
 	}
+}
+
+func TestArchitecture_DomainPackageIndependence(t *testing.T) {
+	checkPackageBoundaries(t, filepath.Join("internal", "domain"), forbiddenDomainImports,
+		"internal/domain must not depend on transport, storage, scheduler, queue, or execution.")
+}
+
+func TestArchitecture_ExecutorIndependence(t *testing.T) {
+	checkPackageBoundaries(t, filepath.Join("internal", "executor"), forbiddenExecutorImports,
+		"internal/executor must not depend on scheduler, queue, coordinator, or api.")
+}
+
+func TestArchitecture_QueueIndependence(t *testing.T) {
+	checkPackageBoundaries(t, filepath.Join("internal", "queue"), forbiddenQueueImports,
+		"internal/queue must not depend on api, coordinator, worker, or scheduler.")
 }

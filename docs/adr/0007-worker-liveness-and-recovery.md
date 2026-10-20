@@ -34,7 +34,7 @@ We must define the worker liveness contract, reaper loop mechanics, failure clas
 
 5. **Scheduling and Polling Ineligibility:**
    - The scheduler checks worker health status and excludes all `UNHEALTHY` workers from candidate selection.
-   - Work polling (`POST /v1/workers/{id}/poll`) from an `UNHEALTHY` worker does **not** count as liveness telemetry and returns no work (HTTP 503 `NO_WORKERS_AVAILABLE`) until a valid heartbeat restores `HEALTHY` status.
+   - Work polling (`POST /v1/workers/{id}/poll`) from an `UNHEALTHY` worker does **not** count as liveness telemetry and returns distinct error HTTP 503 `WORKER_UNHEALTHY` (Phase 2 correction distinguishing unhealthy workers from an empty queue HTTP 204 `NO_QUEUED_JOBS`). Worker clients explicitly handle `WORKER_UNHEALTHY` by continuing both heartbeat and polling loops without exiting until a valid heartbeat restores `HEALTHY` status.
 
 6. **Automatic Recovery on Heartbeat:**
    - An `UNHEALTHY` worker that resumes communication is immediately restored to `HEALTHY` status upon its next successful heartbeat or re-registration.

@@ -58,6 +58,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string) {
 		return http.StatusNoContent, "NO_QUEUED_JOBS"
 	case errors.Is(err, domain.ErrNoWorkersAvailable):
 		return http.StatusServiceUnavailable, "NO_WORKERS_AVAILABLE"
+	case errors.Is(err, domain.ErrWorkerUnhealthy):
+		return http.StatusServiceUnavailable, "WORKER_UNHEALTHY"
 	default:
 		var invErr *domain.InvalidStateTransitionError
 		if errors.As(err, &invErr) {
