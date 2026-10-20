@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 3 — Durable State (Design Specifications):**
+  - `docs/adr/0009-postgres-persistence-and-driver.md`: Proposed Architecture Decision Record selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine` container image, awaiting owner approval.
+  - `docs/adr/0010-migrations-policy.md`: Proposed Architecture Decision Record establishing forward-only schema migrations, expand/contract rules for destructive alterations, and an embedded in-tree runner with `pg_advisory_lock` concurrency control and SHA-256 checksum verification.
+  - `docs/adr/0011-postgres-dispatch-and-recovery.md`: Proposed Architecture Decision Record defining PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED` pull dispatch, coordinator restart recovery guarantees (surviving worker result commits accepted post-reboot), SHA-256 hashed lease tokens, and database-level duplicate attempt prevention.
+  - `docs/schema.md`: PostgreSQL database schema defining tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP`), and SQL invariants.
+  - `docs/testing-postgres.md`: Docker Compose provisioning architecture, snap Docker home directory confinement rules, `.env.example` credential hygiene, mandatory `_test` database name guardrails for integration tests, and planned Makefile targets.
 - **Phase 2, Slice 2 — Dispatch-Transport Interface & 3-Worker Integration:**
   - `docs/adr/0008-dispatch-transport-queue-interface.md`: ADR defining the minimal queue interface, at-least-once delivery semantics, result-commit acknowledgement, and repository single source of truth invariant.
   - `docs/adr/0005-docker-isolation-in-v3.md`: Added "Known Gaps for V3 Container Executor" reviewing `internal/executor` against container requirements (cgroup limits, image mapping, stream handling).
