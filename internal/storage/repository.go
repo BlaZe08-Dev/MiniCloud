@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 )
@@ -23,6 +24,8 @@ type Repository interface {
 
 	// Worker operations
 	UpsertWorker(ctx context.Context, worker *domain.Worker) error
+	RecordHeartbeat(ctx context.Context, workerID string, heartbeatAt time.Time, availableSlots int) error
 	GetWorker(ctx context.Context, id string) (*domain.Worker, error)
 	ListWorkers(ctx context.Context) ([]*domain.Worker, error)
+	ReapStaleWorkers(ctx context.Context, cutoff time.Time) ([]string, error)
 }

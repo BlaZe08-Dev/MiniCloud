@@ -35,7 +35,7 @@ func TestLocalCore_MultiProcessIntegration(t *testing.T) {
 	repo := storage.NewInMemoryRepository()
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
-	svc := coordinator.NewService(repo, sched, reg)
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
 	apiServer := api.NewServer(coordAddr, svc)
 
 	httpServer := &http.Server{

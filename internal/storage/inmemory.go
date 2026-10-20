@@ -182,6 +182,23 @@ func (r *InMemoryRepository) GetWorker(ctx context.Context, id string) (*domain.
 	return &copied, nil
 }
 
+// RecordHeartbeat atomically updates a worker's last heartbeat time and restores HEALTHY status.
+func (r *InMemoryRepository) RecordHeartbeat(ctx context.Context, workerID string, heartbeatAt time.Time, availableSlots int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	w, exists := r.workers[workerID]
+	if !exists {
+		return domain.ErrWorkerNotFound
+	}
+	w.LastHeartbeatAt = heartbeatAt
+	w.Status = domain.WorkerStatusHealthy
+	if availableSlots >= 0 && availableSlots <= w.TotalSlots {
+		w.AvailableSlots = availableSlots
+	}
+	return nil
+}
+
 // ListWorkers returns all registered workers.
 func (r *InMemoryRepository) ListWorkers(ctx context.Context) ([]*domain.Worker, error) {
 	r.mu.RLock()
@@ -193,4 +210,20 @@ func (r *InMemoryRepository) ListWorkers(ctx context.Context) ([]*domain.Worker,
 		workers = append(workers, &copied)
 	}
 	return workers, nil
+}
+
+// ReapStaleWorkers atomically checks workers and transitions any HEALTHY worker to UNHEALTHY
+// whose LastHeartbeatAt is before the cutoff time. Returns the IDs of the reaped workers.
+func (r *InMemoryRepository) ReapStaleWorkers(ctx context.Context, cutoff time.Time) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var reaped []string
+	for _, w := range r.workers {
+		if w.Status == domain.WorkerStatusHealthy && w.LastHeartbeatAt.Before(cutoff) {
+			w.Status = domain.WorkerStatusUnhealthy
+			reaped = append(reaped, w.ID)
+		}
+	}
+	return reaped, nil
 }

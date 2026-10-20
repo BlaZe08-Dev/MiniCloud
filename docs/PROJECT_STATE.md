@@ -1,9 +1,9 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `docs/version-boundaries`
-- **Current Milestone:** Version Boundaries, Architecture Boundaries, & Compatibility Alignment — **COMPLETED & VERIFIED**
-- **Next Milestone:** Phase 2 — Independent Workers (worker heartbeat reaper, dead worker detection, attempt versioning, dispatch decoupling).
+- **Current Branch:** `milestone/2-independent-workers`
+- **Current Milestone:** Phase 2, Slice 1 — Worker Liveness & Failure Detection — **COMPLETED & VERIFIED**
+- **Next Milestone:** Phase 2, Slice 2 — Dispatch Decoupling & Attempt Versioning (dispatch transport abstraction, lease expiry groundwork).
 - **Target Release:** MiniCloud V1 (Phases 0–4).
 
 ---
@@ -47,7 +47,7 @@ Verified against active codebase:
 ## 5. Known Defects & Limitations
 - Durability is currently in-memory only (PostgreSQL arrives in Phase 3).
 - Queue transport is in-memory only (PostgreSQL pull baseline in V1; Redis Streams evaluation in V2).
-- Dead worker eviction is manual/implicit until Phase 2 worker reaper loop is added.
+- Jobs assigned to dead workers in Phase 2 remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
 - Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
 
 ---
@@ -65,11 +65,14 @@ $ go vet ./...
 (clean exit, code 0)
 
 $ go test -v -race -count=1 ./...
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	(passed with race detector)
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api        (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config     (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator(passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain     (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor   (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler  (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage    (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker     (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture  (passed with race detector)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration   (passed with race detector)
 ```
