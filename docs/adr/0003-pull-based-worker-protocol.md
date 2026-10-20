@@ -29,8 +29,9 @@ We adopt a **pull-based** worker coordination model. Workers register with the c
 ## Amendment: Scheduler Participation in a Pull Model (Phase 3)
 In an unconstrained pull protocol, dispatch defaults to "first-poller-wins", leaving the scheduler inactive in the production dispatch loop.
 
-To fulfill the architectural requirement that the scheduler policy (round-robin baseline) actively governs execution and emits structured decision logs (`policy`, `candidates`, `selected`, `reason`), the pull dispatch handler in the coordinator integrates **Hybrid Pull with Scheduler Arbitration** (detailed in ADR 0011):
-1. Polling workers present their ID and capacity.
-2. The coordinator retrieves eligible candidates from the repository and invokes `scheduler.SelectWorker(eligibleWorkers, taskType)`.
-3. If the polling worker matches the scheduler's selection, dispatch proceeds immediately. If another eligible worker is selected by policy, the coordinator reserves the job with a short scheduling window or evaluates the next candidate job.
-4. Every scheduling decision is logged with policy, candidate set, selected worker, and explicit reason.
+To fulfill the architectural requirement that the scheduler policy actively governs execution and emits structured decision logs (`policy`, `candidates`, `selected`, `reason`), ADR 0011 re-evaluates three candidate models against blueprint Section 4:
+1. **Candidate A (Scheduler Pre-Assignment with Bounded Accept Window):** Coordinator/scheduler selects a worker when the job is queued; workers poll only for their assigned jobs; stale assignments are bounded by an accept window and re-scheduled upon timeout or worker unhealthiness.
+2. **Candidate B (Hold Window at Poll Time):** Coordinator arbitrates poll requests using a temporary hold window for round-robin target workers (rejected due to test determinism risks and idle worker delays).
+3. **Candidate C (Honest FIFO Pull Baseline):** Acknowledge that V1 pull dispatch is FIFO queue-driven, name the policy `"fifo_pull"`, log structured candidate/selection decisions on every poll, and reserve advanced resource-aware scheduling for V2.
+
+*The selection between Candidate A and Candidate C is PROPOSED in ADR 0011, to be settled prior to Slice 3d.*

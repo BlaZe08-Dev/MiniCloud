@@ -2,7 +2,7 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `docs/phase3-design`
-- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **COMPLETED & ACCEPTED BY OWNER**
+- **Current Milestone:** Phase 3 (Durable State) — Architecture & Design Specification — **OWNER REVIEW COMPLETED (Driver, Migrations, Option A Dispatch & Dynamic Capacity Accepted; Scheduler Participation Architecture PROPOSED)**
 - **Next Milestone:** Phase 3, Slice 3a — In-Memory Repository Atomicity Refactor & Worker Re-Registration.
 - **Target Release:** MiniCloud V1 (Phases 0–4).
 
@@ -15,11 +15,15 @@
 - `a636ba0` — `feat: implement Phase 2 Slice 1 worker liveness, reaper loop, and failure recovery` (Merged PR #3 to `main`).
 - `8763113` — `feat: implement dispatch-transport queue interface and delivery semantics` (Merged PR #4 to `main`).
 - **Phase 3 — Durable State Design Specifications (`docs/phase3-design`):**
-  - **ADR 0009 Accepted with Conditions:** [ADR 0009: PostgreSQL Persistence and Driver Selection](file:///home/blazeee/MiniCloud/docs/adr/0009-postgres-persistence-and-driver.md) selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine`. Conditions: pin `pgx` to version requiring Go <= 1.22 (`v5.7.1` uses `go 1.21`), enforce `GOTOOLCHAIN=local`, and gate dependency addition to Slice 3c.
+  - **ADR 0009 Accepted with Conditions:** [ADR 0009: PostgreSQL Persistence and Driver Selection](file:///home/blazeee/MiniCloud/docs/adr/0009-postgres-persistence-and-driver.md) selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine`. Conditions: pin `pgx` to version requiring Go <= 1.22 (`v5.7.1` uses `go 1.21`), enforce `GOTOOLCHAIN=local`, inspect all transitive dependencies in `go.mod`/`go.sum` against Go <= 1.22 during Slice 3c, and gate dependency addition to Slice 3c.
   - **ADR 0010 Accepted with Correction:** [ADR 0010: Database Migrations Policy and Runner Architecture](file:///home/blazeee/MiniCloud/docs/adr/0010-migrations-policy.md) establishing forward-only migrations and expand/contract rules. Correction: use `pg_advisory_xact_lock` inside migration transactions (or a dedicated connection) rather than session-level advisory locks on pooled connections.
-  - **ADR 0011 Accepted Conditional on Scheduler Integration:** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED`, investigating the first-poller-wins gap, defining Hybrid Pull with Scheduler Arbitration (Model 4) to ensure `scheduler.SelectWorker` actively governs dispatch, surviving-worker restart recovery guarantees, and SHA-256 hashed lease tokens.
-  - **ADR 0003 Amended:** [ADR 0003: Pull-Based Worker Protocol](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md) updated to document scheduler participation under pull-based coordination.
-  - **Database Schema Updated:** [docs/schema.md](file:///home/blazeee/MiniCloud/docs/schema.md) specifying PostgreSQL tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP` vs `clock_timestamp()`), and dynamic worker capacity derivation (no counter drift).
+  - **ADR 0011 Partially Accepted (Scheduler Choice PROPOSED):** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](file:///home/blazeee/MiniCloud/docs/adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED` (Option A), dynamic worker capacity derivation in SQL (no counter drift), surviving-worker restart recovery guarantees, and SHA-256 hashed lease tokens. Re-analyzed scheduler participation against blueprint Section 4 across three candidates:
+    - *Candidate A:* Scheduler pre-assigns worker with bounded accept window; concrete failure analysis for dead/slow/unhealthy workers; schema fields `assigned_worker_id`, `assigned_at`, `assignment_expires_at`.
+    - *Candidate B:* Hold window at poll time (Model 4); documented severe operational friction with `SKIP LOCKED`, idle worker starvation, test determinism flakes under `go test -race`, and Redis Streams consumer groups in V2. (Rejected).
+    - *Candidate C (Recommended):* Honest FIFO pull baseline (`fifo_pull`); zero fictitious round-robin claims; preserves benchmark integrity against V2 Redis Streams (ADR-0006); structured decision logging on every poll.
+    - *Status:* Candidate A vs Candidate C is **PROPOSED** for owner selection prior to Slice 3d.
+  - **ADR 0003 Amended:** [ADR 0003: Pull-Based Worker Protocol](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md) updated to document Candidates A, B, and C for scheduler participation under pull-based coordination.
+  - **Database Schema Updated:** [docs/schema.md](file:///home/blazeee/MiniCloud/docs/schema.md) specifying PostgreSQL tables (`jobs`, `attempts`, `workers`, `results`, `job_events`), bounded column sizes (64 KiB), database clock authority (`CURRENT_TIMESTAMP` vs `clock_timestamp()`), and dynamic worker capacity derivation (`worker_capacity` view).
   - **Testing & Provisioning Specification:** [docs/testing-postgres.md](file:///home/blazeee/MiniCloud/docs/testing-postgres.md) documenting Docker Compose local provisioning, host confinement rules, `.env.example` secret hygiene, `_test` database safety guardrails, and planned Makefile targets.
 
 ---
@@ -48,16 +52,17 @@
 
 ### Slice 3c: PostgreSQL Repository Implementation
 - **Scope:**
-  - Add `jackc/pgx/v5 v5.7.1` (`go 1.21 <= 1.22`) with `GOTOOLCHAIN=local`.
+  - Add `jackc/pgx/v5 v5.7.1` (`go 1.21 <= 1.22`) with `GOTOOLCHAIN=local` guardrail; verify all transitive dependencies in `go.mod`/`go.sum` against Go <= 1.22.
   - Implement `internal/storage/postgres.Repository` using `pgxpool.Pool`.
   - Enforce SQL invariants: partial unique index `idx_attempts_active_per_job`, monotonic attempt sequence, dynamic capacity derivation (no counter drift), and SHA-256 lease token hashing.
   - Add unit/integration tests running against `minicloud_test` with mandatory `_test` database name check.
 - **Exit Criteria:** `internal/storage/postgres` satisfies all repository tests with race detector enabled.
 
-### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & Scheduler Arbitration
+### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & Scheduler Integration
 - **Scope:**
   - Implement `internal/queue.Queue` backed by PostgreSQL transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
-  - Integrate Hybrid Pull with Scheduler Arbitration (Model 4) into `PollWork` loop so `scheduler.SelectWorker` is actively called and structured decision logs (`policy`, `candidates`, `selected`, `reason`) are emitted.
+  - Implement the owner-selected scheduler participation model (Candidate A pre-assignment with accept window vs Candidate C honest FIFO pull baseline with structured decision logging).
+  - Verify structured decision logs (`policy`, `candidates`, `selected`, `reason`) are emitted.
 - **Exit Criteria:** Zero duplicate deliveries under parallel polling; structured scheduler decisions logged; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
 
 ### Slice 3e: Coordinator Restart Recovery & Multi-Process Tests
@@ -75,7 +80,7 @@
 1. **Worker Re-Registration on 404:** Worker client must automatically re-register if heartbeat or poll receives `WORKER_NOT_FOUND` (scheduled for Slice 3a).
 2. **Coordinator Queue Release Test:** A coordinator-level test verifying that `Queue.Release` is explicitly called when attempt creation fails after a claim (scheduled for Slice 3a).
 3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in SQL rather than relying on mutable increment/decrement counters.
-4. **Active Scheduler in Pull:** Scheduler must actively participate in poll-time dispatch arbitration (Model 4) to eliminate the first-poller-wins gap (scheduled for Slice 3d).
+4. **Active Scheduler in Pull:** Owner decision pending between Candidate A (pre-assignment with accept window) and Candidate C (honest FIFO pull baseline) prior to Slice 3d. Candidate B (hold window) rejected.
 5. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue).
 
 ---

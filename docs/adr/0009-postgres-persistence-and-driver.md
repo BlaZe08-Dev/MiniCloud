@@ -57,6 +57,7 @@ The repository owner has **APPROVED** `jackc/pgx/v5` + `pgxpool` and `postgres:1
    - The development and host environment runs `go1.22.2`.
    - The selected pgx version must declare `go <= 1.22` in its `go.mod`.
    - **Verification:** Version `github.com/jackc/pgx/v5 v5.7.1` declares `go 1.21` in its `go.mod` (as does `v5.6.0`). This strictly satisfies the condition (`1.21 <= 1.22`).
+   - **Transitive Dependency Verification:** When Slice 3c adds `pgx`, all transitive dependencies (`pgconn`, `puddle`, `pgpassfile`, `pgservicefile`, `x/crypto`, `x/text`, etc.) must also be explicitly inspected and verified against Go <= 1.22 by checking `go.mod` and `go.sum` immediately after running `GOTOOLCHAIN=local go get github.com/jackc/pgx/v5@v5.7.1`.
 2. **Toolchain Auto-Download Guardrail (`GOTOOLCHAIN=local`):**
    - Development and CI environments must enforce `GOTOOLCHAIN=local`.
    - This guarantees that Go will never silently auto-download a newer toolchain or bump the `go` directive in `go.mod`.
