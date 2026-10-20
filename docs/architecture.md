@@ -19,10 +19,10 @@ Each component has strictly defined responsibilities and explicit negative const
 | **CLI** | `cmd/mc` | Submit jobs, query status/attempts, list workers, request cancellation. Formats output for humans/scripts. | Scheduling logic or direct storage/DB access. |
 | **HTTP API** | `internal/api` | Request validation, payload size limits, HTTP contract mapping, response serialization, route handling. | Long-running task execution or background recovery loops. |
 | **Coordinator** | `internal/coordinator` | Orchestration, lifecycle transition coordination, dispatch management, lease verification, recovery scan. | Direct user workload execution. |
-| **Scheduler** | `internal/scheduler` | Evaluates worker health and capacity, selects worker by policy (deterministic round-robin baseline). | Authoritative truth about job states or storage mutations. |
-| **Worker Agent** | `cmd/worker`, `internal/worker` | Independent OS process: registers, sends periodic heartbeats, polls/claims work, invokes executor, reports result. | Global authoritative job state or direct database access. |
+| **Scheduler** | `internal/scheduler` | Evaluates worker health and capacity, selects worker by policy (deterministic round-robin baseline; staged post-Phase 4 per hard gate while Phase 3 uses honest `fifo_pull`). | Authoritative truth about job states or storage mutations. |
+| **Worker Agent** | `cmd/worker`, `internal/worker` | Independent OS process: registers, sends periodic heartbeats, auto-re-registers on 404 `WORKER_NOT_FOUND`, polls/claims work, invokes executor, reports result. | Global authoritative job state or direct database access. |
 | **Executor** | `internal/executor` | Executes approved allowlisted tasks (`echo`, `sleep`, `sha256_loop`), enforces execution timeouts and output caps. | Scheduling decisions or worker registration logic. |
-| **Storage** | `internal/storage` | Repository interface and concurrent-safe storage abstraction (in-memory for Milestone 1; PostgreSQL in Phase 3). | Transient queue delivery mechanics. |
+| **Storage** | `internal/storage` | Repository interface and concurrent-safe storage abstraction with atomic operations (`SubmitJob`, `DispatchJob`, `CommitAttempt`, `CancelJob`), SHA-256 hashed lease tokens, and dynamic capacity derivation (in-memory for Slice 3a; PostgreSQL in Slice 3c). | Transient queue delivery mechanics. |
 | **Queue / Transport** | `internal/queue` | Dispatch transport abstraction (in-memory channel/poll in Milestone 1; Redis Streams in Phase 5). | The only copy of accepted job state. |
 | **Observability** | `internal/observability` | Structured logging (`log/slog`) with correlated `job_id`, `attempt_id`, and metrics. | Business state authority or control plane decisions. |
 
@@ -95,22 +95,22 @@ sequenceDiagram
     API->>Coord: Request Next Assignment for Worker
     Coord->>Queue: Claim Item(supported_tasks)
     Queue-->>Coord: Queue Item (job_id, task_type)
-    Coord->>Store: Re-validate Job is still QUEUED & Read Payload/Timeout
-    Coord->>Store: Create Attempt & Transition Job to RUNNING
-    Coord-->>Worker: 200 OK (JobAttempt: job_id, attempt_id, lease_token, task_type, payload)
+    Coord->>Store: Atomic DispatchJob(worker_id, job_id, supported_tasks)
+    Note over Coord,Store: Verifies job QUEUED, worker HEALTHY, task supported,<br/>worker capacity (derived from active attempts);<br/>creates attempt with SHA-256 hashed lease token
+    Coord-->>Worker: 200 OK (JobAttempt: job_id, attempt_id, raw_lease_token, task_type, payload)
 
     Worker->>Exec: RunTask(ctx, payload) with max_runtime & output limits
     Exec-->>Worker: TaskResult (exit_code, output, error)
 
-    Worker->>API: POST /v1/jobs/{id}/attempts/{attempt_id}/result (lease_token, result)
+    Worker->>API: POST /v1/jobs/{id}/attempts/{attempt_id}/result (lease_token, outcome)
     API->>Coord: Commit Attempt Result
-    Coord->>Coord: Validate Attempt Token & Monotonic Attempt State
+    Coord->>Store: Atomic CommitAttempt(job_id, attempt_id, worker_id, lease_token, outcome)
+    Note over Coord,Store: Verifies attempt RUNNING, worker_id matches, and constant-time<br/>SHA-256 lease token hash match; sets terminal state,<br/>creates result and event records, frees active slot
     alt Valid Attempt (ACCEPTED)
-        Coord->>Store: Commit Job Result (SUCCEEDED / FAILED)
         Coord->>Queue: Ack Queue Delivery
         Coord-->>Worker: 200 OK (Accepted)
     else Stale / Invalid Attempt (No Ack)
-        Coord-->>Worker: 409 Conflict / 403 Forbidden
+        Coord-->>Worker: 409 Conflict / 403 Forbidden / 404 Not Found
     end
 ```
 
@@ -118,8 +118,8 @@ sequenceDiagram
 
 ## 5. Deployment Progression
 - **Stage A (Milestone 1):** In-process storage, single coordinator, 2+ independent worker processes on one host over HTTP.
-- **Stage B (Milestone 2 - Current):** Enhanced independent worker lifecycle, heartbeats, worker liveness/reaper, and dispatch-transport queue interface.
-- **Stage C (Phase 3):** PostgreSQL durable storage and restart recovery.
-- **Stage D (Phase 4):** Leases, timeouts, and automatic retry/requeue failure recovery.
+- **Stage B (Milestone 2):** Enhanced independent worker lifecycle, heartbeats, worker liveness/reaper, and dispatch-transport queue interface.
+- **Stage C (Phase 3):** PostgreSQL durable storage and restart recovery (Slice 3a in-memory repository atomicity, hashed tokens, dynamic capacity, and worker auto-re-registration complete; Slices 3b–3e PostgreSQL implementation).
+- **Stage D (Phase 4):** Leases, timeouts, and automatic retry/requeue failure recovery, followed by the hard-gated Assignment-Based Round-Robin slice.
 - **Stage E (Phase 6 / V2):** Redis Streams dispatch transport evaluation against PostgreSQL baseline (ADR-0006).
 - **Stage F (V3):** Docker executor isolation with CPU/memory/PID limits (ADR-0005) and multi-machine network deployment with mutual TLS.

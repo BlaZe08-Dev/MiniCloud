@@ -28,4 +28,13 @@ type Repository interface {
 	GetWorker(ctx context.Context, id string) (*domain.Worker, error)
 	ListWorkers(ctx context.Context) ([]*domain.Worker, error)
 	ReapStaleWorkers(ctx context.Context, cutoff time.Time) ([]string, error)
+
+	// Atomic multi-entity lifecycle operations (Slice 3a)
+	SubmitJob(ctx context.Context, job *domain.Job) error
+	DispatchJob(ctx context.Context, jobID string, workerID string) (*domain.Attempt, error)
+	CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error)
+	CancelJob(ctx context.Context, jobID string) (*domain.Job, error)
+
+	// Event operations
+	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
 }

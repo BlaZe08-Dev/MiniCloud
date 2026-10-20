@@ -131,7 +131,7 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		return nil, err
 	}
 
-	if err := s.repo.CreateJob(ctx, job); err != nil {
+	if err := s.repo.SubmitJob(ctx, job); err != nil {
 		return nil, err
 	}
 
@@ -167,36 +167,18 @@ func (s *Service) ListAttempts(ctx context.Context, jobID string) ([]*domain.Att
 	return s.repo.ListAttemptsByJob(ctx, jobID)
 }
 
-// CancelJob cancels a queued or running job.
+// CancelJob cancels a queued or running job atomically.
 func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	job, err := s.repo.GetJob(ctx, id)
+	job, err := s.repo.CancelJob(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	if job.State.IsTerminal() {
-		return nil, domain.ErrJobAlreadyTerminal
-	}
-
-	var targetState domain.JobState
-	if job.State == domain.StateQueued {
-		targetState = domain.StateCancelled
+	if job.State == domain.StateCancelled {
 		_ = s.queue.Ack(ctx, job.ID)
-	} else if job.State == domain.StateRunning {
-		targetState = domain.StateCancelRequested
-	} else {
-		targetState = domain.StateCancelled
-	}
-
-	if err := job.TransitionTo(targetState); err != nil {
-		return nil, err
-	}
-
-	if err := s.repo.UpdateJob(ctx, job); err != nil {
-		return nil, err
 	}
 
 	slog.Info("job cancellation requested",
@@ -217,9 +199,6 @@ func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) err
 	}
 	if worker.TotalSlots <= 0 {
 		return fmt.Errorf("%w: total_slots must be positive", domain.ErrInvalidRequest)
-	}
-	if worker.AvailableSlots <= 0 || worker.AvailableSlots > worker.TotalSlots {
-		worker.AvailableSlots = worker.TotalSlots
 	}
 	worker.Status = domain.WorkerStatusHealthy
 	now := s.clock.Now()
@@ -314,65 +293,43 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 			return nil, err
 		}
 
-		// Re-validate job is still QUEUED in the repository (Instruction 2)
-		selectedJob, err := s.repo.GetJob(ctx, item.JobID)
+		attempt, err := s.repo.DispatchJob(ctx, item.JobID, worker.ID)
 		if err != nil {
-			// Job no longer exists in repository, drop and claim again
-			_ = s.queue.Ack(ctx, item.JobID)
-			continue
-		}
+			// Handling of claim outcomes (Adjustment 4):
+			// (a) Job no longer QUEUED or not found -> drop and Ack the queue item (never Release), then continue claim loop
+			if errors.Is(err, domain.ErrJobNotFound) || errors.Is(err, domain.ErrJobNotQueued) {
+				_ = s.queue.Ack(ctx, item.JobID)
+				continue
+			}
 
-		if selectedJob.State != domain.StateQueued {
-			// Job is no longer QUEUED (e.g. cancelled, or already running if redelivered), drop and claim again
-			_ = s.queue.Ack(ctx, item.JobID)
-			continue
-		}
+			// (c) Worker lacks capacity or is unhealthy -> Release without creating an attempt, and return error
+			if errors.Is(err, domain.ErrWorkerUnhealthy) || errors.Is(err, domain.ErrWorkerNoCapacity) {
+				_ = s.queue.Release(ctx, item.JobID)
+				return nil, err
+			}
 
-		// Fetch existing attempts for this job to determine attempt_no
-		prevAttempts, err := s.repo.ListAttemptsByJob(ctx, selectedJob.ID)
-		if err != nil {
-			_ = s.queue.Release(ctx, item.JobID)
-			return nil, err
-		}
-		attemptNo := len(prevAttempts) + 1
-
-		now := s.clock.Now()
-		attempt := &domain.Attempt{
-			ID:         generateID("att"),
-			JobID:      selectedJob.ID,
-			AttemptNo:  attemptNo,
-			WorkerID:   worker.ID,
-			LeaseToken: generateID("lease"),
-			State:      domain.AttemptRunning,
-			StartedAt:  now,
-		}
-
-		// Transition job to RUNNING
-		if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
-			_ = s.queue.Release(ctx, item.JobID)
-			return nil, err
-		}
-		selectedJob.CurrentAttemptID = attempt.ID
-
-		if err := s.repo.CreateAttempt(ctx, attempt); err != nil {
-			_ = s.queue.Release(ctx, item.JobID)
-			return nil, err
-		}
-		if err := s.repo.UpdateJob(ctx, selectedJob); err != nil {
+			// (b) Transient failure -> Release and return error
 			_ = s.queue.Release(ctx, item.JobID)
 			return nil, err
 		}
 
-		// Deduct 1 available slot from worker
-		worker.AvailableSlots--
-		_ = s.repo.UpsertWorker(ctx, worker)
-
+		// Dispatch logging per ADR-0011 (fifo_pull):
+		// the "job dispatched to worker" log gains policy="fifo_pull" and reason="claimed by polling worker with capacity".
+		// Do NOT call scheduler.SelectWorker anywhere in the dispatch path and do NOT emit "scheduler decision" logs from dispatch.
+		// internal/scheduler stays unused in production code on purpose.
 		slog.Info("job dispatched to worker",
-			"job_id", selectedJob.ID,
+			"job_id", attempt.JobID,
 			"attempt_id", attempt.ID,
 			"attempt_no", attempt.AttemptNo,
 			"worker_id", worker.ID,
+			"policy", "fifo_pull",
+			"reason", "claimed by polling worker with capacity",
 		)
+
+		selectedJob, err := s.repo.GetJob(ctx, attempt.JobID)
+		if err != nil {
+			return nil, err
+		}
 
 		return &WorkAssignment{
 			JobID:          selectedJob.ID,
@@ -386,7 +343,7 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 	}
 }
 
-// CommitResult commits an execution outcome reported by a worker.
+// CommitResult commits an execution outcome reported by a worker atomically.
 //
 // CRITICAL INVARIANTS:
 // 1. Rejects commit if job is already terminal.
@@ -397,103 +354,46 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	job, err := s.repo.GetJob(ctx, jobID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check 1: If job is already in a terminal state, reject commit
-	if job.State.IsTerminal() {
-		slog.Warn("rejecting result for already-terminal job",
-			"job_id", job.ID,
-			"attempt_id", attemptID,
-			"job_state", job.State,
-		)
-		return nil, domain.ErrJobAlreadyTerminal
-	}
-
-	// Check 2: Verify that reported attempt_id is indeed the job's active current attempt
-	if job.CurrentAttemptID != attemptID {
-		slog.Warn("stale attempt rejected: attempt ID mismatch",
-			"job_id", job.ID,
-			"reported_attempt_id", attemptID,
-			"active_attempt_id", job.CurrentAttemptID,
-		)
-		return nil, domain.ErrStaleAttempt
-	}
-
-	attempt, err := s.repo.GetAttempt(ctx, attemptID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check 3: Verify lease token
-	if attempt.LeaseToken != leaseToken {
-		slog.Warn("stale attempt rejected: lease token mismatch",
-			"job_id", job.ID,
-			"attempt_id", attemptID,
-		)
-		return nil, domain.ErrStaleAttempt
-	}
-
-	// Check 4: Verify reporting worker is the assigned worker
-	if attempt.WorkerID != workerID {
-		slog.Warn("worker mismatch rejected: reporting worker not assigned to attempt",
-			"job_id", job.ID,
-			"attempt_id", attemptID,
-			"assigned_worker", attempt.WorkerID,
-			"reporting_worker", workerID,
-		)
-		return nil, domain.ErrWorkerMismatch
-	}
-
-	// Update attempt
-	now := s.clock.Now()
-	attempt.FinishedAt = &now
-	attempt.ExitCode = exitCode
-	attempt.Output = output
-	attempt.Error = errSummary
-
-	var targetState domain.JobState
-	if exitCode == 0 && errSummary == "" {
-		attempt.State = domain.AttemptCompleted
-		targetState = domain.StateSucceeded
-	} else {
-		attempt.State = domain.AttemptFailed
-		targetState = domain.StateFailed
-	}
-
-	if err := s.repo.UpdateAttempt(ctx, attempt); err != nil {
-		return nil, err
-	}
-
-	if err := job.TransitionTo(targetState); err != nil {
-		return nil, err
-	}
-	job.Result = &domain.Result{
+	outcome := domain.AttemptOutcome{
 		ExitCode: exitCode,
 		Output:   output,
 		Error:    errSummary,
 	}
 
-	if err := s.repo.UpdateJob(ctx, job); err != nil {
+	job, err := s.repo.CommitAttempt(ctx, jobID, attemptID, leaseToken, workerID, outcome)
+	if err != nil {
+		if errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			slog.Warn("rejecting result for already-terminal job",
+				"job_id", jobID,
+				"attempt_id", attemptID,
+			)
+			return nil, domain.ErrJobAlreadyTerminal
+		}
+		if errors.Is(err, domain.ErrStaleAttempt) {
+			slog.Warn("stale attempt rejected",
+				"job_id", jobID,
+				"attempt_id", attemptID,
+			)
+			return nil, domain.ErrStaleAttempt
+		}
+		if errors.Is(err, domain.ErrWorkerMismatch) {
+			slog.Warn("worker mismatch rejected: reporting worker not assigned to attempt",
+				"job_id", jobID,
+				"attempt_id", attemptID,
+				"assigned_worker", workerID,
+				"reporting_worker", workerID,
+			)
+			return nil, domain.ErrWorkerMismatch
+		}
 		return nil, err
 	}
 
 	// Settle delivery in dispatch transport ONLY after an accepted commit
 	_ = s.queue.Ack(ctx, job.ID)
 
-	// Reclaim worker slot
-	if w, err := s.repo.GetWorker(ctx, workerID); err == nil {
-		if w.AvailableSlots < w.TotalSlots {
-			w.AvailableSlots++
-			_ = s.repo.UpsertWorker(ctx, w)
-		}
-	}
-
 	slog.Info("job result committed",
 		"job_id", job.ID,
-		"attempt_id", attempt.ID,
+		"attempt_id", attemptID,
 		"final_state", job.State,
 		"exit_code", exitCode,
 	)
