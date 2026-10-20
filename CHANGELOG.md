@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 3, Slice 3b — Database Provisioning, Schema & Forward-Only Migrations:**
+  - `deployments/docker-compose.yml`: Pinned `postgres:16-alpine` service bound strictly to `127.0.0.1:5433` with named volume `minicloud_pgdata` and automated healthcheck.
+  - `deployments/init-test-db.sh`: Initialized dedicated `minicloud_test` database alongside `minicloud` on clean container volume.
+  - `.env.example` & `.gitignore`: Configured database secrets hygiene ensuring `.env` is never committed; documented host networking requirements.
+  - `Makefile`: Added `@`-prefixed targets `db-up`, `db-down`, `db-psql`, `db-reset-test`, and `test-db`. Ensured zero volume removal (`db-down` retains volumes; `db-reset-test` drops only `minicloud_test` after asserting `_test` suffix).
+  - `internal/domain`: Added `NewLeaseToken` (32 bytes entropy from `crypto/rand`, URL-safe base64) and `HashLeaseToken` (SHA-256 hex digest); verified 10,000 token uniqueness and Shannon entropy >= 32 bytes.
+  - `internal/storage`: Updated `InMemoryRepository` to use domain lease token generation; hardened concurrent dispatch and commit tests with barrier synchronization (`-race -count=200` clean).
+  - `internal/storage/postgres`: Implemented forward-only `Migrator` embedding migrations via `embed.FS`. Acquires `SELECT pg_advisory_xact_lock` FIRST inside transaction; creates `schema_migrations`; validates SHA-256 checksums to detect file tampering; executes unapplied migrations in version order. Unqualified SQL executes in caller's active `search_path`.
+  - `internal/storage/postgres/migrations/000001_initial_schema.sql`: Initial schema migration creating `jobs` (`BYTEA` payload with `octet_length <= 65536`), `workers`, `attempts` (`TEXT` output with `octet_length <= 65536`, `TEXT` error with `octet_length <= 10240`), `results`, and `job_events` (`JSONB` details). Added partial unique index `idx_attempts_active_per_job` (`WHERE state = 'RUNNING'`) and `worker_capacity` view dynamically calculating available worker slots.
+  - `cmd/migrate`: Added migration CLI binary for running migrations from terminal or scripts.
+  - `internal/storage/postgres/migrator_test.go`: Added test suite running in isolated `test_<random_hex>` schemas dropped on cleanup with hard `_test` DB guardrail; verified fresh migration, idempotent re-run, checksum tampering detection (`ErrChecksumMismatch`), serialized concurrent runners (exactly one applies), and SQL schema invariant enforcement.
+  - `tests/architecture/boundaries_test.go`: Extended architecture tests ensuring `internal/domain` and `internal/coordinator` never import `pgx` or `internal/storage/postgres`.
+  - `docs/adr/0009-postgres-persistence-and-driver.md`: Recorded owner approval of `jackc/pgx/v5 v5.7.1` in Slice 3b with `GOTOOLCHAIN=local` guardrail and verified zero toolchain drift.
 - **Phase 3, Slice 3a — Repository Atomicity Refactor & Worker Re-Registration:**
   - `internal/storage`: Introduced transaction-aligned atomic methods on `Repository` interface (`SubmitJob`, `DispatchJob`, `CommitAttempt`, and `CancelJob`) implemented with single-mutex atomicity in `InMemoryRepository`.
   - `internal/domain`: Added `AttemptOutcome` struct (ExitCode, Output, ErrorSummary, ErrorClassification) for atomic attempt completion.

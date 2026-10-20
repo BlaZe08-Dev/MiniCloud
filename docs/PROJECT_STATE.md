@@ -1,9 +1,9 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `milestone/3a-repository-atomicity`
-- **Current Milestone:** Phase 3 (Durable State) — Slice 3a: In-Memory Repository Atomicity Refactor & Worker Re-Registration — **COMPLETED**
-- **Next Milestone:** Phase 3, Slice 3b — Database Provisioning, Schema & Forward-Only Migrations.
+- **Current Branch:** `milestone/3b-migrations-and-schema`
+- **Current Milestone:** Phase 3 (Durable State) — Slice 3b: Database Provisioning, Schema & Forward-Only Migrations — **COMPLETED**
+- **Next Milestone:** Phase 3, Slice 3c — PostgreSQL Repository Implementation.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
@@ -37,29 +37,34 @@
   - **Non-Retryable Report Classification:** Classified 404 attempt report rejections as non-retryable in `IsNonRetryableReportError` to prevent infinite loops after coordinator restart without state.
   - **Coordinator Restart Integration Test:** Added `tests/integration/coordinator_restart_test.go` verifying that surviving workers auto-re-register, complete in-flight tasks without looping, and continue polling.
 
+- **Phase 3, Slice 3b — Database Provisioning, Schema & Forward-Only Migrations (`milestone/3b-migrations-and-schema`):**
+  - **Docker Compose Provisioning & Secrets Hygiene:** Added `deployments/docker-compose.yml` (`postgres:16-alpine`, port strictly on `127.0.0.1:5433`), `deployments/init-test-db.sh` for `minicloud_test`, `.env.example`, gitignored `.env`, and @-prefixed Makefile recipes (`db-up`, `db-down`, `db-psql`, `db-reset-test`, `test-db`). Guaranteed zero volume destruction (`db-down` preserves volumes; `db-reset-test` safely drops only `minicloud_test`).
+  - **Secure Lease Token Generation:** Added `domain.NewLeaseToken` (32 bytes entropy via `crypto/rand`, URL-safe base64) and `domain.HashLeaseToken` (SHA-256 hex); updated in-memory storage; tested 10,000 token uniqueness and Shannon entropy >= 32 bytes; hardened concurrent in-memory dispatch/commit tests with barrier synchronization (`-race -count=200` clean).
+  - **Forward-Only Migration Runner (`internal/storage/postgres`):** Implemented in-tree migration runner executing embedded `.sql` migrations; acquires `SELECT pg_advisory_xact_lock` FIRST inside the transaction to eliminate catalog races; creates `schema_migrations`; validates SHA-256 checksums to detect file tampering; executes unapplied migrations in version order within caller's `search_path`.
+  - **Initial Schema (`000001_initial_schema.sql`):** Defined tables `jobs` (`BYTEA` payload with `octet_length <= 65536`), `workers`, `attempts` (`TEXT` output with `octet_length <= 65536`, `TEXT` error with `octet_length <= 10240`), `results`, and `job_events` (`JSONB` details); enforced `idx_attempts_active_per_job` partial unique index (at most one RUNNING attempt per job); created `worker_capacity` view dynamically deriving available slots.
+  - **Migration CLI (`cmd/migrate`):** Added binary for running forward-only migrations from shell/scripts using `MINICLOUD_DATABASE_URL` or `-database-url`.
+  - **Schema-Isolated Testing:** Tests execute in isolated `test_<random_hex>` schemas cleaned up via `t.Cleanup`; hard safety guard refuses execution against non-`_test` databases; tests verify fresh migration, idempotent re-run, checksum tampering detection (`ErrChecksumMismatch`), serialized concurrent runners (exactly one applies), and all SQL schema invariants.
+  - **Approved PGX v5.7.1 Staging & Boundary Invariants:** Integrated `github.com/jackc/pgx/v5 v5.7.1` with `GOTOOLCHAIN=local`; verified `go 1.22.2` unchanged with zero toolchain directives; extended `tests/architecture/boundaries_test.go` prohibiting `pgx` in `internal/domain` and `internal/coordinator`, and prohibiting `internal/storage/postgres` in `internal/coordinator`.
+
 ---
 
 ## 3. Approved Phase 3 Sub-Slices & Exit Criteria
 
 ### Slice 3a: Repository Atomicity Refactor, Worker Auto-Re-Registration & In-Memory Baseline
 - **Scope:**
-  - Reshape repository methods so the PostgreSQL implementation can run each as ONE transaction:
-    - `DispatchJob(ctx, workerID, supportedTasks)`: Atomically transitions job from `QUEUED` to `RUNNING`, creates attempt record, and updates worker capacity.
-    - `CommitResult(ctx, jobID, attemptID, ...)`: Atomically transitions attempt to `COMPLETED`/`FAILED`, transitions job to terminal state, commits result record, records lifecycle event, and releases worker slot.
-    - `SubmitJob(ctx, job)`: Atomically inserts job and initial audit event.
-    - `CancelJob(ctx, jobID)`: Atomically applies state-guarded cancellation and records audit event.
+  - Reshape repository methods so the PostgreSQL implementation can run each as ONE transaction (`DispatchJob`, `CommitAttempt`, `SubmitJob`, `CancelJob`).
   - Implement atomic methods in `InMemoryRepository`.
-  - Add worker client auto-re-registration when receiving HTTP 404 `WORKER_NOT_FOUND` on heartbeat or poll (with unit and integration tests).
-  - Add coordinator-level test asserting `Queue.Release` is invoked when dispatch or attempt creation fails after a claim.
-- **Exit Criteria:** Zero non-atomic mutation gaps in coordinator; worker automatically heals on 404 `WORKER_NOT_FOUND`; `Queue.Release` verified; all tests pass `-race`.
+  - Add worker client auto-re-registration on HTTP 404 `WORKER_NOT_FOUND`.
+  - Add coordinator-level test asserting `Queue.Release` is invoked on claim failure.
+- **Exit Criteria:** Zero non-atomic mutation gaps in coordinator; worker automatically heals on 404 `WORKER_NOT_FOUND`; `Queue.Release` verified; all tests pass `-race`. (**SATISFIED**)
 
 ### Slice 3b: Database Provisioning, Schema & Forward-Only Migrations
 - **Scope:**
   - Create `deployments/docker-compose.yml`, `init-test-db.sh`, `.env.example`, and update `.gitignore`.
   - Author initial embedded migration: `internal/storage/postgres/migrations/000001_initial_schema.sql` incorporating dynamic capacity view `worker_capacity` and timestamp semantics.
   - Implement minimal in-tree migration runner with `schema_migrations`, transaction-level advisory locks (`pg_advisory_xact_lock`), and SHA-256 checksum verification.
-  - Add Makefile targets (`db-up`, `db-down`, `db-psql`, `test-db`).
-- **Exit Criteria:** Migration runner successfully applies schema to `minicloud` and `minicloud_test`; concurrent runners serialized by transaction advisory lock; checksum tampering detected.
+  - Add Makefile targets (`db-up`, `db-down`, `db-psql`, `db-reset-test`, `test-db`).
+- **Exit Criteria:** Migration runner successfully applies schema to `minicloud` and `minicloud_test`; concurrent runners serialized by transaction advisory lock; checksum tampering detected; schema invariants verified; boundaries protected. (**SATISFIED**)
 
 ### Slice 3c: PostgreSQL Repository Implementation
 - **Scope:**
