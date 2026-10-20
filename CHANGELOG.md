@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 3, Slice 3a — Repository Atomicity Refactor & Worker Re-Registration:**
+  - `internal/storage`: Introduced transaction-aligned atomic methods on `Repository` interface (`SubmitJob`, `DispatchJob`, `CommitAttempt`, and `CancelJob`) implemented with single-mutex atomicity in `InMemoryRepository`.
+  - `internal/domain`: Added `AttemptOutcome` struct (ExitCode, Output, ErrorSummary, ErrorClassification) for atomic attempt completion.
+  - `internal/domain`: Added `JobEvent` struct for recording lifecycle audit events alongside state mutations.
+  - `internal/domain`: Added typed dispatch precondition errors (`ErrJobNotQueued`, `ErrWorkerNotFound`, `ErrWorkerNotHealthy`, `ErrTaskNotSupported`, `ErrWorkerNoCapacity`).
+  - `internal/storage`: Implemented SHA-256 lease token hashing on attempt creation and constant-time verification (`crypto/subtle.ConstantTimeCompare`) on commit; raw lease token is returned to the worker strictly once on dispatch.
+  - `internal/storage`: Dynamically derived worker `AvailableSlots` from active `RUNNING` attempts with zero stored mutable counter writes.
+  - `internal/coordinator`: Integrated atomic storage methods into `SubmitJob`, `PollWork`, `CommitResult`, and `CancelJob`.
+  - `internal/coordinator`: Handled queue claim outcomes deterministically (non-QUEUED or not found drops and acks; transient failure releases item; unhealthy/no capacity releases item without attempt creation).
+  - `internal/coordinator`: Implemented honest `policy="fifo_pull"` and `reason="claimed by polling worker with capacity"` logging per ADR-0011 without calling `scheduler.SelectWorker`.
+  - `internal/worker`: Added automatic client re-registration upon encountering HTTP 404 `WORKER_NOT_FOUND` during heartbeat and poll cycles.
+  - `internal/worker`: Classified HTTP 404 attempt report rejections as non-retryable in `IsNonRetryableReportError` to allow workers to log and resume polling instead of looping indefinitely following an uncoordinated restart.
+  - `tests/integration/coordinator_restart_test.go`: Added end-to-end integration test verifying worker survival, automatic re-registration, bounded handling of rejected in-flight reports, and resumed polling across coordinator restart.
 - **Phase 3 — Durable State (Design Specifications & Owner Approvals):**
   - `docs/adr/0009-postgres-persistence-and-driver.md`: Accepted Architecture Decision Record selecting `jackc/pgx/v5` with `pgxpool` and pinned `postgres:16-alpine` container image, subject to pinned Go <= 1.22 version (`v5.7.1` uses `go 1.21`), `GOTOOLCHAIN=local`, inspection of transitive dependencies in `go.mod`/`go.sum` against Go <= 1.22, and gated dependency introduction in Slice 3c.
   - `docs/adr/0010-migrations-policy.md`: Accepted Architecture Decision Record establishing forward-only schema migrations, expand/contract rules for destructive alterations, and an embedded in-tree runner with `pg_advisory_xact_lock` transaction advisory locking and SHA-256 checksum verification.

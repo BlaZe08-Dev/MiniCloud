@@ -58,7 +58,7 @@ MiniCloud development is structured into three major releases. Each version buil
 - **Worker Re-Registration:** Automatic recovery when worker ID is unknown to coordinator (Slice 3a).
 - **Queue Release Verification:** Coordinator must call `Queue.Release` when attempt creation fails after a claim (Slice 3a).
 - **Dispatch Atomicity & Dynamic Capacity:** Job state transition to `RUNNING` and attempt creation must be transactional; capacity derived in SQL from active attempts to prevent counter drift (Slice 3a/3b/3c).
-- **Scheduler Active Participation & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Assignment-based round-robin must be implemented after Phase 4 before V1 completion or V2 benchmarking.
+- **Scheduler Active Participation & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. See [Section 4](#4-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
 - **Phase 4 Lease Expiry & In-Flight Requeue:** Handling unacked in-flight queue items and recovering jobs abandoned by dead workers will be implemented in Phase 4.
 
 ---

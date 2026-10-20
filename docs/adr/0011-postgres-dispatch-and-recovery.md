@@ -75,10 +75,10 @@ We evaluate two architectural approaches for dispatching work from PostgreSQL to
 
 ### 2.1 Codebase Investigation: Confirmation of Unused Scheduler
 An inspection of the active codebase confirms that **`scheduler.Scheduler` is currently unused in the production dispatch loop**:
-- In [internal/coordinator/service.go:58](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L58), `scheduler scheduler.Scheduler` is stored on `Service` and injected via `NewService` / `NewServiceWithQueue` ([service.go:66-80](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L66-L80)).
-- In `PollWork` ([service.go:290-386](file:///home/blazeee/MiniCloud/internal/coordinator/service.go#L290-L386)), `s.scheduler` is **never called**.
+- In [internal/coordinator/service.go:58](../../internal/coordinator/service.go#L58), `scheduler scheduler.Scheduler` is stored on `Service` and injected via `NewService` / `NewServiceWithQueue` ([service.go:66-80](../../internal/coordinator/service.go#L66-L80)).
+- In `PollWork` ([service.go:290-386](../../internal/coordinator/service.go#L290-L386)), `s.scheduler` is **never called**.
 - In the active dispatch loop, when a worker polls, the coordinator claims the next FIFO item from the queue matching the worker's tasks and immediately assigns it to the caller.
-- **Result:** Dispatch is currently strictly **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go:32](file:///home/blazeee/MiniCloud/internal/scheduler/round_robin_test.go#L32)).
+- **Result:** Dispatch is currently strictly **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go:32](../../internal/scheduler/round_robin_test.go#L32)).
 
 ### 2.2 Blueprint Architecture & Data Flow Alignment
 The MiniCloud project blueprint specifies worker coordination across two primary sections:
@@ -223,7 +223,7 @@ Candidate C resolves the tension by embracing the operational reality of pull-ba
 3. **Hard Gate & Post-Phase 4 Assignment Slice:**
    - To satisfy Blueprint Section 6 before V1 completion, an explicit slice—**Assignment-Based Round-Robin**—is scheduled **immediately following Phase 4**.
    - **Rationale for Staging:** Pre-assignment requires assignment expiration, dead-worker detection, and automated requeueing. Because Phase 4 builds this exact lease and requeue engine, implementing assignment-based scheduling after Phase 4 avoids implementing duplicate or disposable recovery machinery in Phase 3.
-   - **Hard Gate:** V1 will not be tagged as complete, and V2 scheduling research / Redis Streams benchmarking will not commence, until the assignment-based round-robin slice is implemented and verified. Candidate A is the leading design for that slice.
+   - **Hard Gate:** As formalized in [Section 2.4 item 4](#24-decision-honest-fifo-pull-baseline-candidate-c), V1 will not be tagged as complete, and V2 scheduling research / Redis Streams benchmarking will not commence, until the assignment-based round-robin slice is implemented and verified. Candidate A is the leading design for that slice.
 
 ---
 
@@ -327,4 +327,4 @@ To adhere to the principle of least privilege and protect worker execution crede
    - `internal/scheduler` is intentionally unused in the V1 dispatch loop during Phase 3.
    - Candidate B (hold window) is **REJECTED**.
    - Candidate A (pre-assignment with bounded accept window) is designated as the leading design for the post-Phase 4 "Assignment-Based Round-Robin" slice.
-   - **Hard Gate:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+   - **Hard Gate:** Enforced per [Section 2.4 item 4](#24-decision-honest-fifo-pull-baseline-candidate-c); V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.

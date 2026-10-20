@@ -24,11 +24,11 @@ We partition project development into three distinct major platform releases bui
 - **MiniCloud V2 — Scheduling Research & Transport Evaluation (Phase 6 + Redis Evaluation):**
   - Resource-aware scheduling policies compared empirically against the round-robin baseline.
   - Repeatable workload generator and benchmark suite.
-  - Evaluation of Redis Streams as a dispatch transport against the PostgreSQL pull baseline (see [ADR 0006](file:///home/blazeee/MiniCloud/docs/adr/0006-redis-streams-dispatch-evaluation-in-v2.md)).
+  - Evaluation of Redis Streams as a dispatch transport against the PostgreSQL pull baseline (see [ADR 0006](0006-redis-streams-dispatch-evaluation-in-v2.md)).
   - Fault-injection testing harness under heavy load.
 
 - **MiniCloud V3 — Execution Isolation, Multi-Node, and Hardening (Phase 5 Isolation + Phases 7–8):**
-  - Docker container execution isolation with CPU/memory/PID constraints (see [ADR 0005](file:///home/blazeee/MiniCloud/docs/adr/0005-docker-isolation-in-v3.md)).
+  - Docker container execution isolation with CPU/memory/PID constraints (see [ADR 0005](0005-docker-isolation-in-v3.md)).
   - Multi-machine networking, worker authentication, and mutual TLS.
   - Observability hardening (Prometheus metrics and structured logging audit).
   - Reproducible release verification from a clean checkout.

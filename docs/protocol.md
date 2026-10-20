@@ -1,7 +1,7 @@
 # MiniCloud Communication Protocol Specification
 
 ## 1. Overview
-MiniCloud uses HTTP/1.1 with JSON payloads for both the public Client API and the internal Coordinator <-> Worker protocol. All communication is strictly pull-based for workers (see [ADR 0003](file:///home/blazeee/MiniCloud/docs/adr/0003-pull-based-worker-protocol.md)).
+MiniCloud uses HTTP/1.1 with JSON payloads for both the public Client API and the internal Coordinator <-> Worker protocol. All communication is strictly pull-based for workers (see [ADR 0003](adr/0003-pull-based-worker-protocol.md)).
 
 ---
 
