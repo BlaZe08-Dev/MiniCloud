@@ -27,6 +27,17 @@ func generateID(prefix string) string {
 	return fmt.Sprintf("%s_%d_%s", prefix, seq, hex.EncodeToString(b))
 }
 
+// Clock provides time abstraction for deterministic testing.
+type Clock interface {
+	Now() time.Time
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time {
+	return time.Now().UTC()
+}
+
 // WorkAssignment represents the payload delivered to a worker upon claiming a job attempt.
 type WorkAssignment struct {
 	JobID          string          `json:"job_id"`
@@ -40,19 +51,33 @@ type WorkAssignment struct {
 
 // Service orchestrates jobs, worker coordination, scheduling, and attempt lifecycle.
 type Service struct {
-	mu          sync.Mutex
-	repo        storage.Repository
-	scheduler   scheduler.Scheduler
-	executorReg *executor.Registry
+	mu            sync.Mutex
+	repo          storage.Repository
+	scheduler     scheduler.Scheduler
+	executorReg   *executor.Registry
+	clock         Clock
+	workerTimeout time.Duration
 }
 
 // NewService constructs a new Coordinator Service.
-func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry) *Service {
-	return &Service{
-		repo:        repo,
-		scheduler:   sched,
-		executorReg: reg,
+func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+	if workerTimeout <= 0 {
+		workerTimeout = 10 * time.Second
 	}
+	return &Service{
+		repo:          repo,
+		scheduler:     sched,
+		executorReg:   reg,
+		clock:         realClock{},
+		workerTimeout: workerTimeout,
+	}
+}
+
+// SetClock injects a custom clock (e.g. for deterministic unit tests).
+func (s *Service) SetClock(c Clock) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clock = c
 }
 
 // SubmitJob validates a new job submission, records it in SUBMITTED, and transitions to QUEUED.
@@ -77,7 +102,7 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		timeoutSec = 60
 	}
 
-	now := time.Now().UTC()
+	now := s.clock.Now()
 	job := &domain.Job{
 		ID:             generateID("job"),
 		TaskType:       taskType,
@@ -176,7 +201,7 @@ func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) err
 		worker.AvailableSlots = worker.TotalSlots
 	}
 	worker.Status = domain.WorkerStatusHealthy
-	now := time.Now().UTC()
+	now := s.clock.Now()
 	worker.LastHeartbeatAt = now
 	worker.RegisteredAt = now
 
@@ -195,21 +220,9 @@ func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) err
 }
 
 // Heartbeat records a worker heartbeat and updates its available capacity.
+// A valid heartbeat from an UNHEALTHY worker restores its status to HEALTHY.
 func (s *Service) Heartbeat(ctx context.Context, workerID string, availableSlots int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	w, err := s.repo.GetWorker(ctx, workerID)
-	if err != nil {
-		return err
-	}
-
-	w.LastHeartbeatAt = time.Now().UTC()
-	if availableSlots >= 0 && availableSlots <= w.TotalSlots {
-		w.AvailableSlots = availableSlots
-	}
-
-	return s.repo.UpsertWorker(ctx, w)
+	return s.repo.RecordHeartbeat(ctx, workerID, s.clock.Now(), availableSlots)
 }
 
 // ListWorkers returns all registered workers.
@@ -217,7 +230,42 @@ func (s *Service) ListWorkers(ctx context.Context) ([]*domain.Worker, error) {
 	return s.repo.ListWorkers(ctx)
 }
 
+// ReapInactiveWorkers scans registered workers and marks any worker UNHEALTHY
+// whose last heartbeat is older than workerTimeout.
+func (s *Service) ReapInactiveWorkers(ctx context.Context) ([]string, error) {
+	now := s.clock.Now()
+	cutoff := now.Add(-s.workerTimeout)
+	reaped, err := s.repo.ReapStaleWorkers(ctx, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	if len(reaped) > 0 {
+		slog.Warn("reaped inactive workers due to heartbeat timeout",
+			"count", len(reaped),
+			"worker_ids", reaped,
+			"cutoff", cutoff,
+		)
+	}
+	return reaped, nil
+}
+
+// StartReaper runs a periodic reaper loop until the context is cancelled.
+func (s *Service) StartReaper(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, _ = s.ReapInactiveWorkers(ctx)
+		}
+	}
+}
+
 // PollWork allows an idle worker with capacity to claim an eligible queued job.
+// A poll from an UNHEALTHY worker does not count as liveness and returns no work.
 func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -225,6 +273,11 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 	worker, err := s.repo.GetWorker(ctx, workerID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Poll from an UNHEALTHY worker returns no work
+	if worker.Status != domain.WorkerStatusHealthy {
+		return nil, domain.ErrNoWorkersAvailable
 	}
 
 	if !worker.HasCapacity() {
@@ -259,7 +312,7 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 	}
 	attemptNo := len(prevAttempts) + 1
 
-	now := time.Now().UTC()
+	now := s.clock.Now()
 	attempt := &domain.Attempt{
 		ID:         generateID("att"),
 		JobID:      selectedJob.ID,
@@ -307,7 +360,11 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 
 // CommitResult commits an execution outcome reported by a worker.
 //
-// CRITICAL INVARIANT: Rejects stale attempts if attempt_id or lease_token does not match active attempt.
+// CRITICAL INVARIANTS:
+// 1. Rejects commit if job is already terminal.
+// 2. Rejects stale attempts if attempt_id or lease_token does not match active attempt.
+// 3. Rejects commit if reporting worker is not the worker assigned to the attempt (WORKER_MISMATCH).
+// 4. Accepts commit from a worker marked UNHEALTHY if attempt_id, lease_token, and worker_id match.
 func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken, workerID string, exitCode int, output, errSummary string) (*domain.Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -351,8 +408,19 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 		return nil, domain.ErrStaleAttempt
 	}
 
+	// Check 4: Verify reporting worker is the assigned worker
+	if attempt.WorkerID != workerID {
+		slog.Warn("worker mismatch rejected: reporting worker not assigned to attempt",
+			"job_id", job.ID,
+			"attempt_id", attemptID,
+			"assigned_worker", attempt.WorkerID,
+			"reporting_worker", workerID,
+		)
+		return nil, domain.ErrWorkerMismatch
+	}
+
 	// Update attempt
-	now := time.Now().UTC()
+	now := s.clock.Now()
 	attempt.FinishedAt = &now
 	attempt.ExitCode = exitCode
 	attempt.Output = output

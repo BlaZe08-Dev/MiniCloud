@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/api"
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
@@ -19,7 +20,7 @@ func setupTestServer() (*httptest.Server, *coordinator.Service) {
 	repo := storage.NewInMemoryRepository()
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
-	svc := coordinator.NewService(repo, sched, reg)
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
 	apiServer := api.NewServer("127.0.0.1:0", svc)
 	ts := httptest.NewServer(apiServer.Handler())
 	return ts, svc
@@ -164,6 +165,22 @@ func TestAPI_StaleAttemptRejection(t *testing.T) {
 
 	if respWrongLease.StatusCode != http.StatusConflict {
 		t.Fatalf("expected HTTP 409 Conflict for wrong lease token, got %d", respWrongLease.StatusCode)
+	}
+
+	// 5b. Worker mismatch rejection: Report result from different worker returns 403 WORKER_MISMATCH
+	wrongWorkerReport := []byte(`{"lease_token":"` + assignment.LeaseToken + `","worker_id":"rogue-worker","exit_code":0,"output":"ok"}`)
+	respWrongWorker, err := http.Post(ts.URL+"/v1/jobs/"+job.ID+"/attempts/"+assignment.AttemptID+"/result", "application/json", bytes.NewReader(wrongWorkerReport))
+	if err != nil {
+		t.Fatalf("report result request failed: %v", err)
+	}
+	defer respWrongWorker.Body.Close()
+	if respWrongWorker.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected HTTP 403 Forbidden for worker mismatch, got %d", respWrongWorker.StatusCode)
+	}
+	var errMismatch api.ErrorResponse
+	_ = json.NewDecoder(respWrongWorker.Body).Decode(&errMismatch)
+	if errMismatch.Error.Code != "WORKER_MISMATCH" {
+		t.Fatalf("expected WORKER_MISMATCH error code, got %s", errMismatch.Error.Code)
 	}
 
 	// 6. Valid report succeeds

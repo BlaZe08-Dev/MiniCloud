@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 2, Slice 1 — Worker Liveness & Failure Recovery:**
+  - `docs/adr/0007-worker-liveness-and-recovery.md`: Architecture Decision Record for worker liveness, atomic reaper loop, and failure recovery semantics.
+  - `internal/storage`: Atomic `ReapStaleWorkers` and `RecordHeartbeat` methods in `InMemoryRepository` protecting against heartbeat/reap race conditions.
+  - `internal/coordinator`: Background reaper loop `StartReaper` and `ReapInactiveWorkers` with injectable `Clock` abstraction for deterministic sub-millisecond testing.
+  - `internal/coordinator`: Polling restriction excluding `UNHEALTHY` workers from claiming work; polling does not substitute for heartbeat telemetry.
+  - `internal/coordinator`: Result commit acceptance for workers marked `UNHEALTHY` during execution for their valid attempt.
+  - `internal/coordinator` & `internal/api`: Strict worker attempt ownership verification rejecting mismatched worker IDs with HTTP 403 `WORKER_MISMATCH`.
+  - `internal/worker`: Permanent error classification via `IsNonRetryableReportError` treating HTTP 403 `WORKER_MISMATCH` and HTTP 409 conflict responses as non-retryable.
+  - `internal/config`: Startup validation for configurable `MINICLOUD_REAPER_INTERVAL` (`> 0` and `<= MINICLOUD_WORKER_TIMEOUT`) and `MINICLOUD_WORKER_TIMEOUT >= 3 * MINICLOUD_HEARTBEAT_INTERVAL`.
+  - `tests/integration/worker_liveness_test.go`: Automated integration test verifying dead worker reaping on SIGKILL, scheduler exclusion, and successful work routing to surviving workers.
 - **Architecture Boundaries, Version Gating & Owner Decisions (`docs/version-boundaries`):**
   - `docs/adr/0004-version-boundaries-and-compatibility.md`: V1/V2/V3 platform boundaries and additive-only compatibility policy (Accepted).
   - `docs/adr/0005-docker-isolation-in-v3.md`: Deferring Docker container execution to V3 with unprivileged allowlisted task execution in V1/V2 (Accepted).

@@ -38,8 +38,13 @@ func main() {
 	repo := storage.NewInMemoryRepository()
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
-	svc := coordinator.NewService(repo, sched, reg)
+	svc := coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
 	server := api.NewServer(cfg.HTTPAddr, svc)
+
+	// Start reaper loop
+	reaperCtx, reaperCancel := context.WithCancel(context.Background())
+	defer reaperCancel()
+	go svc.StartReaper(reaperCtx, cfg.ReaperInterval)
 
 	// 4. Start HTTP Server in background goroutine
 	go func() {

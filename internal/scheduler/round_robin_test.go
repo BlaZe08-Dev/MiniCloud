@@ -74,3 +74,20 @@ func TestRoundRobinScheduler_NoWorkersAvailable(t *testing.T) {
 		t.Fatalf("expected ErrNoWorkersAvailable, got %v", err)
 	}
 }
+
+func TestRoundRobinScheduler_ExcludesUnhealthyWorkers(t *testing.T) {
+	sched := scheduler.NewRoundRobinScheduler()
+
+	workers := []*domain.Worker{
+		{ID: "worker-unhealthy-1", Status: domain.WorkerStatusUnhealthy, AvailableSlots: 5, SupportedTasks: []string{"echo"}},
+		{ID: "worker-unhealthy-2", Status: domain.WorkerStatusUnhealthy, AvailableSlots: 10, SupportedTasks: []string{"echo"}},
+	}
+
+	selected, dec, err := sched.SelectWorker(workers, "echo")
+	if !errors.Is(err, domain.ErrNoWorkersAvailable) {
+		t.Fatalf("expected ErrNoWorkersAvailable for unhealthy workers, got %v (selected=%v)", err, selected)
+	}
+	if len(dec.Candidates) != 0 {
+		t.Fatalf("expected 0 candidates, got %d", len(dec.Candidates))
+	}
+}

@@ -221,6 +221,18 @@ Worker polls for an eligible task assignment.
 **Response (204 No Content):**
 No queued work available for this worker.
 
+**Response (503 Service Unavailable — Unhealthy Worker or No Capacity):**
+```json
+{
+  "error": {
+    "code": "NO_WORKERS_AVAILABLE",
+    "message": "no workers available",
+    "details": null
+  }
+}
+```
+*Note:* A poll from an `UNHEALTHY` worker does **not** count as liveness telemetry and returns `503 Service Unavailable` until a heartbeat restores `HEALTHY` status.
+
 ---
 
 ### 4.4 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` — Report Outcome
@@ -244,6 +256,19 @@ Worker reports task completion or failure.
   "job_state": "SUCCEEDED"
 }
 ```
+*Note:* A worker marked `UNHEALTHY` during execution still has its result accepted if `attempt_id`, `lease_token`, and `worker_id` match.
+
+**Response (403 Forbidden — Worker Mismatch):**
+```json
+{
+  "error": {
+    "code": "WORKER_MISMATCH",
+    "message": "worker mismatch: reporting worker is not assigned to attempt",
+    "details": null
+  }
+}
+```
+*Note:* Permanent error. Worker clients treat 403 as non-retryable.
 
 **Response (409 Conflict — Stale Attempt Rejected):**
 ```json
@@ -255,6 +280,7 @@ Worker reports task completion or failure.
   }
 }
 ```
+*Note:* Permanent error. Worker clients treat 409 as non-retryable.
 
 ---
 

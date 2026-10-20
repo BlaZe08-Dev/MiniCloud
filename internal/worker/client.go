@@ -179,6 +179,46 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 	return res.Assignment, nil
 }
 
+// IsNonRetryableReportError returns true if coordinator rejected the commit permanently
+// (e.g. 403 Forbidden for WORKER_MISMATCH or 409 Conflict for STALE_ATTEMPT_REJECTED / JOB_ALREADY_TERMINAL).
+func IsNonRetryableReportError(statusCode int) bool {
+	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict
+}
+
+// ReportResult sends the execution outcome to the coordinator.
+func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken string, exitCode int, output, errSummary string) (int, error) {
+	reportReq, _ := json.Marshal(map[string]any{
+		"lease_token": leaseToken,
+		"worker_id":   a.cfg.WorkerID,
+		"exit_code":   exitCode,
+		"output":      output,
+		"error":       errSummary,
+	})
+
+	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
+	if reqErr != nil {
+		return 0, reqErr
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, respErr := a.httpClient.Do(req)
+	if respErr != nil {
+		return 0, respErr
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return resp.StatusCode, nil
+	}
+
+	if IsNonRetryableReportError(resp.StatusCode) {
+		return resp.StatusCode, fmt.Errorf("non-retryable report rejection (HTTP %d)", resp.StatusCode)
+	}
+
+	return resp.StatusCode, fmt.Errorf("report failed with status %d", resp.StatusCode)
+}
+
 func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
 	slog.Info("executing job assignment",
 		"job_id", assignment.JobID,
@@ -195,40 +235,26 @@ func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.Wo
 		errSummary = err.Error()
 	}
 
-	reportReq, _ := json.Marshal(map[string]any{
-		"lease_token": assignment.LeaseToken,
-		"worker_id":   a.cfg.WorkerID,
-		"exit_code":   exitCode,
-		"output":      output,
-		"error":       errSummary,
-	})
-
-	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, assignment.JobID, assignment.AttemptID)
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
-	if reqErr != nil {
-		slog.Error("failed to construct report request", "err", reqErr)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, respErr := a.httpClient.Do(req)
-	if respErr != nil {
-		slog.Error("failed to report result to coordinator", "err", respErr)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
+	status, reportErr := a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+	if reportErr == nil {
 		slog.Info("result successfully committed",
 			"job_id", assignment.JobID,
 			"attempt_id", assignment.AttemptID,
 			"exit_code", exitCode,
 		)
-	} else {
-		slog.Warn("coordinator rejected result report",
+	} else if IsNonRetryableReportError(status) {
+		slog.Warn("coordinator permanently rejected result (non-retryable)",
 			"job_id", assignment.JobID,
 			"attempt_id", assignment.AttemptID,
-			"status", resp.StatusCode,
+			"status", status,
+			"err", reportErr,
+		)
+	} else {
+		slog.Error("transient error reporting result to coordinator",
+			"job_id", assignment.JobID,
+			"attempt_id", assignment.AttemptID,
+			"status", status,
+			"err", reportErr,
 		)
 	}
 }

@@ -9,6 +9,7 @@ var (
 	ErrJobNotFound        = errors.New("job not found")
 	ErrAttemptNotFound    = errors.New("attempt not found")
 	ErrWorkerNotFound     = errors.New("worker not found")
+	ErrWorkerMismatch     = errors.New("worker mismatch: reporting worker is not assigned to attempt")
 	ErrStaleAttempt       = errors.New("stale attempt: attempt ID or lease token does not match active attempt")
 	ErrUnknownTaskType    = errors.New("unknown or unsupported task type")
 	ErrPayloadTooLarge    = errors.New("payload exceeds maximum allowed size")
