@@ -40,7 +40,7 @@ db-up:
 	@echo "PostgreSQL container is running and healthy on 127.0.0.1:5433"
 
 db-down:
-	@docker compose -f deployments/docker-compose.yml down
+	@docker compose --env-file .env -f deployments/docker-compose.yml down
 	@echo "PostgreSQL container stopped (named volumes preserved)"
 
 db-psql:

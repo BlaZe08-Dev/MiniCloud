@@ -73,8 +73,11 @@ Rather than hardcoding schema versions, the coordinator derives the required sch
 
 ### 6. Health Probes & Outage Resilience
 - **`/readyz` Endpoint**: Executes `repo.Ping(ctx)`. If PostgreSQL is reachable, returns 200 OK.
-- **Outage Mapping**: Connection failures or query timeouts return HTTP 503 `SERVICE_UNAVAILABLE` with header `Retry-After: 1` and an opaque, credential-redacted error body.
-- **Worker Client Backoff**: The worker client detects 5xx responses from the coordinator and applies exponential backoff with full jitter, distinguishing transient outages (`SERVICE_UNAVAILABLE`) from coordinator-enforced worker state (`WORKER_UNHEALTHY`).
+- **Outage Mapping**: Connection failures or query timeouts return HTTP 503 `SERVICE_UNAVAILABLE` with header `Retry-After: 1` and an opaque, credential-redacted error body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`.
+- **Worker Client Backoff**: The worker client detects 5xx responses from the coordinator and applies exponential backoff with full jitter, distinguishing transient outages (`SERVICE_UNAVAILABLE`) from coordinator-enforced worker state (`WORKER_UNHEALTHY`, which returns HTTP 503 without `Retry-After`).
+
+### 7. Migration 000003 Operational Note & Zero-Downtime Validation
+Migration 000003 applies CHECK constraints (`chk_workers_total_slots_range`, `chk_workers_version_length`, `chk_workers_supported_tasks_count`) to the `workers` table using `ADD CONSTRAINT ... NOT VALID` followed by `VALIDATE CONSTRAINT`. This eliminates long-held exclusive table locks during schema migration. If pre-existing legacy rows violate the new bounds, `VALIDATE CONSTRAINT` fails loudly and rolls back the migration transaction, preventing unvalidated rows from being certified. Operators must remediate invalid worker rows before re-running migrations. Tested in `TestMigrator_PreExistingInvalidRow_ValidationFails`.
 
 ---
 

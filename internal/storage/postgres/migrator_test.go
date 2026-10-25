@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -536,4 +537,102 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 			t.Fatalf("expected check violation chk_workers_supported_tasks_count, got: %v", err)
 		}
 	})
+}
+
+// TestMigrator_PreExistingInvalidRow_ValidationFails verifies that when migration 000003
+// runs against an existing database containing a row that violates the new CHECK constraints,
+// the VALIDATE CONSTRAINT step fails cleanly with a check_violation error (SQLSTATE 23514),
+// proving that pre-existing invalid data cannot be silently certified.
+func TestMigrator_PreExistingInvalidRow_ValidationFails(t *testing.T) {
+	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+	if testURL == "" {
+		t.Skip("skipping postgres test: MINICLOUD_TEST_DATABASE_URL is not set")
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, testURL)
+	if err != nil {
+		t.Fatalf("failed to connect to test database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	schemaName := fmt.Sprintf("test_migrator_pre_existing_%d", time.Now().UnixNano())
+	if _, err := conn.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s;", schemaName)); err != nil {
+		t.Fatalf("failed to create isolated test schema: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cleanConn, err := pgx.Connect(cleanupCtx, testURL)
+		if err == nil {
+			_, _ = cleanConn.Exec(cleanupCtx, fmt.Sprintf("DROP SCHEMA %s CASCADE;", schemaName))
+			_ = cleanConn.Close(cleanupCtx)
+		}
+	})
+
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s;", schemaName)); err != nil {
+		t.Fatalf("failed to set search path: %v", err)
+	}
+
+	// 1. Read real embedded migrations 1 and 2
+	realMigrator := postgres.NewMigrator()
+	allMigrations, err := realMigrator.LoadMigrations()
+	if err != nil {
+		t.Fatalf("failed to load real migrations: %v", err)
+	}
+	if len(allMigrations) < 3 {
+		t.Fatalf("expected at least 3 migrations, got %d", len(allMigrations))
+	}
+
+	// Create test fs with only migrations 1 and 2
+	phase1FS := fstest.MapFS{
+		"migrations/" + allMigrations[0].Name: &fstest.MapFile{Data: []byte(allMigrations[0].Content)},
+		"migrations/" + allMigrations[1].Name: &fstest.MapFile{Data: []byte(allMigrations[1].Content)},
+	}
+	m1 := postgres.NewMigrator(postgres.WithFS(phase1FS), postgres.WithLockID(0x12345678))
+	applied, err := m1.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("phase 1 migration failed: %v", err)
+	}
+	if applied != 2 {
+		t.Fatalf("expected 2 migrations applied, got %d", applied)
+	}
+
+	// 2. Insert a pre-existing worker row with 5000 slots (valid under migration 1/2, invalid under migration 3)
+	_, err = conn.Exec(ctx, `
+		INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+		VALUES ('w_legacy_oversized', 'v0.1.0', 5000, 'HEALTHY', ARRAY['echo']);
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert legacy oversized worker: %v", err)
+	}
+
+	// 3. Now run migration runner that includes migration 000003
+	phase2FS := fstest.MapFS{
+		"migrations/" + allMigrations[0].Name: &fstest.MapFile{Data: []byte(allMigrations[0].Content)},
+		"migrations/" + allMigrations[1].Name: &fstest.MapFile{Data: []byte(allMigrations[1].Content)},
+		"migrations/" + allMigrations[2].Name: &fstest.MapFile{Data: []byte(allMigrations[2].Content)},
+	}
+	m2 := postgres.NewMigrator(postgres.WithFS(phase2FS), postgres.WithLockID(0x12345678))
+	_, err = m2.Migrate(ctx, conn)
+	if err == nil {
+		t.Fatalf("expected migration 000003 to fail when validating constraint on oversized row, got nil")
+	}
+	if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "23514") {
+		t.Fatalf("expected check constraint violation on VALIDATE CONSTRAINT, got: %v", err)
+	}
+
+	// 4. Fix the pre-existing row to conform to the new limit
+	if _, err := conn.Exec(ctx, "UPDATE workers SET total_slots = 100 WHERE id = 'w_legacy_oversized';"); err != nil {
+		t.Fatalf("failed to update worker row: %v", err)
+	}
+
+	// 5. Re-run migration: now it must succeed
+	applied2, err := m2.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("expected migration to succeed after remediation, got error: %v", err)
+	}
+	if applied2 != 1 {
+		t.Fatalf("expected exactly 1 migration applied after fix, got %d", applied2)
+	}
 }

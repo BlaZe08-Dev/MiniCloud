@@ -108,7 +108,7 @@ func setupPostgresTestSchema(t *testing.T) (string, *pgxpool.Pool, string) {
 
 func stopPostgresContainer(t *testing.T) {
 	t.Helper()
-	cmd := exec.Command("docker", "compose", "-f", "../../deployments/docker-compose.yml", "stop", "postgres")
+	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "stop", "postgres")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to stop postgres container: %v, output: %s", err, string(out))
 	}
@@ -116,7 +116,7 @@ func stopPostgresContainer(t *testing.T) {
 
 func startPostgresContainer(t *testing.T) {
 	t.Helper()
-	cmd := exec.Command("docker", "compose", "-f", "../../deployments/docker-compose.yml", "start", "postgres")
+	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "start", "postgres")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to start postgres container: %v, output: %s", err, string(out))
 	}

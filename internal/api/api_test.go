@@ -289,17 +289,63 @@ func TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500(t *tes
 // expiry return 503 SERVICE_UNAVAILABLE with Retry-After: 1 and an opaque body, on both job endpoints and /readyz.
 func TestAPI_OutageMapping_503RetryAfterOpaqueBody(t *testing.T) {
 	outageCases := []struct {
-		name string
-		err  error
+		name        string
+		err         error
+		leakMarkers []string
 	}{
 		{
-			name: "connection refused",
-			err:  errors.New("dial tcp 127.0.0.1:5432: connect: connection refused"),
+			name: "connection refused with internal host and credentials",
+			err:  errors.New("dial tcp db-internal.cluster.local:5432: connect: connection refused; user=minicloud_app password=super_secret_db_pass"),
+			leakMarkers: []string{
+				"connection refused",
+				"5432",
+				"db-internal.cluster.local",
+				"minicloud_app",
+				"super_secret_db_pass",
+				"password=",
+			},
 		},
 		{
-			name: "context deadline exceeded",
-			err:  context.DeadlineExceeded,
+			name: "context deadline exceeded with query context",
+			err:  fmt.Errorf("query timeout while accessing host postgresql://user:secret123@db.prod.internal:5432/minicloud: %w", context.DeadlineExceeded),
+			leakMarkers: []string{
+				"context deadline exceeded",
+				"DeadlineExceeded",
+				"secret123",
+				"db.prod.internal",
+				"5432",
+				"postgresql://",
+			},
 		},
+		{
+			name: "broken pipe socket error with hostname and password pattern",
+			err:  errors.New("write tcp 10.0.0.5:45678->db-node-01.internal:5432: write: broken pipe (password: secret_token_xyz)"),
+			leakMarkers: []string{
+				"broken pipe",
+				"db-node-01.internal",
+				"45678",
+				"secret_token_xyz",
+			},
+		},
+		{
+			name: "connection reset by peer with auth token",
+			err:  errors.New("read tcp 127.0.0.1:5432: read: connection reset by peer (auth token: tok_987654321)"),
+			leakMarkers: []string{
+				"connection reset",
+				"tok_987654321",
+				"5432",
+			},
+		},
+	}
+
+	universalForbiddenPatterns := []string{
+		"password",
+		"secret",
+		"5432",
+		"cluster.local",
+		"internal",
+		"dial tcp",
+		"connect:",
 	}
 
 	for _, tc := range outageCases {
@@ -319,6 +365,20 @@ func TestAPI_OutageMapping_503RetryAfterOpaqueBody(t *testing.T) {
 			}
 			if retryAfter := readyResp.Header.Get("Retry-After"); retryAfter != "1" {
 				t.Fatalf("expected Retry-After header '1', got %q", retryAfter)
+			}
+
+			readyBodyBytes, _ := io.ReadAll(readyResp.Body)
+			readyBodyStr := string(readyBodyBytes)
+
+			var readyErrResp api.ErrorResponse
+			if err := json.Unmarshal(readyBodyBytes, &readyErrResp); err != nil {
+				t.Fatalf("failed to decode readyz JSON error envelope: %v", err)
+			}
+			if readyErrResp.Error.Code != "SERVICE_UNAVAILABLE" {
+				t.Fatalf("expected code SERVICE_UNAVAILABLE on readyz, got %q", readyErrResp.Error.Code)
+			}
+			if readyErrResp.Error.Message != "service temporarily unavailable" {
+				t.Fatalf("expected opaque message 'service temporarily unavailable' on readyz, got %q", readyErrResp.Error.Message)
 			}
 
 			// 2. GET /v1/jobs/job_12345 should return 503 SERVICE_UNAVAILABLE with Retry-After: 1
@@ -348,8 +408,23 @@ func TestAPI_OutageMapping_503RetryAfterOpaqueBody(t *testing.T) {
 			if errResp.Error.Message != "service temporarily unavailable" {
 				t.Fatalf("expected opaque message 'service temporarily unavailable', got %q", errResp.Error.Message)
 			}
-			if strings.Contains(bodyStr, "connection refused") || strings.Contains(bodyStr, "5432") {
-				t.Fatalf("SECURITY VIOLATION: database outage details leaked in error response: %s", bodyStr)
+
+			// Check leak markers on both readyz and job endpoints
+			for _, marker := range tc.leakMarkers {
+				if strings.Contains(readyBodyStr, marker) {
+					t.Fatalf("SECURITY VIOLATION: outage detail %q leaked in readyz response: %s", marker, readyBodyStr)
+				}
+				if strings.Contains(bodyStr, marker) {
+					t.Fatalf("SECURITY VIOLATION: outage detail %q leaked in job response: %s", marker, bodyStr)
+				}
+			}
+			for _, pat := range universalForbiddenPatterns {
+				if strings.Contains(strings.ToLower(readyBodyStr), pat) {
+					t.Fatalf("SECURITY VIOLATION: pattern %q leaked in readyz response: %s", pat, readyBodyStr)
+				}
+				if strings.Contains(strings.ToLower(bodyStr), pat) {
+					t.Fatalf("SECURITY VIOLATION: pattern %q leaked in job response: %s", pat, bodyStr)
+				}
 			}
 		})
 	}
@@ -914,10 +989,10 @@ func TestAPI_RegisterWorker_VersionLengthLimit(t *testing.T) {
 }
 
 // TestAPI_RegisterWorker_SupportedTasksAllowlist verifies SEC-017:
-// Worker registration bounds supported_tasks array length (at most 16 tasks), individual task name
-// length (at most 64 chars), and character set ([a-zA-Z0-9_-]).
+// Worker registration bounds supported_tasks array length (at most 16 unique tasks), individual task name
+// length (at most 64 chars), and character set (strictly ^[a-z0-9_]{1,64}$).
 // Empty supported_tasks is allowed (cannot claim jobs). Unknown-but-well-formed task names are accepted
-// upon registration to support rolling worker fleet upgrades.
+// upon registration to support rolling worker fleet upgrades. Duplicates in supported_tasks are removed.
 func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
 	ts, _ := setupTestServer()
 	defer ts.Close()
@@ -944,10 +1019,20 @@ func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "excess_17_tasks_rejected",
+			name:       "excess_17_unique_tasks_rejected",
 			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t17"},
 			wantStatus: http.StatusBadRequest,
 			errMsg:     "supported_tasks cannot exceed 16 tasks",
+		},
+		{
+			name:       "17_tasks_with_duplicates_succeeds_after_dedup",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t1"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "duplicates_removed_standard",
+			tasks:      []string{"echo", "sleep", "echo"},
+			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "unknown_well_formed_task_accepted_for_rolling_upgrade",
@@ -955,8 +1040,31 @@ func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "task_name_too_long_rejected",
+			name:       "task_name_64_chars_accepted",
+			tasks:      []string{strings.Repeat("a", 64)},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "task_name_65_chars_rejected",
 			tasks:      []string{strings.Repeat("a", 65)},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_uppercase_rejected",
+			tasks:      []string{"Echo"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_hyphen_rejected",
+			tasks:      []string{"a-b"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_empty_rejected",
+			tasks:      []string{""},
 			wantStatus: http.StatusBadRequest,
 			errMsg:     "invalid task name",
 		},
@@ -1002,6 +1110,22 @@ func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
 				}
 				if tc.errMsg != "" && !strings.Contains(errResp.Error.Message, tc.errMsg) {
 					t.Fatalf("expected message to contain %q, got: %s", tc.errMsg, errResp.Error.Message)
+				}
+			} else if tc.name == "duplicates_removed_standard" {
+				// Verify in repository that duplicates were indeed removed
+				listResp, err := http.Get(ts.URL + "/v1/workers")
+				if err != nil {
+					t.Fatalf("failed to query workers: %v", err)
+				}
+				defer listResp.Body.Close()
+				var workers []domain.Worker
+				_ = json.NewDecoder(listResp.Body).Decode(&workers)
+				for _, w := range workers {
+					if w.ID == workerID {
+						if len(w.SupportedTasks) != 2 || w.SupportedTasks[0] != "echo" || w.SupportedTasks[1] != "sleep" {
+							t.Fatalf("expected duplicates removed to [echo sleep], got: %v", w.SupportedTasks)
+						}
+					}
 				}
 			}
 		})
