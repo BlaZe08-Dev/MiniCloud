@@ -71,9 +71,9 @@ To guarantee mathematical deadlock prevention across all concurrent multi-table 
 4. `results` (insert-only)
 5. `job_events` (insert-only)
 
-Atomic operations (`DispatchJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited.
+Atomic operations (`DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited. For `DispatchNextJob`, an unlocked pre-check of the worker validates worker existence, health, and capacity to preserve error precedence (SEC-002) without taking locks; candidate job rows are locked first (`SELECT ... FOR UPDATE SKIP LOCKED`), followed by locking the worker row (`FOR UPDATE`) to recheck capacity and health before creating the attempt.
 
-This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, proving zero deadlocks and zero invariant violations across repeated runs with `-race`.
+This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, as well as `TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier` (10 workers polling 40 jobs simultaneously), proving zero deadlocks, exactly-once dispatch, and zero invariant violations across repeated runs with `-race`.
 
 ---
 

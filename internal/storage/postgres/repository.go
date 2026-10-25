@@ -689,6 +689,248 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
 	return &retAttempt, nil
 }
 
+// DispatchNextJob atomically selects the next eligible QUEUED job matching the worker's supported tasks,
+// locks it and the worker row following strict deadlock-free lock ordering (jobs -> workers -> attempts),
+// transitions the job to RUNNING, creates an attempt, and records an audit event.
+//
+// Deadlock Prevention Lock Order:
+//  1. Unlocked pre-check of worker (worker_capacity) to preserve error precedence (SEC-002) without taking locks.
+//  2. Begin transaction and lock candidate job row FOR UPDATE SKIP LOCKED.
+//  3. Lock worker row FOR UPDATE (jobs row is already locked, preserving jobs -> workers hierarchy).
+//  4. Re-check worker health and capacity under lock. If recheck fails, transaction rolls back.
+//  5. Insert attempt and update job.
+//
+// Precondition Error Precedence (strictly matching InMemoryRepository):
+//  1. Worker existence (ErrWorkerNotFound)
+//  2. Worker status == HEALTHY (ErrWorkerUnhealthy)
+//  3. Worker has available capacity (ErrWorkerNoCapacity)
+//  4. Eligible job exists (ErrNoQueuedJobs)
+func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*domain.Job, *domain.Attempt, error) {
+	// Step 1: Unlocked pre-check of worker to preserve error precedence (SEC-002)
+	const workerPreCheckQuery = `
+		SELECT status, available_slots, supported_tasks
+		FROM worker_capacity
+		WHERE id = $1;
+	`
+	var (
+		statusStr      string
+		availableSlots int
+		supportedTasks []string
+	)
+	err := r.pool.QueryRow(ctx, workerPreCheckQuery, workerID).Scan(
+		&statusStr,
+		&availableSlots,
+		&supportedTasks,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, domain.ErrWorkerNotFound
+		}
+		return nil, nil, mapPgError(err)
+	}
+	if statusStr != string(domain.WorkerStatusHealthy) {
+		return nil, nil, domain.ErrWorkerUnhealthy
+	}
+	if availableSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
+	}
+
+	// Step 2: Begin transaction
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, mapPgError(err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Step 3: SELECT next eligible QUEUED job FOR UPDATE SKIP LOCKED
+	// Lock candidate job row FIRST to adhere to jobs -> workers lock order.
+	const selectJobQuery = `
+		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at
+		FROM jobs
+		WHERE state = 'QUEUED'
+		  AND task_type = ANY($1::text[])
+		ORDER BY created_at ASC, id ASC
+		LIMIT 1
+		FOR UPDATE SKIP LOCKED;
+	`
+	var (
+		job      domain.Job
+		jobState string
+	)
+	err = tx.QueryRow(ctx, selectJobQuery, supportedTasks).Scan(
+		&job.ID,
+		&job.TaskType,
+		&job.Payload,
+		&jobState,
+		&job.MaxAttempts,
+		&job.TimeoutSeconds,
+		&job.CreatedAt,
+		&job.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, domain.ErrNoQueuedJobs
+		}
+		return nil, nil, mapPgError(err)
+	}
+	job.State = domain.JobState(jobState)
+
+	// Step 4: Lock Worker row FOR UPDATE (jobs is already locked)
+	const workerLockQuery = `
+		SELECT total_slots, status, supported_tasks
+		FROM workers
+		WHERE id = $1
+		FOR UPDATE;
+	`
+	var (
+		totalSlots           int
+		workerStatus         string
+		lockedSupportedTasks []string
+	)
+	err = tx.QueryRow(ctx, workerLockQuery, workerID).Scan(&totalSlots, &workerStatus, &lockedSupportedTasks)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, domain.ErrWorkerNotFound
+		}
+		return nil, nil, mapPgError(err)
+	}
+	if workerStatus != string(domain.WorkerStatusHealthy) {
+		return nil, nil, domain.ErrWorkerUnhealthy
+	}
+
+	// Re-verify that worker supports this candidate job's task type
+	taskSupported := false
+	for _, st := range lockedSupportedTasks {
+		if st == job.TaskType {
+			taskSupported = true
+			break
+		}
+	}
+	if !taskSupported {
+		return nil, nil, domain.ErrWorkerTaskUnsupported
+	}
+
+	// Step 5: Re-check worker capacity under lock
+	var activeWorkerAttempts int
+	const capQuery = `
+		SELECT COUNT(*)
+		FROM attempts
+		WHERE worker_id = $1 AND state IN ('PENDING', 'RUNNING');
+	`
+	if err := tx.QueryRow(ctx, capQuery, workerID).Scan(&activeWorkerAttempts); err != nil {
+		return nil, nil, mapPgError(err)
+	}
+	if totalSlots-activeWorkerAttempts <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
+	}
+
+	// Step 6: Check invariant: at most one active attempt for this job
+	var activeJobAttempts int
+	const jobAttQuery = `
+		SELECT COUNT(*)
+		FROM attempts
+		WHERE job_id = $1 AND state IN ('PENDING', 'RUNNING');
+	`
+	if err := tx.QueryRow(ctx, jobAttQuery, job.ID).Scan(&activeJobAttempts); err != nil {
+		return nil, nil, mapPgError(err)
+	}
+	if activeJobAttempts > 0 {
+		return nil, nil, domain.ErrInvalidRequest
+	}
+
+	// Step 7: Derive monotonic attempt number (max existing attempt_no + 1)
+	var nextAttemptNo int
+	const attNoQuery = `
+		SELECT COALESCE(MAX(attempt_no), 0) + 1
+		FROM attempts
+		WHERE job_id = $1;
+	`
+	if err := tx.QueryRow(ctx, attNoQuery, job.ID).Scan(&nextAttemptNo); err != nil {
+		return nil, nil, mapPgError(err)
+	}
+
+	// Step 8: Generate cryptographic lease token and attempt ID
+	rawLeaseToken, err := domain.NewLeaseToken()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate secure lease token: %w", err)
+	}
+	tokenHash := domain.HashLeaseToken(rawLeaseToken)
+	attemptID := fmt.Sprintf("att_%s_%d", job.ID, nextAttemptNo)
+
+	// Step 9: Insert attempt row
+	const insertAttemptQuery = `
+		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at)
+		VALUES ($1, $2, $3, $4, $5, 'RUNNING', clock_timestamp())
+		RETURNING started_at;
+	`
+	var startedAt time.Time
+	err = tx.QueryRow(ctx, insertAttemptQuery,
+		attemptID,
+		job.ID,
+		nextAttemptNo,
+		workerID,
+		tokenHash,
+	).Scan(&startedAt)
+	if err != nil {
+		return nil, nil, mapPgError(err)
+	}
+
+	// Step 10: Transition job to RUNNING
+	const updateJobQuery = `
+		UPDATE jobs
+		SET state = 'RUNNING', current_attempt_id = $2, updated_at = clock_timestamp()
+		WHERE id = $1;
+	`
+	if _, err := tx.Exec(ctx, updateJobQuery, job.ID, attemptID); err != nil {
+		return nil, nil, mapPgError(err)
+	}
+
+	// Step 11: Record EventJobDispatched audit event with honest FIFO pull details
+	dispatchDetails, _ := json.Marshal(map[string]any{
+		"worker_id":  workerID,
+		"attempt_no": nextAttemptNo,
+		"policy":     "fifo_pull",
+		"reason":     "claimed by polling worker with capacity",
+	})
+	fromState := "QUEUED"
+	toState := "RUNNING"
+	const insertEventQuery = `
+		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, details, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp());
+	`
+	_, err = tx.Exec(ctx, insertEventQuery,
+		job.ID,
+		attemptID,
+		domain.JobEventDispatched,
+		fromState,
+		toState,
+		dispatchDetails,
+	)
+	if err != nil {
+		return nil, nil, mapPgError(err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, mapPgError(err)
+	}
+
+	job.State = domain.StateRunning
+	job.CurrentAttemptID = attemptID
+	job.UpdatedAt = startedAt
+
+	attempt := domain.Attempt{
+		ID:             attemptID,
+		JobID:          job.ID,
+		AttemptNo:      nextAttemptNo,
+		WorkerID:       workerID,
+		LeaseToken:     rawLeaseToken,
+		LeaseTokenHash: tokenHash,
+		State:          domain.AttemptRunning,
+		StartedAt:      startedAt,
+	}
+	return &job, &attempt, nil
+}
+
 // CommitAttempt validates the commit, updates the attempt, sets the job terminal state,
 // inserts the terminal result, and logs the audit events, all in a single transaction.
 func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
