@@ -25,17 +25,35 @@ type InMemoryRepository struct {
 	jobOrder   []string // Preserves FIFO insertion order for queued jobs
 	idSeq      int64
 	eventIDSeq int64
+	clock      Clock
+}
+
+// InMemoryOption allows configuring an InMemoryRepository.
+type InMemoryOption func(*InMemoryRepository)
+
+// WithClock injects a custom clock into the InMemoryRepository for deterministic testing.
+func WithClock(c Clock) InMemoryOption {
+	return func(r *InMemoryRepository) {
+		if c != nil {
+			r.clock = c
+		}
+	}
 }
 
 // NewInMemoryRepository constructs an initialized InMemoryRepository.
-func NewInMemoryRepository() *InMemoryRepository {
-	return &InMemoryRepository{
+func NewInMemoryRepository(opts ...InMemoryOption) *InMemoryRepository {
+	r := &InMemoryRepository{
 		jobs:     make(map[string]*domain.Job),
 		attempts: make(map[string]*domain.Attempt),
 		workers:  make(map[string]*domain.Worker),
 		events:   make([]*domain.JobEvent, 0),
 		jobOrder: make([]string, 0),
+		clock:    realClock{},
 	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 func generateRandomHex(n int) string {
@@ -44,13 +62,13 @@ func generateRandomHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// computeAvailableSlotsLocked dynamically computes worker capacity from RUNNING attempts
-// matching the PostgreSQL worker_capacity view specification in docs/schema.md.
+// computeAvailableSlotsLocked dynamically computes worker capacity from RUNNING/PENDING attempts
+// matching the PostgreSQL worker_capacity view specification in docs/schema.md and migration 000002.
 // Must be called with mu held (either read or write lock).
 func (r *InMemoryRepository) computeAvailableSlotsLocked(workerID string, totalSlots int) int {
 	activeCount := 0
 	for _, att := range r.attempts {
-		if att.WorkerID == workerID && att.State == domain.AttemptRunning {
+		if att.WorkerID == workerID && (att.State == domain.AttemptRunning || att.State == domain.AttemptPending) {
 			activeCount++
 		}
 	}
@@ -245,9 +263,10 @@ func (r *InMemoryRepository) GetWorker(ctx context.Context, id string) (*domain.
 	return &copied, nil
 }
 
-// RecordHeartbeat atomically updates a worker's last heartbeat time and restores HEALTHY status.
-// AvailableSlots is dynamically derived from RUNNING attempts, matching docs/schema.md.
-func (r *InMemoryRepository) RecordHeartbeat(ctx context.Context, workerID string, heartbeatAt time.Time, _ int) error {
+// RecordHeartbeat atomically updates a worker's last heartbeat time using the repository clock
+// and restores HEALTHY status.
+// AvailableSlots is dynamically derived from RUNNING/PENDING attempts, matching docs/schema.md.
+func (r *InMemoryRepository) RecordHeartbeat(ctx context.Context, workerID string, _ int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -255,7 +274,7 @@ func (r *InMemoryRepository) RecordHeartbeat(ctx context.Context, workerID strin
 	if !exists {
 		return domain.ErrWorkerNotFound
 	}
-	w.LastHeartbeatAt = heartbeatAt
+	w.LastHeartbeatAt = r.clock.Now()
 	w.Status = domain.WorkerStatusHealthy
 	return nil
 }
@@ -275,11 +294,12 @@ func (r *InMemoryRepository) ListWorkers(ctx context.Context) ([]*domain.Worker,
 }
 
 // ReapStaleWorkers atomically checks workers and transitions any HEALTHY worker to UNHEALTHY
-// whose LastHeartbeatAt is before the cutoff time. Returns the IDs of the reaped workers.
-func (r *InMemoryRepository) ReapStaleWorkers(ctx context.Context, cutoff time.Time) ([]string, error) {
+// whose LastHeartbeatAt is older than olderThan (using r.clock). Returns the IDs of the reaped workers.
+func (r *InMemoryRepository) ReapStaleWorkers(ctx context.Context, olderThan time.Duration) ([]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	cutoff := r.clock.Now().Add(-olderThan)
 	var reaped []string
 	for _, w := range r.workers {
 		if w.Status == domain.WorkerStatusHealthy && w.LastHeartbeatAt.Before(cutoff) {
@@ -297,6 +317,9 @@ func (r *InMemoryRepository) SubmitJob(ctx context.Context, job *domain.Job) err
 
 	if job == nil || job.ID == "" {
 		return domain.ErrInvalidRequest
+	}
+	if len(job.Payload) > 65536 {
+		return domain.ErrPayloadTooLarge
 	}
 	if _, exists := r.jobs[job.ID]; exists {
 		return domain.ErrInvalidRequest

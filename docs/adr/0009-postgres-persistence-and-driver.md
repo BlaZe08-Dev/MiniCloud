@@ -68,6 +68,12 @@ The repository owner has **APPROVED** `jackc/pgx/v5` + `pgxpool` and `postgres:1
      - `git diff go.mod` confirms `go 1.22.2` directive remains unchanged with zero `toolchain` directives added.
      - `go list -m all` confirms all direct and transitive dependencies (`github.com/jackc/pgx/v5 v5.7.1`, `github.com/jackc/pgpassfile v1.0.0`, `github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761`, `github.com/jackc/puddle/v2 v2.2.2`, `golang.org/x/crypto v0.27.0`, `golang.org/x/text v0.18.0`) declare `go <= 1.22`.
      - `go mod verify` confirmed: `all modules verified`.
+4. **Slice 3c pgxpool Verification Evidence:**
+   - Import of `github.com/jackc/pgx/v5/pgxpool` added in `internal/storage/postgres.Repository`.
+   - Executed: `GOTOOLCHAIN=local go mod tidy`.
+   - `git diff go.mod` added `github.com/jackc/puddle/v2 v2.2.2 // indirect` and `golang.org/x/sync v0.8.0 // indirect`.
+   - Go directive stays `go 1.22.2` with zero toolchain directives.
+   - `go mod verify` confirmed: `all modules verified`.
 
 ## Invariants Enforced
 - **Zero Third-Party Domain Leakage:** `internal/domain` and `internal/coordinator` remain completely decoupled from database drivers and SQL types (enforced by `tests/architecture/boundaries_test.go`).

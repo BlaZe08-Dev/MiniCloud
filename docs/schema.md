@@ -158,7 +158,7 @@ CREATE INDEX idx_workers_liveness
     ON workers (last_heartbeat_at ASC) 
     WHERE status = 'HEALTHY';
 
--- Dynamic Capacity View: Derives available slots from active RUNNING attempts
+-- Dynamic Capacity View: Derives available slots from active non-terminal (PENDING, RUNNING) attempts (Hardened in 000002)
 -- Eliminates counter drift caused by coordinator crashes, transaction rollbacks, or dead workers.
 CREATE VIEW worker_capacity AS
 SELECT 
@@ -169,7 +169,7 @@ SELECT
     w.supported_tasks,
     w.registered_at,
     w.last_heartbeat_at,
-    GREATEST(0, w.total_slots - COUNT(a.id) FILTER (WHERE a.state = 'RUNNING'))::integer AS available_slots
+    GREATEST(0, w.total_slots - COUNT(a.id) FILTER (WHERE a.state IN ('PENDING', 'RUNNING')))::integer AS available_slots
 FROM workers w
 LEFT JOIN attempts a ON a.worker_id = w.id
 GROUP BY w.id;
@@ -211,10 +211,10 @@ CREATE TABLE attempts (
         CHECK (error IS NULL OR octet_length(error) <= 10240)
 );
 
--- CRITICAL DISTRIBUTED INVARIANT: At most one active (RUNNING) attempt per job
+-- CRITICAL DISTRIBUTED INVARIANT: At most one active non-terminal (PENDING, RUNNING) attempt per job (Hardened in 000002)
 CREATE UNIQUE INDEX idx_attempts_active_per_job 
     ON attempts (job_id) 
-    WHERE state = 'RUNNING';
+    WHERE state IN ('PENDING', 'RUNNING');
 
 CREATE INDEX idx_attempts_job_id 
     ON attempts (job_id, attempt_no ASC);

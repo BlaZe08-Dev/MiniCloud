@@ -1,9 +1,9 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `milestone/3b-migrations-and-schema`
-- **Current Milestone:** Phase 3 (Durable State) — Slice 3b: Database Provisioning, Schema & Forward-Only Migrations — **COMPLETED**
-- **Next Milestone:** Phase 3, Slice 3c — PostgreSQL Repository Implementation.
+- **Current Branch:** `milestone/3c-postgres-repository`
+- **Current Milestone:** Phase 3 (Durable State) — Slice 3c: PostgreSQL Repository Implementation — **COMPLETED**
+- **Next Milestone:** Phase 3, Slice 3d — PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
@@ -46,6 +46,19 @@
   - **Schema-Isolated Testing:** Tests execute in isolated `test_<random_hex>` schemas cleaned up via `t.Cleanup`; hard safety guard refuses execution against non-`_test` databases; tests verify fresh migration, idempotent re-run, checksum tampering detection (`ErrChecksumMismatch`), serialized concurrent runners (exactly one applies), and all SQL schema invariants.
   - **Approved PGX v5.7.1 Staging & Boundary Invariants:** Integrated `github.com/jackc/pgx/v5 v5.7.1` with `GOTOOLCHAIN=local`; verified `go 1.22.2` unchanged with zero toolchain directives; extended `tests/architecture/boundaries_test.go` prohibiting `pgx` in `internal/domain` and `internal/coordinator`, and prohibiting `internal/storage/postgres` in `internal/coordinator`.
 
+- **Phase 3, Slice 3c — PostgreSQL Repository Implementation (`milestone/3c-postgres-repository`):**
+  - **`internal/storage/postgres.Repository`:** Implemented durable repository backed by `*pgxpool.Pool` fully satisfying `storage.Repository`.
+  - **Deadlock-Free Row Lock Ordering:** Documented and enforced strict row locking order (`jobs` -> `workers` -> `attempts` -> `results` -> `job_events`) across all multi-table transactions.
+  - **Single-Transaction Atomic Operations:** Implemented `SubmitJob`, `DispatchJob`, `CommitAttempt`, and `CancelJob` mapping PostgreSQL SQLSTATE codes (`23505`, `23503`, `23514`) directly to typed domain errors.
+  - **Constant-Time Token Verification:** Computed SHA-256 hash in Go and compared stored hash in constant time (`crypto/subtle.ConstantTimeCompare`), preserving fine-grained typed errors (`ErrAttemptNotFound`, `ErrWorkerMismatch`, `ErrStaleAttempt`, `ErrJobAlreadyTerminal`).
+  - **Schema Hardening Migration (`000002_schema_hardening.sql`):** Forward-only migration updating `idx_attempts_active_per_job` to cover non-terminal attempt states (`PENDING`, `RUNNING`) and replacing `worker_capacity` view to derive free slots from all active attempts.
+  - **Time & Clock Authority:** Enforced database time via `make_interval(secs => $1::double precision)` in `ReapStaleWorkers` and `CURRENT_TIMESTAMP` in `RecordHeartbeat`. Added injectable `Clock` constructor option (`WithClock`) to `InMemoryRepository` for deterministic test time advancement.
+  - **Interface Cleanup:** Removed un-guarded generic mutations (`UpdateJob`, `CreateAttempt`, `UpdateAttempt`) from `storage.Repository` interface.
+  - **Shared Conformance Test Suite:** Added `internal/storage/conformance.go` exercising submit invariants, table-driven dispatch preconditions and precedence, commit validations, cancel transitions, worker reaping, and dynamic capacity derivation against both in-memory and PostgreSQL repositories.
+  - **Postgres Concurrency Tests:** Added `internal/storage/postgres/concurrency_test.go` with 50-goroutine start-barrier tests for same-job dispatch races, 1-slot worker capacity races, and duplicate commit races (`-race -count=50` clean).
+  - **Architecture Boundary Rules:** Updated `tests/architecture/boundaries_test.go` asserting that `internal/domain`, `internal/coordinator`, and `internal/queue` never import `pgx` or `internal/storage/postgres`; verified failure on deliberate violation.
+  - **Dependency Verification:** Verified `pgxpool` dependency (`puddle/v2 v2.2.2`, `x/sync v0.8.0`) under `GOTOOLCHAIN=local go mod tidy` preserving `go 1.22.2` with zero toolchain directives; documented evidence in `docs/adr/0009-postgres-persistence-and-driver.md`.
+
 ---
 
 ## 3. Approved Phase 3 Sub-Slices & Exit Criteria
@@ -72,7 +85,7 @@
   - Implement `internal/storage/postgres.Repository` using `pgxpool.Pool`.
   - Enforce SQL invariants: partial unique index `idx_attempts_active_per_job`, monotonic attempt sequence, dynamic capacity derivation (no counter drift), and SHA-256 lease token hashing.
   - Add unit/integration tests running against `minicloud_test` with mandatory `_test` database name check.
-- **Exit Criteria:** `internal/storage/postgres` satisfies all repository tests with race detector enabled.
+- **Exit Criteria:** `internal/storage/postgres` satisfies all repository tests with race detector enabled. (**SATISFIED**)
 
 ### Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch
 - **Scope:**

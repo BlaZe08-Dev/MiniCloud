@@ -222,7 +222,7 @@ func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) err
 // Heartbeat records a worker heartbeat and updates its available capacity.
 // A valid heartbeat from an UNHEALTHY worker restores its status to HEALTHY.
 func (s *Service) Heartbeat(ctx context.Context, workerID string, availableSlots int) error {
-	return s.repo.RecordHeartbeat(ctx, workerID, s.clock.Now(), availableSlots)
+	return s.repo.RecordHeartbeat(ctx, workerID, availableSlots)
 }
 
 // ListWorkers returns all registered workers.
@@ -233,9 +233,7 @@ func (s *Service) ListWorkers(ctx context.Context) ([]*domain.Worker, error) {
 // ReapInactiveWorkers scans registered workers and marks any worker UNHEALTHY
 // whose last heartbeat is older than workerTimeout.
 func (s *Service) ReapInactiveWorkers(ctx context.Context) ([]string, error) {
-	now := s.clock.Now()
-	cutoff := now.Add(-s.workerTimeout)
-	reaped, err := s.repo.ReapStaleWorkers(ctx, cutoff)
+	reaped, err := s.repo.ReapStaleWorkers(ctx, s.workerTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +241,7 @@ func (s *Service) ReapInactiveWorkers(ctx context.Context) ([]string, error) {
 		slog.Warn("reaped inactive workers due to heartbeat timeout",
 			"count", len(reaped),
 			"worker_ids", reaped,
-			"cutoff", cutoff,
+			"timeout", s.workerTimeout,
 		)
 	}
 	return reaped, nil

@@ -37,11 +37,11 @@ func (m *mockClock) Advance(d time.Duration) {
 }
 
 func setupTestCoordinator(workerTimeout time.Duration) (*coordinator.Service, *mockClock, storage.Repository) {
-	repo := storage.NewInMemoryRepository()
+	clk := newMockClock(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
 	svc := coordinator.NewService(repo, sched, reg, workerTimeout)
-	clk := newMockClock(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
 	svc.SetClock(clk)
 	return svc, clk, repo
 }
@@ -386,10 +386,10 @@ func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
 		t.Fatalf("SubmitJob 2 failed: %v", err)
 	}
 
-	// Directly modify job 1 in repository to simulate cancellation or out-of-band state change
-	storedJob1, _ := repo.GetJob(ctx, job1.ID)
-	_ = storedJob1.TransitionTo(domain.StateCancelled)
-	_ = repo.UpdateJob(ctx, storedJob1)
+	// Directly cancel job 1 in repository to simulate cancellation or out-of-band state change
+	if _, err := repo.CancelJob(ctx, job1.ID); err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
 
 	// Worker polls: coordinator claims job 1, checks repository, sees it's CANCELLED, drops it,
 	// and claims job 2!
