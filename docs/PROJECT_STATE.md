@@ -133,9 +133,16 @@
 
 ## 6. Known Defects, Limitations & Open Security Findings
 - **Open Security Findings:**
-  - **SEC-003 (Informational, Open):** Compose `POSTGRES_PASSWORD` lacks fail-fast syntax `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:18`).
+  - **SEC-003 (Informational, Open):** Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` without fail-fast form `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`). Note: `docs/testing-postgres.md` previously showed a stale snippet with fallback credentials, since corrected.
   - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`).
-  - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:55`).
+  - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`).
+  - **SEC-007 (Low, Open):** Unmapped errors fall through to HTTP 400 with `err.Error()` in API error mapper (`internal/api/handlers.go:68,104`).
+  - **SEC-008 (Low, Open):** Worker IDs and route parameters lack length and character set validation (`internal/coordinator/service.go:198`, `internal/api/handlers.go:182`).
+  - **SEC-009 (Low, Open):** HTTP server `ReadHeaderTimeout` unset (`internal/api/server.go:42`).
+  - **SEC-010 (Low, Open):** Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`).
+  - **SEC-011 (Informational, Open):** Migration CLI accepts `-database-url` as command-line flag visible in process table (`cmd/migrate/main.go:18-27`).
+  - **SEC-012 (Informational, Open):** Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-270`).
+  - **SEC-013 (Informational, Open):** Job and attempt ID format exposes sequential counter (`internal/coordinator/service.go:26`).
 - **Distributed & Architectural Limitations:**
   - PostgreSQL repository is implemented (Slice 3c), but coordinator queue wiring to PostgreSQL (`PostgresQueue`) occurs in Slice 3d.
   - Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
