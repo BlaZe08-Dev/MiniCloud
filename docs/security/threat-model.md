@@ -54,7 +54,7 @@ MiniCloud is a distributed job execution system. This threat model evaluates the
 | | | | **Connection Pool Exhaustion**: High concurrency starving connection pool. | `pgxpool.Pool` bounded by config (`MaxConns` default 10). | inferred from code review (unconfirmed) |
 | | | | **Dynamic SQL in Test Fixtures (SEC-006)**: Dynamic schema names in test helpers. | Test helper uses `fmt.Sprintf("CREATE SCHEMA %s;", schemaName)` with in-process random hex (`internal/storage/postgres/testhelper_test.go:52-61`). | inferred from code review (unconfirmed) |
 | **Task Executor (`internal/executor`)** | Host Operating System security | Worker process to Host OS | **Arbitrary Remote Code Execution (RCE)**: Attacker submits shell commands as tasks. | Host command execution strictly forbidden in V1. Tasks restricted to in-process allowlist (`echo`, `sleep`, `sha256_loop`). Tested in `TestExecutor_UnknownTaskType` (`internal/executor/executor_test.go:80`). | covered by a named test |
-| **Configuration & Secrets (`internal/config`, `deployments`)** | DB passwords, listening ports, connection URLs | Environment / Flags to Runtime | **Database Credential Leakage in CLI**: `-database-url` passed via CLI flag visible in `ps aux` (SEC-011). | Flag usage supported in `cmd/migrate/main.go:18-27`; `.env` file git-ignored. | inferred from code review (unconfirmed) |
+| **Configuration & Secrets (`internal/config`, `deployments`)** | DB passwords, listening ports, connection URLs | Environment / Flags to Runtime | **Database Credential Leakage in CLI**: `-database-url` passed via CLI flag visible in `ps aux` (SEC-011). | CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` emits deprecation warning (`cmd/migrate/main.go:16-33`). Tested in `TestMigrateCLI_ResolveDatabaseURL_*` (`cmd/migrate/main_test.go:8-61`). | covered by a named test |
 | | | | **Compose Missing Fail-Fast Password (SEC-003)**: Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` without fail-fast form (`${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}`) (`deployments/docker-compose.yml:8`). | PostgreSQL bound to localhost (`127.0.0.1:5433:5432` in `deployments/docker-compose.yml:11`). Note: `docs/testing-postgres.md` previously showed a stale snippet with fallback credentials, since corrected. | accepted risk |
 | **Logs & Metrics** | Audit trail, debugging logs | Internal loggers to stdout | **Lease Token / Credential Exposure**: Sensitive tokens printed to stdout. | Coordinator logger explicitly excludes lease tokens, payloads, and task outputs (`internal/coordinator/service.go`). | inferred from code review (unconfirmed) |
 | **Redis Streams** *(not yet introduced)* | Job queue messages, at-least-once dispatch | Coordinator to Redis Broker | **Message Tampering / Stale Queue Delivery / Split-Brain**: Unacknowledged messages redelivered to stale workers. | Not yet introduced. Deferred to V2 (ADR-0004, ADR-0006). | designed-not-executed |
@@ -62,27 +62,24 @@ MiniCloud is a distributed job execution system. This threat model evaluates the
 
 ## 3. Read-Only Code Review Findings (Unconfirmed Items)
 
-The following items were identified during the read-only static inspection of the existing codebase. In accordance with the honesty rules, they are labeled **inferred from code review (unconfirmed)** until demonstrated by an automated test:
+The following items were identified during static inspection of the codebase. Items fixed in Slice 3d are noted with their regression tests; remaining items are labeled **inferred from code review (unconfirmed)** until demonstrated by an automated test:
 
-1. **HTTP Server Header Timeouts (`internal/api/server.go:41-45`)** (SEC-009):
-   - `ReadTimeout` is set to 5s, `WriteTimeout` to 10s, and `IdleTimeout` to 60s.
-   - `ReadHeaderTimeout` is not explicitly initialized. While `ReadTimeout` provides an upper bound, omitting `ReadHeaderTimeout` allows slow-header clients to occupy connection slots for up to 5 seconds.
-   - `MaxHeaderBytes` is unset, falling back to Go's default 1 MiB limit.
-   - Verification step: `TestAPI_Slowloris_HeaderTimeout` (future integration test).
+1. **HTTP Server Header Timeouts (`internal/api/server.go:15,42`)** (SEC-009, Fixed in Slice 3d):
+   - Configured `DefaultReadHeaderTimeout = 2 * time.Second` on `http.Server`.
+   - Verified by `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`).
 
-2. **Unvalidated Route Parameters and Worker IDs (`internal/coordinator/service.go:197-202`, `internal/api/handlers.go:182-194`)** (SEC-008):
-   - `RegisterWorker` checks only `worker.ID == ""`. There is no character-set constraint (`^[a-zA-Z0-9_-]+$`) or length limit (e.g., 128 characters).
-   - Route parameters `{id}` in job queries are forwarded directly without character filtering.
-   - Verification step: `TestAPI_WorkerID_ValidationBounds` (future test).
+2. **Unvalidated Route Parameters and Worker IDs (`internal/api/handlers.go:27-39,105-248`)** (SEC-008, Fixed in Slice 3d):
+   - Added `isValidIdentifier` enforcing $\le 128$ characters and character set `^[a-zA-Z0-9_-]+$` across worker registration and route IDs.
+   - Verified by `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`).
 
-3. **Storage Error Information Disclosure (`internal/api/handlers.go:39-70,103-104`)** (SEC-007):
-   - `mapDomainErrorToHTTP` converts recognized domain errors into clean HTTP status codes.
-   - Any unrecognized error (including PostgreSQL database constraint violations or driver connection errors) falls through to default: `writeError(w, http.StatusBadRequest, "INVALID_REQUEST", err.Error())`. Once PostgreSQL is wired in slice 3d, this could disclose database table structures or internal error strings to API clients.
-   - Verification step: `TestAPI_UnmappedError_InformationDisclosure` (future test).
+3. **Storage Error Information Disclosure (`internal/api/handlers.go:19-75`)** (SEC-007, Fixed in Slice 3d):
+   - Unmapped repository and driver errors map to HTTP 500 `INTERNAL_ERROR` with opaque `"internal server error"` message while logging sanitized error server-side.
+   - JSON decoding errors return fixed `"malformed JSON request body"`.
+   - Verified by `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
 
-4. **CLI Database URL in Process Arguments (`cmd/migrate/main.go:18-27`)** (SEC-011):
-   - The migration CLI accepts the database URL via `-database-url` flag. On multi-user systems, command-line arguments are visible in `/proc` and `ps` output.
-   - Verification step: `TestMigrateCLI_ProcessTableExposure` (future test).
+4. **CLI Database URL in Process Arguments (`cmd/migrate/main.go:16-33`)** (SEC-011, Fixed in Slice 3d):
+   - The migration CLI prioritizes `MINICLOUD_DATABASE_URL` and issues a deprecation warning when `-database-url` is passed on the command line.
+   - Verified by `TestMigrateCLI_ResolveDatabaseURL_*` (`cmd/migrate/main_test.go:8-61`).
 
 5. **Unbounded In-Memory Collections (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`)** (SEC-010):
    - `InMemoryRepository` stores jobs, workers, and events in unbounded Go maps and slices without eviction or size caps. `InMemoryQueue` slice is unbounded. A high volume of submissions will consume memory indefinitely.

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
@@ -11,6 +12,9 @@ import (
 const (
 	// MaxRequestSizeBytes enforces 1 MiB max body size on incoming HTTP requests.
 	MaxRequestSizeBytes = 1024 * 1024
+
+	// DefaultReadHeaderTimeout bounds the time allowed to read request headers (mitigates Slowloris, SEC-009).
+	DefaultReadHeaderTimeout = 2 * time.Second
 )
 
 // Server wraps the standard library net/http Server for the MiniCloud coordinator.
@@ -37,11 +41,12 @@ func NewServer(addr string, coord *coordinator.Service) *Server {
 	handler = recoveryMiddleware(handler)
 
 	s.httpServer = &http.Server{
-		Addr:         addr,
-		Handler:      handler,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: DefaultReadHeaderTimeout,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	return s
@@ -74,6 +79,11 @@ func (s *Server) Handler() http.Handler {
 // Start listens and serves on the configured address.
 func (s *Server) Start() error {
 	return s.httpServer.ListenAndServe()
+}
+
+// Serve accepts incoming connections on the listener ln.
+func (s *Server) Serve(ln net.Listener) error {
+	return s.httpServer.Serve(ln)
 }
 
 // Shutdown gracefully stops the HTTP server without interrupting in-flight requests.
