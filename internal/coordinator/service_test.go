@@ -1,8 +1,11 @@
 package coordinator_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -227,10 +230,28 @@ func TestService_WorkerMismatch_Rejected(t *testing.T) {
 		t.Fatalf("expected assigned job %s, got %s", job.ID, assignment.JobID)
 	}
 
+	// Capture slog output to verify true assigned worker is logged without leaking lease token
+	var logBuf bytes.Buffer
+	origLogger := slog.Default()
+	defer slog.SetDefault(origLogger)
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logBuf, nil)))
+
 	// Worker 2 attempts to report result for Worker 1's attempt
 	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "rogue result", "")
 	if !errors.Is(err, domain.ErrWorkerMismatch) {
 		t.Fatalf("expected ErrWorkerMismatch, got: %v", err)
+	}
+
+	// Verify log contains true assigned worker (worker-1), reporting worker (worker-2), and NO lease token
+	logStr := logBuf.String()
+	if !strings.Contains(logStr, `"assigned_worker":"worker-1"`) {
+		t.Fatalf("expected log to contain assigned_worker=worker-1, got: %s", logStr)
+	}
+	if !strings.Contains(logStr, `"reporting_worker":"worker-2"`) {
+		t.Fatalf("expected log to contain reporting_worker=worker-2, got: %s", logStr)
+	}
+	if strings.Contains(logStr, assignment.LeaseToken) {
+		t.Fatalf("CRITICAL SECURITY INVARIANT: lease token was leaked in logs: %s", logStr)
 	}
 
 	// Verify job remains in RUNNING
@@ -411,6 +432,92 @@ func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
 	}
 	if !foundJob1 {
 		t.Fatalf("expected dropped job 1 to be acked from queue, got acked: %v", acked)
+	}
+}
+
+// workerUnhealthyOnDispatchRepo wraps storage.Repository and simulates a worker becoming UNHEALTHY
+// during the dispatch window, ensuring tests can verify dispatch error precedence.
+type workerUnhealthyOnDispatchRepo struct {
+	storage.Repository
+}
+
+func (r *workerUnhealthyOnDispatchRepo) DispatchJob(ctx context.Context, jobID, workerID string) (*domain.Attempt, error) {
+	// Worker transitions to UNHEALTHY concurrently/during dispatch
+	w, err := r.Repository.GetWorker(ctx, workerID)
+	if err == nil && w != nil {
+		w.Status = domain.WorkerStatusUnhealthy
+		_ = r.Repository.UpsertWorker(ctx, w)
+	}
+	return r.Repository.DispatchJob(ctx, jobID, workerID)
+}
+
+// TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased tests that
+// when a job is no longer QUEUED and the polling worker is concurrently UNHEALTHY,
+// dispatch precedence prioritizes ErrJobNotQueued, ensuring the coordinator Acks and drops
+// the dead job from the queue rather than Releasing it back into the queue.
+func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased(t *testing.T) {
+	ctx := context.Background()
+	baseRepo := storage.NewInMemoryRepository()
+	repo := &workerUnhealthyOnDispatchRepo{Repository: baseRepo}
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{
+		ID:             "worker-race",
+		Status:         domain.WorkerStatusHealthy,
+		TotalSlots:     1,
+		AvailableSlots: 1,
+		SupportedTasks: []string{"echo"},
+	}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	// Submit job (queued)
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"msg":"cancel-me"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	// Directly cancel the job in storage so its state becomes CANCELLED (not QUEUED)
+	if _, err := baseRepo.CancelJob(ctx, job.ID); err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
+
+	// Poll work:
+	// Worker was healthy when PollWork inspected it, but inside DispatchJob,
+	// the job is CANCELLED (not QUEUED) AND the worker is UNHEALTHY.
+	// DispatchJob returns ErrJobNotQueued (precedence: job state checked before worker health).
+	// Coordinator must Ack the queue item, drop it, and find no more work.
+	assignment, err := svc.PollWork(ctx, "worker-race")
+	if assignment != nil {
+		t.Fatalf("expected nil assignment for dead job, got %+v", assignment)
+	}
+	if !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs after claim loop dropped dead job, got %v", err)
+	}
+
+	// Verify dead job was Acked and removed
+	acked := spy.getAcked()
+	foundAcked := false
+	for _, id := range acked {
+		if id == job.ID {
+			foundAcked = true
+		}
+	}
+	if !foundAcked {
+		t.Fatalf("expected cancelled job %s to be Acked, got acked: %v", job.ID, acked)
+	}
+
+	// Verify dead job was NEVER Released back to queue
+	released := spy.getReleased()
+	for _, id := range released {
+		if id == job.ID {
+			t.Fatalf("CRITICAL INVARIANT VIOLATION: cancelled job %s was Released back to queue", job.ID)
+		}
 	}
 }
 

@@ -39,3 +39,18 @@ func (e *InvalidStateTransitionError) Error() string {
 func NewInvalidTransitionError(from, to JobState) error {
 	return &InvalidStateTransitionError{From: from, To: to}
 }
+
+// WorkerMismatchError indicates that a reporting worker attempted to commit an attempt assigned to a different worker.
+// Its Error method returns ErrWorkerMismatch.Error() to prevent leaking the assigned worker ID to external clients.
+type WorkerMismatchError struct {
+	AssignedWorker  string
+	ReportingWorker string
+}
+
+func (e *WorkerMismatchError) Error() string {
+	return ErrWorkerMismatch.Error()
+}
+
+func (e *WorkerMismatchError) Unwrap() error {
+	return ErrWorkerMismatch
+}

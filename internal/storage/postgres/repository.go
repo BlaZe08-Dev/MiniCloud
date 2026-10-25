@@ -779,7 +779,10 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 	}
 
 	if attWorkerID != workerID {
-		return nil, domain.ErrWorkerMismatch
+		return nil, &domain.WorkerMismatchError{
+			AssignedWorker:  attWorkerID,
+			ReportingWorker: workerID,
+		}
 	}
 
 	// Step 3: Determine outcomes

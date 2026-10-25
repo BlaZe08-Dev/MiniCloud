@@ -496,7 +496,10 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 
 	// Verify worker match
 	if att.WorkerID != workerID {
-		return nil, domain.ErrWorkerMismatch
+		return nil, &domain.WorkerMismatchError{
+			AssignedWorker:  att.WorkerID,
+			ReportingWorker: workerID,
+		}
 	}
 
 	now := time.Now().UTC()

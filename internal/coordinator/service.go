@@ -375,10 +375,17 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 			return nil, domain.ErrStaleAttempt
 		}
 		if errors.Is(err, domain.ErrWorkerMismatch) {
+			assignedWorker := "unknown"
+			var mismatchErr *domain.WorkerMismatchError
+			if errors.As(err, &mismatchErr) {
+				assignedWorker = mismatchErr.AssignedWorker
+			} else if att, getErr := s.repo.GetAttempt(ctx, attemptID); getErr == nil && att != nil {
+				assignedWorker = att.WorkerID
+			}
 			slog.Warn("worker mismatch rejected: reporting worker not assigned to attempt",
 				"job_id", jobID,
 				"attempt_id", attemptID,
-				"assigned_worker", workerID,
+				"assigned_worker", assignedWorker,
 				"reporting_worker", workerID,
 			)
 			return nil, domain.ErrWorkerMismatch

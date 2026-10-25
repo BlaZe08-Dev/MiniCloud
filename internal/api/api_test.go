@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,6 +182,9 @@ func TestAPI_StaleAttemptRejection(t *testing.T) {
 	_ = json.NewDecoder(respWrongWorker.Body).Decode(&errMismatch)
 	if errMismatch.Error.Code != "WORKER_MISMATCH" {
 		t.Fatalf("expected WORKER_MISMATCH error code, got %s", errMismatch.Error.Code)
+	}
+	if strings.Contains(errMismatch.Error.Message, "worker-1") {
+		t.Fatalf("SECURITY VIOLATION: assigned worker ID leaked to unauthorized caller: %s", errMismatch.Error.Message)
 	}
 
 	// 6. Valid report succeeds
