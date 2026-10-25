@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -533,5 +534,234 @@ func TestAPI_Slowloris_ReadHeaderTimeout(t *testing.T) {
 	}
 	if !strings.Contains(string(n2), "200 OK") {
 		t.Fatalf("expected HTTP 200 OK for prompt client, got %s", string(n2))
+	}
+}
+
+// TestAPI_SubmitJob_BoundaryValues verifies SEC-014:
+// boundary testing of max_attempts (1..20, default 3) and timeout_seconds (1..86400, default 60),
+// testing 0, -1, 1, 20, 21, max int, absent, null, wrong JSON type, and float.
+func TestAPI_SubmitJob_BoundaryValues(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name               string
+		body               string
+		expectedStatus     int
+		expectedCode       string
+		expectedAttempts   int
+		expectedTimeoutSec int
+	}{
+		// max_attempts boundary values
+		{
+			name:           "max_attempts_zero",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":0}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:           "max_attempts_negative_one",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":-1}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:             "max_attempts_one_valid_lower_bound",
+			body:             `{"task_type":"echo","payload":{},"max_attempts":1}`,
+			expectedStatus:   http.StatusCreated,
+			expectedAttempts: 1,
+		},
+		{
+			name:             "max_attempts_twenty_valid_upper_bound",
+			body:             `{"task_type":"echo","payload":{},"max_attempts":20}`,
+			expectedStatus:   http.StatusCreated,
+			expectedAttempts: 20,
+		},
+		{
+			name:           "max_attempts_twenty_one_exceeds_upper_bound",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":21}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:           "max_attempts_max_int",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":2147483647}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:               "max_attempts_absent_defaults_to_3",
+			body:               `{"task_type":"echo","payload":{}}`,
+			expectedStatus:     http.StatusCreated,
+			expectedAttempts:   3,
+			expectedTimeoutSec: 60,
+		},
+		{
+			name:               "max_attempts_null_defaults_to_3",
+			body:               `{"task_type":"echo","payload":{},"max_attempts":null}`,
+			expectedStatus:     http.StatusCreated,
+			expectedAttempts:   3,
+			expectedTimeoutSec: 60,
+		},
+		{
+			name:           "max_attempts_wrong_json_type_string",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":"three"}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "MALFORMED_JSON",
+		},
+		{
+			name:           "max_attempts_float",
+			body:           `{"task_type":"echo","payload":{},"max_attempts":3.14}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "MALFORMED_JSON",
+		},
+
+		// timeout_seconds boundary values
+		{
+			name:           "timeout_seconds_zero",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":0}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:           "timeout_seconds_negative_one",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":-1}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:               "timeout_seconds_one_valid_lower_bound",
+			body:               `{"task_type":"echo","payload":{},"timeout_seconds":1}`,
+			expectedStatus:     http.StatusCreated,
+			expectedTimeoutSec: 1,
+			expectedAttempts:   3,
+		},
+		{
+			name:               "timeout_seconds_eighty_six_four_hundred_valid_upper_bound",
+			body:               `{"task_type":"echo","payload":{},"timeout_seconds":86400}`,
+			expectedStatus:     http.StatusCreated,
+			expectedTimeoutSec: 86400,
+			expectedAttempts:   3,
+		},
+		{
+			name:           "timeout_seconds_eighty_six_four_hundred_one_exceeds_upper_bound",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":86401}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:           "timeout_seconds_max_int",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":2147483647}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "INVALID_REQUEST",
+		},
+		{
+			name:               "timeout_seconds_null_defaults_to_60",
+			body:               `{"task_type":"echo","payload":{},"timeout_seconds":null}`,
+			expectedStatus:     http.StatusCreated,
+			expectedTimeoutSec: 60,
+			expectedAttempts:   3,
+		},
+		{
+			name:           "timeout_seconds_wrong_json_type_string",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":"sixty"}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "MALFORMED_JSON",
+		},
+		{
+			name:           "timeout_seconds_float",
+			body:           `{"task_type":"echo","payload":{},"timeout_seconds":60.5}`,
+			expectedStatus: http.StatusBadRequest,
+			expectedCode:   "MALFORMED_JSON",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := http.Post(ts.URL+"/v1/jobs", "application/json", strings.NewReader(tc.body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.expectedStatus {
+				body, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected status %d, got %d; body: %s", tc.expectedStatus, resp.StatusCode, string(body))
+			}
+
+			if tc.expectedStatus == http.StatusCreated {
+				var created domain.Job
+				if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+					t.Fatalf("failed to decode created job: %v", err)
+				}
+				if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttempts {
+					t.Fatalf("expected max_attempts %d, got %d", tc.expectedAttempts, created.MaxAttempts)
+				}
+				if tc.expectedTimeoutSec > 0 && created.TimeoutSeconds != tc.expectedTimeoutSec {
+					t.Fatalf("expected timeout_seconds %d, got %d", tc.expectedTimeoutSec, created.TimeoutSeconds)
+				}
+			} else {
+				var errResp api.ErrorResponse
+				if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+					t.Fatalf("failed to decode error response: %v", err)
+				}
+				if errResp.Error.Code != tc.expectedCode {
+					t.Fatalf("expected code %q, got %q", tc.expectedCode, errResp.Error.Code)
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500 verifies SEC-014:
+// if coordinator validation was bypassed and the database layer rejects max_attempts or timeout_seconds
+// with a check constraint violation (SQLSTATE 23514), the API error mapper maps the typed domain error
+// to HTTP 400 INVALID_REQUEST and NEVER exposes an opaque HTTP 500 INTERNAL_ERROR to the client.
+func TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500(t *testing.T) {
+	testCases := []struct {
+		name        string
+		simErr      error
+		expectedMsg string
+	}{
+		{
+			name:        "chk_jobs_max_attempts_check_violation",
+			simErr:      fmt.Errorf("%w: max_attempts must be between 1 and 20", domain.ErrInvalidRequest),
+			expectedMsg: "max_attempts must be between 1 and 20",
+		},
+		{
+			name:        "chk_jobs_timeout_check_violation",
+			simErr:      fmt.Errorf("%w: timeout_seconds must be between 1 and 86400", domain.ErrInvalidRequest),
+			expectedMsg: "timeout_seconds must be between 1 and 86400",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, _ := setupErrorServer(tc.simErr)
+			defer ts.Close()
+
+			validReq := `{"task_type":"echo","payload":{"message":"hello"}}`
+			resp, err := http.Post(ts.URL+"/v1/jobs", "application/json", strings.NewReader(validReq))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusBadRequest {
+				body, _ := io.ReadAll(resp.Body)
+				t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500); body: %s", resp.StatusCode, string(body))
+			}
+
+			var errResp api.ErrorResponse
+			if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+				t.Fatalf("failed to decode response: %v", err)
+			}
+			if errResp.Error.Code != "INVALID_REQUEST" {
+				t.Fatalf("expected error code INVALID_REQUEST, got %s", errResp.Error.Code)
+			}
+			if !strings.Contains(errResp.Error.Message, tc.expectedMsg) {
+				t.Fatalf("expected message to contain %q, got: %s", tc.expectedMsg, errResp.Error.Message)
+			}
+		})
 	}
 }

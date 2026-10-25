@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
@@ -800,5 +801,83 @@ func Sneaky(ctx context.Context, tx pgx.Tx, m Migration) error {
 
 	if checkedCount == 0 {
 		t.Fatalf("sanity check failed: no production .go files were found in internal/storage/postgres")
+	}
+}
+
+// TestPostgresRepository_Security_CheckConstraints_NumericBounds verifies SEC-014:
+// bypassing coordinator validation and inserting out-of-bounds max_attempts (< 1 or > 20)
+// or timeout_seconds (< 1 or > 86400) directly into PostgreSQL triggers check constraint violations (SQLSTATE 23514)
+// that map directly to typed domain.ErrInvalidRequest errors rather than unmapped 500 driver errors.
+func TestPostgresRepository_Security_CheckConstraints_NumericBounds(t *testing.T) {
+	ctx := context.Background()
+	pool, _ := setupTestPool(t)
+	repo := postgres.NewRepository(pool)
+
+	testCases := []struct {
+		name        string
+		maxAttempts int
+		timeoutSec  int
+		expectedMsg string
+	}{
+		{
+			name:        "max_attempts_zero",
+			maxAttempts: 0,
+			timeoutSec:  60,
+			expectedMsg: "max_attempts must be between 1 and 20",
+		},
+		{
+			name:        "max_attempts_negative",
+			maxAttempts: -5,
+			timeoutSec:  60,
+			expectedMsg: "max_attempts must be between 1 and 20",
+		},
+		{
+			name:        "max_attempts_exceeds_20",
+			maxAttempts: 21,
+			timeoutSec:  60,
+			expectedMsg: "max_attempts must be between 1 and 20",
+		},
+		{
+			name:        "timeout_seconds_zero",
+			maxAttempts: 3,
+			timeoutSec:  0,
+			expectedMsg: "timeout_seconds must be between 1 and 86400",
+		},
+		{
+			name:        "timeout_seconds_negative",
+			maxAttempts: 3,
+			timeoutSec:  -10,
+			expectedMsg: "timeout_seconds must be between 1 and 86400",
+		},
+		{
+			name:        "timeout_seconds_exceeds_86400",
+			maxAttempts: 3,
+			timeoutSec:  86401,
+			expectedMsg: "timeout_seconds must be between 1 and 86400",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			jobID := fmt.Sprintf("job_chk_%d", time.Now().UnixNano())
+			job := &domain.Job{
+				ID:             jobID,
+				TaskType:       "echo",
+				Payload:        []byte(`{}`),
+				State:          domain.StateSubmitted,
+				MaxAttempts:    tc.maxAttempts,
+				TimeoutSeconds: tc.timeoutSec,
+			}
+			err := repo.SubmitJob(ctx, job)
+			if err == nil {
+				t.Fatalf("expected check violation error for %s, got nil", tc.name)
+			}
+			if !errors.Is(err, domain.ErrInvalidRequest) {
+				t.Fatalf("expected domain.ErrInvalidRequest, got %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.expectedMsg) {
+				t.Fatalf("expected error message to contain %q, got: %v", tc.expectedMsg, err)
+			}
+		})
 	}
 }

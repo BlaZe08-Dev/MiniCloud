@@ -1077,6 +1077,12 @@ func mapPgError(err error) error {
 			if strings.Contains(pgErr.ConstraintName, "chk_attempts_output_size") {
 				return domain.ErrOutputTooLarge
 			}
+			if strings.Contains(pgErr.ConstraintName, "chk_jobs_max_attempts") {
+				return fmt.Errorf("%w: max_attempts must be between 1 and 20", domain.ErrInvalidRequest)
+			}
+			if strings.Contains(pgErr.ConstraintName, "chk_jobs_timeout") {
+				return fmt.Errorf("%w: timeout_seconds must be between 1 and 86400", domain.ErrInvalidRequest)
+			}
 			return domain.ErrInvalidRequest
 		}
 	}
