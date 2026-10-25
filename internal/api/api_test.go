@@ -46,6 +46,10 @@ func (r *errorInjectingRepository) GetJob(ctx context.Context, id string) (*doma
 	return nil, r.err
 }
 
+func (r *errorInjectingRepository) Ping(ctx context.Context) error {
+	return r.err
+}
+
 func setupErrorServer(injectErr error) (*httptest.Server, *coordinator.Service) {
 	baseRepo := storage.NewInMemoryRepository()
 	repo := &errorInjectingRepository{Repository: baseRepo, err: injectErr}
@@ -281,38 +285,73 @@ func TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500(t *tes
 	}
 }
 
-// TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500 verifies SEC-007:
-// database outages return an opaque 500 INTERNAL_ERROR without leaking network socket details.
-func TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500(t *testing.T) {
-	outageErr := errors.New("dial tcp 127.0.0.1:5432: connect: connection refused")
-	ts, _ := setupErrorServer(outageErr)
-	defer ts.Close()
+// TestAPI_OutageMapping_503RetryAfterOpaqueBody verifies that connection failures and context deadline
+// expiry return 503 SERVICE_UNAVAILABLE with Retry-After: 1 and an opaque body, on both job endpoints and /readyz.
+func TestAPI_OutageMapping_503RetryAfterOpaqueBody(t *testing.T) {
+	outageCases := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "connection refused",
+			err:  errors.New("dial tcp 127.0.0.1:5432: connect: connection refused"),
+		},
+		{
+			name: "context deadline exceeded",
+			err:  context.DeadlineExceeded,
+		},
+	}
 
-	resp, err := http.Get(ts.URL + "/v1/jobs/job_12345")
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
+	for _, tc := range outageCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, _ := setupErrorServer(tc.err)
+			defer ts.Close()
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected HTTP 500, got %d", resp.StatusCode)
-	}
+			// 1. GET /readyz should return 503 SERVICE_UNAVAILABLE with Retry-After: 1
+			readyResp, err := http.Get(ts.URL + "/readyz")
+			if err != nil {
+				t.Fatalf("readyz request failed: %v", err)
+			}
+			defer readyResp.Body.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	bodyStr := string(bodyBytes)
+			if readyResp.StatusCode != http.StatusServiceUnavailable {
+				t.Fatalf("expected HTTP 503 on readyz, got %d", readyResp.StatusCode)
+			}
+			if retryAfter := readyResp.Header.Get("Retry-After"); retryAfter != "1" {
+				t.Fatalf("expected Retry-After header '1', got %q", retryAfter)
+			}
 
-	var errResp api.ErrorResponse
-	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
-		t.Fatalf("failed to decode JSON error envelope: %v", err)
-	}
-	if errResp.Error.Code != "INTERNAL_ERROR" {
-		t.Fatalf("expected code INTERNAL_ERROR, got %q", errResp.Error.Code)
-	}
-	if errResp.Error.Message != "internal server error" {
-		t.Fatalf("expected opaque message 'internal server error', got %q", errResp.Error.Message)
-	}
-	if strings.Contains(bodyStr, "connection refused") || strings.Contains(bodyStr, "5432") {
-		t.Fatalf("SECURITY VIOLATION: database outage details leaked in error response: %s", bodyStr)
+			// 2. GET /v1/jobs/job_12345 should return 503 SERVICE_UNAVAILABLE with Retry-After: 1
+			resp, err := http.Get(ts.URL + "/v1/jobs/job_12345")
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusServiceUnavailable {
+				t.Fatalf("expected HTTP 503, got %d", resp.StatusCode)
+			}
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "1" {
+				t.Fatalf("expected Retry-After header '1', got %q", retryAfter)
+			}
+
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			bodyStr := string(bodyBytes)
+
+			var errResp api.ErrorResponse
+			if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+				t.Fatalf("failed to decode JSON error envelope: %v", err)
+			}
+			if errResp.Error.Code != "SERVICE_UNAVAILABLE" {
+				t.Fatalf("expected code SERVICE_UNAVAILABLE, got %q", errResp.Error.Code)
+			}
+			if errResp.Error.Message != "service temporarily unavailable" {
+				t.Fatalf("expected opaque message 'service temporarily unavailable', got %q", errResp.Error.Message)
+			}
+			if strings.Contains(bodyStr, "connection refused") || strings.Contains(bodyStr, "5432") {
+				t.Fatalf("SECURITY VIOLATION: database outage details leaked in error response: %s", bodyStr)
+			}
+		})
 	}
 }
 

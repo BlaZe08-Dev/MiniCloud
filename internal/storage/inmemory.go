@@ -713,3 +713,8 @@ func (r *InMemoryRepository) ListEventsByJob(ctx context.Context, jobID string) 
 	}
 	return events, nil
 }
+
+// Ping implements storage.Repository. For InMemoryRepository it is always healthy.
+func (r *InMemoryRepository) Ping(ctx context.Context) error {
+	return nil
+}

@@ -40,6 +40,16 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
+// Ping verifies database pool reachability.
+func (r *Repository) Ping(ctx context.Context) error {
+	return r.pool.Ping(ctx)
+}
+
+// Pool returns the underlying pgxpool connection pool.
+func (r *Repository) Pool() *pgxpool.Pool {
+	return r.pool
+}
+
 // CreateJob persists a new job directly without audit events.
 func (r *Repository) CreateJob(ctx context.Context, job *domain.Job) error {
 	if job == nil || job.ID == "" {

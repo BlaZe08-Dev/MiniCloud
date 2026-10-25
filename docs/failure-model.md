@@ -5,6 +5,7 @@ MiniCloud is engineered around the reality that distributed systems fail partial
 - **Crash-Recovery Model:** Any component (coordinator, worker, database, transport) may crash at any time and restart with its durable state intact.
 - **Lease Expiry vs. Process Death:** A worker that stops responding cannot be assumed dead. It may be partitioned, GC-paused, or slow. MiniCloud uses lease tokens to prevent zombie workers from committing stale outcomes.
 - **At-Least-Once Delivery & Deduplication:** Under failure and retry, duplicate executions may occur. All operations on the result commit boundary must be idempotent.
+- **Phase 3 Limitation (Slice 3d):** A `RUNNING` job whose worker process dies stays `RUNNING` until Phase 4 leases are implemented. In Slice 3d, PostgreSQL durable state ensures coordinator crashes do not lose jobs (`QUEUED` jobs remain dispatchable, and surviving workers can commit in-flight results), but dead workers with in-flight attempts do not have their attempts reaped until Phase 4 lease expiry recovery is introduced.
 
 ---
 
