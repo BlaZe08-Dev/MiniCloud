@@ -1,0 +1,87 @@
+# MiniCloud Security and Reliability Test Plan
+
+This document establishes the concrete adversarial, security, and distributed failure test plan across Milestone V1, V2, and V3.
+
+In accordance with [security-testing.md](security-testing.md), every test entry is labeled either with its **exact existing test name and file path**, or explicitly marked as **designed, not executed**.
+
+---
+
+## 1. Milestone V1: Core Correctness, API Boundaries, and In-Process Safety
+
+### 1.1 API Input Validation & Malformed Input
+| Test Category | Description / Attack Vector | Target Invariant | Existing Test / Status |
+| :--- | :--- | :--- | :--- |
+| **Go Native Fuzzing** | Native fuzz testing (`testing.F`) feeding malformed UTF-8, null bytes, escaped JSON, and boundary strings to API handlers. | Coordinator never panics; rejects malformed bodies with HTTP 400. | **designed, not executed** |
+| **Oversized Payloads & Bodies** | Submitting request body $> 1\text{ MiB}$ and job payload $> 64\text{ KiB}$. | Request rejected with HTTP 400 or HTTP 413; payload memory bounded. | `TestAPI_SubmitJob_Validation` (`internal/api/handlers_test.go:42`)<br>`TestExecutor_PayloadSizeLimit` (`internal/executor/registry_test.go:64`)<br>`TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits` (`internal/storage/postgres/security_test.go:87`) |
+| **Header & Slowloris Abuse** | Slow header trickling (1 byte/sec), gigantic headers ($> 1\text{ MiB}$), header injection. | Server closes connection via timeout; prevents file descriptor exhaustion. | **designed, not executed** |
+| **End-to-End SQL Injection** | Malicious SQL payloads injected via HTTP API job submission (task types, payload, tags). | Parameterized storage engine neutralizes input without execution. | `TestPostgresRepository_Security_SQLInjectionChallenge` (`internal/storage/postgres/security_test.go:53`) *(Unit/Repo level)*<br>**designed, not executed** *(End-to-end HTTP API level)* |
+| **AST SQL Concatenation Check** | Static AST analysis of all non-test Go source files in PostgreSQL repository package. | Enforce zero dynamic SQL string assembly or formatting across all queries. | `TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation` (`internal/storage/postgres/security_test.go:41`) |
+| **Error & Log Leakage Scans** | Triggering database constraint failures, unmapped domain errors, and bad queries. | HTTP responses and log entries must never expose raw SQL text, file paths, or lease tokens. | **designed, not executed** |
+
+### 1.2 State Machine, Concurrency & Attempt Safety
+| Test Category | Description / Attack Vector | Target Invariant | Existing Test / Status |
+| :--- | :--- | :--- | :--- |
+| **State Machine Invariants** | Fuzzing and asserting all combinations of $(S_{\text{from}}, S_{\text{to}})$ state transitions. | Centralized FSM rejects invalid transitions with typed errors. | `TestJobTransitionMatrix_AllPairs` (`internal/domain/state_test.go:10`)<br>`TestJob_TransitionTo` (`internal/domain/state_test.go:48`) |
+| **Stale Attempt Rejection** | Worker submits result for an attempt that was superseded, timed out, or cancelled. | Commit rejected with HTTP 409 or `ErrStaleAttempt`; state preserved. | `TestAPI_StaleAttemptRejection` (`internal/api/handlers_test.go:121`)<br>`TestPostgresRepository_CommitAttempt_StaleAttemptRejection` (`internal/storage/postgres/repository_test.go:344`) |
+| **Worker Mismatch Protection** | Rogue worker attempts to commit results for an attempt leased to another worker. | Commit rejected with `ErrWorkerMismatch`; logs assigned worker truthfully. | `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go:215`)<br>`TestPostgresRepository_CommitAttempt_WorkerMismatch` (`internal/storage/postgres/repository_test.go:377`) |
+| **Forged Tokens & Replay Attacks** | Submitting commit with random UUIDv4 or replaying valid lease token twice. | Only the active attempt lease token hash matches; replay rejected. | `TestPostgresRepository_Security_ForgedTokenAndReplayAttacks` (`internal/storage/postgres/security_test.go:127`)<br>`TestInMemoryRepository_LeaseTokenHashVerification` (`internal/storage/inmemory_test.go:212`) |
+| **Concurrent Dispatch Races** | Multiple workers attempting to claim the exact same job concurrently. | Atomic transaction ensures exactly one worker acquires lease; attempt numbers are monotonic. | `TestPostgresRepository_Concurrency_SameJobDispatchRaced` (`internal/storage/postgres/concurrency_test.go:25`)<br>`TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt` (`internal/storage/inmemory_test.go:120`) |
+| **Worker Capacity Races** | Dispatching jobs concurrently to a worker near maximum slot capacity. | Worker capacity limits never violated under concurrent claims. | `TestPostgresRepository_Concurrency_WorkerCapacityRaced` (`internal/storage/postgres/concurrency_test.go:88`) |
+| **Cancellation Context Atomicity** | Cancelling a job concurrently with worker completion or database commit. | Database state transitions atomically; no partial commit or stranded running attempt. | `TestPostgresRepository_Security_ContextCancellationAtomicity` (`internal/storage/postgres/security_test.go:178`) |
+
+### 1.3 Fault Injection & Failure Recovery
+| Test Category | Description / Attack Vector | Target Invariant | Existing Test / Status |
+| :--- | :--- | :--- | :--- |
+| **Worker Crash & Reaper Recovery** | Worker process dies silently while executing an active attempt lease. | Reaper identifies heartbeat timeout, marks worker unhealthy, expires lease, requeues job. | `TestService_WorkerLiveness_ReaperAndRecovery` (`internal/coordinator/service_test.go:42`)<br>`TestWorkerLiveness_DeadWorkerReapedAndWorkContinues` (`tests/integration/liveness_test.go:18`) |
+| **Coordinator Restart** | Coordinator process killed and restarted while workers are executing jobs. | Workers detect 404/connection drop, auto-re-register, and complete leased work. | `TestWorker_CoordinatorRestart_AutoReRegistrationAndCompletion` (`tests/integration/restart_test.go:20`) |
+| **PostgreSQL Transient Outage** | Database connectivity severed during claim dispatch or attempt commit. | Coordinator gracefully surfaces storage error; queue releases job for retry. | `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:425`) |
+| **Database Pool Exhaustion** | Heavy concurrent query pressure exhausting `pgxpool.Pool` connection limits. | Queries queue or fail cleanly with bounded context timeout; no coordinator hang. | **designed, not executed** |
+| **Allowlisted Host Safety** | Submitting arbitrary shell command execution attempts to worker executor. | Tasks outside allowlist (`echo`, `sleep`, `sha256_loop`) rejected without execution. | `TestExecutor_UnknownTaskType` (`internal/executor/registry_test.go:46`) |
+
+---
+
+## 2. Milestone V2: Queue Transport, Scheduling & Load Generation
+
+### 2.1 Queue Transport & Dispatch Comparison
+| Test Category | Description / Attack Vector | Target Invariant | Status |
+| :--- | :--- | :--- | :--- |
+| **Duplicate Message Delivery** | Simulating duplicate delivery of job IDs from Redis Streams or Postgres queue. | Coordinator and storage idempotently acknowledge duplicate without creating duplicate attempts. | `TestService_Claim_Redelivery_NoDuplicateAttempt` (`internal/coordinator/service_test.go:345`) *(In-memory queue)*<br>**designed, not executed** *(Redis Streams transport)* |
+| **Queue Precedence & Invariant Alignment** | Dispatch claiming dead jobs with unhealthy workers across both queue engines. | Unhealthy worker with dead job dropped and acknowledged, never released back to queue (SEC-002). | `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:375`) |
+| **Broker Interruption & Reconnection** | Message broker disconnected during continuous job submission and polling. | System buffers or returns 503; auto-reconnects without loss of durable state. | **designed, not executed** |
+
+### 2.2 Controlled Load Generation
+| Test Category | Description / Methodology | Target Metric / Invariant | Status |
+| :--- | :--- | :--- | :--- |
+| **Plain Go Load Generator** | In-repo plain Go workload generator executing sustained concurrent job submissions and completions. | Baseline jobs/sec throughput, p50/p95/p99 latency, queue depth on local host. | **designed, not executed** |
+| **Submission Burst & Saturation** | Simulating sudden submission bursts of 1,000+ jobs against local coordinator. | Queue absorbs backlog; memory usage remains bounded; no goroutine leakage. | **designed, not executed** |
+| **Worker Saturation Stress** | 10+ local worker processes contending for continuous job queue stream. | Fair scheduling distribution, no starvation, zero orphaned attempts under high contention. | **designed, not executed** |
+
+---
+
+## 3. Milestone V3: Isolation, Multi-Machine Networking & Authentication
+
+### 3.1 Container Isolation & Host Protection
+| Test Category | Description / Attack Vector | Target Invariant | Status |
+| :--- | :--- | :--- | :--- |
+| **Container Escape Probing** | Task attempting privilege escalation, host filesystem mounting, or cgroup breakout. | Execution confined strictly inside ephemeral unprivileged Docker container. | **designed, not executed** |
+| **Resource Limit Constraints** | Task allocating excessive memory (OOM bomb) or spinning 100% CPU. | Container terminated by Docker cgroup memory/CPU limits; host and worker remain healthy. | **designed, not executed** |
+| **Filesystem Write Barrier** | Task attempting to overwrite host files or modify root container image. | Read-only container rootfs; writes isolated to temporary ephemeral volume. | **designed, not executed** |
+
+### 3.2 Multi-Machine Networking & Authentication
+| Test Category | Description / Attack Vector | Target Invariant | Status |
+| :--- | :--- | :--- | :--- |
+| **Worker Authentication Enforcement** | Unauthenticated worker attempting to poll jobs or send heartbeats (SEC-004). | Request rejected with HTTP 401 Unauthorized; requires valid TLS cert or token. | **designed, not executed** |
+| **Client API Authorization** | Submitting job cancellation or inspection without authorized tenant token. | Request rejected with HTTP 403 Forbidden; tenant isolation verified. | **designed, not executed** |
+| **Network Partition / Split-Brain** | Simulating asymmetric network loss between coordinator and remote worker machines. | Leases expire cleanly; unreached workers drop execution context without committing. | **designed, not executed** |
+| **TLS Certificate Revocation** | Revoked or expired worker certificate attempting coordinator connection. | Handshake fails at TLS layer before HTTP processing begins. | **designed, not executed** |
+
+---
+
+## 4. Execution Principles and Tooling Scope
+
+1. **Standard Library First**: Security tests utilize Go standard library tooling without external dependencies:
+   - Race detector: `go test -race ./...`
+   - Static analysis: `go vet ./...`
+   - Native fuzzing: `go test -fuzz=Fuzz...`
+2. **Controlled Local Scale**: All load tests and fault simulations execute within the physical capacity of the local machine. No invented throughput or latency numbers are permitted; baseline numbers must be established and cited from real runs.
+3. **Automated Regressions**: Any confirmed vulnerability (from [findings.md](findings.md)) must be paired with an automated test in the repository before being marked fixed.
