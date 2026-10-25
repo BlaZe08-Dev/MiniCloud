@@ -23,6 +23,10 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-011** | Informational | Fixed (Slice 3d) | Migration CLI | Migration CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` flag emits deprecation warning about process table exposure (`cmd/migrate/main.go:16-33`). | `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`) |
 | **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
 | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go:26`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
+| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go:119-125`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go:1080-1085`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
+| **SEC-015** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `total_slots` is checked only for `<= 0`; upper bound is unconstrained, allowing workers to claim arbitrarily large slot capacity (`internal/coordinator/service.go:207`). | Verification step: `TestAPI_RegisterWorker_SlotsUpperLimit` (future test registering worker with slots $> 1000$ asserting validation rejection). |
+| **SEC-016** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `version` string length is unconstrained at API and coordinator boundary, allowing multi-megabyte version strings that violate PostgreSQL `VARCHAR(64)` constraint or exhaust memory (`internal/domain/models.go:76`). | Verification step: `TestAPI_RegisterWorker_VersionLengthLimit` (future test submitting 100 KiB version string asserting HTTP 400). |
+| **SEC-017** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `supported_tasks` slice length and element types are unvalidated at API and coordinator boundary; non-allowlisted tasks and arbitrarily large arrays accepted (`internal/domain/models.go:73`). | Verification step: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (future test passing unknown task types or 10,000 tasks asserting rejection). |
 
 ---
 
@@ -86,6 +90,36 @@ For findings of **Medium** severity and above, the full structured report format
 
 ---
 
+### SEC-014: POST /v1/jobs Accepts Negative or Out-of-Bound Numeric Parameters (max_attempts, timeout_seconds)
+
+- **Finding**: `POST /v1/jobs` accepted `max_attempts = -5` and `timeout_seconds = -1` and returned `201 Created` in memory mode (observed by curl probe against live coordinator).
+- **Severity**: Medium/Low
+- **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go:119-125`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go:1080-1085`)
+- **Preconditions**: Unauthenticated HTTP caller submits job creation payload with negative, zero, or out-of-bounds numeric fields.
+- **Reproduction Steps**:
+  1. Start coordinator in memory mode.
+  2. Issue HTTP POST:
+     ```bash
+     curl -i -X POST http://127.0.0.1:8080/v1/jobs \
+       -H "Content-Type: application/json" \
+       -d '{"task_type":"echo","payload":{"message":"test"},"max_attempts":-5,"timeout_seconds":-1}'
+     ```
+  3. Observe HTTP `201 Created` with job created having `max_attempts: 3` and `timeout_seconds: 60` due to silent internal override.
+  4. In PostgreSQL mode, issue the same request: observe unmapped SQLSTATE `23514` check constraint violation returned as an opaque HTTP 500 `INTERNAL_ERROR` instead of HTTP 400 `INVALID_REQUEST`.
+- **Evidence**: Probe observation confirmed negative values were accepted in memory mode returning 201 Created. Static inspection showed coordinator used `if maxAttempts <= 0 { maxAttempts = 3 }`, silently masking invalid values while PostgreSQL enforced `chk_jobs_max_attempts` ($1..20$) and `chk_jobs_timeout` ($1..86400$), turning invalid client requests into HTTP 500 internal errors.
+- **Impact**: Invalid values reach the retry logic planned for Phase 4. Under PostgreSQL storage, check constraint violations surfaced as opaque 500 internal server errors rather than actionable 400 client errors.
+- **Root Cause**: The coordinator validated payload byte size and task type but did not validate numeric parameter boundaries, silently overriding non-positive numbers with defaults in memory mode while leaving upper bounds unvalidated until the database rejected them. Additionally, API request struct `SubmitJobRequest` used plain `int` rather than pointers (`*int`), preventing clean distinction between absent/null values (where defaults apply) and explicit zero or negative values.
+- **Recommended Fix**:
+  1. Validate `max_attempts` ($1..20$, default 3 when omitted or null) and `timeout_seconds` ($1..86400$, default 60 when omitted or null) at API and coordinator boundaries with typed `domain.ErrInvalidRequest` mapped to HTTP 400 `INVALID_REQUEST`.
+  2. Map PostgreSQL check constraint violations (`chk_jobs_max_attempts` and `chk_jobs_timeout` under SQLSTATE `23514`) directly to typed `domain.ErrInvalidRequest` so check violations always map to HTTP 400 even if coordinator checks are bypassed.
+- **Regression Tests**:
+  - `TestAPI_SubmitJob_BoundaryValues` (`internal/api/api_test.go:476`)
+  - `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:567`)
+  - `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809`)
+- **Status**: Confirmed, Fixed (Slice 3d).
+
+---
+
 ## Low and Informational Findings Notes
 
 ### SEC-002: Dispatch Precedence Discrepancy (In-Memory vs. Postgres)
@@ -142,3 +176,19 @@ For findings of **Medium** severity and above, the full structured report format
 - **Status**: Informational, Open (inferred from code review, unconfirmed).
 - **Detail**: `internal/coordinator/service.go:24-30` constructs IDs using `fmt.Sprintf("%s_%d_%s", prefix, seq, hex.EncodeToString(b))`. While the 48 bits of randomness prevent brute-force guessing, the sequence counter leaks total job submission volume since coordinator boot.
 - **Verification Step**: `TestCoordinator_IDLeakage` (future test asserting whether sequential counters are exposed or replaced with opaque cryptographically random identifiers).
+
+### SEC-015: Unbounded total_slots Upper Bound in Worker Registration
+- **Status**: Low, Open (inferred from audit, unconfirmed).
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:207`), `worker.TotalSlots` is validated only for `<= 0` returning `domain.ErrInvalidRequest`. The upper bound is completely unconstrained, permitting registration requests with `total_slots: 2147483647` or other arbitrary large integers. A malicious or misconfigured worker can claim near-infinite capacity, skewing scheduling math or triggering arithmetic overflow.
+- **Verification Step**: `TestAPI_RegisterWorker_SlotsUpperLimit` (future test registering worker with slots $> 1000$ asserting validation error).
+
+### SEC-016: Unbounded version String Length in Worker Registration
+- **Status**: Low, Open (inferred from audit, unconfirmed).
+- **Detail**: In `POST /v1/workers/register` (`internal/api/handlers.go:179-195`), `worker.Version` is received as an unconstrained string without length or character set limits. While the PostgreSQL schema defines `VARCHAR(64)`, in memory mode arbitrary 100 MiB strings are stored in heap, and in PostgreSQL mode an oversized version triggers a database column length violation rather than a clean HTTP 400 client validation error.
+- **Verification Step**: `TestAPI_RegisterWorker_VersionLengthLimit` (future test registering worker with 100 KiB version string asserting HTTP 400 `INVALID_REQUEST`).
+
+### SEC-017: Unbounded Slice and Unvalidated Task Types in supported_tasks
+- **Status**: Low, Open (inferred from audit, unconfirmed).
+- **Detail**: In `POST /v1/workers/register` (`internal/api/handlers.go:179-195`), `worker.SupportedTasks` is accepted without verifying that individual task entries belong to the allowlisted tasks (`echo`, `sleep`, `sha256_loop`), and without bounding slice length. A worker can register an array containing 10,000 arbitrary strings, consuming storage memory and polluting worker capability metadata.
+- **Verification Step**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (future test registering worker with invalid task types or 10,000 entries asserting validation rejection).
+
