@@ -301,16 +301,28 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 			t.Fatalf("expected first active attempt to succeed, got: %v", err)
 		}
 
-		// Second active attempt for same job (even if PENDING) must fail due to idx_attempts_active_per_job
+		// Second active attempt for same job with state RUNNING must fail due to idx_attempts_active_per_job
 		_, err = conn.Exec(ctx, `
 			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_act_2', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'PENDING');
+			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING');
 		`)
 		if err == nil {
-			t.Fatalf("expected second active attempt on same job to fail with unique violation, got nil")
+			t.Fatalf("expected second RUNNING active attempt on same job to fail with unique violation, got nil")
 		}
 		if !strings.Contains(err.Error(), "idx_attempts_active_per_job") && !strings.Contains(err.Error(), "23505") {
-			t.Fatalf("expected unique index violation on idx_attempts_active_per_job, got: %v", err)
+			t.Fatalf("expected unique index violation on idx_attempts_active_per_job for RUNNING attempt, got: %v", err)
+		}
+
+		// Second active attempt for same job with state PENDING must ALSO fail due to idx_attempts_active_per_job
+		_, err = conn.Exec(ctx, `
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING');
+		`)
+		if err == nil {
+			t.Fatalf("expected second PENDING active attempt on same job to fail with unique violation, got nil")
+		}
+		if !strings.Contains(err.Error(), "idx_attempts_active_per_job") && !strings.Contains(err.Error(), "23505") {
+			t.Fatalf("expected unique index violation on idx_attempts_active_per_job for PENDING attempt, got: %v", err)
 		}
 
 		// Verify worker_capacity view counts non-terminal attempts (RUNNING or PENDING)

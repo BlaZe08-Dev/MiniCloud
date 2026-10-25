@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
@@ -303,5 +305,197 @@ func TestPostgresRepository_Concurrency_DuplicateCommitRaced(t *testing.T) {
 	}
 	if finalState != string(domain.StateSucceeded) {
 		t.Fatalf("expected job state SUCCEEDED, got %s", finalState)
+	}
+}
+
+// TestPostgresRepository_Concurrency_MixedOperationsStress runs 60 concurrent goroutines executing
+// an adversarial mix of DispatchJob, CommitAttempt, CancelJob, ReapStaleWorkers, and RecordHeartbeat
+// across overlapping jobs and workers. It verifies:
+// 1. Deadlock freedom: completes within context deadline.
+// 2. State invariants: exactly one active attempt per job, at most one result per job, and available_slots never negative.
+func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	pool, schemaName := setupTestPool(t)
+	repo := postgres.NewRepository(pool)
+
+	const (
+		numWorkers  = 4
+		numJobs     = 8
+		concurrency = 60
+		rounds      = 10
+	)
+
+	// Seed workers
+	workerIDs := make([]string, numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		workerIDs[i] = fmt.Sprintf("worker_stress_%d", i)
+		w := &domain.Worker{
+			ID:             workerIDs[i],
+			Version:        "v1.0.0",
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, w); err != nil {
+			t.Fatalf("UpsertWorker %d failed: %v", i, err)
+		}
+	}
+
+	// Seed jobs
+	jobIDs := make([]string, numJobs)
+	for i := 0; i < numJobs; i++ {
+		jobIDs[i] = fmt.Sprintf("job_stress_%d", i)
+		j := &domain.Job{
+			ID:             jobIDs[i],
+			TaskType:       "echo",
+			Payload:        []byte(fmt.Sprintf(`{"idx":%d}`, i)),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, j); err != nil {
+			t.Fatalf("SubmitJob %d failed: %v", i, err)
+		}
+	}
+
+	type activeAttemptInfo struct {
+		jobID      string
+		attemptID  string
+		leaseToken string
+		workerID   string
+	}
+
+	var (
+		attemptsMu     sync.Mutex
+		activeAttempts []activeAttemptInfo
+	)
+
+	var wg sync.WaitGroup
+	startBarrier := make(chan struct{})
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(gID int) {
+			defer wg.Done()
+			<-startBarrier
+
+			r := rand.New(rand.NewSource(int64(gID*1000 + 42)))
+
+			for iter := 0; iter < rounds; iter++ {
+				if ctx.Err() != nil {
+					return
+				}
+
+				op := (gID + iter) % 5
+				targetJobID := jobIDs[r.Intn(numJobs)]
+				targetWorkerID := workerIDs[r.Intn(numWorkers)]
+
+				switch op {
+				case 0, 1: // DispatchJob
+					att, err := repo.DispatchJob(ctx, targetJobID, targetWorkerID)
+					if err == nil && att != nil {
+						attemptsMu.Lock()
+						activeAttempts = append(activeAttempts, activeAttemptInfo{
+							jobID:      targetJobID,
+							attemptID:  att.ID,
+							leaseToken: att.LeaseToken,
+							workerID:   targetWorkerID,
+						})
+						attemptsMu.Unlock()
+					}
+				case 2: // CommitAttempt
+					var candidate activeAttemptInfo
+					hasCandidate := false
+					attemptsMu.Lock()
+					if len(activeAttempts) > 0 {
+						candidate = activeAttempts[r.Intn(len(activeAttempts))]
+						hasCandidate = true
+					}
+					attemptsMu.Unlock()
+
+					if hasCandidate {
+						outcome := domain.AttemptOutcome{
+							ExitCode: 0,
+							Output:   "stress ok",
+						}
+						_, _ = repo.CommitAttempt(ctx, candidate.jobID, candidate.attemptID, candidate.leaseToken, candidate.workerID, outcome)
+					}
+				case 3: // CancelJob
+					_, _ = repo.CancelJob(ctx, targetJobID)
+				case 4: // ReapStaleWorkers / RecordHeartbeat
+					if iter%2 == 0 {
+						_, _ = repo.ReapStaleWorkers(ctx, 1*time.Millisecond)
+					} else {
+						_ = repo.RecordHeartbeat(ctx, targetWorkerID, 2)
+					}
+				}
+			}
+		}(i)
+	}
+
+	close(startBarrier)
+	wg.Wait()
+
+	if ctx.Err() != nil {
+		t.Fatalf("concurrency test exceeded deadline, possible deadlock encountered: %v", ctx.Err())
+	}
+
+	// Invariant 1: Exactly at most ONE active attempt per job in the entire database
+	checkActiveAttempts := fmt.Sprintf(`
+		SELECT job_id, COUNT(*) 
+		FROM %s.attempts 
+		WHERE state IN ('PENDING', 'RUNNING') 
+		GROUP BY job_id 
+		HAVING COUNT(*) > 1;
+	`, schemaName)
+	rows, err := pool.Query(ctx, checkActiveAttempts)
+	if err != nil {
+		t.Fatalf("failed to query active attempts: %v", err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var jID string
+		var cnt int
+		_ = rows.Scan(&jID, &cnt)
+		t.Fatalf("INVARIANT VIOLATION: job %s has %d active attempts (>1)", jID, cnt)
+	}
+
+	// Invariant 2: At most ONE result per job
+	checkResults := fmt.Sprintf(`
+		SELECT job_id, COUNT(*) 
+		FROM %s.results 
+		GROUP BY job_id 
+		HAVING COUNT(*) > 1;
+	`, schemaName)
+	resRows, err := pool.Query(ctx, checkResults)
+	if err != nil {
+		t.Fatalf("failed to query results: %v", err)
+	}
+	defer resRows.Close()
+	if resRows.Next() {
+		var jID string
+		var cnt int
+		_ = resRows.Scan(&jID, &cnt)
+		t.Fatalf("INVARIANT VIOLATION: job %s has %d result rows (>1)", jID, cnt)
+	}
+
+	// Invariant 3: Derived available slots never negative
+	checkNegativeSlots := fmt.Sprintf(`
+		SELECT id, available_slots 
+		FROM %s.worker_capacity 
+		WHERE available_slots < 0;
+	`, schemaName)
+	slotRows, err := pool.Query(ctx, checkNegativeSlots)
+	if err != nil {
+		t.Fatalf("failed to query worker capacity: %v", err)
+	}
+	defer slotRows.Close()
+	if slotRows.Next() {
+		var wID string
+		var slots int
+		_ = slotRows.Scan(&wID, &slots)
+		t.Fatalf("INVARIANT VIOLATION: worker %s has negative available_slots: %d", wID, slots)
 	}
 }
