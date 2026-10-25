@@ -636,3 +636,82 @@ func TestMigrator_PreExistingInvalidRow_ValidationFails(t *testing.T) {
 		t.Fatalf("expected exactly 1 migration applied after fix, got %d", applied2)
 	}
 }
+
+// TestMigrator_NotSubjectToCoordinatorQueryTimeout verifies that migrations executed by
+// cmd/migrate and the Migrator run over standard *pgx.Conn connections that are not subject to
+// the coordinator's short statement_timeout and lock_timeout (e.g. 5s or test-configured 500ms).
+func TestMigrator_NotSubjectToCoordinatorQueryTimeout(t *testing.T) {
+	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+	if testURL == "" {
+		t.Skip("skipping postgres test: MINICLOUD_TEST_DATABASE_URL is unset")
+	}
+
+	cfg, err := pgx.ParseConfig(testURL)
+	if err != nil {
+		t.Fatalf("failed to parse MINICLOUD_TEST_DATABASE_URL: %v", err)
+	}
+	if !strings.HasSuffix(cfg.Database, "_test") {
+		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.Database)
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, testURL)
+	if err != nil {
+		t.Fatalf("failed to connect to test database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	schemaName := fmt.Sprintf("test_migrator_timeout_%d", time.Now().UnixNano())
+	if _, err := conn.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s;", schemaName)); err != nil {
+		t.Fatalf("failed to create isolated test schema: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cleanConn, err := pgx.Connect(cleanupCtx, testURL)
+		if err == nil {
+			_, _ = cleanConn.Exec(cleanupCtx, fmt.Sprintf("DROP SCHEMA %s CASCADE;", schemaName))
+			_ = cleanConn.Close(cleanupCtx)
+		}
+	})
+
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s;", schemaName)); err != nil {
+		t.Fatalf("failed to set search path: %v", err)
+	}
+
+	// 1. Verify session parameters on migrator connection are not bound to coordinator's statement_timeout
+	var stmtTimeout, lockTimeout string
+	if err := conn.QueryRow(ctx, "SHOW statement_timeout;").Scan(&stmtTimeout); err != nil {
+		t.Fatalf("failed to inspect statement_timeout: %v", err)
+	}
+	if err := conn.QueryRow(ctx, "SHOW lock_timeout;").Scan(&lockTimeout); err != nil {
+		t.Fatalf("failed to inspect lock_timeout: %v", err)
+	}
+
+	t.Logf("Migrator session timeouts: statement_timeout=%s, lock_timeout=%s", stmtTimeout, lockTimeout)
+
+	// 2. Define a migration that runs longer than coordinator query timeouts (e.g. a 0.6s sleep in migration)
+	slowMigrationSQL := `
+		SELECT pg_sleep(0.6);
+		CREATE TABLE slow_migration_test (id INT PRIMARY KEY);
+	`
+	testFS := fstest.MapFS{
+		"migrations/000001_slow.sql": &fstest.MapFile{Data: []byte(slowMigrationSQL)},
+	}
+
+	migrator := postgres.NewMigrator(postgres.WithFS(testFS), postgres.WithLockID(0x998877))
+	applied, err := migrator.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("migration failed: expected migrator to execute without timeout cancellation, got: %v", err)
+	}
+	if applied != 1 {
+		t.Fatalf("expected 1 migration applied, got %d", applied)
+	}
+
+	// Verify table was created
+	var exists bool
+	checkSQL := fmt.Sprintf("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '%s' AND table_name = 'slow_migration_test');", schemaName)
+	if err := conn.QueryRow(ctx, checkSQL).Scan(&exists); err != nil || !exists {
+		t.Fatalf("expected slow_migration_test table to exist, exists=%v, err=%v", exists, err)
+	}
+}

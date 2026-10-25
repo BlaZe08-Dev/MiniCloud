@@ -79,6 +79,18 @@ Rather than hardcoding schema versions, the coordinator derives the required sch
 ### 7. Migration 000003 Operational Note & Zero-Downtime Validation
 Migration 000003 applies CHECK constraints (`chk_workers_total_slots_range`, `chk_workers_version_length`, `chk_workers_supported_tasks_count`) to the `workers` table using `ADD CONSTRAINT ... NOT VALID` followed by `VALIDATE CONSTRAINT`. This eliminates long-held exclusive table locks during schema migration. If pre-existing legacy rows violate the new bounds, `VALIDATE CONSTRAINT` fails loudly and rolls back the migration transaction, preventing unvalidated rows from being certified. Operators must remediate invalid worker rows before re-running migrations. Tested in `TestMigrator_PreExistingInvalidRow_ValidationFails`.
 
+### 8. Pooled Connection Timeouts (`statement_timeout` & `lock_timeout`)
+- **Coordinator Connection Defaults**: The coordinator enforces runtime query and lock deadlines on all pooled database connections via `poolCfg.ConnConfig.RuntimeParams`:
+  - `statement_timeout`: defaults to 5000 ms (5s), derived from `MINICLOUD_DB_QUERY_TIMEOUT`.
+  - `lock_timeout`: defaults to 5000 ms (5s), derived from `MINICLOUD_DB_QUERY_TIMEOUT`.
+  - **Configuration Variable**: `MINICLOUD_DB_QUERY_TIMEOUT` (default `5s`, parsed as standard Go duration string).
+- **Handling Long Queries and Contention**:
+  - If a legitimate SQL query executes longer than `statement_timeout`, or waits behind another transaction's row/table lock longer than `lock_timeout`, PostgreSQL cancels the statement with SQLSTATE `57014` (`query_canceled`) or `55P03` (`lock_not_available`).
+  - The coordinator API error mapper translates these cancellation codes into HTTP 503 `SERVICE_UNAVAILABLE` with header `Retry-After: 1` and opaque error body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`.
+  - This prevents slow queries or lock contention from exhausting connection pool capacity (SEC-008). Operators whose environments require larger execution margins can tune `MINICLOUD_DB_QUERY_TIMEOUT` accordingly.
+- **Migration Isolation**:
+  - Schema migrations run by `cmd/migrate` / `postgres.Migrator` execute across direct `*pgx.Conn` sessions and are **not** subject to the coordinator's short `statement_timeout` or `lock_timeout`. This allows complex DDL operations and constraint validation (`VALIDATE CONSTRAINT`) to run to completion without premature cancellation. Verified by `TestMigrator_NotSubjectToCoordinatorQueryTimeout`.
+
 ---
 
 ## Consequences
@@ -87,8 +99,10 @@ Migration 000003 applies CHECK constraints (`chk_workers_total_slots_range`, `ch
 - **Durability**: Zero state loss on coordinator restart.
 - **Deadlock Free**: Canonical `jobs` -> `workers` -> `attempts` locking mathematically eliminates deadlocks.
 - **Resource Safety**: Unbounded in-memory collections bypassed in production mode (SEC-010).
+- **Pool Starvation Protection**: Mandatory `statement_timeout` and `lock_timeout` bound query latency and release idle connections back to the pool.
 - **Graceful Degrade**: Worker agents automatically back off during database maintenance and resume without manual intervention.
 
 ### Negative / Trade-offs
 - Lexical ID tie-breaking means jobs submitted in the exact same transaction timestamp sort textually rather than numerically (approximate FIFO).
 - A dead worker process leaves a job in `RUNNING` until Phase 4 lease timeouts are introduced.
+- Legitimate coordinator queries exceeding `MINICLOUD_DB_QUERY_TIMEOUT` are aborted and returned as 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1`, requiring operators to size timeouts to match operational requirements.

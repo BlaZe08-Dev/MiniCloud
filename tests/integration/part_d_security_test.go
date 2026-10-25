@@ -11,13 +11,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/api"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 )
 
 // safeBuffer is a thread-safe bytes buffer for capturing subprocess output.
@@ -43,7 +43,7 @@ func (s *safeBuffer) String() string {
 // Asserts the process stays alive, latency is bounded, every response is 2xx/4xx
 // or an opaque 503 SERVICE_UNAVAILABLE (no other 5xx, no hang), and the system recovers.
 func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
-	schemaURL, pool, _ := setupPostgresTestSchema(t)
+	schemaURL, pool, schemaName := setupPostgresTestSchema(t)
 
 	tmpDir := t.TempDir()
 	coordBin := filepath.Join(tmpDir, "coordinator")
@@ -100,6 +100,7 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 	var wg sync.WaitGroup
 	type reqResult struct {
 		statusCode int
+		retryAfter string
 		latency    time.Duration
 		body       string
 		err        error
@@ -113,6 +114,45 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 			MaxIdleConnsPerHost: 100,
 		},
 	}
+
+	// Genuinely saturate the pool of 10 connections:
+	// Acquire an exclusive table lock on jobs in a separate transaction and hold it for a controlled duration.
+	// When concurrent requests arrive at the coordinator, the first 10 requests touching jobs check out all 10
+	// connections from the pool and block waiting for the lock in PostgreSQL. This 100% saturates the pool.
+	// All remaining requests must queue waiting for a connection from the pool.
+	const holdDuration = 400 * time.Millisecond
+	lockAcquired := make(chan struct{})
+	go func() {
+		lockCtx := context.Background()
+		lockConn, err := pool.Acquire(lockCtx)
+		if err != nil {
+			t.Errorf("failed to acquire connection for pool saturation hold: %v", err)
+			close(lockAcquired)
+			return
+		}
+		defer lockConn.Release()
+
+		tx, err := lockConn.Begin(lockCtx)
+		if err != nil {
+			t.Errorf("failed to begin saturation hold transaction: %v", err)
+			close(lockAcquired)
+			return
+		}
+		defer tx.Rollback(lockCtx)
+
+		if _, err := tx.Exec(lockCtx, fmt.Sprintf("LOCK TABLE %s.jobs IN ACCESS EXCLUSIVE MODE;", schemaName)); err != nil {
+			t.Errorf("failed to lock jobs table: %v", err)
+			close(lockAcquired)
+			return
+		}
+
+		close(lockAcquired)
+		// Hold connections in coordinator pool by sleeping inside the transaction
+		time.Sleep(holdDuration)
+		_ = tx.Commit(lockCtx)
+	}()
+
+	<-lockAcquired
 
 	startBatch := time.Now()
 	for i := 0; i < totalRequests; i++ {
@@ -146,6 +186,7 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 			bodyBytes, _ := io.ReadAll(resp.Body)
 			results[idx] = reqResult{
 				statusCode: resp.StatusCode,
+				retryAfter: resp.Header.Get("Retry-After"),
 				latency:    lat,
 				body:       string(bodyBytes),
 			}
@@ -168,11 +209,19 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 
 	// Invariant 3: Every response is 2xx, 4xx, or opaque 503 SERVICE_UNAVAILABLE; NO 500s or hangs
 	statusCounts := make(map[int]int)
+	var maxLatency time.Duration
+	var waitedNearHold int
 	for i, r := range results {
 		if r.err != nil {
 			t.Fatalf("request %d encountered transport error: %v", i, r.err)
 		}
 		statusCounts[r.statusCode]++
+		if r.latency > maxLatency {
+			maxLatency = r.latency
+		}
+		if r.latency >= holdDuration*8/10 {
+			waitedNearHold++
+		}
 
 		switch {
 		case r.statusCode >= 200 && r.statusCode < 300:
@@ -180,7 +229,10 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 		case r.statusCode >= 400 && r.statusCode < 500:
 			// OK (client errors like 404 for nonexistent job)
 		case r.statusCode == http.StatusServiceUnavailable:
-			// 503 SERVICE_UNAVAILABLE is acceptable under pool exhaustion, must have opaque envelope
+			// 503 SERVICE_UNAVAILABLE must include Retry-After and opaque envelope
+			if r.retryAfter != "1" {
+				t.Fatalf("request %d: expected Retry-After: 1 on 503, got %q", i, r.retryAfter)
+			}
 			var errResp api.ErrorResponse
 			if err := json.Unmarshal([]byte(r.body), &errResp); err != nil {
 				t.Fatalf("request %d: 503 response not valid JSON error envelope: %v", i, err)
@@ -195,7 +247,13 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 			t.Fatalf("UNACCEPTABLE STATUS: request %d returned status %d (body: %s)", i, r.statusCode, r.body)
 		}
 	}
-	t.Logf("Response status distribution: %v", statusCounts)
+
+	// Positive control: verify that pool saturation occurred (requests waited about the hold time)
+	if waitedNearHold < 10 {
+		t.Fatalf("POSITIVE CONTROL FAILED: pool was not saturated; expected at least 10 requests to wait near hold time (%v), but only %d did (max latency: %v)", holdDuration, waitedNearHold, maxLatency)
+	}
+	t.Logf("Positive control verified: %d requests waited >= %v (holdDuration=%v, maxLatency=%v)", waitedNearHold, holdDuration*8/10, holdDuration, maxLatency)
+	t.Logf("Observed status distribution: %v, max latency: %v", statusCounts, maxLatency)
 
 	// Invariant 4: System recovers immediately afterwards
 	recStart := time.Now()
@@ -952,6 +1010,44 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 
 	client := &http.Client{Timeout: 3 * time.Second}
 
+	// 0. Register a worker and submit a job to capture a REAL lease token issued at dispatch
+	wRegPayload := `{"id":"leak-scan-worker","version":"v0.1.0","total_slots":2,"supported_tasks":["echo"]}`
+	respReg, err := client.Post(coordURL+"/v1/workers/register", "application/json", strings.NewReader(wRegPayload))
+	if err != nil {
+		t.Fatalf("failed to register leak scan worker: %v", err)
+	}
+	respReg.Body.Close()
+
+	jSubPayload := `{"task_type":"echo","payload":{"msg":"leak-scan-dispatch"}}`
+	respSub, err := client.Post(coordURL+"/v1/jobs", "application/json", strings.NewReader(jSubPayload))
+	if err != nil {
+		t.Fatalf("failed to submit leak scan job: %v", err)
+	}
+	respSub.Body.Close()
+
+	// Worker polls and receives attempt containing the real raw lease token
+	respPoll, err := client.Post(coordURL+"/v1/workers/leak-scan-worker/poll", "application/json", nil)
+	if err != nil {
+		t.Fatalf("failed to poll for leak scan job: %v", err)
+	}
+	defer respPoll.Body.Close()
+	if respPoll.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 OK on worker poll, got %d", respPoll.StatusCode)
+	}
+	var pollResult struct {
+		Assignment struct {
+			AttemptID  string `json:"attempt_id"`
+			LeaseToken string `json:"lease_token"`
+		} `json:"assignment"`
+	}
+	if err := json.NewDecoder(respPoll.Body).Decode(&pollResult); err != nil {
+		t.Fatalf("failed to decode worker poll response: %v", err)
+	}
+	realLeaseToken := pollResult.Assignment.LeaseToken
+	if realLeaseToken == "" || len(realLeaseToken) < 32 {
+		t.Fatalf("expected valid raw lease token (>=32 chars), got %q", realLeaseToken)
+	}
+
 	// 1. Send normal baseline traffic
 	resp1, _ := client.Get(coordURL + "/readyz")
 	recordResponse(resp1)
@@ -1009,15 +1105,25 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 		pattern string
 	}
 
+	scanForForbidden := func(sourceName, content string, targets []leakTarget) error {
+		for _, target := range targets {
+			if target.pattern != "" && strings.Contains(content, target.pattern) {
+				return fmt.Errorf("detected %s (%q) in %s", target.name, target.pattern, sourceName)
+			}
+		}
+		return nil
+	}
+
 	// Targets that must NEVER appear in client responses:
+	// Note: Database port (:5433 or 5432) and socket dial details must not appear in client responses.
 	clientForbidden := []leakTarget{
 		{"connection_url", testDBURL},
 		{"connection_url_escaped", url.QueryEscape(testDBURL)},
 		{"database_password", dbPassword},
 		{"database_host", dbHost},
-		{"database_port", dbPort},
-		{"socket_5432", "5432"},
-		{"socket_5433", "5433"},
+		{"database_port_colon", ":" + dbPort},
+		{"database_port_5432", "5432"},
+		{"database_port_5433", "5433"},
 		{"sql_select", "SELECT "},
 		{"sql_insert", "INSERT INTO "},
 		{"sql_update", "UPDATE "},
@@ -1027,40 +1133,51 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 		{"connection_refused", "connection refused"},
 		{"dial_tcp", "dial tcp"},
 		{"cluster_internal", "cluster.local"},
+		{"real_lease_token", realLeaseToken},
 	}
 
-	// UUID lease token pattern
-	leaseTokenRegex := regexp.MustCompile(`\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b`)
-
-	for _, target := range clientForbidden {
-		if target.pattern != "" && strings.Contains(allCapturedClient, target.pattern) {
-			t.Fatalf("SECURITY LEAK IN CLIENT RESPONSES: detected %s in response data", target.name)
-		}
+	if err := scanForForbidden("client responses", allCapturedClient, clientForbidden); err != nil {
+		t.Fatalf("SECURITY LEAK IN CLIENT RESPONSES: %v", err)
 	}
 
 	// Targets that must NEVER appear in coordinator logs:
+	// Note on 127.0.0.1 / ports:
+	// The coordinator legitimately logs its own bind address "addr=127.0.0.1:<coordPort>" at startup,
+	// so generic "127.0.0.1" is not forbidden in coordinator logs.
+	// But the full database connection URL, database password, database socket port (:5433/:5432),
+	// SQL query fragments, and raw lease tokens are strictly forbidden.
 	logsForbidden := []leakTarget{
 		{"connection_url", testDBURL},
 		{"connection_url_escaped", url.QueryEscape(testDBURL)},
 		{"database_password", dbPassword},
-		{"database_port", dbPort},
+		{"database_port_colon", ":" + dbPort},
 		{"sql_select", "SELECT "},
 		{"sql_insert", "INSERT INTO "},
 		{"sql_update", "UPDATE "},
 		{"sql_delete", "DELETE FROM "},
 		{"sql_drop", "DROP TABLE"},
+		{"real_lease_token", realLeaseToken},
 	}
 
-	for _, target := range logsForbidden {
-		if target.pattern != "" && strings.Contains(allLogs, target.pattern) {
-			t.Fatalf("SECURITY LEAK IN COORDINATOR LOGS: detected %s in server logs", target.name)
+	if err := scanForForbidden("coordinator logs", allLogs, logsForbidden); err != nil {
+		t.Fatalf("SECURITY LEAK IN COORDINATOR LOGS: %v", err)
+	}
+
+	// Positive Control: plant a known fake token in a synthetic log buffer and assert scan fails on it
+	t.Run("PositiveControl_PlantedTokenDetected", func(t *testing.T) {
+		fakeToken, err := domain.NewLeaseToken()
+		if err != nil {
+			t.Fatalf("failed to generate fake token: %v", err)
 		}
-	}
-
-	// Lease tokens must not be logged
-	if leaseTokenRegex.MatchString(allLogs) {
-		t.Fatalf("SECURITY LEAK IN COORDINATOR LOGS: detected lease token (UUID) in server logs")
-	}
+		syntheticDirtyLog := fmt.Sprintf("2026/10/26 00:00:00 INFO dispatched attempt_id=att_123 token=%s", fakeToken)
+		err = scanForForbidden("synthetic_log", syntheticDirtyLog, []leakTarget{
+			{"planted_lease_token", fakeToken},
+		})
+		if err == nil {
+			t.Fatalf("POSITIVE CONTROL FAILED: leak scanner failed to detect planted lease token %s", fakeToken)
+		}
+		t.Logf("Positive control passed: planted token successfully detected: %v", err)
+	})
 
 	t.Log("PASS: Zero leak occurrences in client responses and coordinator logs across outage cycle")
 

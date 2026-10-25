@@ -27,6 +27,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded to `[1, 1024]` at domain boundary and backed by database constraint `chk_workers_total_slots_range` (`internal/coordinator/service.go:127,256`, migration 000003). | `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-016** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `version` string length capped at 64 chars at domain boundary and backed by database constraint `chk_workers_version_length` (`internal/coordinator/service.go:129,259`, migration 000003). Empty version allowed. | `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go:130,262`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
 
 ---
 
@@ -192,26 +193,64 @@ For findings of **Medium** severity and above, the full structured report format
 - **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:259-267`), `worker.SupportedTasks` array length is bounded to at most 16 unique tasks (duplicates are deduplicated). Individual task names are validated to ensure they are 1..64 characters in length and match `^[a-z0-9_]{1,64}$`. Empty slices are allowed (worker registers with 0 tasks). Unknown-but-well-formed task names are accepted upon registration to support rolling worker fleet upgrades. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_supported_tasks_count CHECK (coalesce(cardinality(supported_tasks), 0) <= 16)`.
 - **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
+### SEC-018: Inaccuracies and Reconstructed Test Output in Slice 3d Progress Report
+- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks.
+- **Severity**: Informational
+- **Category**: Process / Reporting Integrity
+- **Status**: Confirmed, Remediated (Slice 3d).
+- **Preconditions**: Generating progress reports from memory or inference rather than piping live command output directly to disk.
+- **Evidence of Inaccuracies**:
+  1. **Nonexistent test names cited in prior report**:
+     - `TestAPI_JobLifecycle_InMemory` (real name: `TestAPI_SubmitJob_Success` / `TestAPI_JobLifecycle`)
+     - `TestJob_Transitions` (real name: `TestJob_TransitionTo`, `TestJobTransitionMatrix_AllPairs`)
+     - `TestCoordinator_Service` (real name: `TestService_SubmitJob_Success`, etc.)
+     - `TestAgent_Run_SingleJobSuccess` (real name: `TestWorkerAgent_SingleJobSuccess`, etc.)
+     - `TestAPI_WorkerRegistration_Limits` (real name: `TestAPI_RegisterWorker_SlotsUpperLimit`, etc.)
+     - `TestMigrator_ApplyAll_CleanDatabase` (real name: `TestMigrator_AppliesAllMigrations`, etc.)
+     - `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (verified real name)
+     - `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (real name: `TestAPI_Slowloris_ReadHeaderTimeout`)
+     - `TestAPI_JobNumericBounds_Validation` (real name: `TestAPI_SubmitJob_BoundaryValues`)
+     - `TestAPI_WorkerID_ValidationBounds` (real name: `TestAPI_IdentifierValidation_NegativeCases`)
+     Verification: `go test -list '.*' ./...` verifies exactly 101 tests; none of the above fake names exist in the repository.
+  2. **Nonexistent ADR citation**: The report cited `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md`. The actual repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
+  3. **Incorrect parameter limit**: The report claimed `supported_tasks` limit was `1..32`. The real limit enforced in domain validation and database constraint `chk_workers_supported_tasks_count` is `16` (`MaxWorkerSupportedTasks = 16`).
+- **Impact**: Progress reports failed to provide verifiable, reproducible audit records. Reconstructed outputs obscure test failures or skips.
+- **Root Cause**: Summarizing test execution from model inference instead of piping raw command output to disk.
+- **Remediation & Enforced Protocol**:
+  1. All test runs MUST be redirected to a temporary file (`> /tmp/<name>.log 2>&1`).
+  2. Reports MUST paste directly from the redirected file (or its head/tail) alongside exact grep counts: `grep -cE '^--- (PASS|FAIL|SKIP)' /tmp/<name>.log`.
+  3. No test output, test names, or logs may be summarized, retyped, or reconstructed.
+  4. All test citations must be cross-checked against `go test -list '.*' ./...`.
+
 ---
 
 ## Part D Security Testing Verification Summary
 
 The Part D security verification tests were implemented and executed against PostgreSQL on `milestone/3d-postgres-wiring`:
 
-1. **Pool Exhaustion (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:48`)**:
-   - 500 concurrent requests against a 10-connection pool.
-   - Outcome: PASSED (2.38s). Process stayed alive; all responses were 2xx/4xx or opaque 503; zero 500s or hangs; system recovered in <1ms.
-2. **Slow Query Context Deadline (`TestSecurity_PartD_SlowQuery_ContextDeadline` in `tests/integration/part_d_security_test.go:221`)**:
+1. **Genuine Pool Saturation (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:48`)**:
+   - 500 concurrent HTTP requests (167 `POST /v1/jobs`, 167 `GET /readyz`, 166 `GET /v1/jobs/nonexistent`) against a 10-connection pool.
+   - Genuinely saturates pool by holding an `ACCESS EXCLUSIVE` table lock on `jobs` for 400ms (`holdDuration`) in a separate connection.
+   - Asserts bounded latency, zero transport crashes, every response 2xx/4xx or opaque 503 with header `Retry-After: 1`, zero 500s, and immediate recovery (<2ms).
+   - Positive control verified: >=10 requests (495 observed) waited >= 320ms (`holdDuration * 8/10`), proving genuine pool saturation. Max latency: ~1.05s.
+2. **Slow Query Context Deadline (`TestSecurity_PartD_SlowQuery_ContextDeadline` in `tests/integration/part_d_security_test.go:260`)**:
    - PostgreSQL lock contention forcing `statement_timeout` under 200ms query deadline.
-   - Outcome: PASSED (1.74s). Returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`; no hang, no 500.
-3. **End-to-End SQL Injection Challenge (`TestSecurity_PartD_SQLInjection_EndToEnd` in `tests/integration/part_d_security_test.go:343`)**:
+   - Outcome: PASSED. Returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`; no hang, no 500.
+3. **End-to-End SQL Injection Challenge (`TestSecurity_PartD_SQLInjection_EndToEnd` in `tests/integration/part_d_security_test.go:382`)**:
    - Injections across job payload, task_type, worker ID, version, and supported_tasks.
-   - Outcome: PASSED (1.87s). Neutralized as literal string data (201) or rejected at boundary (4xx); zero 5xx; 0 schema tables or columns altered.
-4. **Outage Mid-Dispatch & Mid-Commit (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit` in `tests/integration/part_d_security_test.go:668`)**:
+   - Outcome: PASSED. Neutralized as literal string data (201) or rejected at boundary (4xx); zero 5xx; 0 schema tables or columns altered.
+4. **Outage Mid-Dispatch & Mid-Commit (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit` in `tests/integration/part_d_security_test.go:707`)**:
    - Stopped database container mid-execution and restored it.
-   - Outcome: PASSED (23.82s). Worker backed off and committed cleanly after restore; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs, 0 partial rows.
-5. **Leak Scan (`TestSecurity_PartD_LeakScan` in `tests/integration/part_d_security_test.go:868`)**:
-   - Inspected all HTTP client responses and coordinator logs across full outage cycle.
-   - Outcome: PASSED (13.34s). Confirmed zero occurrences of connection strings, passwords, SQL fragments, database host/ports (`5433`, `5432`), or UUID lease tokens.
+   - Outcome: PASSED. Worker backed off and committed cleanly after restore; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs, 0 partial rows.
+5. **Real Base64URL Lease Token Leak Scan (`TestSecurity_PartD_LeakScan` in `tests/integration/part_d_security_test.go:907`)**:
+   - Submits a job, registers a worker, polls to receive assignment, and extracts the real raw 32-byte base64url lease token (`domain.NewLeaseToken`).
+   - Scans all captured client responses (from submit, poll, get, cancel, error) and coordinator logs across full outage cycle.
+   - Asserts zero occurrences of connection strings, passwords, SQL fragments, database socket details (`:5433`, `:5432`), or the real raw base64url lease token string.
+   - Coordinator's own listen address `addr=127.0.0.1:<coordPort>` is explicitly handled to distinguish coordinator listen logs from database host/port leaks.
+   - Sub-test positive control (`PositiveControl_PlantedTokenDetected`): Plants a synthetic base64url lease token in a simulated log buffer and asserts that the leak scanner detects it and fails.
+6. **Migrator Query Timeout Isolation (`TestMigrator_NotSubjectToCoordinatorQueryTimeout` in `internal/storage/postgres/migrator_test.go:640`)**:
+   - Verifies that migration runner connections (`cmd/migrate` / `postgres.Migrator`) connect with unconstrained session timeouts (`statement_timeout = 0`, `lock_timeout = 0`).
+   - Successfully executes a slow migration with `pg_sleep(0.6)` without cancellation, proving migration isolation from the coordinator's short query timeouts.
+
 
 
