@@ -192,3 +192,26 @@ For findings of **Medium** severity and above, the full structured report format
 - **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:259-267`), `worker.SupportedTasks` array length is bounded to at most 16 unique tasks (duplicates are deduplicated). Individual task names are validated to ensure they are 1..64 characters in length and match `^[a-z0-9_]{1,64}$`. Empty slices are allowed (worker registers with 0 tasks). Unknown-but-well-formed task names are accepted upon registration to support rolling worker fleet upgrades. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_supported_tasks_count CHECK (coalesce(cardinality(supported_tasks), 0) <= 16)`.
 - **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
+---
+
+## Part D Security Testing Verification Summary
+
+The Part D security verification tests were implemented and executed against PostgreSQL on `milestone/3d-postgres-wiring`:
+
+1. **Pool Exhaustion (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:48`)**:
+   - 500 concurrent requests against a 10-connection pool.
+   - Outcome: PASSED (2.38s). Process stayed alive; all responses were 2xx/4xx or opaque 503; zero 500s or hangs; system recovered in <1ms.
+2. **Slow Query Context Deadline (`TestSecurity_PartD_SlowQuery_ContextDeadline` in `tests/integration/part_d_security_test.go:221`)**:
+   - PostgreSQL lock contention forcing `statement_timeout` under 200ms query deadline.
+   - Outcome: PASSED (1.74s). Returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`; no hang, no 500.
+3. **End-to-End SQL Injection Challenge (`TestSecurity_PartD_SQLInjection_EndToEnd` in `tests/integration/part_d_security_test.go:343`)**:
+   - Injections across job payload, task_type, worker ID, version, and supported_tasks.
+   - Outcome: PASSED (1.87s). Neutralized as literal string data (201) or rejected at boundary (4xx); zero 5xx; 0 schema tables or columns altered.
+4. **Outage Mid-Dispatch & Mid-Commit (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit` in `tests/integration/part_d_security_test.go:668`)**:
+   - Stopped database container mid-execution and restored it.
+   - Outcome: PASSED (23.82s). Worker backed off and committed cleanly after restore; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs, 0 partial rows.
+5. **Leak Scan (`TestSecurity_PartD_LeakScan` in `tests/integration/part_d_security_test.go:868`)**:
+   - Inspected all HTTP client responses and coordinator logs across full outage cycle.
+   - Outcome: PASSED (13.34s). Confirmed zero occurrences of connection strings, passwords, SQL fragments, database host/ports (`5433`, `5432`), or UUID lease tokens.
+
+
