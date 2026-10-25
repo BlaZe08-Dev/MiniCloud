@@ -7,6 +7,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -340,71 +342,463 @@ func TestPostgresRepository_Security_ContextCancellationAtomicity(t *testing.T) 
 	}
 }
 
-// TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation analyzes the AST of
-// internal/storage/postgres/repository.go to ensure all SQL executions pass static parameterized
-// strings and no caller input is concatenated or formatted via fmt.Sprintf or string addition.
-func TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation(t *testing.T) {
+// CheckSQLSafety analyzes a Go source file AST for SQL injection and dynamic string formatting vulnerabilities.
+// It inspects all calls to Exec, Query, QueryRow, and Queue, verifying that the query argument is:
+// 1. A string literal (*ast.BasicLit with token.STRING), OR
+// 2. A declared const with a string literal value, OR
+// 3. A variable whose every assignment in the file is a string literal.
+//
+// Any call where the query is constructed from fmt.Sprintf, string concatenation (+),
+// a function call, or passed through as a function parameter is flagged as a security violation.
+//
+// Documented Allowlist:
+// The single allowlisted call site is in migrator.go within (*Migrator).Migrate executing migration.Content.
+// Rationale: Migration SQL is read exclusively from build-time embedded assets (embed.FS defaultMigrationFS),
+// verified against SHA-256 checksums in schema_migrations, and is never constructed from or influenced by
+// user or network input.
+func CheckSQLSafety(filename string, src any) []string {
 	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, "repository.go", nil, parser.ParseComments)
+	var (
+		node *ast.File
+		err  error
+	)
+	if src == nil {
+		node, err = parser.ParseFile(fset, filename, nil, parser.ParseComments)
+	} else {
+		node, err = parser.ParseFile(fset, filename, src, parser.ParseComments)
+	}
 	if err != nil {
-		t.Fatalf("failed to parse repository.go: %v", err)
+		return []string{fmt.Sprintf("failed to parse %s: %v", filename, err)}
 	}
 
+	// Step 1: Collect declarations and assignments across the file
+	safeConsts := make(map[string]bool)
+	fileParams := make(map[string]bool)
+	safeVarAssignments := make(map[string]int)
+	unsafeVarAssignments := make(map[string]int)
+
+	ast.Inspect(node, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.GenDecl:
+			if x.Tok == token.CONST {
+				for _, spec := range x.Specs {
+					vspec, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, name := range vspec.Names {
+						if len(vspec.Values) > i {
+							if lit, isLit := vspec.Values[i].(*ast.BasicLit); isLit && lit.Kind == token.STRING {
+								safeConsts[name.Name] = true
+							}
+						}
+					}
+				}
+			} else if x.Tok == token.VAR {
+				for _, spec := range x.Specs {
+					vspec, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, name := range vspec.Names {
+						if len(vspec.Values) > i {
+							if lit, isLit := vspec.Values[i].(*ast.BasicLit); isLit && lit.Kind == token.STRING {
+								safeVarAssignments[name.Name]++
+							} else {
+								unsafeVarAssignments[name.Name]++
+							}
+						}
+					}
+				}
+			}
+		case *ast.FuncDecl:
+			if x.Type != nil && x.Type.Params != nil {
+				for _, field := range x.Type.Params.List {
+					for _, name := range field.Names {
+						fileParams[name.Name] = true
+					}
+				}
+			}
+		case *ast.FuncLit:
+			if x.Type != nil && x.Type.Params != nil {
+				for _, field := range x.Type.Params.List {
+					for _, name := range field.Names {
+						fileParams[name.Name] = true
+					}
+				}
+			}
+		case *ast.AssignStmt:
+			for i, lhs := range x.Lhs {
+				ident, ok := lhs.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				if len(x.Rhs) > i {
+					rhs := x.Rhs[i]
+					if lit, isLit := rhs.(*ast.BasicLit); isLit && lit.Kind == token.STRING {
+						safeVarAssignments[ident.Name]++
+					} else {
+						unsafeVarAssignments[ident.Name]++
+					}
+				} else {
+					unsafeVarAssignments[ident.Name]++
+				}
+			}
+		}
+		return true
+	})
+
+	// Step 2: Inspect all SQL method invocations
 	sqlMethods := map[string]bool{
 		"Exec":     true,
 		"Query":    true,
 		"QueryRow": true,
+		"Queue":    true,
 	}
 
+	var violations []string
+	var currentFunc string
+
 	ast.Inspect(node, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-
-		if !sqlMethods[sel.Sel.Name] {
-			return true
-		}
-
-		// In pgx, query is the second argument (ctx is first)
-		if len(call.Args) < 2 {
-			return true
-		}
-
-		queryArg := call.Args[1]
-
-		// Ensure queryArg is either a string literal OR a constant/static string
-		switch arg := queryArg.(type) {
-		case *ast.BasicLit:
-			if arg.Kind == token.STRING {
-				// Pure static SQL literal (e.g. `SELECT ... WHERE id = $1`) - SAFE!
+		switch x := n.(type) {
+		case *ast.FuncDecl:
+			currentFunc = x.Name.Name
+		case *ast.CallExpr:
+			sel, ok := x.Fun.(*ast.SelectorExpr)
+			if !ok {
 				return true
 			}
-		case *ast.Ident:
-			// Named query string variable or constant
-			return true
-		case *ast.CallExpr:
-			// Calling a function (like fmt.Sprintf) to construct SQL
-			if fnSel, isSel := arg.Fun.(*ast.SelectorExpr); isSel {
-				pkgIdent, isIdent := fnSel.X.(*ast.Ident)
-				if isIdent && pkgIdent.Name == "fmt" && (fnSel.Sel.Name == "Sprintf" || fnSel.Sel.Name == "Sprint") {
-					t.Fatalf("SECURITY VIOLATION: dynamic SQL query construction detected at line %d: %s.%s",
-						fset.Position(arg.Pos()).Line, pkgIdent.Name, fnSel.Sel.Name)
+			methodName := sel.Sel.Name
+			if !sqlMethods[methodName] {
+				return true
+			}
+
+			// Determine query argument
+			var queryArg ast.Expr
+			if methodName == "Queue" {
+				if len(x.Args) < 1 {
+					pos := fset.Position(x.Pos())
+					violations = append(violations, fmt.Sprintf("%s:%d: Queue call has no arguments", filename, pos.Line))
+					return true
+				}
+				queryArg = x.Args[0]
+			} else {
+				if len(x.Args) < 2 {
+					if len(x.Args) == 1 {
+						queryArg = x.Args[0]
+					} else {
+						pos := fset.Position(x.Pos())
+						violations = append(violations, fmt.Sprintf("%s:%d: %s call has no arguments", filename, pos.Line, methodName))
+						return true
+					}
+				} else {
+					queryArg = x.Args[1]
 				}
 			}
-		case *ast.BinaryExpr:
-			// String concatenation (e.g. "SELECT ... " + id)
-			if arg.Op == token.ADD {
-				t.Fatalf("SECURITY VIOLATION: SQL string concatenation (+) detected at line %d",
-					fset.Position(arg.Pos()).Line)
+
+			pos := fset.Position(queryArg.Pos())
+
+			// Check narrow allowlist: migrator.go in (*Migrator).Migrate executing migration.Content
+			if filepath.Base(filename) == "migrator.go" && currentFunc == "Migrate" {
+				if selExpr, isSel := queryArg.(*ast.SelectorExpr); isSel {
+					if xIdent, isIdent := selExpr.X.(*ast.Ident); isIdent && xIdent.Name == "migration" && selExpr.Sel.Name == "Content" {
+						// Documented Allowlist:
+						// migration.Content is read from build-time embedded files (embed.FS defaultMigrationFS),
+						// verified against SHA-256 checksums in schema_migrations, and never constructed from caller data.
+						return true
+					}
+				}
+			}
+
+			// Validate query argument safety
+			switch arg := queryArg.(type) {
+			case *ast.BasicLit:
+				if arg.Kind == token.STRING {
+					// Static string literal: SAFE
+					return true
+				}
+				violations = append(violations, fmt.Sprintf("%s:%d: %s query argument is non-string basic literal (%v)",
+					filename, pos.Line, methodName, arg.Kind))
+			case *ast.Ident:
+				name := arg.Name
+				if safeConsts[name] {
+					// Declared const with string literal: SAFE
+					return true
+				}
+				if fileParams[name] {
+					violations = append(violations, fmt.Sprintf("%s:%d: %s query argument %q is a function parameter",
+						filename, pos.Line, methodName, name))
+					return true
+				}
+				if unsafeVarAssignments[name] > 0 {
+					violations = append(violations, fmt.Sprintf("%s:%d: %s query argument %q has unsafe assignment(s)",
+						filename, pos.Line, methodName, name))
+					return true
+				}
+				if safeVarAssignments[name] == 0 {
+					violations = append(violations, fmt.Sprintf("%s:%d: %s query argument %q is neither a string literal, const, nor literal-assigned variable",
+						filename, pos.Line, methodName, name))
+					return true
+				}
+				// Variable whose every assignment in the file is a string literal: SAFE
+				return true
+			case *ast.CallExpr:
+				violations = append(violations, fmt.Sprintf("%s:%d: %s query argument is constructed via dynamic function call",
+					filename, pos.Line, methodName))
+			case *ast.BinaryExpr:
+				if arg.Op == token.ADD {
+					violations = append(violations, fmt.Sprintf("%s:%d: %s query argument uses string concatenation (+)",
+						filename, pos.Line, methodName))
+				} else {
+					violations = append(violations, fmt.Sprintf("%s:%d: %s query argument uses binary expression (%s)",
+						filename, pos.Line, methodName, arg.Op))
+				}
+			default:
+				violations = append(violations, fmt.Sprintf("%s:%d: %s query argument expression of type %T is unsafe",
+					filename, pos.Line, methodName, queryArg))
 			}
 		}
-
 		return true
 	})
+
+	return violations
+}
+
+// TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation runs CheckSQLSafety
+// against test fixtures (negative and positive) and every non-test .go file in internal/storage/postgres.
+func TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation(t *testing.T) {
+	// ==================== Positive Fixtures (Must Pass with 0 Violations) ====================
+	positiveFixtures := map[string]string{
+		"good_literal": `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+func GoodLiteral(ctx context.Context, conn *pgx.Conn, id string) {
+	conn.Exec(ctx, "SELECT * FROM jobs WHERE id = $1", id)
+}
+`,
+		"good_const": `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+const selectJobs = "SELECT * FROM jobs WHERE id = $1"
+func GoodConst(ctx context.Context, conn *pgx.Conn, id string) {
+	conn.Exec(ctx, selectJobs, id)
+}
+`,
+		"good_var": `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+func GoodVar(ctx context.Context, conn *pgx.Conn, id string) {
+	query := "SELECT * FROM jobs WHERE id = $1"
+	conn.Exec(ctx, query, id)
+}
+`,
+		"good_batch_queue": `package testpkg
+import (
+	"github.com/jackc/pgx/v5"
+)
+func GoodBatch(b *pgx.Batch, id string) {
+	b.Queue("INSERT INTO jobs (id) VALUES ($1)", id)
+}
+`,
+		"good_migrator_allowlist": `package postgres
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+type Migration struct {
+	Content string
+}
+type Migrator struct{}
+func (m *Migrator) Migrate(ctx context.Context, tx pgx.Tx) error {
+	var migration Migration
+	_, err := tx.Exec(ctx, migration.Content)
+	return err
+}
+`,
+	}
+
+	for name, src := range positiveFixtures {
+		filename := "fixture.go"
+		if name == "good_migrator_allowlist" {
+			filename = "migrator.go"
+		}
+		violations := CheckSQLSafety(filename, src)
+		if len(violations) > 0 {
+			t.Fatalf("positive fixture %q failed with unexpected violations: %v", name, violations)
+		}
+		t.Logf("PASS: positive fixture %q verified (0 violations)", name)
+	}
+
+	// ==================== Negative Fixtures (Must Flag at Least 1 Violation) ====================
+	negativeFixtures := map[string]struct {
+		filename    string
+		src         string
+		expectedSub string
+	}{
+		"bad_sprintf_variable": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"context"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+)
+func BadSprintfVar(ctx context.Context, conn *pgx.Conn, id string) {
+	query := fmt.Sprintf("SELECT * FROM jobs WHERE id = '%s'", id)
+	conn.Exec(ctx, query)
+}
+`,
+			expectedSub: `has unsafe assignment(s)`,
+		},
+		"bad_direct_sprintf": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"context"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+)
+func BadDirectSprintf(ctx context.Context, conn *pgx.Conn, id string) {
+	conn.Exec(ctx, fmt.Sprintf("SELECT * FROM jobs WHERE id = '%s'", id))
+}
+`,
+			expectedSub: `constructed via dynamic function call`,
+		},
+		"bad_concat_direct": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+func BadConcatDirect(ctx context.Context, conn *pgx.Conn, id string) {
+	conn.Exec(ctx, "SELECT * FROM jobs WHERE id = " + id)
+}
+`,
+			expectedSub: `uses string concatenation (+)`,
+		},
+		"bad_concat_var": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+func BadConcatVar(ctx context.Context, conn *pgx.Conn, id string) {
+	query := "SELECT * FROM jobs WHERE id = " + id
+	conn.Exec(ctx, query)
+}
+`,
+			expectedSub: `has unsafe assignment(s)`,
+		},
+		"bad_param_passthrough": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+func BadParamThrough(ctx context.Context, conn *pgx.Conn, query string) {
+	conn.Exec(ctx, query)
+}
+`,
+			expectedSub: `is a function parameter`,
+		},
+		"bad_batch_queue_sprintf": {
+			filename: "fixture.go",
+			src: `package testpkg
+import (
+	"fmt"
+	"github.com/jackc/pgx/v5"
+)
+func BadBatch(b *pgx.Batch, id string) {
+	b.Queue(fmt.Sprintf("DELETE FROM jobs WHERE id = '%s'", id))
+}
+`,
+			expectedSub: `constructed via dynamic function call`,
+		},
+		"bad_migrator_call_site": {
+			filename: "migrator.go",
+			src: `package postgres
+import (
+	"context"
+	"fmt"
+	"github.com/jackc/pgx/v5"
+)
+type Migrator struct{}
+func (m *Migrator) Migrate(ctx context.Context, tx pgx.Tx, userSQL string) error {
+	_, err := tx.Exec(ctx, fmt.Sprintf("CREATE TABLE %s;", userSQL))
+	return err
+}
+`,
+			expectedSub: `constructed via dynamic function call`,
+		},
+		"bad_repository_using_allowlist_outside_migrator": {
+			filename: "repository.go",
+			src: `package postgres
+import (
+	"context"
+	"github.com/jackc/pgx/v5"
+)
+type Migration struct {
+	Content string
+}
+func Sneaky(ctx context.Context, tx pgx.Tx, m Migration) error {
+	_, err := tx.Exec(ctx, m.Content)
+	return err
+}
+`,
+			expectedSub: `expression of type *ast.SelectorExpr is unsafe`,
+		},
+	}
+
+	for name, tc := range negativeFixtures {
+		violations := CheckSQLSafety(tc.filename, tc.src)
+		if len(violations) == 0 {
+			t.Fatalf("CRITICAL SECURITY FAILURE: negative fixture %q was NOT flagged by checker", name)
+		}
+		foundExpected := false
+		for _, v := range violations {
+			if strings.Contains(v, tc.expectedSub) {
+				foundExpected = true
+				break
+			}
+		}
+		if !foundExpected {
+			t.Fatalf("negative fixture %q was flagged, but did not match expected description %q: %v",
+				name, tc.expectedSub, violations)
+		}
+		t.Logf("PASS: negative fixture %q successfully flagged: %s", name, violations[0])
+	}
+
+	// ==================== Production Files in internal/storage/postgres ====================
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("failed to read internal/storage/postgres directory: %v", err)
+	}
+
+	checkedCount := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		violations := CheckSQLSafety(entry.Name(), nil)
+		if len(violations) > 0 {
+			t.Errorf("SECURITY VIOLATION: unsafe SQL construction detected in %s:\n%s",
+				entry.Name(), strings.Join(violations, "\n"))
+		} else {
+			t.Logf("PASS: verified SQL safety for production file: %s (0 violations)", entry.Name())
+		}
+		checkedCount++
+	}
+
+	if checkedCount == 0 {
+		t.Fatalf("sanity check failed: no production .go files were found in internal/storage/postgres")
+	}
 }
