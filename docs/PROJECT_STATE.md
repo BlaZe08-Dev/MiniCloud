@@ -132,19 +132,20 @@
 ---
 
 ## 6. Known Defects, Limitations & Open Security Findings
-- **Open Security Findings:**
+- **Fixed Security Findings (Slice 3d):**
+  - **SEC-007 (Low, Fixed):** Unmapped repository and driver errors mapped to HTTP 500 `INTERNAL_ERROR` with opaque message; sanitized server logging; fixed malformed JSON message (`internal/api/handlers.go:19-75`). Tested in `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
+  - **SEC-008 (Low, Fixed):** Worker IDs and route parameters strictly bounded ($\le 128$ chars) and validated against `^[a-zA-Z0-9_-]+$` at API boundary (`internal/api/handlers.go:27-39,105-248`). Tested in `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`).
+  - **SEC-009 (Low, Fixed):** HTTP server explicit `ReadHeaderTimeout: 2s` configured (`internal/api/server.go:15,42`). Tested in `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`).
+  - **SEC-011 (Informational, Fixed):** Migration CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` flag emits deprecation warning about process table exposure (`cmd/migrate/main.go:16-33`). Tested in `TestMigrateCLI_ResolveDatabaseURL_*` (`cmd/migrate/main_test.go:8-61`).
+- **Open Security Findings (Not Authorized Yet / In Backlog):**
   - **SEC-003 (Informational, Open):** Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` without fail-fast form `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`). Note: `docs/testing-postgres.md` previously showed a stale snippet with fallback credentials, since corrected.
   - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`).
   - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`).
-  - **SEC-007 (Low, Open):** Unmapped errors fall through to HTTP 400 with `err.Error()` in API error mapper (`internal/api/handlers.go:68,104`).
-  - **SEC-008 (Low, Open):** Worker IDs and route parameters lack length and character set validation (`internal/coordinator/service.go:198`, `internal/api/handlers.go:182`).
-  - **SEC-009 (Low, Open):** HTTP server `ReadHeaderTimeout` unset (`internal/api/server.go:42`).
   - **SEC-010 (Low, Open):** Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`).
-  - **SEC-011 (Informational, Open):** Migration CLI accepts `-database-url` as command-line flag visible in process table (`cmd/migrate/main.go:18-27`).
   - **SEC-012 (Informational, Open):** Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-270`).
   - **SEC-013 (Informational, Open):** Job and attempt ID format exposes sequential counter (`internal/coordinator/service.go:26`).
 - **Distributed & Architectural Limitations:**
-  - PostgreSQL repository is implemented (Slice 3c), but coordinator queue wiring to PostgreSQL (`PostgresQueue`) occurs in Slice 3d.
+  - PostgreSQL repository is implemented (Slice 3c); coordinator queue wiring to PostgreSQL (`PostgresQueue`) occurs in Slice 3d.
   - Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
   - Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
 
@@ -162,21 +163,19 @@ $ gofmt -s -w .
 $ go vet ./...
 (clean exit, code 0)
 
-$ go build ./...
-(clean exit, code 0)
-
-$ go test -count=1 ./...
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.016s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	0.007s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.012s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	0.007s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.012s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	0.013s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.007s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.012s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.015s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.008s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	0.009s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	7.057s
+$ go test -race -count=1 ./...
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.281s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.821s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.054s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.277s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.504s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.162s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.037s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.038s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.129s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.248s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.086s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.048s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	9.467s
 ```
-*(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset, as designed for docs-only sessions).*
+*(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*

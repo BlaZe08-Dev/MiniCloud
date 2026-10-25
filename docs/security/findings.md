@@ -16,11 +16,11 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-004** | Medium | Accepted Risk (V1) | HTTP API & Workers | HTTP API and worker endpoints lack authentication and authorization; open to local network. | Deferred to V3 (ADR-0004, ADR-0012); mitigated by `127.0.0.1` bind default. Verification step: future V3 mTLS/auth suite. |
 | **SEC-005** | Low | Confirmed, Fixed | AST SQL Checker | Initial AST check scanned only `repository.go` and accepted identifier variables; coverage was overstated. | `TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation` (`internal/storage/postgres/security_test.go:569`) |
 | **SEC-006** | Informational | Open (inferred from code review, unconfirmed) | Test Helpers | Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`). | Verification step: add schema name validation against `^[a-z0-9_]+$` and quote via `pgx.Identifier`. |
-| **SEC-007** | Low | Open (inferred from code review, unconfirmed) | HTTP API Error Handling | Unmapped errors fall through to HTTP 400 with `err.Error()` in API error mapper (`internal/api/handlers.go:68,104`). Becomes critical once Postgres is wired in slice 3d, because raw driver errors could reach clients. | Verification step: `TestAPI_UnmappedError_InformationDisclosure` (future test asserting unmapped storage errors return generic HTTP 500 without leaking SQL text). |
-| **SEC-008** | Low | Open (inferred from code review, unconfirmed) | Coordinator & API Validation | Worker IDs and route parameters lack length and character set validation (`internal/coordinator/service.go:198`, `internal/api/handlers.go:182`). | Verification step: `TestAPI_WorkerID_ValidationBounds` (future test sending 100 KiB worker ID, newlines, and path traversal strings to `POST /v1/workers/register` asserting rejection). |
-| **SEC-009** | Low | Open (inferred from code review, unconfirmed) | HTTP Server Timeouts | HTTP server `ReadHeaderTimeout` unset (`internal/api/server.go:42-45`), exposing server to slowloris header delays up to 5s. | Verification step: `TestAPI_Slowloris_HeaderTimeout` (future integration test asserting slow header trickling closes connection within configured header timeout). |
+| **SEC-007** | Low | Fixed (Slice 3d) | HTTP API Error Handling | Unmapped errors mapped to generic HTTP 500 `INTERNAL_ERROR` with opaque message; credentials/passwords scrubbed in server logs; malformed JSON returns fixed message (`internal/api/handlers.go:19-75`). | `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`) |
+| **SEC-008** | Low | Fixed (Slice 3d) | Coordinator & API Validation | Worker IDs and route parameters strictly bounded ($\le 128$ chars) and validated against `^[a-zA-Z0-9_-]+$` at API boundary (`internal/api/handlers.go:27-39,105-248`). | `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`) |
+| **SEC-009** | Low | Fixed (Slice 3d) | HTTP Server Timeouts | HTTP server enforces explicit `ReadHeaderTimeout` (2s) mitigating Slowloris delays (`internal/api/server.go:15,42`). | `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`) |
 | **SEC-010** | Low | Open (inferred from code review, unconfirmed) | In-Memory Collections | Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) lack size caps and eviction (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). | Verification step: `TestInMemoryRepository_MemoryExhaustion_Cap` (future test submitting high volume of jobs asserting memory ceiling or backpressure). |
-| **SEC-011** | Informational | Open (inferred from code review, unconfirmed) | Migration CLI | Migration CLI accepts `-database-url` as command-line flag, visible in global process table (`cmd/migrate/main.go:18-27`). | Verification step: `TestMigrateCLI_ProcessTableExposure` (future test asserting credential flag deprecation in favor of `MINICLOUD_DATABASE_URL`). |
+| **SEC-011** | Informational | Fixed (Slice 3d) | Migration CLI | Migration CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` flag emits deprecation warning about process table exposure (`cmd/migrate/main.go:16-33`). | `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`) |
 | **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
 | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go:26`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
 
@@ -109,19 +109,19 @@ For findings of **Medium** severity and above, the full structured report format
 - **Verification Step**: Run AST or regex scan over test helper schema creation statements.
 
 ### SEC-007: Unmapped Errors Fall Through to HTTP 400 with Internal Error String
-- **Status**: Low, Open (inferred from code review, unconfirmed).
-- **Detail**: In `internal/api/handlers.go:68,104`, `mapDomainErrorToHTTP` defaults unrecognized errors to HTTP 400 `INVALID_REQUEST` with `err.Error()` passed directly to the JSON response. While currently operating against in-memory storage, once PostgreSQL persistence is wired to the coordinator in slice 3d, unmapped database driver errors, constraint names, or query fragments could be exposed directly to API callers. Recommended: map unhandled errors to HTTP 500 `INTERNAL_ERROR` with an opaque message while logging details internally.
-- **Verification Step**: `TestAPI_UnmappedError_InformationDisclosure` (future test injecting an unmapped repository error and asserting response message is sanitized).
+- **Status**: Low, Fixed (Slice 3d).
+- **Detail**: In `internal/api/handlers.go:19-75`, `mapDomainErrorToHTTP` now routes all unmapped errors to HTTP 500 `INTERNAL_ERROR` with an opaque `"internal server error"` message. Server-side structured logs sanitize connection URIs and credential parameters (`password=***`). Furthermore, JSON decoding errors in `HandleSubmitJob`, `HandleRegisterWorker`, `HandleWorkerHeartbeat`, and `HandleReportResult` return a fixed `"malformed JSON request body"` message, preventing decoder internals or input offsets from reaching clients.
+- **Regression Test**: `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
 
 ### SEC-008: No Character Set or Length Validation on Worker IDs and Route Parameters
-- **Status**: Low, Open (inferred from code review, unconfirmed).
-- **Detail**: `internal/coordinator/service.go:197-202` and `internal/api/handlers.go:182-194` check only `worker.ID == ""`. There are no length bounds (e.g., max 128 characters) or character set whitelist regex checks (e.g., `^[a-zA-Z0-9_-]+$`). Similarly, route parameters `{id}` in job queries are forwarded directly without character filtering.
-- **Verification Step**: `TestAPI_WorkerID_ValidationBounds` (future test attempting registration with 100 KiB worker ID, control characters, and newlines asserting HTTP 400 rejection).
+- **Status**: Low, Fixed (Slice 3d).
+- **Detail**: In `internal/api/handlers.go:27-39`, `isValidIdentifier` enforces that all worker IDs, route IDs (`{id}`, `{attempt_id}`), and report request worker IDs are bounded ($\le 128$ characters) and strictly match `^[a-zA-Z0-9_-]+$`. Requests with 100 KiB identifiers, control characters, newlines, or path traversal strings (`../../`) are rejected at the API boundary with HTTP 400 `INVALID_REQUEST`.
+- **Regression Test**: `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`).
 
 ### SEC-009: HTTP Server ReadHeaderTimeout Unset
-- **Status**: Low, Open (inferred from code review, unconfirmed).
-- **Detail**: `internal/api/server.go:42-45` configures `ReadTimeout: 5s`, `WriteTimeout: 10s`, and `IdleTimeout: 60s`, but leaves `ReadHeaderTimeout` unset. While `ReadTimeout` provides a 5s upper bound, omitting an explicit `ReadHeaderTimeout` leaves the connection open to slow header trickling for up to 5 seconds per socket.
-- **Verification Step**: `TestAPI_Slowloris_HeaderTimeout` (future integration test trickling headers at 1 byte/2sec asserting server closes connection within configured header timeout).
+- **Status**: Low, Fixed (Slice 3d).
+- **Detail**: In `internal/api/server.go:15,42`, `DefaultReadHeaderTimeout` is explicitly configured to `2 * time.Second` on `http.Server`. Connections trickling request headers beyond the 2-second timeout window are aborted by the server.
+- **Regression Test**: `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`).
 
 ### SEC-010: Unbounded In-Memory Collections under Sustained Load
 - **Status**: Low, Open (inferred from code review, unconfirmed).
@@ -129,9 +129,9 @@ For findings of **Medium** severity and above, the full structured report format
 - **Verification Step**: `TestInMemoryRepository_MemoryExhaustion_Cap` (future test simulating 100,000 job submissions asserting memory cap or backpressure rejection).
 
 ### SEC-011: Database URL Accepted as CLI Argument in Migration Binary
-- **Status**: Informational, Open (inferred from code review, unconfirmed).
-- **Detail**: `cmd/migrate/main.go:18-27` accepts the database URL via `-database-url` command-line flag. On multi-tenant systems, command-line arguments are visible in global process tables (`ps aux`, `/proc`).
-- **Verification Step**: `TestMigrateCLI_ProcessTableExposure` (future test verifying flag deprecation in favor of `MINICLOUD_DATABASE_URL`).
+- **Status**: Informational, Fixed (Slice 3d).
+- **Detail**: In `cmd/migrate/main.go:16-33`, the migration CLI prioritizes the `MINICLOUD_DATABASE_URL` environment variable. The `-database-url` flag is marked deprecated and emits an explicit warning stating that passing credentials via command-line flags exposes them in the system process table.
+- **Regression Test**: `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`).
 
 ### SEC-012: Worker Execution Timeout Not Clamped Above
 - **Status**: Informational, Open (inferred from code review, unconfirmed).
