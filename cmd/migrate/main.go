@@ -13,16 +13,35 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
 )
 
+// ResolveDatabaseURL resolves the database URL primarily from the MINICLOUD_DATABASE_URL
+// environment variable. If the deprecated -database-url flag is provided, a deprecation warning
+// is emitted stating that command-line flags expose credentials in the system process table.
+func ResolveDatabaseURL(flagURL string, getenv func(string) string, warnLogger func(string, ...any)) (string, error) {
+	envURL := getenv("MINICLOUD_DATABASE_URL")
+	if flagURL != "" {
+		warnLogger("DEPRECATION WARNING: passing database URL via -database-url exposes credentials in the system process table; use MINICLOUD_DATABASE_URL environment variable instead")
+	}
+
+	url := envURL
+	if url == "" {
+		url = flagURL
+	}
+	if url == "" {
+		return "", fmt.Errorf("database URL must be provided via MINICLOUD_DATABASE_URL environment variable")
+	}
+	return url, nil
+}
+
 func main() {
-	var dbURL string
-	flag.StringVar(&dbURL, "database-url", "", "PostgreSQL database connection URL (defaults to MINICLOUD_DATABASE_URL)")
+	var flagDBURL string
+	flag.StringVar(&flagDBURL, "database-url", "", "[DEPRECATED] PostgreSQL database connection URL (use MINICLOUD_DATABASE_URL environment variable)")
 	flag.Parse()
 
-	if dbURL == "" {
-		dbURL = os.Getenv("MINICLOUD_DATABASE_URL")
-	}
-	if dbURL == "" {
-		slog.Error("database URL must be provided via -database-url or MINICLOUD_DATABASE_URL")
+	dbURL, err := ResolveDatabaseURL(flagDBURL, os.Getenv, func(msg string, args ...any) {
+		slog.Warn(msg, args...)
+	})
+	if err != nil {
+		slog.Error("configuration error", "err", err)
 		os.Exit(1)
 	}
 
