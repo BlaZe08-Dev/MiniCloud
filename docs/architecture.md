@@ -73,6 +73,8 @@ To guarantee mathematical deadlock prevention across all concurrent multi-table 
 
 Atomic operations (`DispatchJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited.
 
+This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, proving zero deadlocks and zero invariant violations across repeated runs with `-race`.
+
 ---
 
 ## 4. End-to-End Data Flow
