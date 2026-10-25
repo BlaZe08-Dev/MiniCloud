@@ -9,6 +9,7 @@ import (
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest"
 )
 
 func TestInMemoryRepository_JobLifecycle(t *testing.T) {
@@ -610,7 +611,7 @@ func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t *testing.T) {
 }
 
 func TestInMemoryRepository_Conformance(t *testing.T) {
-	storage.RunRepositoryConformanceTests(t, func(t *testing.T) storage.Repository {
+	storagetest.RunRepositoryConformanceTests(t, func(t *testing.T) storage.Repository {
 		return storage.NewInMemoryRepository()
 	})
 }

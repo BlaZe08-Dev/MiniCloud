@@ -1,17 +1,19 @@
-package storage
+package storagetest
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
 
 // RunRepositoryConformanceTests runs a comprehensive conformance suite verifying that a
 // storage.Repository implementation correctly satisfies all required invariants, behaviors,
 // and exact error precedence.
-func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) Repository) {
+func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) storage.Repository) {
 	t.Run("SubmitJob_SuccessAndInvariants", func(t *testing.T) {
 		ctx := context.Background()
 		repo := repoFactory(t)
@@ -238,7 +240,7 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 			ExitCode: 0,
 			Output:   "ok",
 		})
-		if err != domain.ErrWorkerMismatch {
+		if !errors.Is(err, domain.ErrWorkerMismatch) {
 			t.Fatalf("expected ErrWorkerMismatch, got %v", err)
 		}
 
@@ -247,7 +249,7 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 			ExitCode: 0,
 			Output:   "ok",
 		})
-		if err != domain.ErrStaleAttempt {
+		if !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrStaleAttempt for wrong token, got %v", err)
 		}
 
@@ -256,7 +258,7 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 			ExitCode: 0,
 			Output:   "ok",
 		})
-		if err != domain.ErrStaleAttempt && err != domain.ErrAttemptNotFound {
+		if !errors.Is(err, domain.ErrStaleAttempt) && !errors.Is(err, domain.ErrAttemptNotFound) {
 			t.Fatalf("expected ErrStaleAttempt or ErrAttemptNotFound, got %v", err)
 		}
 
@@ -280,7 +282,7 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 			ExitCode: 0,
 			Output:   "again",
 		})
-		if err != domain.ErrJobAlreadyTerminal && err != domain.ErrStaleAttempt {
+		if !errors.Is(err, domain.ErrJobAlreadyTerminal) && !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrJobAlreadyTerminal or ErrStaleAttempt on duplicate commit, got %v", err)
 		}
 
@@ -331,7 +333,7 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 
 		// Cancelling already terminal job must fail
 		_, err = repo.CancelJob(ctx, "j_cancel_q")
-		if err != domain.ErrJobAlreadyTerminal {
+		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 		}
 
