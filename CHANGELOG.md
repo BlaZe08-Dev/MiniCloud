@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Security & Reliability Instructions, Threat Model & Adversarial Testing Framework:**
+  - `docs/security/security-testing.md`: Distilled persistent security, reliability, and adversarial testing principles (5 engineering roles, 8-step break-before-fix workflow, evidence labels, honesty rules, no-silent-fix, no-weakened-tests).
+  - `docs/security/threat-model.md`: Comprehensive component threat matrix (CLI, HTTP API, coordinator, worker protocol, scheduler, state machine, PostgreSQL, executor, config/secrets, logs/metrics, and deferred components) with assets, trust boundaries, threats, mitigations, citations, and unconfirmed code-review items.
+  - `docs/security/findings.md`: Security findings register seeded with SEC-001 through SEC-006 (full structured format for Medium+, summary table rows for Low/Info).
+  - `docs/security/test-plan.md`: Concrete adversarial and reliability test plan across V1, V2, and V3 mapping fuzzing, abuse vectors, fault injection, concurrency races, and controlled load tests to exact existing test paths or designed-not-executed status.
+  - `docs/adr/0012-security-and-adversarial-testing-workflow.md`: Recorded ADR 0012 reconciling break-before-fix rules, stdlib tooling vs external approvals, tiered reporting thresholds, machine-bounded load tests, public repository disclosure policies, accepted V1 gaps (SEC-004), mandatory slice security review reporting, and tool claim verification (SEC-005).
+  - `GEMINI.md`: Embedded compact security rules, updated Context Map with relative links, and added mandatory final report "Security review" step to Session Protocol.
+  - `docs/roadmap.md`: Established explicit security review gates for Milestone V1, V2, and V3 exit criteria.
 - **Phase 3, Slice 3c — PostgreSQL Repository Implementation & Review Hardening:**
   - `internal/storage/postgres`: Implemented `Repository` backed by `pgxpool.Pool` satisfying `storage.Repository`.
   - Mathematical deadlock prevention: Documented and enforced strict row locking order (`jobs` -> `workers` -> `attempts` -> `results` -> `job_events`) across all multi-table transactions. Empirically verified under extreme contention by `TestPostgresRepository_Concurrency_MixedOperationsStress` (60 goroutines, start barrier, overlapping jobs/workers, `-race -count=20`).

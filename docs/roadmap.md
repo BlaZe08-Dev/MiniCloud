@@ -15,11 +15,12 @@ MiniCloud development is structured into three major releases. Each version buil
 | **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **In Progress** (Design Specifications Accepted by Owner) |
 | **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | Planned |
 | **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire and requeue; audit decisions logged; hard gate for V1 release. | Planned (Post-Phase 4) |
+| **V1** | **V1 Security & Resilience Gate** | Execute V1 fault injection, malformed input fuzzing, and API abuse test suites. | All V1 security test plan suites executed with results; zero unhandled panics or state corruption before tagging `v1.0.0`. | Planned (V1 Final Gate) |
 | **V2** | **Phase 6: Scheduling Research** | Resource-aware scheduling policy, repeatable workload generator, comparative metrics. | Fair comparison with round-robin; p50/p95/p99 latency, queue wait, and throughput recorded. | Planned |
-| **V2** | **Transport Evaluation** | Evaluate Redis Streams dispatch against PostgreSQL pull baseline via `internal/queue`. | Benchmark report comparing throughput, recovery, and duplicate delivery; ADR records choice. | Planned |
-| **V3** | **Execution Isolation** | Docker container executor with CPU, memory, PID, and hard runtime limits. | Constrained task execution; non-root isolation; no shell execution on host. | Planned |
-| **V3** | **Phase 7: Multi-Machine** | Network deployment, worker authentication, mutual TLS, network fault testing. | Workers on separate physical/virtual hosts execute jobs safely over untrusted network. | Planned |
-| **V3** | **Phase 8: Hardening & Release** | Prometheus metrics, operational docs, performance tuning, reproducible release. | Clean checkout setup succeeds from README; reproducible benchmark suite tagged `v1.0.0`. | Planned |
+| **V2** | **Transport Evaluation & Security Gate** | Evaluate Redis Streams dispatch against PostgreSQL pull baseline via `internal/queue`. | Benchmark report comparing throughput, recovery, and duplicate delivery; failure and duplicate tests executed; ADR records choice. | Planned |
+| **V3** | **Execution Isolation & Security Gate** | Docker container executor with CPU, memory, PID, and hard runtime limits. | Constrained task execution; container escape and resource limits tested; non-root isolation; no shell execution on host. | Planned |
+| **V3** | **Phase 7: Multi-Machine & Auth Gate** | Network deployment, worker authentication, mutual TLS, network fault testing. | Worker authentication and mTLS enforced before any multi-machine claim; network partitions and reconnects tested. | Planned |
+| **V3** | **Phase 8: Hardening & Release** | Prometheus metrics, operational docs, performance tuning, reproducible release. | Clean checkout setup succeeds from README; reproducible benchmark suite tagged. | Planned |
 
 ---
 
@@ -54,16 +55,23 @@ MiniCloud development is structured into three major releases. Each version buil
 
 ---
 
-## 5. Key Follow-Ups Across Phases
-- **Worker Re-Registration:** Automatic recovery when worker ID is unknown to coordinator (Slice 3a).
-- **Queue Release Verification:** Coordinator must call `Queue.Release` when attempt creation fails after a claim (Slice 3a).
-- **Dispatch Atomicity & Dynamic Capacity:** Job state transition to `RUNNING` and attempt creation must be transactional; capacity derived in SQL from active attempts to prevent counter drift (Slice 3a/3b/3c).
-- **Scheduler Active Participation & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. See [Section 4](#4-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
-- **Phase 4 Lease Expiry & In-Flight Requeue:** Handling unacked in-flight queue items and recovering jobs abandoned by dead workers will be implemented in Phase 4.
+## 5. Security and Adversarial Review Gates
+
+As defined in [ADR 0012](adr/0012-security-and-adversarial-testing-workflow.md) and [security-testing.md](security/security-testing.md), every major milestone enforces explicit security and reliability review gates:
+
+1. **Milestone V1 Security Gate**:
+   - Before tagging the final V1 release (`v1.0.0`), the complete V1 fault-injection, API abuse, header timeout, and malformed input test suite (specified in `docs/security/test-plan.md`) must be executed.
+   - Observed results must be documented in `docs/security/findings.md` with zero unhandled panics, zero data corruption, and all invariants verified.
+2. **Milestone V2 Dispatch Comparison Gate**:
+   - The comparative evaluation between Redis Streams and the PostgreSQL baseline must include adversarial tests: broker restarts, transient network drops, and simulated duplicate message delivery under high queue contention.
+   - Performance benchmarks must cite real measurements from controlled local hardware baselines without invented figures.
+3. **Milestone V3 Isolation and Authentication Gate**:
+   - Container isolation testing (cgroup memory/CPU limits, container escape probes, read-only rootfs barriers) must pass before claiming multi-tenant or untrusted execution support.
+   - Worker mutual TLS (mTLS) and API token authentication must be fully implemented and validated with negative test vectors before any multi-machine deployment claim is recognized.
 
 ---
 
-## 5. Scope & Version Gate Rules
+## 6. Scope & Version Gate Rules
 1. **Incremental Complexity:** Infrastructure is introduced only when its phase is active. No PostgreSQL in Phase 2; no Redis in V1; no Docker until V3.
 2. **Interface Decoupling:**
    - Scheduling policies implement `scheduler.Scheduler` without modifying job lifecycle logic.

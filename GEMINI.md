@@ -30,6 +30,14 @@ MiniCloud is a learning-oriented but engineering-serious distributed job executi
 9. **Single milestone focus:** Small reviewable diffs; format and test after meaningful changes; report real results only.
 10. **Inspect before modifying:** Never restart or regenerate existing work; inspect first, verify satisfied items, explain deltas.
 
+## Security & Adversarial Testing Rules
+1. **Break-Before-Fix:** Follow Understand -> Threat Model -> Attack -> Observe -> Report -> Recommend -> Fix (authorized) -> Retest.
+2. **No Silent Fixes:** Disclose all discovered flaws and test failures with reproduction steps; never patch bugs silently.
+3. **Never Weaken Tests:** Never delete tests, loosen bounds, or weaken assertions to pass suites.
+4. **Verified Claims:** Never claim a test passed or coverage exists without code/mutation verification (SEC-005).
+5. **Accepted Gaps:** Unauthenticated HTTP/worker endpoints accepted in V1 (SEC-004); mitigated by localhost bind default.
+6. **Detailed Guidance:** See [`docs/security/security-testing.md`](docs/security/security-testing.md) and [`ADR 0012`](docs/adr/0012-security-and-adversarial-testing-workflow.md).
+
 ## Exact Build & Test Commands
 ```bash
 go version                    # Verify Go toolchain
@@ -44,17 +52,19 @@ make demo                     # End-to-end integration demo
 ## Context Map
 | Question / Topic | Document to Read |
 |---|---|
-| Project status, current milestone, handoff, verified command output | [`docs/PROJECT_STATE.md`](file:///home/blazeee/MiniCloud/docs/PROJECT_STATE.md) |
-| Release roadmap, V1/V2/V3 boundaries, exit criteria per phase | [`docs/roadmap.md`](file:///home/blazeee/MiniCloud/docs/roadmap.md) |
-| High-level technical blueprint and complete project spec | [`docs/source/MiniCloud_Project_Blueprint.pdf`](file:///home/blazeee/MiniCloud/docs/source/MiniCloud_Project_Blueprint.pdf) |
-| Engineering workflow and collaboration rules | [`docs/source/MINICLOUD_INSTRUCTIONS.md`](file:///home/blazeee/MiniCloud/docs/source/MINICLOUD_INSTRUCTIONS.md) |
-| System components, responsibilities, ownership boundaries, data flow | [`docs/architecture.md`](file:///home/blazeee/MiniCloud/docs/architecture.md) |
-| Job lifecycle, transition matrix, attempt states, invariants | [`docs/state-machine.md`](file:///home/blazeee/MiniCloud/docs/state-machine.md) |
-| Fault scenarios, failure handling, recovery semantics per phase | [`docs/failure-model.md`](file:///home/blazeee/MiniCloud/docs/failure-model.md) |
-| HTTP API contracts, worker protocol, payload limits, status codes | [`docs/protocol.md`](file:///home/blazeee/MiniCloud/docs/protocol.md) |
-| Architectural Decision Records (ADRs) | [`docs/adr/`](file:///home/blazeee/MiniCloud/docs/adr/) |
-| Version boundaries and compatibility policy | [`docs/adr/0004-version-boundaries-and-compatibility.md`](file:///home/blazeee/MiniCloud/docs/adr/0004-version-boundaries-and-compatibility.md) |
-| Release history, user-facing changes | [`CHANGELOG.md`](file:///home/blazeee/MiniCloud/CHANGELOG.md) |
+| Project status, current milestone, handoff, verified command output | [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) |
+| Release roadmap, V1/V2/V3 boundaries, exit criteria per phase | [`docs/roadmap.md`](docs/roadmap.md) |
+| High-level technical blueprint and complete project spec | [`docs/source/MiniCloud_Project_Blueprint.pdf`](docs/source/MiniCloud_Project_Blueprint.pdf) |
+| Engineering workflow and collaboration rules | [`docs/source/MINICLOUD_INSTRUCTIONS.md`](docs/source/MINICLOUD_INSTRUCTIONS.md) |
+| System components, responsibilities, ownership boundaries, data flow | [`docs/architecture.md`](docs/architecture.md) |
+| Job lifecycle, transition matrix, attempt states, invariants | [`docs/state-machine.md`](docs/state-machine.md) |
+| Fault scenarios, failure handling, recovery semantics per phase | [`docs/failure-model.md`](docs/failure-model.md) |
+| HTTP API contracts, worker protocol, payload limits, status codes | [`docs/protocol.md`](docs/protocol.md) |
+| Security principles, threat model, test plan, findings | [`docs/security/`](docs/security/) |
+| Architectural Decision Records (ADRs) | [`docs/adr/`](docs/adr/) |
+| Security and adversarial testing workflow ADR | [`docs/adr/0012-security-and-adversarial-testing-workflow.md`](docs/adr/0012-security-and-adversarial-testing-workflow.md) |
+| Version boundaries and compatibility policy | [`docs/adr/0004-version-boundaries-and-compatibility.md`](docs/adr/0004-version-boundaries-and-compatibility.md) |
+| Release history, user-facing changes | [`CHANGELOG.md`](CHANGELOG.md) |
 
 ## Session Protocol
 - **START Checklist:**
@@ -64,10 +74,11 @@ make demo                     # End-to-end integration demo
   4. Wait for approval if the step changes architecture.
 - **END Checklist:**
   1. Run `gofmt -s -w .`, `go vet ./...`, `go test -race -count=1 ./...`.
-  2. Update `docs/PROJECT_STATE.md`, `CHANGELOG.md`, and any affected docs or ADRs.
+  2. Update `docs/PROJECT_STATE.md`, `CHANGELOG.md`, and any affected docs, ADRs, or security registers.
   3. Commit with Conventional Commits on milestone branch.
   4. Push branch: `git push -u origin <branch>`.
   5. Provide final report (what was built, invariants enforced, real outputs, git status, limitations, next step).
+  6. **Mandatory Security Review:** Conclude report with assumptions challenged, attacks/malformed inputs attempted (with real test names), what was NOT tested, and findings with severity and evidence labels.
 
 ## Do / Don't List
 - **DO:** Small reviewable diffs, table-driven tests, race detection, honest reporting of failures, explicit errors.
