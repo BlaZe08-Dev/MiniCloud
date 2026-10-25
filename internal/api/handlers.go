@@ -5,10 +5,38 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 )
+
+var (
+	uriPasswordRegex   = regexp.MustCompile(`://([^:]+):([^@]+)@`)
+	paramPasswordRegex = regexp.MustCompile(`(?i)(password|passwd|pwd)\s*=\s*[^\s]+`)
+)
+
+func sanitizeError(msg string) string {
+	msg = uriPasswordRegex.ReplaceAllString(msg, `://$1:***@`)
+	msg = paramPasswordRegex.ReplaceAllString(msg, `$1=***`)
+	return msg
+}
+
+const maxIdentifierLength = 128
+
+func isValidIdentifier(id string) bool {
+	if len(id) == 0 || len(id) > maxIdentifierLength {
+		return false
+	}
+	for i := 0; i < len(id); i++ {
+		b := id[i]
+		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' || b == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
 
 // ErrorResponse represents the standardized JSON error envelope.
 type ErrorResponse struct {
@@ -36,36 +64,45 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	})
 }
 
-func mapDomainErrorToHTTP(err error) (status int, code string) {
+func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 	switch {
 	case errors.Is(err, domain.ErrJobNotFound):
-		return http.StatusNotFound, "JOB_NOT_FOUND"
+		return http.StatusNotFound, "JOB_NOT_FOUND", err.Error()
 	case errors.Is(err, domain.ErrAttemptNotFound):
-		return http.StatusNotFound, "ATTEMPT_NOT_FOUND"
+		return http.StatusNotFound, "ATTEMPT_NOT_FOUND", err.Error()
 	case errors.Is(err, domain.ErrWorkerNotFound):
-		return http.StatusNotFound, "WORKER_NOT_FOUND"
+		return http.StatusNotFound, "WORKER_NOT_FOUND", err.Error()
 	case errors.Is(err, domain.ErrWorkerMismatch):
-		return http.StatusForbidden, "WORKER_MISMATCH"
+		return http.StatusForbidden, "WORKER_MISMATCH", err.Error()
 	case errors.Is(err, domain.ErrStaleAttempt):
-		return http.StatusConflict, "STALE_ATTEMPT_REJECTED"
+		return http.StatusConflict, "STALE_ATTEMPT_REJECTED", err.Error()
 	case errors.Is(err, domain.ErrJobAlreadyTerminal):
-		return http.StatusConflict, "JOB_ALREADY_TERMINAL"
+		return http.StatusConflict, "JOB_ALREADY_TERMINAL", err.Error()
 	case errors.Is(err, domain.ErrUnknownTaskType):
-		return http.StatusBadRequest, "UNKNOWN_TASK_TYPE"
+		return http.StatusBadRequest, "UNKNOWN_TASK_TYPE", err.Error()
 	case errors.Is(err, domain.ErrPayloadTooLarge):
-		return http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE"
+		return http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", err.Error()
 	case errors.Is(err, domain.ErrNoQueuedJobs):
-		return http.StatusNoContent, "NO_QUEUED_JOBS"
+		return http.StatusNoContent, "NO_QUEUED_JOBS", err.Error()
 	case errors.Is(err, domain.ErrNoWorkersAvailable):
-		return http.StatusServiceUnavailable, "NO_WORKERS_AVAILABLE"
+		return http.StatusServiceUnavailable, "NO_WORKERS_AVAILABLE", err.Error()
 	case errors.Is(err, domain.ErrWorkerUnhealthy):
-		return http.StatusServiceUnavailable, "WORKER_UNHEALTHY"
+		return http.StatusServiceUnavailable, "WORKER_UNHEALTHY", err.Error()
+	case errors.Is(err, domain.ErrInvalidRequest):
+		return http.StatusBadRequest, "INVALID_REQUEST", err.Error()
+	case errors.Is(err, domain.ErrJobNotQueued):
+		return http.StatusConflict, "JOB_NOT_QUEUED", err.Error()
+	case errors.Is(err, domain.ErrWorkerTaskUnsupported):
+		return http.StatusBadRequest, "WORKER_TASK_UNSUPPORTED", err.Error()
+	case errors.Is(err, domain.ErrWorkerNoCapacity):
+		return http.StatusConflict, "WORKER_NO_CAPACITY", err.Error()
 	default:
 		var invErr *domain.InvalidStateTransitionError
 		if errors.As(err, &invErr) {
-			return http.StatusBadRequest, "INVALID_STATE_TRANSITION"
+			return http.StatusBadRequest, "INVALID_STATE_TRANSITION", invErr.Error()
 		}
-		return http.StatusBadRequest, "INVALID_REQUEST"
+		slog.Error("internal server error", "err", sanitizeError(err.Error()))
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
 	}
 }
 
@@ -89,7 +126,7 @@ type SubmitJobRequest struct {
 func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
 	var req SubmitJobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", err.Error())
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
 		return
 	}
 
@@ -100,8 +137,8 @@ func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
 
 	job, err := h.coord.SubmitJob(r.Context(), req.TaskType, req.Payload, req.TimeoutSeconds, req.MaxAttempts)
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -110,15 +147,15 @@ func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleGetJob(w http.ResponseWriter, r *http.Request) {
 	jobID := r.PathValue("id")
-	if jobID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "job id required")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
 		return
 	}
 
 	job, err := h.coord.GetJob(r.Context(), jobID)
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -127,15 +164,15 @@ func (h *Handler) HandleGetJob(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleListAttempts(w http.ResponseWriter, r *http.Request) {
 	jobID := r.PathValue("id")
-	if jobID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "job id required")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
 		return
 	}
 
 	attempts, err := h.coord.ListAttempts(r.Context(), jobID)
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -147,15 +184,15 @@ func (h *Handler) HandleListAttempts(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
 	jobID := r.PathValue("id")
-	if jobID == "" {
-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "job id required")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
 		return
 	}
 
 	job, err := h.coord.CancelJob(r.Context(), jobID)
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -169,8 +206,8 @@ func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleListWorkers(w http.ResponseWriter, r *http.Request) {
 	workers, err := h.coord.ListWorkers(r.Context())
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -182,13 +219,18 @@ func (h *Handler) HandleListWorkers(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleRegisterWorker(w http.ResponseWriter, r *http.Request) {
 	var worker domain.Worker
 	if err := json.NewDecoder(r.Body).Decode(&worker); err != nil {
-		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", err.Error())
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
+		return
+	}
+
+	if !isValidIdentifier(worker.ID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
 		return
 	}
 
 	if err := h.coord.RegisterWorker(r.Context(), &worker); err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -204,15 +246,20 @@ type HeartbeatRequest struct {
 
 func (h *Handler) HandleWorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	workerID := r.PathValue("id")
+	if !isValidIdentifier(workerID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+
 	var req HeartbeatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", err.Error())
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
 		return
 	}
 
 	if err := h.coord.Heartbeat(r.Context(), workerID, req.AvailableSlots); err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -221,14 +268,19 @@ func (h *Handler) HandleWorkerHeartbeat(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handler) HandlePollWork(w http.ResponseWriter, r *http.Request) {
 	workerID := r.PathValue("id")
+	if !isValidIdentifier(workerID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+
 	assignment, err := h.coord.PollWork(r.Context(), workerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNoQueuedJobs) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -248,10 +300,23 @@ type ReportResultRequest struct {
 func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 	jobID := r.PathValue("id")
 	attemptID := r.PathValue("attempt_id")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
+		return
+	}
+	if !isValidIdentifier(attemptID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid attempt id")
+		return
+	}
 
 	var req ReportResultRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", err.Error())
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
+		return
+	}
+
+	if !isValidIdentifier(req.WorkerID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
 		return
 	}
 
@@ -266,8 +331,8 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 		req.Error,
 	)
 	if err != nil {
-		status, code := mapDomainErrorToHTTP(err)
-		writeError(w, status, code, err.Error())
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
 		return
 	}
 
@@ -290,7 +355,7 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if rec := recover(); rec != nil {
 				slog.Error("recovered from panic in http handler", "err", rec)
-				writeError(w, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "an unexpected error occurred")
+				writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
 			}
 		}()
 		next.ServeHTTP(w, r)

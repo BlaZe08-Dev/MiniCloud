@@ -2,9 +2,14 @@ package api_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +24,30 @@ import (
 
 func setupTestServer() (*httptest.Server, *coordinator.Service) {
 	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+	apiServer := api.NewServer("127.0.0.1:0", svc)
+	ts := httptest.NewServer(apiServer.Handler())
+	return ts, svc
+}
+
+type errorInjectingRepository struct {
+	storage.Repository
+	err error
+}
+
+func (r *errorInjectingRepository) SubmitJob(ctx context.Context, job *domain.Job) error {
+	return r.err
+}
+
+func (r *errorInjectingRepository) GetJob(ctx context.Context, id string) (*domain.Job, error) {
+	return nil, r.err
+}
+
+func setupErrorServer(injectErr error) (*httptest.Server, *coordinator.Service) {
+	baseRepo := storage.NewInMemoryRepository()
+	repo := &errorInjectingRepository{Repository: baseRepo, err: injectErr}
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
 	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
@@ -206,5 +235,303 @@ func TestAPI_StaleAttemptRejection(t *testing.T) {
 	defer respDup.Body.Close()
 	if respDup.StatusCode != http.StatusConflict {
 		t.Fatalf("expected HTTP 409 Conflict for duplicate commit on terminal job, got %d", respDup.StatusCode)
+	}
+}
+
+// TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500 verifies SEC-007:
+// unmapped driver errors must never reach clients, but return an opaque 500 INTERNAL_ERROR.
+func TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500(t *testing.T) {
+	driverErr := errors.New("pq: driver connection lost unexpectedly: host=pg.internal:5432 user=secret_user password=secret_password")
+	ts, _ := setupErrorServer(driverErr)
+	defer ts.Close()
+
+	validReq := []byte(`{"task_type":"echo","payload":{"message":"hello"}}`)
+	resp, err := http.Post(ts.URL+"/v1/jobs", "application/json", bytes.NewReader(validReq))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected HTTP 500, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	var errResp api.ErrorResponse
+	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+		t.Fatalf("failed to decode JSON error envelope: %v", err)
+	}
+	if errResp.Error.Code != "INTERNAL_ERROR" {
+		t.Fatalf("expected code INTERNAL_ERROR, got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "internal server error" {
+		t.Fatalf("expected opaque message 'internal server error', got %q", errResp.Error.Message)
+	}
+	if strings.Contains(bodyStr, "secret_password") {
+		t.Fatalf("SECURITY VIOLATION: password leaked in error response: %s", bodyStr)
+	}
+	if strings.Contains(bodyStr, "driver connection lost") {
+		t.Fatalf("SECURITY VIOLATION: driver error string leaked in error response: %s", bodyStr)
+	}
+	if strings.Contains(bodyStr, "pg.internal") {
+		t.Fatalf("SECURITY VIOLATION: database host leaked in error response: %s", bodyStr)
+	}
+}
+
+// TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500 verifies SEC-007:
+// database outages return an opaque 500 INTERNAL_ERROR without leaking network socket details.
+func TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500(t *testing.T) {
+	outageErr := errors.New("dial tcp 127.0.0.1:5432: connect: connection refused")
+	ts, _ := setupErrorServer(outageErr)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/v1/jobs/job_12345")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected HTTP 500, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	var errResp api.ErrorResponse
+	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+		t.Fatalf("failed to decode JSON error envelope: %v", err)
+	}
+	if errResp.Error.Code != "INTERNAL_ERROR" {
+		t.Fatalf("expected code INTERNAL_ERROR, got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "internal server error" {
+		t.Fatalf("expected opaque message 'internal server error', got %q", errResp.Error.Message)
+	}
+	if strings.Contains(bodyStr, "connection refused") || strings.Contains(bodyStr, "5432") {
+		t.Fatalf("SECURITY VIOLATION: database outage details leaked in error response: %s", bodyStr)
+	}
+}
+
+// TestAPI_SubmitJob_MalformedJSON_FixedMessage verifies SEC-007:
+// JSON decoding failures return a fixed message without echoing decoder internals or offsets.
+func TestAPI_SubmitJob_MalformedJSON_FixedMessage(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	// 1. SubmitJob with malformed JSON
+	resp, err := http.Post(ts.URL+"/v1/jobs", "application/json", strings.NewReader(`{"task_type":"echo", "payload": {`))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected HTTP 400 for malformed JSON, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyStr := string(bodyBytes)
+
+	var errResp api.ErrorResponse
+	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+		t.Fatalf("failed to decode error envelope: %v", err)
+	}
+	if errResp.Error.Code != "MALFORMED_JSON" {
+		t.Fatalf("expected code MALFORMED_JSON, got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "malformed JSON request body" {
+		t.Fatalf("expected fixed message 'malformed JSON request body', got %q", errResp.Error.Message)
+	}
+	if strings.Contains(bodyStr, "unexpected EOF") {
+		t.Fatalf("SECURITY VIOLATION: Go JSON decoder internals leaked: %s", bodyStr)
+	}
+
+	// 2. RegisterWorker with malformed JSON
+	respReg, err := http.Post(ts.URL+"/v1/workers/register", "application/json", strings.NewReader(`{invalid_json`))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer respReg.Body.Close()
+
+	if respReg.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected HTTP 400 for malformed worker register, got %d", respReg.StatusCode)
+	}
+	var errRespReg api.ErrorResponse
+	if err := json.NewDecoder(respReg.Body).Decode(&errRespReg); err != nil {
+		t.Fatalf("failed to decode error envelope: %v", err)
+	}
+	if errRespReg.Error.Code != "MALFORMED_JSON" || errRespReg.Error.Message != "malformed JSON request body" {
+		t.Fatalf("expected fixed message, got %+v", errRespReg)
+	}
+}
+
+// TestAPI_IdentifierValidation_NegativeCases verifies SEC-008:
+// worker IDs and route parameter IDs are strictly bounded (<= 128 chars) and validated
+// against [a-zA-Z0-9_-], rejecting 100 KiB IDs, control characters, newlines, and path traversal strings.
+func TestAPI_IdentifierValidation_NegativeCases(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	hugeID := strings.Repeat("a", 100*1024) // 100 KiB identifier
+	testCases := []struct {
+		name string
+		id   string
+	}{
+		{"100_kib_id", hugeID},
+		{"control_null_byte", "worker\x00id"},
+		{"control_escape", "worker\x1bid"},
+		{"newline_lf", "worker\nid"},
+		{"newline_crlf", "worker\r\nid"},
+		{"path_traversal_dotdot", "../../etc/passwd"},
+		{"path_traversal_slash", "../worker-1"},
+		{"sql_injection_semicolon", "worker;DROP TABLE jobs;--"},
+		{"special_space", "worker 1"},
+		{"special_symbols", "worker$!#"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 1. Worker registration with invalid worker ID
+			regBody, _ := json.Marshal(map[string]any{
+				"id":              tc.id,
+				"version":         "v0.1.0",
+				"total_slots":     2,
+				"supported_tasks": []string{"echo"},
+			})
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(regBody))
+			if err != nil {
+				t.Fatalf("worker registration request failed: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("expected HTTP 400 for registration with invalid ID %q, got %d", tc.name, resp.StatusCode)
+			}
+			var errResp api.ErrorResponse
+			_ = json.NewDecoder(resp.Body).Decode(&errResp)
+			if errResp.Error.Code != "INVALID_REQUEST" {
+				t.Fatalf("expected INVALID_REQUEST error code, got %s", errResp.Error.Code)
+			}
+
+			// 2. Route query GET /v1/jobs/{id}
+			escapedID := url.PathEscape(tc.id)
+			req, err := http.NewRequest(http.MethodGet, ts.URL+"/v1/jobs/"+escapedID, nil)
+			if err == nil {
+				respGet, err := http.DefaultClient.Do(req)
+				if err == nil {
+					defer respGet.Body.Close()
+					if respGet.StatusCode != http.StatusBadRequest && respGet.StatusCode != http.StatusNotFound {
+						t.Fatalf("expected HTTP 400 or 404 for invalid job route ID %q, got %d", tc.name, respGet.StatusCode)
+					}
+					if respGet.StatusCode == http.StatusBadRequest {
+						var getErr api.ErrorResponse
+						_ = json.NewDecoder(respGet.Body).Decode(&getErr)
+						if getErr.Error.Code != "INVALID_REQUEST" {
+							t.Fatalf("expected INVALID_REQUEST, got %s", getErr.Error.Code)
+						}
+					}
+				}
+			}
+
+			// 3. Worker heartbeat POST /v1/workers/{id}/heartbeat
+			reqHB, err := http.NewRequest(http.MethodPost, ts.URL+"/v1/workers/"+escapedID+"/heartbeat", strings.NewReader(`{"available_slots":1}`))
+			if err == nil {
+				reqHB.Header.Set("Content-Type", "application/json")
+				respHB, err := http.DefaultClient.Do(reqHB)
+				if err == nil {
+					defer respHB.Body.Close()
+					if respHB.StatusCode != http.StatusBadRequest && respHB.StatusCode != http.StatusNotFound {
+						t.Fatalf("expected HTTP 400 or 404 for invalid worker heartbeat ID, got %d", respHB.StatusCode)
+					}
+				}
+			}
+
+			// 4. Worker poll POST /v1/workers/{id}/poll
+			reqPoll, err := http.NewRequest(http.MethodPost, ts.URL+"/v1/workers/"+escapedID+"/poll", nil)
+			if err == nil {
+				respPoll, err := http.DefaultClient.Do(reqPoll)
+				if err == nil {
+					defer respPoll.Body.Close()
+					if respPoll.StatusCode != http.StatusBadRequest && respPoll.StatusCode != http.StatusNotFound {
+						t.Fatalf("expected HTTP 400 or 404 for invalid worker poll ID, got %d", respPoll.StatusCode)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_Slowloris_ReadHeaderTimeout verifies SEC-009:
+// the coordinator HTTP server enforces ReadHeaderTimeout, aborting connections that
+// trickle request headers beyond the allowed 2-second window.
+func TestAPI_Slowloris_ReadHeaderTimeout(t *testing.T) {
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer ln.Close()
+
+	srv := api.NewServer(ln.Addr().String(), svc)
+	go func() {
+		_ = srv.Serve(ln)
+	}()
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	}()
+
+	// 1. Slowloris attack: send partial headers and pause for 2.5s (DefaultReadHeaderTimeout is 2s)
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial failed: %v", err)
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte("GET /healthz HTTP/1.1\r\nHost: localhost\r\nX-Slow-Header: trickling"))
+	if err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+
+	// Sleep past the 2s ReadHeaderTimeout
+	time.Sleep(2500 * time.Millisecond)
+
+	buf := make([]byte, 1024)
+	_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	n, readErr := conn.Read(buf)
+	// Server must have closed the socket due to ReadHeaderTimeout (returning EOF, read timeout, or 408)
+	if readErr == nil && n > 0 {
+		respStr := string(buf[:n])
+		if !strings.Contains(respStr, "408") && strings.Contains(respStr, "200 OK") {
+			t.Fatalf("SECURITY VIOLATION: server waited past ReadHeaderTimeout and completed slowloris request: %s", respStr)
+		}
+	}
+
+	// 2. Normal prompt client completes headers within timeout and succeeds
+	conn2, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dial 2 failed: %v", err)
+	}
+	defer conn2.Close()
+
+	_, err = conn2.Write([]byte("GET /healthz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"))
+	if err != nil {
+		t.Fatalf("write 2 failed: %v", err)
+	}
+
+	_ = conn2.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n2, err := io.ReadAll(conn2)
+	if err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("read 2 failed: %v", err)
+	}
+	if !strings.Contains(string(n2), "200 OK") {
+		t.Fatalf("expected HTTP 200 OK for prompt client, got %s", string(n2))
 	}
 }
