@@ -187,6 +187,7 @@ Invoked periodically by the worker (default: every 2 seconds).
   "available_slots": 3
 }
 ```
+*Note:* The `available_slots` field in the heartbeat request is accepted for `/v1` protocol compatibility but ignored by the coordinator; capacity is dynamically derived from active `RUNNING` attempts to guarantee zero counter drift (ADR-0011).
 
 **Response (200 OK):**
 ```json

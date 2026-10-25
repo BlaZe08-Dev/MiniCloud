@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
@@ -156,8 +155,7 @@ func (r *InMemoryRepository) CreateAttempt(ctx context.Context, attempt *domain.
 
 	copied := *attempt
 	if copied.LeaseToken != "" && copied.LeaseTokenHash == "" {
-		tokenHash := sha256.Sum256([]byte(copied.LeaseToken))
-		copied.LeaseTokenHash = hex.EncodeToString(tokenHash[:])
+		copied.LeaseTokenHash = domain.HashLeaseToken(copied.LeaseToken)
 	}
 	// Raw lease token is never stored in repository
 	copied.LeaseToken = ""
@@ -190,8 +188,7 @@ func (r *InMemoryRepository) UpdateAttempt(ctx context.Context, attempt *domain.
 
 	copied := *attempt
 	if copied.LeaseToken != "" && copied.LeaseTokenHash == "" {
-		tokenHash := sha256.Sum256([]byte(copied.LeaseToken))
-		copied.LeaseTokenHash = hex.EncodeToString(tokenHash[:])
+		copied.LeaseTokenHash = domain.HashLeaseToken(copied.LeaseToken)
 	}
 	copied.LeaseToken = ""
 	r.attempts[attempt.ID] = &copied
@@ -393,10 +390,12 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 
 	r.idSeq++
 	attemptID := fmt.Sprintf("att_%d_%s", r.idSeq, generateRandomHex(6))
-	rawLeaseToken := fmt.Sprintf("lease_%d_%s", r.idSeq, generateRandomHex(6))
+	rawLeaseToken, err := domain.NewLeaseToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate secure lease token: %w", err)
+	}
 
-	tokenHash := sha256.Sum256([]byte(rawLeaseToken))
-	tokenHashHex := hex.EncodeToString(tokenHash[:])
+	tokenHashHex := domain.HashLeaseToken(rawLeaseToken)
 
 	storedAttempt := &domain.Attempt{
 		ID:             attemptID,
@@ -467,8 +466,7 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 	}
 
 	// Constant-time compare SHA-256 hash of provided lease token
-	providedHash := sha256.Sum256([]byte(leaseToken))
-	providedHashHex := hex.EncodeToString(providedHash[:])
+	providedHashHex := domain.HashLeaseToken(leaseToken)
 	if subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {
 		return nil, domain.ErrStaleAttempt
 	}

@@ -19,6 +19,14 @@ var forbiddenDomainImports = []string{
 	"github.com/BlaZe08-Dev/Minicloud/internal/worker",
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor",
 	"github.com/BlaZe08-Dev/Minicloud/internal/queue",
+	"github.com/jackc/pgx",
+}
+
+// forbiddenCoordinatorImports defines packages that internal/coordinator must not import.
+// (Coordinator depends on storage.Repository interface, not pgx or postgres implementation directly).
+var forbiddenCoordinatorImports = []string{
+	"github.com/jackc/pgx",
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres",
 }
 
 // forbiddenExecutorImports defines packages that internal/executor must not import.
@@ -77,7 +85,12 @@ func checkPackageBoundaries(t *testing.T, relDir string, forbidden []string, bou
 
 func TestArchitecture_DomainPackageIndependence(t *testing.T) {
 	checkPackageBoundaries(t, filepath.Join("internal", "domain"), forbiddenDomainImports,
-		"internal/domain must not depend on transport, storage, scheduler, queue, or execution.")
+		"internal/domain must not depend on transport, storage, scheduler, queue, execution, or pgx.")
+}
+
+func TestArchitecture_CoordinatorPackageIndependence(t *testing.T) {
+	checkPackageBoundaries(t, filepath.Join("internal", "coordinator"), forbiddenCoordinatorImports,
+		"internal/coordinator must not depend directly on pgx or internal/storage/postgres.")
 }
 
 func TestArchitecture_ExecutorIndependence(t *testing.T) {

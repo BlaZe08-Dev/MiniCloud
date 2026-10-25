@@ -17,12 +17,13 @@ Each component has strictly defined responsibilities and explicit negative const
 | Component | Package / Path | Responsibilities | Must NOT Own |
 |---|---|---|---|
 | **CLI** | `cmd/mc` | Submit jobs, query status/attempts, list workers, request cancellation. Formats output for humans/scripts. | Scheduling logic or direct storage/DB access. |
+| **Migrator CLI** | `cmd/migrate` | Forward-only database migration runner executing embedded SQL under transaction advisory lock (`pg_advisory_xact_lock`). | Arbitrary down migrations or runtime workload scheduling. |
 | **HTTP API** | `internal/api` | Request validation, payload size limits, HTTP contract mapping, response serialization, route handling. | Long-running task execution or background recovery loops. |
 | **Coordinator** | `internal/coordinator` | Orchestration, lifecycle transition coordination, dispatch management, lease verification, recovery scan. | Direct user workload execution. |
 | **Scheduler** | `internal/scheduler` | Evaluates worker health and capacity, selects worker by policy (deterministic round-robin baseline; staged post-Phase 4 per hard gate while Phase 3 uses honest `fifo_pull`). | Authoritative truth about job states or storage mutations. |
 | **Worker Agent** | `cmd/worker`, `internal/worker` | Independent OS process: registers, sends periodic heartbeats, auto-re-registers on 404 `WORKER_NOT_FOUND`, polls/claims work, invokes executor, reports result. | Global authoritative job state or direct database access. |
 | **Executor** | `internal/executor` | Executes approved allowlisted tasks (`echo`, `sleep`, `sha256_loop`), enforces execution timeouts and output caps. | Scheduling decisions or worker registration logic. |
-| **Storage** | `internal/storage` | Repository interface and concurrent-safe storage abstraction with atomic operations (`SubmitJob`, `DispatchJob`, `CommitAttempt`, `CancelJob`), SHA-256 hashed lease tokens, and dynamic capacity derivation (in-memory for Slice 3a; PostgreSQL in Slice 3c). | Transient queue delivery mechanics. |
+| **Storage** | `internal/storage` | Repository interface and concurrent-safe storage abstraction with atomic operations (`SubmitJob`, `DispatchJob`, `CommitAttempt`, `CancelJob`), SHA-256 hashed lease tokens, dynamic capacity derivation (in-memory for Slice 3a; PostgreSQL in Slice 3c), and forward-only schema migrations (`internal/storage/postgres`). | Transient queue delivery mechanics. |
 | **Queue / Transport** | `internal/queue` | Dispatch transport abstraction (in-memory channel/poll in Milestone 1; Redis Streams in Phase 5). | The only copy of accepted job state. |
 | **Observability** | `internal/observability` | Structured logging (`log/slog`) with correlated `job_id`, `attempt_id`, and metrics. | Business state authority or control plane decisions. |
 
@@ -35,10 +36,11 @@ minicloud/
 ├── cmd/
 │   ├── coordinator/        # Coordinator daemon entry point
 │   ├── worker/             # Worker process entry point
-│   └── mc/                 # Operator/Developer CLI
+│   ├── mc/                 # Operator/Developer CLI
+│   └── migrate/            # Migration CLI entry point
 ├── internal/
 │   ├── domain/             # Core entities (Job, Attempt, Worker), states, transition rules (no external deps)
-│   ├── storage/            # Repository interface & in-memory implementation (PostgreSQL in Phase 3)
+│   ├── storage/            # Repository interface, in-memory implementation & postgres package (migrations/migrator)
 │   ├── queue/              # Dispatch transport interface & in-memory queue (Redis Streams in V2)
 │   ├── executor/           # Task interface, allowlist registry (echo, sleep, sha256_loop), resource limits
 │   ├── scheduler/          # Scheduler interface & deterministic round-robin implementation

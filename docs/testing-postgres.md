@@ -52,16 +52,8 @@ volumes:
 
 ### 2.3 Multiple Databases Initialization (`init-test-db.sh`)
 PostgreSQL's default entrypoint initializes only the database specified in `POSTGRES_DB` (`minicloud`). To provide isolated testing without cross-test data pollution:
-- An entrypoint initialization script creates the second database: `minicloud_test`.
-```bash
-#!/bin/sh
-set -e
-
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE DATABASE minicloud_test;
-    GRANT ALL PRIVILEGES ON DATABASE minicloud_test TO "$POSTGRES_USER";
-EOSQL
-```
+- An entrypoint initialization script (`deployments/init-test-db.sh`) provisions the secondary test database: `minicloud_test`.
+- **Fresh Volume Rule:** The official PostgreSQL entrypoint only executes scripts in `/docker-entrypoint-initdb.d/` when the data volume is completely fresh/empty. If the container or named volume already exists, init scripts do not re-run.
 
 ---
 
@@ -71,17 +63,10 @@ EOSQL
    - Real credentials, `.env` files, and local overrides must **never** be committed to version control.
    - `.env` is listed in `.gitignore`.
 2. **Template File (`.env.example`):**
-   - A committed `.env.example` file provides placeholder values:
-     ```bash
-     # Local PostgreSQL Development Credentials (DEV ONLY)
-     POSTGRES_USER=minicloud_dev
-     POSTGRES_PASSWORD=minicloud_dev_secret
-     POSTGRES_DB=minicloud
-     
-     # Connection URLs
-     MINICLOUD_DATABASE_URL=postgres://minicloud_dev:minicloud_dev_secret@127.0.0.1:5433/minicloud?sslmode=disable
-     MINICLOUD_TEST_DATABASE_URL=postgres://minicloud_dev:minicloud_dev_secret@127.0.0.1:5433/minicloud_test?sslmode=disable
-     ```
+   - A committed `.env.example` file provides placeholder values.
+3. **Execution Hygiene:**
+   - Never run `docker compose config`, `env`, `cat .env` or `set -x` in automated scripts or shell sessions.
+   - Makefile recipes use `@`-prefixes to avoid leaking database URLs and passwords in terminal output.
 
 ---
 
@@ -101,52 +86,36 @@ This guarantees that standard unit tests (`go test ./...`) continue to pass clea
 ### Guardrail 2: Hard Database Name Suffix Enforcement (`_test`)
 To permanently eliminate the risk of automated test suites truncating or dropping development or production data, test suites **must parse the target database name** before executing schema setup or cleanup:
 ```go
-dbURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
-cfg, err := pgxpool.ParseConfig(dbURL)
-if err != nil {
-    t.Fatalf("invalid database URL: %v", err)
-}
-
-if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
-    t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.ConnConfig.Database)
+if !strings.HasSuffix(dbName, "_test") {
+    t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", dbName)
 }
 ```
 
-### Guardrail 3: Clean Isolation Between Tests
-Each integration test either:
-- Runs in an isolated transaction that rolls back (`defer tx.Rollback(ctx)`).
-- Or truncates test tables between runs within the dedicated `minicloud_test` database.
+### Guardrail 3: Schema-Per-Test Isolation
+Each test creates and uses a dedicated unique schema (e.g. `test_<random_hex>`) via `SET search_path TO ...`, which is dropped during `t.Cleanup()`. This permits parallel test execution without table collision.
 
 ---
 
-## 5. Planned Makefile Targets (Design Specification)
-
-> **Note:** These targets will be added to the project `Makefile` in Phase 3 Slice 3b/3c.
+## 5. Implemented Makefile Targets
 
 ```makefile
-# Database lifecycle targets
+# Start local PostgreSQL container (waits for healthcheck)
 db-up:
-	@echo "Starting local PostgreSQL container..."
-	docker compose -f deployments/docker-compose.yml --env-file .env up -d
+	@docker compose -f deployments/docker-compose.yml --env-file .env up -d --wait
 
+# Stop local PostgreSQL container (named volume minicloud_pgdata preserved)
 db-down:
-	@echo "Stopping local PostgreSQL container..."
-	docker compose -f deployments/docker-compose.yml down
+	@docker compose -f deployments/docker-compose.yml down
 
-# Run psql inside the container (eliminates need for host psql client)
+# Run psql inside the container connected to the development database
 db-psql:
-	docker compose -f deployments/docker-compose.yml exec -it postgres psql -U minicloud_dev -d minicloud
+	@docker compose -f deployments/docker-compose.yml --env-file .env exec -it postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 
-db-psql-test:
-	docker compose -f deployments/docker-compose.yml exec -it postgres psql -U minicloud_dev -d minicloud_test
+# Reset the test database only (verifies _test suffix, drops & recreates minicloud_test)
+db-reset-test:
+	@docker compose -f deployments/docker-compose.yml --env-file .env exec -T postgres sh -c '...'
 
-# Run PostgreSQL-backed integration tests
+# Run database tests with MINICLOUD_TEST_DATABASE_URL loaded from .env without echoing
 test-db:
-	@if [ -z "$$MINICLOUD_TEST_DATABASE_URL" ]; then \
-		echo "Exporting default MINICLOUD_TEST_DATABASE_URL..."; \
-		export MINICLOUD_TEST_DATABASE_URL="postgres://minicloud_dev:minicloud_dev_secret@127.0.0.1:5433/minicloud_test?sslmode=disable"; \
-		go test -v -race -count=1 ./tests/integration/...; \
-	else \
-		go test -v -race -count=1 ./tests/integration/...; \
-	fi
+	@...
 ```
