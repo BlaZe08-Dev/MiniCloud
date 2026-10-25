@@ -63,6 +63,18 @@ minicloud/
 
 All state transitions, attempt validations, and invariant checks live in `internal/domain` and are tested with fast, pure Go unit tests.
 
+### Database Row Locking Order Invariant (Slice 3c)
+To guarantee mathematical deadlock prevention across all concurrent multi-table transactions in PostgreSQL (`internal/storage/postgres`), row-level locks (`SELECT ... FOR UPDATE`) are ALWAYS acquired in this strict, non-negotiable order:
+1. `jobs`
+2. `workers`
+3. `attempts`
+4. `results` (insert-only)
+5. `job_events` (insert-only)
+
+Atomic operations (`DispatchJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited.
+
+This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, proving zero deadlocks and zero invariant violations across repeated runs with `-race`.
+
 ---
 
 ## 4. End-to-End Data Flow

@@ -257,16 +257,16 @@ func TestMigrator_ConcurrentMigrators_ExactlyOneApplies(t *testing.T) {
 		t.Fatalf("migrator 2 error: %v", err2)
 	}
 
-	// Exactly one migrator should have applied the migration (applied=1), the other saw it already applied (applied=0)
+	// Exactly two migrations should have been applied across both runners
 	totalApplied := applied1 + applied2
-	if totalApplied != 1 {
-		t.Fatalf("expected exactly 1 migration applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
+	if totalApplied != 2 {
+		t.Fatalf("expected exactly 2 migrations applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
 			totalApplied, applied1, applied2)
 	}
 }
 
 func TestSchemaInvariants_SQLViolations(t *testing.T) {
-	conn, _ := setupTestSchema(t)
+	conn, schemaName := setupTestSchema(t)
 	ctx := context.Background()
 
 	m := postgres.NewMigrator()
@@ -292,7 +292,7 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 			t.Fatalf("failed to insert worker: %v", err)
 		}
 
-		// First active attempt succeeds
+		// First active attempt succeeds (RUNNING)
 		_, err = conn.Exec(ctx, `
 			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
 			VALUES ('att_act_1', 'job_active_inv', 1, 'worker_active_inv', repeat('a', 64), 'RUNNING');
@@ -301,16 +301,38 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 			t.Fatalf("expected first active attempt to succeed, got: %v", err)
 		}
 
-		// Second active attempt for same job must fail due to idx_attempts_active_per_job
+		// Second active attempt for same job with state RUNNING must fail due to idx_attempts_active_per_job
 		_, err = conn.Exec(ctx, `
 			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_act_2', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING');
+			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING');
 		`)
 		if err == nil {
-			t.Fatalf("expected second active attempt on same job to fail with unique violation, got nil")
+			t.Fatalf("expected second RUNNING active attempt on same job to fail with unique violation, got nil")
 		}
 		if !strings.Contains(err.Error(), "idx_attempts_active_per_job") && !strings.Contains(err.Error(), "23505") {
-			t.Fatalf("expected unique index violation on idx_attempts_active_per_job, got: %v", err)
+			t.Fatalf("expected unique index violation on idx_attempts_active_per_job for RUNNING attempt, got: %v", err)
+		}
+
+		// Second active attempt for same job with state PENDING must ALSO fail due to idx_attempts_active_per_job
+		_, err = conn.Exec(ctx, `
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING');
+		`)
+		if err == nil {
+			t.Fatalf("expected second PENDING active attempt on same job to fail with unique violation, got nil")
+		}
+		if !strings.Contains(err.Error(), "idx_attempts_active_per_job") && !strings.Contains(err.Error(), "23505") {
+			t.Fatalf("expected unique index violation on idx_attempts_active_per_job for PENDING attempt, got: %v", err)
+		}
+
+		// Verify worker_capacity view counts non-terminal attempts (RUNNING or PENDING)
+		var availSlots int
+		err = conn.QueryRow(ctx, fmt.Sprintf("SELECT available_slots FROM %s.worker_capacity WHERE id = 'worker_active_inv';", schemaName)).Scan(&availSlots)
+		if err != nil {
+			t.Fatalf("failed to query worker_capacity: %v", err)
+		}
+		if availSlots != 1 {
+			t.Fatalf("expected available_slots = 1 for worker with 2 total slots and 1 active attempt, got %d", availSlots)
 		}
 	})
 

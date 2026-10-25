@@ -9,6 +9,7 @@ import (
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest"
 )
 
 func TestInMemoryRepository_JobLifecycle(t *testing.T) {
@@ -483,7 +484,7 @@ func TestInMemoryRepository_DynamicAvailableSlots(t *testing.T) {
 	}
 
 	// Check 2: RecordHeartbeat with dummy slots does not override computed capacity
-	if err := repo.RecordHeartbeat(ctx, "w_dynamic", time.Now().UTC(), 50); err != nil {
+	if err := repo.RecordHeartbeat(ctx, "w_dynamic", 50); err != nil {
 		t.Fatalf("RecordHeartbeat failed: %v", err)
 	}
 	w, _ = repo.GetWorker(ctx, "w_dynamic")
@@ -607,4 +608,10 @@ func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t *testing.T) {
 	if err != domain.ErrJobAlreadyTerminal {
 		t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 	}
+}
+
+func TestInMemoryRepository_Conformance(t *testing.T) {
+	storagetest.RunRepositoryConformanceTests(t, func(t *testing.T) storage.Repository {
+		return storage.NewInMemoryRepository()
+	})
 }

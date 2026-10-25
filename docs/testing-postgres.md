@@ -23,7 +23,7 @@ In MiniCloud V1 Phase 3, PostgreSQL provides durable storage for all system stat
   - Bound exclusively to `127.0.0.1` (never `0.0.0.0` or public interfaces).
   - Mapped to host port **5433** (`127.0.0.1:5433:5432`) to prevent collisions with any default host PostgreSQL instances running on port 5432.
 
-### 2.2 Specification Design
+### 2.2 Specification Design (`deployments/docker-compose.yml`)
 
 ```yaml
 services:
@@ -31,24 +31,29 @@ services:
     image: postgres:16-alpine
     container_name: minicloud-postgres
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:5433:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-minicloud_dev}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minicloud_dev_secret}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-minicloud}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - minicloud_pgdata:/var/lib/postgresql/data
-      - ./init-test-db.sh:/docker-entrypoint-initdb.d/01-init-test-db.sh:ro
+      - ./init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-minicloud_dev} -d ${POSTGRES_DB:-minicloud}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
 
 volumes:
   minicloud_pgdata:
+    name: minicloud_pgdata
 ```
+
+> **Recommendation / Hardening Suggestion:**  
+> Currently `deployments/docker-compose.yml` specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` without a fallback default (requiring `.env` to be loaded via `--env-file .env`). A recommended future hardening improvement for the compose file is to use `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` so docker compose fails immediately with an explicit error message if the environment variable is unset or empty. *(Note: `deployments/docker-compose.yml` is kept untouched in Slice 3c per review instructions).*
 
 ### 2.3 Multiple Databases Initialization (`init-test-db.sh`)
 PostgreSQL's default entrypoint initializes only the database specified in `POSTGRES_DB` (`minicloud`). To provide isolated testing without cross-test data pollution:

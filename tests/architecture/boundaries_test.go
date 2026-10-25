@@ -13,6 +13,7 @@ import (
 var forbiddenDomainImports = []string{
 	"net/http",
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage",
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres",
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler",
 	"github.com/BlaZe08-Dev/Minicloud/internal/api",
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator",
@@ -43,6 +44,8 @@ var forbiddenQueueImports = []string{
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator",
 	"github.com/BlaZe08-Dev/Minicloud/internal/worker",
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler",
+	"github.com/jackc/pgx",
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres",
 }
 
 func checkPackageBoundaries(t *testing.T, relDir string, forbidden []string, boundaryDescription string) {
