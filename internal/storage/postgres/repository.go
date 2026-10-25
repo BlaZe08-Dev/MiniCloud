@@ -1335,7 +1335,20 @@ func mapPgError(err error) error {
 			if strings.Contains(pgErr.ConstraintName, "chk_jobs_timeout") {
 				return fmt.Errorf("%w: timeout_seconds must be between 1 and 86400", domain.ErrInvalidRequest)
 			}
+			if strings.Contains(pgErr.ConstraintName, "chk_workers_total_slots_range") || strings.Contains(pgErr.ConstraintName, "chk_workers_slots") {
+				return fmt.Errorf("%w: total_slots must be between 1 and 1024", domain.ErrInvalidRequest)
+			}
+			if strings.Contains(pgErr.ConstraintName, "chk_workers_version_length") {
+				return fmt.Errorf("%w: version length must not exceed 64 characters", domain.ErrInvalidRequest)
+			}
+			if strings.Contains(pgErr.ConstraintName, "chk_workers_supported_tasks_count") {
+				return fmt.Errorf("%w: supported_tasks must contain at most 16 tasks", domain.ErrInvalidRequest)
+			}
 			return domain.ErrInvalidRequest
+		case "22001": // string_data_right_truncation
+			return fmt.Errorf("%w: field length exceeds maximum allowed characters", domain.ErrInvalidRequest)
+		case "22003": // numeric_value_out_of_range
+			return fmt.Errorf("%w: numeric value out of range", domain.ErrInvalidRequest)
 		}
 	}
 	return err

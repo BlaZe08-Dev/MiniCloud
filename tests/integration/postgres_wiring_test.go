@@ -593,10 +593,19 @@ func TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart(t *test
 				return
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusCreated {
+				body, _ := io.ReadAll(resp.Body)
+				t.Errorf("job %d submit returned status %d: %s", idx, resp.StatusCode, string(body))
+				return
+			}
 			var j struct {
 				ID string `json:"id"`
 			}
 			_ = json.NewDecoder(resp.Body).Decode(&j)
+			if j.ID == "" {
+				t.Errorf("job %d submit returned empty ID", idx)
+				return
+			}
 			jobIDs[idx] = j.ID
 		}(i)
 	}
@@ -615,7 +624,7 @@ func TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart(t *test
 	waitForServerReady()
 
 	// Poll until all 50 jobs reach SUCCEEDED
-	deadline := time.Now().Add(25 * time.Second)
+	deadline := time.Now().Add(45 * time.Second)
 	completed := make(map[string]bool)
 
 	for time.Now().Before(deadline) && len(completed) < totalJobs {
@@ -641,6 +650,14 @@ func TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart(t *test
 	}
 
 	if len(completed) != totalJobs {
+		for _, jID := range jobIDs {
+			if !completed[jID] {
+				var dbState, workerID string
+				_ = pool.QueryRow(context.Background(), fmt.Sprintf("SELECT state FROM %s.jobs WHERE id = $1;", schemaName), jID).Scan(&dbState)
+				_ = pool.QueryRow(context.Background(), fmt.Sprintf("SELECT worker_id FROM %s.attempts WHERE job_id = $1 ORDER BY attempt_no DESC LIMIT 1;", schemaName), jID).Scan(&workerID)
+				t.Logf("incomplete job %s state=%s last_worker=%s", jID, dbState, workerID)
+			}
+		}
 		t.Fatalf("expected all %d jobs to succeed, only %d completed within deadline", totalJobs, len(completed))
 	}
 

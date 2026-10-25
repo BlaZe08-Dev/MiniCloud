@@ -319,26 +319,44 @@ func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.Wo
 		errSummary = err.Error()
 	}
 
-	status, reportErr := a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
-	if reportErr == nil {
-		slog.Info("result successfully committed",
-			"job_id", assignment.JobID,
-			"attempt_id", assignment.AttemptID,
-			"exit_code", exitCode,
-		)
-	} else if IsNonRetryableReportError(status) {
-		slog.Warn("coordinator permanently rejected result (non-retryable)",
+	var status int
+	var reportErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+		if reportErr == nil {
+			slog.Info("result successfully committed",
+				"job_id", assignment.JobID,
+				"attempt_id", assignment.AttemptID,
+				"exit_code", exitCode,
+			)
+			return
+		}
+		if IsNonRetryableReportError(status) {
+			slog.Warn("coordinator permanently rejected result (non-retryable)",
+				"job_id", assignment.JobID,
+				"attempt_id", assignment.AttemptID,
+				"status", status,
+				"err", reportErr,
+			)
+			return
+		}
+		slog.Warn("transient error reporting result to coordinator, retrying",
 			"job_id", assignment.JobID,
 			"attempt_id", assignment.AttemptID,
 			"status", status,
 			"err", reportErr,
+			"attempt", attempt+1,
 		)
-	} else {
-		slog.Error("transient error reporting result to coordinator",
-			"job_id", assignment.JobID,
-			"attempt_id", assignment.AttemptID,
-			"status", status,
-			"err", reportErr,
-		)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(100*(1<<attempt)) * time.Millisecond):
+		}
 	}
+	slog.Error("failed to report result after retries",
+		"job_id", assignment.JobID,
+		"attempt_id", assignment.AttemptID,
+		"status", status,
+		"err", reportErr,
+	)
 }

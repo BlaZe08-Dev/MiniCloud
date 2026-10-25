@@ -75,6 +75,12 @@ Atomic operations (`DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob
 
 This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, as well as `TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier` (10 workers polling 40 jobs simultaneously), proving zero deadlocks, exactly-once dispatch, and zero invariant violations across repeated runs with `-race`.
 
+### Approximate FIFO Dispatch Semantics (Slice 3d)
+In PostgreSQL mode (`NewPostgresService`), job dispatch uses `ORDER BY created_at ASC, id ASC` with `FOR UPDATE SKIP LOCKED`.
+- `created_at` records transaction start time (`NOW()`), so transactions that start in one order may commit in another.
+- The `id` tie-breaker is a textual sort (e.g. `job_10_...` sorts before `job_9_...`).
+Consequently, dispatch order is **approximate FIFO**. Under concurrency, multiple workers polling simultaneously may claim jobs slightly out of arrival order due to row lock contention and `SKIP LOCKED`. Strict arrival ordering is guaranteed only for single-worker sequential polls. Under concurrency, the system strictly guarantees **exactly-once dispatch, zero loss, and zero duplicates** (see ADR-0013).
+
 ---
 
 ## 4. End-to-End Data Flow

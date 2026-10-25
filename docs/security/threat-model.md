@@ -99,15 +99,15 @@ The following items were identified during static inspection of the codebase. It
    - `SubmitJobRequest` validates `max_attempts` (1..20, default 3) and `timeout_seconds` (1..86400, default 60) at API and coordinator boundary with typed errors returning HTTP 400. PostgreSQL check constraints (`chk_jobs_max_attempts`, `chk_jobs_timeout`) mapped to `domain.ErrInvalidRequest`.
    - Verified by `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), and `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`).
 
-9. **Unbounded Slots Upper Bound in Worker Registration (`internal/coordinator/service.go:207`)** (SEC-015):
-   - Worker registration enforces lower bound `TotalSlots > 0`, but has no upper bound, allowing registrations with arbitrary millions of slots.
-   - Verification step: `TestAPI_RegisterWorker_SlotsUpperLimit` (future test).
+9. **Unbounded Slots Upper Bound in Worker Registration (`internal/coordinator/service.go:253-255`)** (SEC-015):
+   - Worker registration now validates `TotalSlots` in `[1, 1024]` with HTTP 400 client rejection, backed by PostgreSQL `chk_workers_total_slots_range`.
+   - Verified by `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), and `TestSchemaInvariants_SQLViolations/WorkerSlotsRange_RejectedByCheckConstraints` (`internal/storage/postgres/migrator_test.go:481`).
 
-10. **Unbounded Version String Length in Worker Registration (`internal/domain/models.go:76`)** (SEC-016):
-    - Worker version string is unconstrained at API boundary, which risks database column truncation/errors in PostgreSQL (`VARCHAR(64)`) or memory consumption in memory mode.
-    - Verification step: `TestAPI_RegisterWorker_VersionLengthLimit` (future test).
+10. **Unbounded Version String Length in Worker Registration (`internal/domain/worker.go:10`)** (SEC-016):
+    - Worker version string is bounded to $\le 64$ characters (empty string explicitly permitted) with HTTP 400 rejection, backed by PostgreSQL `chk_workers_version_length` and SQLSTATE `22001` mapping.
+    - Verified by `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), and `TestSchemaInvariants_SQLViolations/WorkerVersionLength_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:507`).
 
-11. **Unbounded Slice and Unvalidated Task Types in Supported Tasks (`internal/domain/models.go:73`)** (SEC-017):
-    - Worker `SupportedTasks` array is unconstrained in length and elements are not validated against allowed tasks (`echo`, `sleep`, `sha256_loop`).
-    - Verification step: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (future test).
+11. **Unbounded Slice and Unvalidated Task Types in Supported Tasks (`internal/domain/worker.go:14`)** (SEC-017):
+    - Worker `SupportedTasks` array length is bounded to $\le 16$ items (empty array permitted), individual task names validated to `^[a-zA-Z0-9_-]+$` with length 1..64 chars, and unknown well-formed tasks accepted for rolling upgrades. Backed by PostgreSQL `chk_workers_supported_tasks_count`.
+    - Verified by `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), and `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 

@@ -804,3 +804,206 @@ func TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500(t *testing.T) {
 		})
 	}
 }
+
+// TestAPI_RegisterWorker_SlotsUpperLimit verifies SEC-015:
+// Worker registration bounds total_slots between 1 and 1024.
+// Values <= 0 or > 1024 return HTTP 400 INVALID_REQUEST.
+func TestAPI_RegisterWorker_SlotsUpperLimit(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		slots      int
+		wantStatus int
+	}{
+		{"slots_zero", 0, http.StatusBadRequest},
+		{"slots_negative", -1, http.StatusBadRequest},
+		{"slots_one_valid_lower", 1, http.StatusOK},
+		{"slots_ten_valid", 10, http.StatusOK},
+		{"slots_1024_valid_upper", 1024, http.StatusOK},
+		{"slots_1025_exceeds_upper", 1025, http.StatusBadRequest},
+		{"slots_ten_thousand_excessive", 10000, http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-slots-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         "v0.1.0",
+				"total_slots":     tc.slots,
+				"supported_tasks": []string{"echo"},
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if !strings.Contains(errResp.Error.Message, "total_slots must be between 1 and 1024") {
+					t.Fatalf("unexpected message: %s", errResp.Error.Message)
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_RegisterWorker_VersionLengthLimit verifies SEC-016:
+// Worker registration bounds version string to at most 64 characters.
+// An empty version string is allowed (default). Versions exceeding 64 chars return HTTP 400 INVALID_REQUEST.
+func TestAPI_RegisterWorker_VersionLengthLimit(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		version    string
+		wantStatus int
+	}{
+		{"version_empty_allowed", "", http.StatusOK},
+		{"version_standard", "v0.1.0", http.StatusOK},
+		{"version_64_chars_valid_upper", strings.Repeat("v", 64), http.StatusOK},
+		{"version_65_chars_exceeds", strings.Repeat("v", 65), http.StatusBadRequest},
+		{"version_100kib_oversized", strings.Repeat("x", 102400), http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-ver-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         tc.version,
+				"total_slots":     2,
+				"supported_tasks": []string{"echo"},
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if !strings.Contains(errResp.Error.Message, "version length cannot exceed 64 characters") {
+					t.Fatalf("unexpected message: %s", errResp.Error.Message)
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_RegisterWorker_SupportedTasksAllowlist verifies SEC-017:
+// Worker registration bounds supported_tasks array length (at most 16 tasks), individual task name
+// length (at most 64 chars), and character set ([a-zA-Z0-9_-]).
+// Empty supported_tasks is allowed (cannot claim jobs). Unknown-but-well-formed task names are accepted
+// upon registration to support rolling worker fleet upgrades.
+func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		tasks      []string
+		wantStatus int
+		errMsg     string
+	}{
+		{
+			name:       "empty_tasks_allowed",
+			tasks:      []string{},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_tasks_standard",
+			tasks:      []string{"echo", "sleep"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_16_tasks_upper_bound",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "excess_17_tasks_rejected",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t17"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "supported_tasks cannot exceed 16 tasks",
+		},
+		{
+			name:       "unknown_well_formed_task_accepted_for_rolling_upgrade",
+			tasks:      []string{"gpu_matrix_mult_v2", "custom_filter"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "task_name_too_long_rejected",
+			tasks:      []string{strings.Repeat("a", 65)},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_invalid_charset_injection",
+			tasks:      []string{"echo;rm -rf /"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_with_spaces_rejected",
+			tasks:      []string{"echo task"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-tasks-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         "v0.1.0",
+				"total_slots":     2,
+				"supported_tasks": tc.tasks,
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if tc.errMsg != "" && !strings.Contains(errResp.Error.Message, tc.errMsg) {
+					t.Fatalf("expected message to contain %q, got: %s", tc.errMsg, errResp.Error.Message)
+				}
+			}
+		})
+	}
+}

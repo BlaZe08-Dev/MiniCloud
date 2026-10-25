@@ -257,11 +257,16 @@ func TestMigrator_ConcurrentMigrators_ExactlyOneApplies(t *testing.T) {
 		t.Fatalf("migrator 2 error: %v", err2)
 	}
 
-	// Exactly two migrations should have been applied across both runners
+	// Exactly all embedded migrations should have been applied across both runners
 	totalApplied := applied1 + applied2
-	if totalApplied != 2 {
-		t.Fatalf("expected exactly 2 migrations applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
-			totalApplied, applied1, applied2)
+	mChecker := postgres.NewMigrator()
+	expectedMigrations, err := mChecker.LatestEmbeddedVersion()
+	if err != nil {
+		t.Fatalf("failed to determine latest embedded migration version: %v", err)
+	}
+	if totalApplied != expectedMigrations {
+		t.Fatalf("expected exactly %d migrations applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
+			expectedMigrations, totalApplied, applied1, applied2)
 	}
 }
 
@@ -470,6 +475,65 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "chk_workers_status") && !strings.Contains(err.Error(), "23514") {
 			t.Fatalf("expected check violation chk_workers_status, got: %v", err)
+		}
+	})
+
+	t.Run("WorkerSlotsRange_RejectedByCheckConstraints", func(t *testing.T) {
+		// Zero slots
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_slots_zero', 'v0.1.0', 0, 'HEALTHY', ARRAY['echo']);
+		`)
+		if err == nil {
+			t.Fatalf("expected zero slots to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "chk_workers_slots") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check constraint violation on total_slots <= 0, got: %v", err)
+		}
+
+		// 1025 slots (> 1024)
+		_, err = conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_slots_excess', 'v0.1.0', 1025, 'HEALTHY', ARRAY['echo']);
+		`)
+		if err == nil {
+			t.Fatalf("expected >1024 slots to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check constraint violation on total_slots > 1024, got: %v", err)
+		}
+	})
+
+	t.Run("WorkerVersionLength_RejectedByCheckConstraint", func(t *testing.T) {
+		// 65 chars (> 64)
+		longVersion := strings.Repeat("v", 65)
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_ver_long', $1, 1, 'HEALTHY', ARRAY['echo']);
+		`, longVersion)
+		if err == nil {
+			t.Fatalf("expected >64 chars version to fail, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_version_length") && !strings.Contains(err.Error(), "22001") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected version length violation, got: %v", err)
+		}
+	})
+
+	t.Run("WorkerSupportedTasksCount_RejectedByCheckConstraint", func(t *testing.T) {
+		// 17 tasks (> 16)
+		excessTasks := make([]string, 17)
+		for i := range excessTasks {
+			excessTasks[i] = fmt.Sprintf("task_%d", i)
+		}
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_tasks_excess', 'v0.1.0', 1, 'HEALTHY', $1);
+		`, excessTasks)
+		if err == nil {
+			t.Fatalf("expected >16 tasks to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_supported_tasks_count") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check violation chk_workers_supported_tasks_count, got: %v", err)
 		}
 	})
 }

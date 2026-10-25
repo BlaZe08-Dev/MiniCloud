@@ -124,7 +124,27 @@ const (
 	DefaultTimeoutSeconds = 60
 	MinTimeoutSeconds     = 1
 	MaxTimeoutSeconds     = 86400
+
+	MinWorkerSlots          = 1
+	MaxWorkerSlots          = 1024
+	MaxWorkerVersionLength  = 64
+	MaxWorkerSupportedTasks = 16
+	MaxTaskNameLength       = 64
 )
+
+func isValidTaskName(name string) bool {
+	if len(name) == 0 || len(name) > MaxTaskNameLength {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		b := name[i]
+		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' || b == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
 
 // SubmitJob validates a new job submission, records it in SUBMITTED, and transitions to QUEUED.
 func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte, timeoutSec, maxAttempts int) (*domain.Job, error) {
@@ -227,6 +247,12 @@ func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error)
 }
 
 // RegisterWorker registers or updates a worker process.
+// Validation bounds (SEC-015, SEC-016, SEC-017):
+//   - TotalSlots must be between 1 and 1024.
+//   - Version length must not exceed 64 characters; empty version is allowed (default: "").
+//   - SupportedTasks must contain at most 16 tasks; each task name must be 1..64 chars of [a-zA-Z0-9_-].
+//     An empty SupportedTasks list is allowed (the worker registers but cannot claim any jobs).
+//     Unknown task names are accepted upon registration to support rolling worker upgrades.
 func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -234,8 +260,19 @@ func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) err
 	if worker.ID == "" {
 		return fmt.Errorf("%w: worker_id cannot be empty", domain.ErrInvalidRequest)
 	}
-	if worker.TotalSlots <= 0 {
-		return fmt.Errorf("%w: total_slots must be positive", domain.ErrInvalidRequest)
+	if worker.TotalSlots < MinWorkerSlots || worker.TotalSlots > MaxWorkerSlots {
+		return fmt.Errorf("%w: total_slots must be between %d and %d", domain.ErrInvalidRequest, MinWorkerSlots, MaxWorkerSlots)
+	}
+	if len(worker.Version) > MaxWorkerVersionLength {
+		return fmt.Errorf("%w: version length cannot exceed %d characters", domain.ErrInvalidRequest, MaxWorkerVersionLength)
+	}
+	if len(worker.SupportedTasks) > MaxWorkerSupportedTasks {
+		return fmt.Errorf("%w: supported_tasks cannot exceed %d tasks", domain.ErrInvalidRequest, MaxWorkerSupportedTasks)
+	}
+	for _, task := range worker.SupportedTasks {
+		if !isValidTaskName(task) {
+			return fmt.Errorf("%w: invalid task name %q in supported_tasks", domain.ErrInvalidRequest, task)
+		}
 	}
 	worker.Status = domain.WorkerStatusHealthy
 	now := s.clock.Now()
