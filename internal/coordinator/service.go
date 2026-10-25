@@ -92,6 +92,15 @@ func (s *Service) SetClock(c Clock) {
 	s.clock = c
 }
 
+const (
+	DefaultMaxAttempts    = 3
+	MinMaxAttempts        = 1
+	MaxMaxAttempts        = 20
+	DefaultTimeoutSeconds = 60
+	MinTimeoutSeconds     = 1
+	MaxTimeoutSeconds     = 86400
+)
+
 // SubmitJob validates a new job submission, records it in SUBMITTED, and transitions to QUEUED.
 func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte, timeoutSec, maxAttempts int) (*domain.Job, error) {
 	if len(payload) > executor.MaxPayloadSizeBytes {
@@ -107,11 +116,11 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		return nil, fmt.Errorf("%w: %v", domain.ErrInvalidRequest, err)
 	}
 
-	if maxAttempts <= 0 {
-		maxAttempts = 3
+	if maxAttempts < MinMaxAttempts || maxAttempts > MaxMaxAttempts {
+		return nil, fmt.Errorf("%w: max_attempts must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinMaxAttempts, MaxMaxAttempts, maxAttempts)
 	}
-	if timeoutSec <= 0 {
-		timeoutSec = 60
+	if timeoutSec < MinTimeoutSeconds || timeoutSec > MaxTimeoutSeconds {
+		return nil, fmt.Errorf("%w: timeout_seconds must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinTimeoutSeconds, MaxTimeoutSeconds, timeoutSec)
 	}
 
 	now := s.clock.Now()

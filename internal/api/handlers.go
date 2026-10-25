@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -116,11 +117,13 @@ func NewHandler(coord *coordinator.Service) *Handler {
 }
 
 // SubmitJobRequest defines the JSON schema for POST /v1/jobs.
+// If max_attempts is omitted or null, it defaults to 3 (valid range: 1..20).
+// If timeout_seconds is omitted or null, it defaults to 60 (valid range: 1..86400).
 type SubmitJobRequest struct {
 	TaskType       string          `json:"task_type"`
 	Payload        json.RawMessage `json:"payload"`
-	TimeoutSeconds int             `json:"timeout_seconds"`
-	MaxAttempts    int             `json:"max_attempts"`
+	TimeoutSeconds *int            `json:"timeout_seconds"`
+	MaxAttempts    *int            `json:"max_attempts"`
 }
 
 func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +138,25 @@ func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := h.coord.SubmitJob(r.Context(), req.TaskType, req.Payload, req.TimeoutSeconds, req.MaxAttempts)
+	maxAttempts := coordinator.DefaultMaxAttempts
+	if req.MaxAttempts != nil {
+		if *req.MaxAttempts < coordinator.MinMaxAttempts || *req.MaxAttempts > coordinator.MaxMaxAttempts {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("max_attempts must be between %d and %d", coordinator.MinMaxAttempts, coordinator.MaxMaxAttempts))
+			return
+		}
+		maxAttempts = *req.MaxAttempts
+	}
+
+	timeoutSec := coordinator.DefaultTimeoutSeconds
+	if req.TimeoutSeconds != nil {
+		if *req.TimeoutSeconds < coordinator.MinTimeoutSeconds || *req.TimeoutSeconds > coordinator.MaxTimeoutSeconds {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("timeout_seconds must be between %d and %d", coordinator.MinTimeoutSeconds, coordinator.MaxTimeoutSeconds))
+			return
+		}
+		timeoutSec = *req.TimeoutSeconds
+	}
+
+	job, err := h.coord.SubmitJob(r.Context(), req.TaskType, req.Payload, timeoutSec, maxAttempts)
 	if err != nil {
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)

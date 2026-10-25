@@ -1,14 +1,20 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `docs/security-instructions`
-- **Current Milestone:** Persistent Security Instructions & Adversarial Testing Framework — **COMPLETED**
-- **Next Milestone:** Phase 3, Slice 3d — PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch.
+- **Current Branch:** `milestone/3d-postgres-queue`
+- **Current Milestone:** Phase 3, Slice 3d — PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch + Security Hardening (SEC-007, SEC-008, SEC-009, SEC-011, SEC-014).
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Phase 3, Slice 3d — Authorized Security Hardening (SEC-007, SEC-008, SEC-009, SEC-011, SEC-014) (`milestone/3d-postgres-queue`):**
+  - **SEC-007 (Internal Error Sanitization & Opaque HTTP 500):** Mapped unmapped repository or driver errors to generic HTTP 500 `INTERNAL_ERROR` with opaque message (`"internal server error"`). Scrubbed connection URIs and credentials (`password=***`) in server-side logs. JSON decoding errors return fixed `"malformed JSON request body"` without leaking decoder internals or offsets. Verified by `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, and `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
+  - **SEC-008 (API Boundary Identifier Validation):** Bounded worker IDs, route IDs (`{id}`, `{attempt_id}`), and commit request worker IDs to $\le 128$ characters matching `^[a-zA-Z0-9_-]+$`. Rejected 100 KiB IDs, control characters, newlines, and path traversal strings (`../../`) with HTTP 400 `INVALID_REQUEST`. Verified by `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`).
+  - **SEC-009 (Explicit HTTP Server ReadHeaderTimeout):** Added `DefaultReadHeaderTimeout = 2 * time.Second` to `internal/api/server.go` on `http.Server`, mitigating Slowloris resource exhaustion. Verified by `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`).
+  - **SEC-011 (Migration CLI Credential Exposure Deprecation):** Updated `cmd/migrate/main.go` prioritizing `MINICLOUD_DATABASE_URL` environment variable; deprecated `-database-url` CLI flag with warning regarding process table credential exposure. Verified by `TestMigrateCLI_ResolveDatabaseURL_*` (`cmd/migrate/main_test.go:8-61`).
+  - **SEC-014 (Numeric Parameters Boundary Validation):** Updated `SubmitJobRequest` and coordinator `SubmitJob` to validate `max_attempts` ($1..20$, default 3 when omitted or null) and `timeout_seconds` ($1..86400$, default 60 when omitted or null) with typed `domain.ErrInvalidRequest` mapped to HTTP 400. Mapped PostgreSQL check constraint violations (`chk_jobs_max_attempts` and `chk_jobs_timeout` under SQLSTATE `23514`) to `domain.ErrInvalidRequest` ensuring check constraint violations always return HTTP 400 client errors and never 500 internal errors. Verified by `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), and `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`).
+  - **Findings Register Update:** Updated `docs/security/findings.md`, `docs/security/threat-model.md`, and `docs/security/test-plan.md` recording SEC-007, SEC-008, SEC-009, SEC-011, and SEC-014 as Fixed. Audited worker registration fields and recorded SEC-015 (unbounded worker slots), SEC-016 (unbounded worker version length), and SEC-017 (unbounded/unvalidated supported tasks) as Open.
 - **Persistent Security, Adversarial Testing & Reliability Instructions (`docs/security-instructions`):**
   - **Operating Principles:** Created [docs/security/security-testing.md](security/security-testing.md) faithfully distilling the 5 adversarial engineering roles, 8-step break-before-fix sequence, evidence labels, honesty rules, no-silent-fix, no-weakened-tests, repeatability, and V1/V2/V3 focus.
   - **Threat Model:** Created [docs/security/threat-model.md](security/threat-model.md) analyzing assets, trust boundaries, threats, mitigations, and citations across 12 components, and incorporating unconfirmed read-only code review findings.
