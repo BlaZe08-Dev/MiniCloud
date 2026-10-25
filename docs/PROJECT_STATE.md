@@ -1,14 +1,22 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `milestone/3c-postgres-repository`
-- **Current Milestone:** Phase 3 (Durable State) — Slice 3c: PostgreSQL Repository Implementation — **COMPLETED**
+- **Current Branch:** `docs/security-instructions`
+- **Current Milestone:** Persistent Security Instructions & Adversarial Testing Framework — **COMPLETED**
 - **Next Milestone:** Phase 3, Slice 3d — PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Persistent Security, Adversarial Testing & Reliability Instructions (`docs/security-instructions`):**
+  - **Operating Principles:** Created [docs/security/security-testing.md](security/security-testing.md) faithfully distilling the 5 adversarial engineering roles, 8-step break-before-fix sequence, evidence labels, honesty rules, no-silent-fix, no-weakened-tests, repeatability, and V1/V2/V3 focus.
+  - **Threat Model:** Created [docs/security/threat-model.md](security/threat-model.md) analyzing assets, trust boundaries, threats, mitigations, and citations across 12 components, and incorporating unconfirmed read-only code review findings.
+  - **Security Findings Register:** Created [docs/security/findings.md](security/findings.md) seeded with SEC-001 through SEC-006 using full structured format for Medium+ and summary register rows for Low/Info.
+  - **Adversarial & Reliability Test Plan:** Created [docs/security/test-plan.md](security/test-plan.md) mapping V1/V2/V3 tests (fuzzing, bounds, timeouts, fault injection, concurrency races, controlled load generation) with exact existing paths or "designed, not executed".
+  - **ADR 0012 Accepted:** Recorded [ADR 0012: Security, Adversarial Testing, and Reliability Workflow](adr/0012-security-and-adversarial-testing-workflow.md) establishing operational policies a–h.
+  - **Session Handbook & Protocol:** Updated `GEMINI.md` embedding compact security rules, relative context links, and mandatory Security Review reporting protocol step.
+  - **Phase Security Gates:** Updated `docs/roadmap.md` with explicit security review gates for V1, V2, and V3 exit criteria.
 - `f5a4968` — `docs: add MiniCloud blueprint and instructions`
 - `2fb7958` — `docs: establish Phase 0 architecture, state machine, and context layer`
 - `eabcc22` / `78f2aa2` — `feat: implement Milestone 1 local core coordinator, worker protocol, and CLI` (Merged PR #1 to `main`).
@@ -123,15 +131,20 @@
 
 ---
 
-## 6. Known Defects & Limitations
-- Durability is currently in-memory only (PostgreSQL arrives in Phase 3 implementation, Slices 3b–3e).
-- Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
-- Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
+## 6. Known Defects, Limitations & Open Security Findings
+- **Open Security Findings:**
+  - **SEC-003 (Informational, Open):** Compose `POSTGRES_PASSWORD` lacks fail-fast syntax `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:18`).
+  - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`).
+  - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:55`).
+- **Distributed & Architectural Limitations:**
+  - PostgreSQL repository is implemented (Slice 3c), but coordinator queue wiring to PostgreSQL (`PostgresQueue`) occurs in Slice 3d.
+  - Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
+  - Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
 
 ---
 
 ## 7. Last Verified Commands & Actual Results
-- **Date:** 2026-10-20
+- **Date:** 2026-10-25
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
@@ -142,19 +155,21 @@ $ gofmt -s -w .
 $ go vet ./...
 (clean exit, code 0)
 
-$ go test -v -race -count=1 ./...
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.050s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.028s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.135s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.043s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.103s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.056s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.020s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.027s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.061s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.032s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	7.178s
+$ go build ./...
+(clean exit, code 0)
 
-$ for i in $(seq 1 20); do go test -race -count=1 ./tests/integration/... > /dev/null || exit 1; done
-(All 20 iterations passed successfully with -race)
+$ go test -count=1 ./...
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.016s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	0.007s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.012s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	0.007s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.012s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	0.013s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.007s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.012s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.015s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.008s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	0.009s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	7.057s
 ```
+*(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset, as designed for docs-only sessions).*
