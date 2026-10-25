@@ -19,11 +19,15 @@ import (
 var (
 	uriPasswordRegex   = regexp.MustCompile(`://([^:]+):([^@]+)@`)
 	paramPasswordRegex = regexp.MustCompile(`(?i)(password|passwd|pwd)\s*=\s*[^\s]+`)
+	connStringRegex    = regexp.MustCompile(`postgres(ql)?://[^\s'"]+`)
+	hostPortRegex      = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b|localhost(:\d+)?|\b(host|port)=[^\s]+`)
 )
 
 func sanitizeError(msg string) string {
 	msg = uriPasswordRegex.ReplaceAllString(msg, `://$1:***@`)
 	msg = paramPasswordRegex.ReplaceAllString(msg, `$1=***`)
+	msg = connStringRegex.ReplaceAllString(msg, `[REDACTED_CONN_STRING]`)
+	msg = hostPortRegex.ReplaceAllString(msg, `[REDACTED_HOST_PORT]`)
 	return msg
 }
 
@@ -40,8 +44,8 @@ func isConnectionOrTimeoutError(err error) bool {
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		// PostgreSQL Class 08 — Connection Exception or Class 57 — Operator Intervention
-		if strings.HasPrefix(pgErr.Code, "08") || pgErr.Code == "57P01" || pgErr.Code == "57P02" || pgErr.Code == "57P03" {
+		// PostgreSQL Class 08 — Connection Exception, Class 57 — Operator Intervention (57014 statement_timeout, 57P01/2/3), or 55P03 lock_not_available
+		if strings.HasPrefix(pgErr.Code, "08") || strings.HasPrefix(pgErr.Code, "57") || pgErr.Code == "55P03" {
 			return true
 		}
 	}

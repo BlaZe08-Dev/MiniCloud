@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -57,6 +58,14 @@ func main() {
 		}
 		poolCfg.MaxConns = int32(cfg.DBMaxConns)
 		poolCfg.MinConns = int32(cfg.DBMinConns)
+		if cfg.DBQueryTimeout > 0 {
+			if poolCfg.ConnConfig.RuntimeParams == nil {
+				poolCfg.ConnConfig.RuntimeParams = make(map[string]string)
+			}
+			ms := strconv.Itoa(int(cfg.DBQueryTimeout.Milliseconds()))
+			poolCfg.ConnConfig.RuntimeParams["statement_timeout"] = ms
+			poolCfg.ConnConfig.RuntimeParams["lock_timeout"] = ms
+		}
 
 		pool, err = pgxpool.NewWithConfig(bootCtx, poolCfg)
 		if err != nil {
