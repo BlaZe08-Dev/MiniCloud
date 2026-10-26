@@ -28,7 +28,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_WorkerCrash_DuringExecution` (planned test)
 - **Target Fault Scenario**: Worker claims a job, begins task execution, and crashes (`SIGKILL`) halfway through.
 - **Injection Mechanism**: Task payload executes 10 iterations of `sha256_loop`; test sends `syscall.SIGKILL` to worker PID at iteration 3. Coordinator test clock advances past `lease_expires_at` (30s).
-- **Expected Outcome**: Coordinator lease sweeper scans expired running attempts, marks attempt 1 as `LOST`, and checks remaining retry budget (`attempt_no < max_attempts`). Coordinator transitions job from `RUNNING` to `RETRYING` with backoff `not_before`. Once `not_before` elapses, attempt 2 dispatches to an alternate worker and completes to `SUCCEEDED`.
+- **Expected Outcome**: Coordinator lease sweeper scans expired running attempts, re-checks under row lock, marks attempt 1 as `LOST` (consuming 1 attempt of budget), and checks remaining retry budget (`attempt_no < max_attempts`). Coordinator transitions job from `RUNNING` to `RETRYING` with backoff `not_before`. Once `not_before` elapses, attempt 2 dispatches to an alternate worker and completes to `SUCCEEDED`.
 - **Evidence Collected**: Attempt 1 state `LOST` in `attempts` table; `job_events` contains `lease_expired` and `job_retrying`; attempt 2 state `COMPLETED`; final job state `SUCCEEDED`.
 - **Recovery Mode**: Autonomous (self-healing).
 
@@ -36,24 +36,26 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_ResultReport_NetworkDropOrDelay` (planned test)
 - **Target Fault Scenario**: Worker completes task execution successfully, but the network drops or severely delays the `POST /v1/jobs/{id}/attempts/{attempt_id}/result` request.
 - **Injection Mechanism**: Test HTTP transport proxy intercepts the result report and drops the first 3 attempts with connection reset (`ECONNRESET`).
-- **Expected Outcome**: Worker client exponential backoff retries `ReportResult` up to 5 times (`internal/worker/client.go:324-355`). The 4th attempt succeeds within the 30-second lease window. Result commits with HTTP 200 `COMMITTED` and job transitions to `SUCCEEDED`.
-- **Evidence Collected**: Worker client logs show transient reporting retries; single result row in `results` table; attempt state `COMPLETED`.
+- **Expected Outcome**: Worker client exponential backoff retries `ReportResult` up to 5 times. If the commit arrives while the attempt is still in `RUNNING` state (even if `lease_expires_at` passed), it is accepted under Option 2 (Accept-Until-Reaped), completing the job to `SUCCEEDED` without redundant retries. If the sweeper already reaped the attempt to `LOST`, commit is rejected with HTTP 409 `STALE_ATTEMPT_REJECTED` and recorded as `diagnostic_late_result` with zero resurrection.
+- **Evidence Collected**: Worker client logs show transient reporting retries; single result row in `results` table; attempt state `COMPLETED` (or `LOST` if reaped).
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-04: Old Worker Returns Result After Lease Expired and Newer Attempt Started
 - **Planned Test Identifier**: `TestFault_OldWorker_LateCommitAfterReassignment` (planned test)
 - **Target Fault Scenario**: Worker 1 experiences a 40-second network partition or GC pause. Its lease expires at $t = 30\text{s}$. Coordinator sweeps attempt 1 to `LOST` and dispatches attempt 2 to Worker 2. Worker 1 wakes up and attempts to commit result for attempt 1.
 - **Injection Mechanism**: Test harness freezes Worker 1 process (`SIGSTOP`), advances coordinator clock by 35s, triggers lease sweeper, dispatches attempt 2 to Worker 2, unfreezes Worker 1 (`SIGCONT`), and Worker 1 submits `ReportResult`.
-- **Expected Outcome**: Coordinator rejects Worker 1's commit with HTTP 409 `STALE_ATTEMPT_REJECTED`. Coordinator appends a `diagnostic_late_result` audit event to `job_events`. Worker 2's commit for attempt 2 is accepted with HTTP 200 `COMMITTED`. The final job result strictly records Worker 2's outcome. Worker 1 never overwrites Worker 2.
+- **Expected Outcome**: Coordinator rejects Worker 1's commit with HTTP 409 `STALE_ATTEMPT_REJECTED`. Coordinator appends a `diagnostic_late_result` audit event to `job_events`. Worker 2's commit for attempt 2 is accepted with HTTP 200 `COMMITTED`. The final job result strictly records Worker 2's outcome. Expired attempts are never resurrected.
 - **Evidence Collected**: HTTP 409 response received by Worker 1; `job_events` record with `event_type = 'diagnostic_late_result'`; `results.attempt_id` matches attempt 2; attempt 1 remains `LOST`.
 - **Recovery Mode**: Autonomous (self-healing).
 
-### FS-05: Coordinator Crashes After Submission Before Dispatch
+### FS-05: Coordinator Crashes After Submission Before Dispatch or During Execution
 - **Planned Test Identifier**: `TestFault_CoordinatorCrash_AfterSubmit` (planned test)
-- **Target Fault Scenario**: Client successfully submits job; job is persisted in PostgreSQL in `QUEUED` state. Coordinator crashes immediately before any worker claims it.
+- **Target Fault Scenario**: Client successfully submits job; job is persisted in PostgreSQL in `QUEUED` state. Coordinator crashes immediately before any worker claims it, or while workers are executing tasks.
 - **Injection Mechanism**: Test coordinator receives `POST /v1/jobs`, returns HTTP 201 Created, and is immediately terminated with `SIGKILL`. A replacement coordinator starts on the same port and connects to PostgreSQL.
-- **Expected Outcome**: Job remains durably in `QUEUED` in PostgreSQL. Polling workers connect to the replacement coordinator, claim the job, execute the task, and commit the result. Zero jobs lost.
-- **Evidence Collected**: `jobs.state` verified as `QUEUED` in DB post-crash; worker claim logs from restarted coordinator; job completes to `SUCCEEDED`.
+- **Expected Outcome**:
+  - `QUEUED` jobs remain durably in PostgreSQL and dispatch to workers upon next poll.
+  - For `RUNNING` jobs, the restarted coordinator's sweeper observes the startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, 30s) and does not reap healthy in-flight attempts, allowing surviving workers to renew or commit (preserving Phase 3 guarantee in `TestPostgresWiring_CoordinatorRestartRecovery`).
+- **Evidence Collected**: `jobs.state` verified as `QUEUED` in DB post-crash; surviving worker commit succeeds with HTTP 200 COMMITTED; job completes to `SUCCEEDED`.
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-06: Coordinator Crashes After Receiving Result Before/After Committing It
@@ -70,7 +72,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_PostgresOutage_DuringLeaseExecution` (planned test)
 - **Target Fault Scenario**: PostgreSQL container becomes unreachable for 5 seconds while workers are actively heartbeating, renewing leases, and polling for work.
 - **Injection Mechanism**: Docker pause/unpause on PostgreSQL container or proxy port blockage for 5000ms.
-- **Expected Outcome**: Coordinator `/readyz` probe and API endpoints return HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1`. Worker client detects 503, applies exponential backoff with full jitter, and pauses requests. When PostgreSQL resumes, `/readyz` returns 200, workers reconnect, renew in-flight leases, and system resumes full execution without crashes or leaked credentials.
+- **Expected Outcome**: Coordinator `/readyz` probe and API endpoints return HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1`. Worker client detects 503, applies exponential backoff with full jitter, and pauses requests. When PostgreSQL resumes, `/readyz` returns 200, workers reconnect, outage grace window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, 30s) prevents mass expiration of attempts, and surviving workers renew or commit cleanly without credential leakage (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit`).
 - **Evidence Collected**: 503 responses with `Retry-After: 1` logged; backoff intervals logged; zero unhandled panics; full execution resumes after restore.
 - **Recovery Mode**: Autonomous (self-healing).
 
@@ -78,7 +80,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_Heartbeat_DelayedOrDuplicated` (planned test)
 - **Target Fault Scenario**: Worker heartbeat packets are duplicated by network proxies or delayed past `worker_timeout`.
 - **Injection Mechanism**: Test sends 20 duplicate concurrent `POST /v1/workers/{id}/heartbeat` requests, followed by a simulated 15s delay.
-- **Expected Outcome**: Duplicate heartbeats update `last_heartbeat_at` idempotently. Delayed heartbeats cause the worker reaper loop to transition worker status to `UNHEALTHY`. When the next heartbeat arrives, worker status is automatically restored to `HEALTHY`.
+- **Expected Outcome**: Duplicate heartbeats update `last_heartbeat_at` idempotently. Delayed heartbeats cause the worker reaper loop to transition worker status to `UNHEALTHY`. When the next heartbeat arrives, worker status is automatically restored to `HEALTHY`. Heartbeats do not deliver cancellations.
 - **Evidence Collected**: Worker transitions `HEALTHY` $\rightarrow$ `UNHEALTHY` $\rightarrow$ `HEALTHY`; zero duplicate worker rows in database.
 - **Recovery Mode**: Autonomous (self-healing).
 
@@ -86,17 +88,19 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_Task_TimeoutAndPoisonRepeat` (planned test)
 - **Target Fault Scenario**: A task exceeds its configured runtime timeout, attempts to write 10 MiB of stdout/stderr, and repeatedly fails across retries.
 - **Injection Mechanism**: Custom task runs infinite loop writing large buffers with `timeout_seconds = 2` and `max_attempts = 3`.
-- **Expected Outcome**: In-process executor aborts task execution via `context.WithTimeout` at 2s; output buffer is truncated to 64 KiB (enforced by `CHECK (octet_length(output) <= 65536)`); worker reports non-zero exit code. Coordinator retries attempt up to `max_attempts = 3`. After attempt 3 fails, job permanently transitions to `FAILED`.
+- **Expected Outcome**: In-process executor aborts task execution via `context.WithTimeout` at 2s; output buffer is truncated to 64 KiB (enforced by `CHECK (octet_length(output) <= 65536)`); worker reports non-zero exit code. Input validation failures fail immediately as `PERMANENT`. Transient failures retry up to `max_attempts = 3`. After attempt 3 fails, job permanently transitions to `FAILED`.
 - **Evidence Collected**: Output size strictly $\le 65536$ bytes; exactly 3 attempts recorded in `attempts`; final job state `FAILED`; no worker crash.
 - **Recovery Mode**: Autonomous (self-healing).
 
-### FS-10: Cancellation Races with Job Completion
+### FS-10: Cancellation Races with Job Completion or Duplicate Cancel
 - **Planned Test Identifier**: `TestFault_Cancellation_RaceWithCompletion` (planned test)
-- **Target Fault Scenario**: Client issues cancellation request (`POST /v1/jobs/{id}/cancel`) at the exact millisecond the worker issues result commit (`POST /result`).
-- **Injection Mechanism**: 50 concurrent goroutine pairs execute simultaneous cancel and commit requests synchronized with a `sync.WaitGroup` start barrier.
+- **Target Fault Scenario**: Client issues cancellation request (`POST /v1/jobs/{id}/cancel`) at the exact millisecond the worker issues result commit (`POST /result`), or issues duplicate cancels concurrently.
+- **Injection Mechanism**: 50 concurrent goroutine pairs execute simultaneous cancel, duplicate cancel, and commit requests synchronized with a `sync.WaitGroup` start barrier.
 - **Expected Outcome**: PostgreSQL row locks on `jobs` serialize execution order.
   - If commit locks first: job transitions `RUNNING` $\rightarrow$ `SUCCEEDED`; subsequent cancel receives HTTP 409 `JOB_ALREADY_TERMINAL`.
-  - If cancel locks first: job transitions `RUNNING` $\rightarrow$ `CANCEL_REQUESTED`; worker commit evaluates `CANCEL_REQUESTED`, accepts completed work, and transitions job to `SUCCEEDED` (or confirms cancel to `CANCELLED`).
+  - If cancel locks first: job transitions `RUNNING` $\rightarrow$ `CANCEL_REQUESTED` (HTTP 202); worker commit evaluates `CANCEL_REQUESTED`, accepts completed work, and transitions job to `SUCCEEDED` (or confirms cancel to `CANCELLED`).
+  - If cancel is duplicated on `CANCEL_REQUESTED`: returns idempotent HTTP 202 `CANCEL_REQUESTED` with zero duplicate audit events.
+  - Cancellation delivered exclusively via renewal response (`cancel_requested: true`).
   - Zero deadlocks, zero unhandled errors, exactly one consistent terminal state.
 - **Evidence Collected**: Terminal state is either `SUCCEEDED` or `CANCELLED`; `job_events` contains sequential audit entries; race detector clean (`-race`).
 - **Recovery Mode**: Autonomous (self-healing).
@@ -127,7 +131,7 @@ To discover unexpected corner cases, race conditions, and sequence anomalies acr
    - After each action, the repository state is compared against the reference model.
 
 ### 3.2 Invariants Checked on Every Step
-1. **No Stale Result Committed**: An attempt whose lease has expired or whose attempt ID is superseded can never write a row to `results` or transition a job to `SUCCEEDED`.
+1. **No Stale Result Committed**: An attempt whose lease has expired and been swept to `LOST` can never write a row to `results` or transition a job to `SUCCEEDED` (no resurrection).
 2. **At Most One Committed Result Per Job**: The `results` table contains at most 1 row per `job_id`.
 3. **Bounded Retries**: A job's total attempt count never exceeds `jobs.max_attempts`.
 4. **No Active Attempt After Terminal State**: When `jobs.state` is in `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`, zero attempts exist with `state IN ('PENDING', 'RUNNING')`.
