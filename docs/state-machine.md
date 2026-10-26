@@ -12,8 +12,8 @@ The job and attempt lifecycles in MiniCloud are governed by a formal finite stat
 | `SUBMITTED` | Ephemeral / Initial | Job has passed schema validation and been recorded by the API. | `QUEUED`, `REJECTED` |
 | `QUEUED` | Active / Pending | Job is waiting in the scheduling pool for an eligible worker. | `RUNNING`, `CANCELLED` |
 | `RUNNING` | Active / In-Flight | An attempt has been dispatched and accepted by a worker under a lease. | `SUCCEEDED`, `RETRYING`, `FAILED`, `CANCEL_REQUESTED` |
-| `CANCEL_REQUESTED` | Active / Draining | Cancellation was requested while an attempt was running; awaiting worker acknowledgement, completion, or lease expiry. | `CANCELLED`, `SUCCEEDED`, `FAILED` |
-| `RETRYING` | Active / Backoff | An attempt failed or timed out, and the job is waiting out exponential backoff before becoming eligible for re-dispatch. | `QUEUED`, `RUNNING`, `FAILED`, `CANCELLED` |
+| `CANCEL_REQUESTED` | Active / Draining | Cancellation was requested while an attempt was running; awaiting worker acknowledgement, completion, or lease expiry. | `CANCELLED`, `SUCCEEDED`, `FAILED`, `CANCEL_REQUESTED` (idempotent no-op) |
+| `RETRYING` | Active / Backoff | An attempt failed or timed out, and the job is waiting out exponential backoff before becoming eligible for re-dispatch. | `RUNNING`, `FAILED`, `CANCELLED` |
 | `SUCCEEDED` | **Terminal** | A valid attempt result has been committed to durable storage. | *None* |
 | `FAILED` | **Terminal** | Execution failed permanently, or maximum attempt budget was exhausted. | *None* |
 | `CANCELLED` | **Terminal** | Job was cancelled before execution started, or running attempt confirmed cooperative cancellation / expired. | *None* |
@@ -30,8 +30,8 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 | **`SUBMITTED`** | — | **YES** | NO | NO | NO | NO | NO | NO | **YES** |
 | **`QUEUED`** | NO | — | **YES** | NO | NO | NO | NO | **YES** | NO |
 | **`RUNNING`** | NO | NO | — | **YES** | **YES** | **YES** | **YES** | NO | NO |
-| **`CANCEL_REQUESTED`** | NO | NO | NO | — | NO | **YES** | **YES** | **YES** | NO |
-| **`RETRYING`** | NO | **YES** | **YES** | NO | — | NO | **YES** | **YES** | NO |
+| **`CANCEL_REQUESTED`** | NO | NO | NO | **YES** (no-op) | NO | **YES** | **YES** | **YES** | NO |
+| **`RETRYING`** | NO | NO | **YES** | NO | — | NO | **YES** | **YES** | NO |
 | **`SUCCEEDED`** | NO | NO | NO | NO | NO | — | NO | NO | NO |
 | **`FAILED`** | NO | NO | NO | NO | NO | NO | — | NO | NO |
 | **`CANCELLED`** | NO | NO | NO | NO | NO | NO | NO | — | NO |
@@ -39,32 +39,55 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 
 *Note: Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
 
-### Mapping to Existing Code and New Phase 4 Transitions
-- `SUBMITTED -> QUEUED`: Existing in `internal/coordinator/service.go:184`.
-- `QUEUED -> RUNNING`: Existing in `internal/storage/inmemory.go:402` and `internal/storage/postgres/repository.go:889`.
-- `QUEUED -> CANCELLED`: Existing in `internal/storage/inmemory.go:674` and `internal/storage/postgres/repository.go:1185`.
-- `RUNNING -> CANCEL_REQUESTED`: Existing in `internal/storage/inmemory.go:677` and `internal/storage/postgres/repository.go:1188`.
-- `RUNNING -> SUCCEEDED`: Existing in `internal/storage/inmemory.go:618` and `internal/storage/postgres/repository.go:1048`.
-- `RUNNING -> FAILED`: Existing in `internal/storage/inmemory.go:622` and `internal/storage/postgres/repository.go:1052` (when non-retryable or retries exhausted).
-- **NEW Phase 4 Transitions**:
-  - `RUNNING -> RETRYING`: Triggered when an attempt fails with a retryable error or when the lease expiry sweeper detects lease lapse and `attempt_no < max_attempts` (ADR-0014, ADR-0015).
-  - `CANCEL_REQUESTED -> CANCELLED`: Triggered when worker confirms cancellation via result report with `context.Canceled`, or when the lease sweeper reaps the expired attempt (ADR-0016).
-  - `CANCEL_REQUESTED -> SUCCEEDED`: Triggered when a worker successfully completes and commits before receiving the cancel signal (ADR-0016).
-  - `CANCEL_REQUESTED -> FAILED`: Triggered when a worker fails with non-retryable error before observing cancel (ADR-0016).
-  - `RETRYING -> RUNNING` (or `RETRYING -> QUEUED`): Triggered when `not_before <= clock_timestamp()` and an eligible worker pulls the job (ADR-0015).
-  - `RETRYING -> CANCELLED`: Triggered when `CancelJob` is called on a job awaiting retry backoff (ADR-0016).
-  - `RETRYING -> FAILED`: Triggered if a manual administrative abort or policy exhaustion occurs.
+### Current Code Behavior vs Phase 4 Behavior Changes
+- **Verified Current Cancellation Behavior**:
+  Cancellation today behaves identically in `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215`:
+  1. Terminal job $\rightarrow$ `domain.ErrJobAlreadyTerminal`.
+  2. `QUEUED` $\rightarrow$ `CANCELLED` (event `cancelled`).
+  3. `RUNNING` $\rightarrow$ `CANCEL_REQUESTED` (event `cancel_requested`), with the active attempt untouched.
+  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) $\rightarrow$ falls through to `CANCELLED` (event `cancelled`).
+  5. Workers learn nothing today (heartbeats carry static `{"status":"ACK"}`).
+- **Correction of Prior Misdescription**: Prior design drafts incorrectly claimed that cancelling a `RUNNING` job moved it directly to `CANCELLED` and marked the attempt `FAILED`. That description was false. The code already sets `CANCEL_REQUESTED` on first call for `RUNNING` jobs and leaves the attempt in `RUNNING`.
+- **Phase 4 Behavior Changes Introduced**:
+  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, duplicate cancel is an idempotent no-op returning HTTP 202 `CANCEL_REQUESTED`.
+  2. **Cancellation during `RETRYING`**: Cancelling a job in `RETRYING` stays an immediate transition to `CANCELLED`, clearing `not_before` and aborting scheduled retries.
+  3. **Running Attempt Resolution via Lease Path**: The running attempt is handled via the lease/renewal path: the sweeper or commit path resolves `CANCEL_REQUESTED` jobs.
+  4. **Direct `RETRYING -> RUNNING` via Pull Dispatch**: Blueprint conceptual diagrams describe `RETRYING -> QUEUED` when a retry backoff timer elapses. In MiniCloud's implementation, transitioning `RETRYING -> RUNNING` directly via `repo.DispatchNextJob` (`SELECT ... FOR UPDATE SKIP LOCKED` where `(state = 'QUEUED' OR (state = 'RETRYING' AND not_before <= clock_timestamp()))`) eliminates unnecessary intermediate database writes and polling loops while preserving full auditability via `JobEventDispatched` (`from_state: 'RETRYING'`, `to_state: 'RUNNING'`). (Accepted by owner).
 
 ---
 
-## 4. Attempt Lifecycle and State Machine
+## 4. Attempt Lifecycle, State Machine & State Naming Reconciliation
 
-Each job execution generates a separate, explicitly tracked `Attempt`:
-- `attempt_no`: Monotonically increasing 1-based integer (`1, 2, 3...`).
-- `attempt_id`: Unique identifier formatted as `att_{job_id}_{attempt_no}`.
-- `lease_token_hash`: SHA-256 digest of the 32-byte cryptographically secure URL-safe lease token.
-- `lease_expires_at`: Database-authoritative expiration timestamp (`TIMESTAMPTZ`).
-- `state`: Attempt state (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`).
+### Reconciling Domain Constants and Database Schema Values
+There was an initial naming mismatch between the domain constants and PostgreSQL schema constraints:
+- `internal/domain/state.go:22-27` defined:
+  `AttemptPending = "PENDING"`, `AttemptRunning = "RUNNING"`, `AttemptCompleted = "COMPLETED"`, `AttemptFailed = "FAILED"`, `AttemptExpired = "EXPIRED"`, `AttemptCanceled = "CANCELED"`.
+- PostgreSQL schema CHECK constraint `chk_attempts_state` (`000001_initial_schema.sql:97`) defines:
+  `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
+
+### Canonical State Names & Migration Plan
+MiniCloud establishes the schema values as the canonical state names across the system:
+- **Canonical Attempt States**: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`.
+- **Spelling Alignment**: Uses double-L `CANCELLED` across both job and attempt states (`domain.StateCancelled`, `domain.AttemptCancelled`).
+- **Semantic Distinction**:
+  - `LOST`: Worker lease expired without renewal (worker crashed, partitioned, or uncommunicative). Replaces domain `EXPIRED`.
+  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
+- **Code & API Mapping Plan**:
+  - In Slice 4a: Update `internal/domain/state.go` to declare:
+    ```go
+    AttemptPending   AttemptState = "PENDING"
+    AttemptRunning   AttemptState = "RUNNING"
+    AttemptCompleted AttemptState = "COMPLETED"
+    AttemptFailed    AttemptState = "FAILED"
+    AttemptTimedOut  AttemptState = "TIMED_OUT"
+    AttemptCancelled AttemptState = "CANCELLED"
+    AttemptLost      AttemptState = "LOST"
+    ```
+    (Preserve aliases `AttemptCanceled = AttemptCancelled` and `AttemptExpired = AttemptLost` during transition if needed for compatibility).
+  - Database rows already store canonical strings; migration 000001 already permits all 7 values in `chk_attempts_state`. No schema migration required for state names.
+  - API responses serialize the canonical strings directly.
+
+### Attempt Lifecycle Diagram
 
 ```text
                [Dispatch Job: repo.DispatchNextJob]
@@ -87,17 +110,13 @@ Each job execution generates a separate, explicitly tracked `Attempt`:
        (FAILED)                                  (CANCELLED)
 ```
 
-### Attempt States & Schema Alignment
-The PostgreSQL schema check constraint `chk_attempts_state` (`000001_initial_schema.sql:97`) defines:
-`CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
-Phase 4 formally activates and transitions all previously unused states:
 - `PENDING`: Staged for post-Phase 4 Assignment-Based Round-Robin slice (Candidate A pre-assignment window).
 - `RUNNING`: Initial state upon pull dispatch. Holds an active lease (`lease_expires_at`).
 - `COMPLETED`: Terminal attempt success (exit code 0, empty error).
 - `FAILED`: Terminal attempt execution failure (non-zero exit code or application error).
 - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
 - `CANCELLED`: Worker cooperatively halted task in response to `cancel_requested: true`.
-- `LOST`: Worker lease expired without renewal (worker crashed, partitioned, or dead).
+- `LOST`: Worker lease expired without renewal. Consumes 1 attempt of `max_attempts`.
 
 ---
 
@@ -125,7 +144,7 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 
 1. **Unique Identity:** A job has a stable immutable ID across all retries. Each execution has a distinct `attempt_id` and monotonic `attempt_no`.
 2. **Commit Authority:** Only the attempt matching the job's current `attempt_id` and holding a valid, unexpired `lease_token` can transition the job to `SUCCEEDED` or `FAILED`.
-3. **Stale Result Rejection:** If an old worker returns a result after its lease expired or after a newer attempt has started, the coordinator rejects the commit with `ErrStaleAttempt` (HTTP 409 Conflict).
+3. **Stale Result Rejection:** If an old worker returns a result after its lease expired and was swept to `LOST`, the coordinator rejects the commit with `ErrStaleAttempt` (HTTP 409 Conflict). Expired attempts are never resurrected.
 4. **Single Terminal Commit:** Exactly one terminal outcome is recorded per job in `results`. Once a job reaches `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`, all subsequent outcome reports are ignored or logged as diagnostics.
 5. **Bounded Execution:** Maximum attempts are bounded by `max_attempts` ($1..20$, default 3). Exceeding `max_attempts` transitions the job permanently to `FAILED`.
 6. **Lease Expiry Semantics:** A lease expiration proves that the coordinator stopped trusting the worker; it does not prove the worker process halted. Hence, subsequent result reporting by that worker is safely blocked by lease token and attempt state mismatch.
