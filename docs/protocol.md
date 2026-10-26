@@ -112,16 +112,38 @@ Returns the complete attempt history for a job.
 ---
 
 ### 3.4 `POST /v1/jobs/{job_id}/cancel` — Cancel Job
-Requests cancellation of a queued or running job.
+Requests cancellation of a queued, retrying, or running job.
 
-**Response (200 OK):**
+**Response (200 OK — Queued or Retrying Job Cancelled Immediately):**
 ```json
 {
   "job_id": "job_01j7xyz...",
   "state": "CANCELLED",
-  "message": "job cancelled successfully"
+  "message": "job cancelled immediately"
 }
 ```
+
+**Response (202 Accepted — Running Job Cancellation Requested):**
+```json
+{
+  "job_id": "job_01j7xyz...",
+  "state": "CANCEL_REQUESTED",
+  "message": "cancellation requested; awaiting worker confirmation"
+}
+```
+
+**Response (202 Accepted — Duplicate Cancellation on Running Job):**
+```json
+{
+  "job_id": "job_01j7xyz...",
+  "state": "CANCEL_REQUESTED",
+  "message": "cancellation already requested"
+}
+```
+
+**Errors:**
+- `404 Not Found`: `JOB_NOT_FOUND`.
+- `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`).
 
 ---
 
@@ -195,6 +217,7 @@ Invoked periodically by the worker (default: every 2 seconds).
   "status": "ACK"
 }
 ```
+*Note:* Heartbeats are strictly dedicated to worker node liveness and do not carry task cancellation arrays (ADR-0016).
 
 ---
 
@@ -239,7 +262,7 @@ No queued work available for this worker (`NO_QUEUED_JOBS`).
 ### 4.4 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` — Report Outcome
 Worker reports task completion or failure.
 
-**Request:**
+**Request (Success):**
 ```json
 {
   "lease_token": "lease_sec_991823...",
@@ -249,6 +272,19 @@ Worker reports task completion or failure.
   "error": ""
 }
 ```
+
+**Request (Failure with Error Classification):**
+```json
+{
+  "lease_token": "lease_sec_991823...",
+  "worker_id": "worker-1",
+  "exit_code": 1,
+  "output": "",
+  "error": "syntax error in input payload",
+  "error_classification": "PERMANENT"
+}
+```
+*Note:* `error_classification` is only supplied when `exit_code != 0` or an execution fault occurred; success is `AttemptCompleted` and does not carry an error classification (ADR-0015).
 
 **Response (200 OK — Accepted):**
 ```json
@@ -269,7 +305,7 @@ Worker reports task completion or failure.
   }
 }
 ```
-*Note:* Permanent error. Worker clients treat 403 as non-retryable.
+*Note:* Permanent error. Worker clients treat 403 as non-retryable and abort immediately.
 
 **Response (409 Conflict — Stale Attempt Rejected):**
 ```json
@@ -281,7 +317,7 @@ Worker reports task completion or failure.
   }
 }
 ```
-*Note:* Permanent error. Worker clients treat 409 as non-retryable.
+*Note:* Permanent error. When an attempt lease has expired and been reaped to `LOST`, late results are strictly rejected and never committed to `results`. Worker clients treat 409 as non-retryable and must not loop.
 
 ---
 
@@ -309,12 +345,12 @@ Any change that cannot be expressed additively requires:
 
 ---
 
-## 6. PROPOSED Phase 4 Protocol Extensions & Compatibility Matrix
+## 6. Phase 4 Protocol Extensions & Compatibility Matrix
 
-*Status: PROPOSED (Owner Approval Pending, ADR-0014, ADR-0015, ADR-0016)*
+*Status: Accepted by Owner (2026-10-26, ADR-0014, ADR-0015, ADR-0016)*
 
 ### 6.1 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` — Attempt Lease Renewal
-Invoked periodically by the executing worker (default: every 10 seconds) to extend its lease.
+Invoked periodically by the executing worker (default: every 10 seconds) to extend its lease. This is the **sole downstream delivery channel** for cooperative cancellation requests.
 
 **Request:**
 ```json
@@ -341,7 +377,7 @@ Invoked periodically by the executing worker (default: every 10 seconds) to exte
   "cancel_requested": true
 }
 ```
-*Note:* When `cancel_requested` is true, the worker aborts task execution cooperatively via `context.Context` and reports cancellation outcome.
+*Note on Cancellation Delivery:* When `cancel_requested` is true, the worker aborts task execution cooperatively via `context.Context` and reports the cancellation outcome. Worst-case delivery latency is bounded by exactly **one renewal interval (10 seconds default)**. (Accepted by owner).
 
 **Response (403 Forbidden — Worker Mismatch):**
 ```json
@@ -364,19 +400,14 @@ Invoked periodically by the executing worker (default: every 10 seconds) to exte
   }
 }
 ```
+*Note on Lease-Lost Handling:* If a renewal request returns HTTP 409 Conflict (`STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 
 ---
 
 ### 6.2 Additive Changes to Existing Endpoints
 
-#### `POST /v1/workers/{worker_id}/heartbeat` Response Expansion
-The coordinator response expands additively to include active cancellation requests:
-```json
-{
-  "status": "ACK",
-  "cancelled_job_ids": ["job_01j7xyz..."]
-}
-```
+#### `POST /v1/workers/{worker_id}/heartbeat` Response
+The heartbeat response remains dedicated strictly to node liveness (`{"status": "ACK"}`). Cancellation requests are not delivered via heartbeats (ADR-0016).
 
 #### `POST /v1/workers/{worker_id}/poll` Assignment Expansion
 The assignment payload expands additively with lease metadata:
@@ -400,7 +431,7 @@ The assignment payload expands additively with lease metadata:
 ```
 
 #### `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` Request Expansion
-The report result payload accepts an optional `error_classification` field:
+The report result payload accepts an optional `error_classification` field when reporting a non-zero exit code or execution fault:
 ```json
 {
   "lease_token": "lease_sec_991823...",
@@ -411,7 +442,7 @@ The report result payload accepts an optional `error_classification` field:
   "error_classification": "PERMANENT"
 }
 ```
-*Allowed `error_classification` values:* `"PERMANENT"`, `"RETRYABLE"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted).
+*Allowed `error_classification` values:* `"PERMANENT"`, `"RETRYABLE"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure). Omitted on successful runs (exit code 0).
 
 ---
 
@@ -423,11 +454,12 @@ Phase 4 introduces explicit error codes in the standard JSON envelope:
 
 ---
 
-### 6.4 Backwards Compatibility Matrix
+### 6.4 Backwards Compatibility Matrix & Deployment Policy
+
+#### Deployment Rule (Accepted by Owner)
+MiniCloud V1 coordinator and worker binaries **deploy together as a synchronized release**. Running mixed versions across release boundaries is not a supported long-term operating mode.
 
 | Client / Worker Combination | Behavior & Compatibility Guarantee |
 |---|---|
-| **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Fully Supported**: Old worker does not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running $>30$s expire and receive 409 `STALE_ATTEMPT_REJECTED`, which old workers already treat as non-retryable. Old worker ignores `cancelled_job_ids` in heartbeat and completes tasks to terminal state without cooperative preemption. |
+| **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Unsupported for tasks longer than lease duration (30 s)**: Old workers do not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running $>30$s expire, are marked `LOST` by the sweeper, and receive HTTP 409 `STALE_ATTEMPT_REJECTED` on late commit. Coordinator and workers must deploy together in V1. |
 | **New Worker (Phase 4) vs Old Coordinator (Phase 1–3)** | **Graceful Degradation**: New worker attempts `POST /renew`, which returns HTTP 404/405 on old coordinator. New worker logs a single compatibility warning, disables periodic renewal for that attempt, and falls back to Phase 3 run-to-completion behavior. New worker handles static `{"status": "ACK"}` heartbeat response without errors. |
-
-
