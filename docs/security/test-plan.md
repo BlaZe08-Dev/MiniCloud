@@ -43,7 +43,20 @@ In accordance with [security-testing.md](security-testing.md), every test entry 
 | **Migration Timeout Isolation** | Long-running schema migrations (e.g. DDL or pg_sleep) executed by migrator. | Migrator runs on dedicated connection unconstrained by coordinator's statement_timeout or lock_timeout. | `TestMigrator_NotSubjectToCoordinatorQueryTimeout` (`internal/storage/postgres/migrator_test.go:640`) |
 | **Allowlisted Host Safety** | Submitting arbitrary shell command execution attempts to worker executor. | Tasks outside allowlist (`echo`, `sleep`, `sha256_loop`) rejected without execution. | `TestExecutor_UnknownTaskType` (`internal/executor/executor_test.go:80`) |
 
+### 1.4 Phase 4: Leases, Bounded Retries, and Cancellation Fault Tests
+*Detailed test specifications and execution mechanics are defined in [docs/fault-injection-plan.md](../fault-injection-plan.md).*
+
+| Test Category | Description / Attack Vector | Target Invariant | Existing Test / Status |
+| :--- | :--- | :--- | :--- |
+| **Worker Crash During Execution** | Worker process dies (`SIGKILL`) mid-task; lease expires. | Sweeper transitions attempt to `LOST` and job to `RETRYING` with backoff; next attempt dispatches. | `TestFault_WorkerCrash_DuringExecution` (planned test, designed, not executed) |
+| **Late Result Stale Rejection** | Expired worker returns result after newer attempt already dispatched. | Result rejected with HTTP 409 `STALE_ATTEMPT_REJECTED`; diagnostic event logged; newer attempt wins. | `TestFault_OldWorker_LateCommitAfterReassignment` (planned test, designed, not executed) |
+| **Cooperative Cancellation Races** | Client cancels job concurrently with worker completion or lease lapse. | Atomic row locking on `jobs` serializes outcome; worker receives `cancel_requested` via renewal. | `TestFault_Cancellation_RaceWithCompletion` (planned test, designed, not executed) |
+| **Bounded Retries & Backoff Jitter** | Transient task failure retries up to `max_attempts` with exponential backoff and jitter. | Backoff enforces `not_before` in DB; attempts strictly bounded $\le 20$; zero thundering herds. | `TestFault_Task_TimeoutAndPoisonRepeat` (planned test, designed, not executed) |
+| **Result Report Network Drop** | Network drops result report; worker retries submission up to 5 times. | Worker recovers autonomously within 30s lease; commits with HTTP 200 `COMMITTED`. | `TestFault_ResultReport_NetworkDropOrDelay` (planned test, designed, not executed) |
+| **Model-Based Invariant Conformance** | Random event sequence generator driving reference model and repository in parallel. | Zero stale commits, $\le 1$ result per job, monotonic attempt numbers, zero active attempts after terminal. | `TestProperty_StateMachine_ModelConformance` (planned test, designed, not executed) |
+
 ---
+
 
 ## 2. Milestone V2: Queue Transport, Scheduling & Load Generation
 
