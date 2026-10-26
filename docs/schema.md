@@ -333,6 +333,23 @@ CREATE INDEX idx_jobs_retrying_dispatch
     WHERE state = 'RETRYING';
 ```
 
+### Canonical State Names & Schema Alignment
+- **Canonical Attempt States**: Migration `000001_initial_schema.sql:97` already defines `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. No schema migration is required for attempt states.
+- **Reconciliation**:
+  - `LOST`: Worker lease expired without renewal (replaces legacy domain `EXPIRED`).
+  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
+  - `CANCELLED`: Canonical double-L spelling across both job and attempt states.
+
+### Sweeper Re-Check Under Row Lock
+In accordance with ADR-0014, the sweeper acquires locks in strict canonical order (`jobs -> workers -> attempts`) and executes an explicit re-check under the row lock before state mutation:
+```sql
+SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
+```
+If `state != 'RUNNING'` or `lease_expires_at >= clock_timestamp()`, a concurrent renewal or commit succeeded under row lock; the transaction rolls back or skips the candidate cleanly with zero mutation.
+
+### Startup and Outage Grace Mechanisms
+To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`).
+
 ### Operational Invariants & Rollback Policy
 - **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
 - **Zero Lock Contention**: Constraint addition uses `NOT VALID` followed by `VALIDATE CONSTRAINT` ensuring table rewrites and exclusive table locks are avoided during coordinator execution (ADR-0013).
