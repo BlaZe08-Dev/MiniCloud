@@ -195,7 +195,7 @@
 ---
 
 ## 7. Last Verified Commands & Actual Results
-- **Date:** 2026-10-25
+- **Date:** 2026-10-26
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
@@ -206,19 +206,24 @@ $ gofmt -s -w .
 $ go vet ./...
 (clean exit, code 0)
 
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.287s
+
 $ go test -race -count=1 ./...
-ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.281s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.821s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.054s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.277s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.504s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.162s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.037s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.038s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.129s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.248s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.086s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.048s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	9.467s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.055s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.932s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.042s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.147s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.268s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.091s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.103s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.154s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.544s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.044s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.937s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.611s
 ```
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*
