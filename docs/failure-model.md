@@ -3,36 +3,36 @@
 ## 1. Failure Handling Principles
 MiniCloud is engineered around the reality that distributed systems fail partially and asynchronously:
 - **Crash-Recovery Model:** Any component (coordinator, worker, database, transport) may crash at any time and restart with its durable state intact.
-- **Lease Expiry vs. Process Death:** A worker that stops responding cannot be assumed dead. It may be partitioned, GC-paused, or slow. MiniCloud uses lease tokens to prevent zombie workers from committing stale outcomes.
+- **Lease Expiry vs. Process Death:** A worker that stops responding cannot be assumed dead. It may be partitioned, GC-paused, or slow. MiniCloud uses lease tokens and database timestamps to prevent zombie workers from committing stale outcomes.
 - **At-Least-Once Delivery & Deduplication:** Under failure and retry, duplicate executions may occur. All operations on the result commit boundary must be idempotent.
-- **Phase 3 Limitation (Slice 3d):** A `RUNNING` job whose worker process dies stays `RUNNING` until Phase 4 leases are implemented. In Slice 3d, PostgreSQL durable state ensures coordinator crashes do not lose jobs (`QUEUED` jobs remain dispatchable, and surviving workers can commit in-flight results), but dead workers with in-flight attempts do not have their attempts reaped until Phase 4 lease expiry recovery is introduced.
+- **Phase 4 Lease Recovery Resolution:** In Phase 4 (ADR-0014, ADR-0015, ADR-0016), dead worker reclamation is fully solved. When a worker process dies abruptly or loses connectivity while executing a `RUNNING` job, its attempt lease expires on database time (`lease_expires_at`). The coordinator lease sweeper marks the attempt `LOST` and transitions the job to `RETRYING` (with exponential backoff) or `FAILED` (if `max_attempts` budget is exhausted), eliminating stranding.
 
 ---
 
 ## 2. Fault Scenarios & Expected Behavior
 
-| ID | Fault Scenario | Expected Behavior | Phase Introduced | Scope in Milestone 1 |
+| ID | Fault Scenario | Expected Behavior | Phase Introduced | Scope in Phase 4 |
 |---|---|---|:---:|---|
-| **FS-01** | **Worker crashes before accepting job** | Job remains in `QUEUED` state. Another eligible worker is selected by the scheduler upon polling. | Phase 1 | In Scope (in-memory scheduler picks next registered worker). |
-| **FS-02** | **Worker crashes after starting execution** | Lease expires without renewal. Coordinator detects missing heartbeat/expired lease, increments attempt count, and transitions job to `RETRYING` then `QUEUED`. | Phase 4 | Documented in M1; basic timeout detection in worker runner. |
-| **FS-03** | **Worker finishes but result is lost/delayed** | Worker attempts retry reporting or lease expires. If lease expires, next attempt runs. Result commit validates attempt token to reject late submissions. | Phase 4 | In Scope for attempt token validation (HTTP 409 on mismatch). |
-| **FS-04** | **Old worker returns result after lease expired & new attempt started** | Coordinator validates `attempt_id` and `lease_token`. Since current attempt ID has advanced, old result is rejected (`ErrStaleAttempt`, 409 Conflict). | Phase 4 | **In Scope for Milestone 1:** Central validation checks attempt ID match. |
-| **FS-05** | **Coordinator crashes after submission but before dispatch** | Upon coordinator restart, persistent storage is read. Unassigned `QUEUED` jobs are reloaded into the scheduling pool. | Phase 3 | Out of Scope for M1 (in-memory state resets on restart; durable in Phase 3). |
-| **FS-06** | **Coordinator crashes while committing result** | Database transaction provides atomicity. If uncommitted, worker retries result submission or lease expires; if committed, client sees `SUCCEEDED`. | Phase 3 | Out of Scope for M1 (requires PostgreSQL transactional outbox in Phase 3). |
-| **FS-07** | **Dispatch transport (Redis) unavailable** | Coordinator retains persistent job state in database. Jobs are requeued upon transport reconnection. | Phase 5 | Out of Scope for M1 (no Redis used). |
-| **FS-08** | **Database temporarily unavailable** | Coordinator rejects or buffers incoming requests with HTTP 503; retries DB connection with exponential backoff. | Phase 3 | Out of Scope for M1. |
-| **FS-09** | **Worker heartbeats delayed or process dies abruptly (SIGKILL/crash)** | Duplicate heartbeats update `last_heartbeat_at` idempotently. Inactive workers exceeding `worker_timeout` are reaped to `UNHEALTHY` atomically. Unhealthy workers are excluded from scheduling. Any job attempt already assigned to the dead worker remains `RUNNING` (Phase 2 boundary; lease expiry and automated requeue occur in Phase 4). | Phase 2 | **In Scope for Phase 2:** Periodic coordinator reaper, atomic staleness transition, scheduler exclusion, heartbeat recovery. |
-| **FS-10** | **Task times out, emits excessive output, or crashes** | Executor aborts task via `context.WithTimeout`, truncates output to max size limit, and reports structured failure with exit code/error. | Phase 1 | **In Scope for Milestone 1:** Enforced in `internal/executor`. |
-| **FS-11** | **Cancellation races with job completion** | Coordinator serializes requests under mutex/row lock. If result commits first, job is `SUCCEEDED`; if cancel commits first, job is `CANCELLED`. | Phase 4 | In Scope for domain transition matrix validation. |
-| **FS-12** | **Unauthorized worker reports result for an attempt** | Coordinator checks `attempt.WorkerID == reportingWorkerID`. Mismatches rejected with HTTP 403 `WORKER_MISMATCH`. Worker client treats 403 as non-retryable. | Phase 2 | **In Scope for Phase 2:** Enforced in `internal/coordinator` and `internal/worker`. |
-| **FS-13** | **Worker marked UNHEALTHY completes still-current attempt** | Result accepted if `attempt_id`, `lease_token`, and `worker_id` match. Job transitions to terminal state. Coordinator status marks telemetry trust, not task validity. | Phase 2 | **In Scope for Phase 2:** Enforced in `internal/coordinator`. |
+| **FS-01** | **Worker crashes before accepting job** | Job remains in `QUEUED` state. Another eligible worker claims it upon polling via `repo.DispatchNextJob`. | Phase 1 | Handled via transactional skip-locked dispatch. |
+| **FS-02** | **Worker crashes after starting execution** | Lease expires without renewal (`clock_timestamp() > lease_expires_at`). Coordinator sweeper marks attempt `LOST`, checks `attempt_no < max_attempts`, and transitions job to `RETRYING` with backoff `not_before`. | Phase 4 | **Core Phase 4 deliverable:** Autonomous lease sweeper and retry backoff. |
+| **FS-03** | **Worker finishes but result is lost/delayed** | Worker retries `ReportResult` up to 5 times. If lease expires before commit succeeds, next attempt runs. When old worker eventually delivers, commit fails with HTTP 409 `STALE_ATTEMPT_REJECTED`. | Phase 4 | **Core Phase 4 deliverable:** Rejection of expired attempt commits; diagnostic auditing. |
+| **FS-04** | **Old worker returns result after lease expired & new attempt started** | Coordinator validates `attempt_id`, `lease_token_hash`, and `lease_expires_at`. Since attempt is no longer `RUNNING` or token is superseded, commit is rejected (`ErrStaleAttempt`, HTTP 409). | Phase 4 | **Core Phase 4 deliverable:** Constant-time hash check and attempt state validation. |
+| **FS-05** | **Coordinator crashes after submission but before dispatch** | Upon coordinator restart, persistent storage is read. Unassigned `QUEUED` jobs remain durable and dispatch to workers upon next poll. | Phase 3 | Handled in Phase 3 durable storage. |
+| **FS-06** | **Coordinator crashes while committing result** | Single database transaction provides atomicity across `attempts`, `jobs`, and `results`. If uncommitted, worker retries `ReportResult`; if committed, worker receives 200 COMMITTED on retry. | Phase 3 | Handled in Phase 3 atomic repository methods. |
+| **FS-07** | **Dispatch transport (Redis) unavailable** | Coordinator retains persistent job state in database. Jobs are requeued upon transport reconnection. | Phase 5 | Out of Scope for V1. |
+| **FS-08** | **Database temporarily unavailable** | Coordinator returns HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1`. Worker client applies exponential backoff with jitter and resumes once database recovers. | Phase 3 | Handled in Phase 3 outage resilience. |
+| **FS-09** | **Worker heartbeats delayed or process dies abruptly (SIGKILL/crash)** | Inactive workers exceeding `worker_timeout` are reaped to `UNHEALTHY`. Running attempts held by that worker expire when `lease_expires_at` lapses and are swept to `LOST` and retried. | Phase 2 / Phase 4 | Phase 2 reaps worker; Phase 4 sweeps and reclaims in-flight attempts. |
+| **FS-10** | **Task times out, emits excessive output, or crashes** | Executor aborts task via `context.WithTimeout`, truncates output to 64 KiB, and reports structured failure with `exit_code` and `error_classification`. | Phase 1 / Phase 4 | Task-level timeout enforced; Phase 4 classifies retryability. |
+| **FS-11** | **Cancellation races with job completion** | Coordinator serializes under row lock. If result commits first, job is `SUCCEEDED`; if cancel commits first, job is `CANCEL_REQUESTED`, delivered to worker via renewal, and confirmed to `CANCELLED`. | Phase 4 | **Core Phase 4 deliverable:** Cooperative cancel context and race resolution (ADR-0016). |
+| **FS-12** | **Unauthorized worker reports result for an attempt** | Coordinator checks `attempt.WorkerID == reportingWorkerID`. Mismatches rejected with HTTP 403 `WORKER_MISMATCH`. Worker client treats 403 as non-retryable. | Phase 2 | Enforced centrally at API and storage boundaries. |
+| **FS-13** | **Worker marked UNHEALTHY completes still-current attempt** | Result accepted if `attempt_id`, `lease_token`, and `worker_id` match and lease is unexpired. Coordinator status marks telemetry trust, not task validity. | Phase 2 | Preserved in Phase 4. |
 
 ---
 
 ## 3. Failure Test Matrix Template
 
 When writing automated fault injection tests, every test case must explicitly document:
-1. **Target Fault Scenario:** Reference scenario ID (e.g., `FS-04`).
+1. **Target Fault Scenario:** Reference scenario ID (e.g., `FS-02`).
 2. **Injection Mechanism:** Process kill (`SIGKILL`), network delay, simulated clock skew, dropped response.
 3. **Expected Invariant:** State transition verification, stale rejection, or bounded retry.
 4. **Evidence Collected:** Logs with `job_id` and `attempt_id`, status codes, final job state in repository.
