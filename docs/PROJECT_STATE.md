@@ -1,13 +1,25 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `docs/citation-check`
-- **Current Milestone:** Milestone `docs/citation-check` — Automated Documentation Citation Checker (`make test-docs`), Path & Test Verification, Allowlist Governance, Rule C Exemption Tightening, and Documentation Quality Hardening (SEC-020, SEC-021).
+- **Current Branch:** `docs/phase4-design`
+- **Current Milestone:** Phase 4 Design Specification — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e).
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Phase 4 — Coordination, Leases, Retries & Cancellation Design Specification (`docs/phase4-design`):**
+  - **ADR 0014 Proposed:** [ADR 0014: Attempt Lease Model, Renewal Protocol, and Expiry Sweeper](adr/0014-lease-model-and-expiry.md) establishing database-clock authority (`lease_expires_at`), dedicated renewal endpoint (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`), 30s lease / 10s renewal / 5s sweeper cadence, deadlock-free sweeper row locking, and rejection of stale results committed after lease expiry (recorded as diagnostic events in `job_events`, never accepted into `results`).
+  - **ADR 0015 Proposed:** [ADR 0015: Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery](adr/0015-retry-policy-and-failure-classification.md) establishing bounded retries via `max_attempts` ($1..20$, default 3), 3-tier failure classification taxonomy (task exit code, worker execution fault, coordinator/lease failure), exponential backoff with full jitter stored in `jobs.not_before`, autonomous requeue via pull dispatch query, poison-job protection, and strict preservation of monotonic `attempt_no` and partial unique index `idx_attempts_active_per_job`.
+  - **ADR 0016 Proposed:** [ADR 0016: Job Cancellation Semantics, Cooperative Worker Termination, and Race Resolution](adr/0016-cancellation-semantics.md) establishing immediate cancellation for `QUEUED` jobs, two-phase cooperative cancellation for `RUNNING` jobs (`CANCEL_REQUESTED`), piggybacked delivery to workers via lease renewal responses and heartbeats, cooperative in-process context cancellation, exhaustive race resolution (completion vs cancel, lease expiry vs cancel, retry vs cancel, duplicate cancel), and API response contract.
+  - **State Machine Specification (`docs/state-machine.md`):** Updated lifecycle documentation with complete Phase 4 job/attempt transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING/QUEUED`), mapping to existing code, and new audit event vocabulary for `job_events` (`lease_renewed`, `lease_expired`, `job_retrying`, `job_cancel_requested`, `diagnostic_late_result`).
+  - **Protocol Specification (`docs/protocol.md`):** Added Section 6 (PROPOSED) defining additive `/v1` endpoints and extensions: dedicated lease renewal endpoint, heartbeat response `cancelled_job_ids`, poll assignment `lease_expires_at`, report result `error_classification`, new typed errors (`LEASE_EXPIRED`, `ATTEMPT_NOT_RUNNING`), and forward/backward compatibility matrix.
+  - **Database Schema Specification (`docs/schema.md`):** Added Section 5 (PROPOSED) outlining Migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `attempts.last_error`, `jobs.not_before`, `jobs.cancel_requested_at`, partial indexes for sweeper and retry dispatch, and check constraints validated via `NOT VALID` then `VALIDATE CONSTRAINT`.
+  - **Failure Model Specification (`docs/failure-model.md`):** Updated failure recovery semantics for Phase 4 covering dead-worker lease reclamation, stale attempt rejection, and cancellation race handling.
+  - **Fault Injection & Property Test Plan (`docs/fault-injection-plan.md`):** Specified comprehensive fault injection test plan mapping all 10 blueprint fault scenarios (FS-01 through FS-10) to concrete planned tests, expected outcomes, evidence collected, and autonomous recovery modes; specified model-based property test harness comparing a reference state machine model against real repositories with injectable clocks.
+  - **Security Threat Model & Test Plan:** Added Section 4 Phase 4 Threat Model Addendum in `docs/security/threat-model.md` analyzing forged/replayed renewals, renewal floods, retry storms, cancel abuse, clock assumptions, and unauthenticated endpoints; updated `docs/security/test-plan.md` with Section 1.4 Phase 4 adversarial test entries.
+  - **Phase 4 Execution Plan (`docs/phase4-plan.md`):** Authored phased implementation plan structuring Phase 4 into five reviewable sub-slices (4a domain/in-memory, 4b migration 000004/PostgreSQL, 4c worker renewal/coordinator sweeper, 4d retries/cancellation, 4e fault suite/security review) with scope, exit criteria, gating tests, and risk mitigations.
+  - **Roadmap Updated (`docs/roadmap.md`):** Marked Phase 3 DONE, Phase 4 In Progress (Design Proposed), and detailed sub-slices 4a–4e.
 - **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
   - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
     - Rule A: Every cited repository path must exist on disk.
@@ -138,7 +150,7 @@
   - Polling workers claim available queued work matching their capability slots using honest FIFO pull (`fifo_pull`).
   - Dispatch logs record real facts only: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`.
   - `internal/scheduler` is intentionally not called in the V1 dispatch loop during Phase 3 (temporary until assignment slice).
-- **Exit Criteria:** Zero duplicate deliveries under parallel polling; real-facts dispatch logging verified; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison.
+- **Exit Criteria:** Zero duplicate deliveries under parallel polling; real-facts dispatch logging verified; at-least-once recovery verified; benchmark baseline ready for V2 Redis comparison. (**SATISFIED**)
 
 ### Slice 3e: Coordinator Restart Recovery & Multi-Process Tests
 - **Scope:**
@@ -146,28 +158,70 @@
     1. Coordinator restarts with `QUEUED` jobs: jobs persist in PostgreSQL and dispatch to workers upon restart.
     2. Coordinator restarts with `RUNNING` jobs: surviving worker finishes task and restarted coordinator accepts commit.
     3. Multi-worker batch execution running against PostgreSQL storage.
-- **Exit Criteria:** End-to-end restart recovery verified; all unit and integration tests pass `-race`.
+- **Exit Criteria:** End-to-end restart recovery verified; all unit and integration tests pass `-race`. (**SATISFIED**)
 
 ---
 
-## 4. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
+## 4. Proposed Phase 4 Sub-Slices & Exit Criteria (Design Specification)
+
+Detailed in [docs/phase4-plan.md](phase4-plan.md):
+
+### Slice 4a: Domain FSM, In-Memory Repository Parity & Conformance Suite
+- **Scope:**
+  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING/QUEUED`), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`).
+  - `InMemoryRepository` parity with injectable `Clock`.
+  - `internal/storage/storagetest` contract tests for leases, stale rejections, retries, and cancellation.
+  - Model-based state machine conformance property tests.
+- **Exit Criteria:** In-memory repository passes all conformance tests; property test generator executes $\ge 1,000$ random event traces without invariant violations; `-race -count=1` clean.
+
+### Slice 4b: Migration 000004 & PostgreSQL Repository Parity
+- **Scope:**
+  - Migration `000004_leases_retries_cancellation.sql (proposed)` with forward-only schema expansion, sweeper index, retry index, check constraints.
+  - PostgreSQL repository methods: `RenewAttemptLease`, `ReapExpiredLeases`, retry-aware `DispatchNextJob`, atomic `CancelJob`.
+  - Deadlock prevention adhering to canonical row lock ordering.
+- **Exit Criteria:** Migration applies idempotently; shared storagetest suite passes 100% against PostgreSQL container; `-race` clean.
+
+### Slice 4c: Worker Renewal Loop & Coordinator Expiry Sweeper
+- **Scope:**
+  - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew`.
+  - Worker autonomous background renewal goroutine (every 10s for 30s lease).
+  - Coordinator background expiry sweeper ticker (every 5s, batch size 50).
+- **Exit Criteria:** Dead-worker attempt reaped to `LOST` within $35\text{s}$; surviving worker renews cleanly; late results strictly rejected (HTTP 409).
+
+### Slice 4d: Bounded Retries, Failure Classification & Cooperative Cancellation
+- **Scope:**
+  - 3-tier failure classification; exponential backoff with jitter in `jobs.not_before`.
+  - Requeue via dispatch query; poison-job handling.
+  - Cancellation: immediate for `QUEUED`, two-phase cooperative for `RUNNING` (`CANCEL_REQUESTED`); context cancellation in worker executor.
+- **Exit Criteria:** Retryable failure retries up to `max_attempts`; permanent failure transitions immediately to `FAILED`; cancelled jobs terminate promptly.
+
+### Slice 4e: Fault Injection Suite, Property Tests & Security Hardening
+- **Scope:**
+  - Automated fault injection suite covering all 10 blueprint scenarios (FS-01 through FS-10).
+  - Model-based property tests against real storage backends.
+  - Adversarial security test suite (renewal forgery, renewal floods, retry storms, cancellation abuse, clock skew).
+- **Exit Criteria:** All 10 fault scenarios verified; zero invariant violations across 10,000 property test transitions; `make test-race` and `make test-docs` 100% clean.
+
+---
+
+## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
 - **Blueprint Alignment:** Blueprint Section 6 requires scheduler-driven round-robin assignment. V1 Phase 3 implements an honest FIFO pull baseline (`fifo_pull`).
 - **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
 - **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
 
 ---
 
-## 5. Key Follow-Ups & Invariants
+## 6. Key Follow-Ups & Invariants
 
 1. **Worker Re-Registration on 404:** Worker client automatically re-registers if heartbeat or poll receives `WORKER_NOT_FOUND` (**Completed in Slice 3a**).
 2. **Coordinator Queue Release Test:** Coordinator verifies `Queue.Release` is explicitly called when attempt creation fails after a claim (**Completed in Slice 3a**).
 3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in memory (`AvailableSlots`) and in SQL (`worker_capacity` view) rather than relying on mutable increment/decrement counters (**Completed in Slice 3a**; persisted in 3b/3c).
-4. **Honest FIFO Pull & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Dispatch logs record real facts only. See [Section 4](#4-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
+4. **Honest FIFO Pull & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Dispatch logs record real facts only. See [Section 5](#5-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
 5. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue).
 
 ---
 
-## 6. Known Defects, Limitations & Open Security Findings
+## 7. Known Defects, Limitations & Open Security Findings
 - **Fixed Security Findings (Slice 3d):**
   - **SEC-003 (Informational, Confirmed, Fixed):** Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`) with explicit `--env-file .env` passed in Makefile and test helpers, eliminating blank password startup risk.
   - **SEC-007 (Low, Fixed):** Unmapped repository and driver errors mapped to HTTP 500 `INTERNAL_ERROR` with opaque message; sanitized server logging; fixed malformed JSON message (`internal/api/handlers.go:19-75`). Tested in `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_OutageMapping_503RetryAfterOpaqueBody`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
@@ -194,7 +248,7 @@
 
 ---
 
-## 7. Last Verified Commands & Actual Results
+## 8. Last Verified Commands & Actual Results
 - **Date:** 2026-10-26
 ```bash
 $ go version
