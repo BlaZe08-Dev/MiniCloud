@@ -46,12 +46,12 @@ func (v Violation) String() string {
 }
 
 var (
-	linkRe      = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+)\)`)
-	codeSpanRe  = regexp.MustCompile("`([^`]+)`")
-	repoPathRe  = regexp.MustCompile(`(?:\./|\.\./)*(?:internal|cmd|tests|deployments|docs|migrations)/[a-zA-Z0-9_./-]+\.(?:go|md|yml|sql)`)
-	colonLineRe = regexp.MustCompile(`([a-zA-Z0-9_./-]+\.(?:go|md|yml|sql)):([0-9]+)(?:-([0-9]+))?`)
-	hashLineRe  = regexp.MustCompile(`([a-zA-Z0-9_./-]+\.(?:go|md|yml|sql))#L([0-9]+)(?:-L([0-9]+))?`)
-	anchorRe    = regexp.MustCompile(`^L([0-9]+)(?:-L([0-9]+))?$`)
+	linkRe        = regexp.MustCompile(`\[([^\]]*)\]\(([^)]+)\)`)
+	codeSpanRe    = regexp.MustCompile("`([^`]+)`")
+	repoPathRe    = regexp.MustCompile(`(?:\./|\.\./)*(?:internal|cmd|tests|deployments|docs|migrations)/[a-zA-Z0-9_./-]+\.(?:go|md|yml|sql)`)
+	colonLineRe   = regexp.MustCompile(`([a-zA-Z0-9_./-]+\.(?:go|md|yml|sql)):([0-9]+)(?:-([0-9]+))?`)
+	hashLineRe    = regexp.MustCompile(`([a-zA-Z0-9_./-]+\.(?:go|md|yml|sql))#L([0-9]+)(?:-L([0-9]+))?`)
+	anchorRe      = regexp.MustCompile(`^L([0-9]+)(?:-L([0-9]+))?$`)
 	testIdentRe   = regexp.MustCompile(`\bTest[A-Z][A-Za-z0-9_]*`)
 	adrRe         = regexp.MustCompile(`\bADR[- ]?0*([1-9][0-9]*)\b`)
 	clauseSplitRe = regexp.MustCompile(`[|;]|\. |\.\t|<br\s*/?>`)
