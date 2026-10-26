@@ -307,3 +307,127 @@ Any change that cannot be expressed additively requires:
 2. A new URL namespace prefix (`/v2/...`).
 3. Parallel coexistence during a migration window where the coordinator serves both `/v1` and `/v2` endpoints.
 
+---
+
+## 6. PROPOSED Phase 4 Protocol Extensions & Compatibility Matrix
+
+*Status: PROPOSED (Owner Approval Pending, ADR-0014, ADR-0015, ADR-0016)*
+
+### 6.1 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` — Attempt Lease Renewal
+Invoked periodically by the executing worker (default: every 10 seconds) to extend its lease.
+
+**Request:**
+```json
+{
+  "worker_id": "worker-1",
+  "lease_token": "lease_sec_991823..."
+}
+```
+
+**Response (200 OK — Renewed):**
+```json
+{
+  "status": "RENEWED",
+  "lease_expires_at": "2026-10-26T20:30:00Z",
+  "cancel_requested": false
+}
+```
+
+**Response (200 OK — Renewed with Cancellation Requested):**
+```json
+{
+  "status": "RENEWED",
+  "lease_expires_at": "2026-10-26T20:30:00Z",
+  "cancel_requested": true
+}
+```
+*Note:* When `cancel_requested` is true, the worker aborts task execution cooperatively via `context.Context` and reports cancellation outcome.
+
+**Response (403 Forbidden — Worker Mismatch):**
+```json
+{
+  "error": {
+    "code": "WORKER_MISMATCH",
+    "message": "worker mismatch: reporting worker is not assigned to attempt",
+    "details": null
+  }
+}
+```
+
+**Response (409 Conflict — Stale Attempt / Lease Expired):**
+```json
+{
+  "error": {
+    "code": "STALE_ATTEMPT_REJECTED",
+    "message": "attempt lease has already expired or attempt is no longer active",
+    "details": null
+  }
+}
+```
+
+---
+
+### 6.2 Additive Changes to Existing Endpoints
+
+#### `POST /v1/workers/{worker_id}/heartbeat` Response Expansion
+The coordinator response expands additively to include active cancellation requests:
+```json
+{
+  "status": "ACK",
+  "cancelled_job_ids": ["job_01j7xyz..."]
+}
+```
+
+#### `POST /v1/workers/{worker_id}/poll` Assignment Expansion
+The assignment payload expands additively with lease metadata:
+```json
+{
+  "assignment": {
+    "job_id": "job_01j7xyz...",
+    "attempt_id": "att_01j7abc...",
+    "attempt_no": 1,
+    "lease_token": "lease_sec_991823...",
+    "lease_expires_at": "2026-10-26T20:30:00Z",
+    "lease_duration_seconds": 30,
+    "task_type": "sha256_loop",
+    "payload": {
+      "iterations": 10000,
+      "input": "minicloud-benchmark"
+    },
+    "timeout_seconds": 30
+  }
+}
+```
+
+#### `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` Request Expansion
+The report result payload accepts an optional `error_classification` field:
+```json
+{
+  "lease_token": "lease_sec_991823...",
+  "worker_id": "worker-1",
+  "exit_code": 1,
+  "output": "",
+  "error": "syntax error in input payload",
+  "error_classification": "PERMANENT"
+}
+```
+*Allowed `error_classification` values:* `"PERMANENT"`, `"RETRYABLE"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted).
+
+---
+
+### 6.3 Standardized Error Code Additions
+Phase 4 introduces explicit error codes in the standard JSON envelope:
+- `LEASE_EXPIRED` (HTTP 409 Conflict): The attempt lease expired before completion or renewal.
+- `ATTEMPT_NOT_RUNNING` (HTTP 409 Conflict): Attempt is in a terminal or non-running state.
+- `JOB_CANCELLED` (HTTP 409 Conflict): The target job was cancelled.
+
+---
+
+### 6.4 Backwards Compatibility Matrix
+
+| Client / Worker Combination | Behavior & Compatibility Guarantee |
+|---|---|
+| **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Fully Supported**: Old worker does not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running $>30$s expire and receive 409 `STALE_ATTEMPT_REJECTED`, which old workers already treat as non-retryable. Old worker ignores `cancelled_job_ids` in heartbeat and completes tasks to terminal state without cooperative preemption. |
+| **New Worker (Phase 4) vs Old Coordinator (Phase 1–3)** | **Graceful Degradation**: New worker attempts `POST /renew`, which returns HTTP 404/405 on old coordinator. New worker logs a single compatibility warning, disables periodic renewal for that attempt, and falls back to Phase 3 run-to-completion behavior. New worker handles static `{"status": "ACK"}` heartbeat response without errors. |
+
+
