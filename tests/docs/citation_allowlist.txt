@@ -1,0 +1,16 @@
+# MiniCloud Documentation Citation Allowlist
+# Format: kind|value|reason
+# Supported kinds: path, test, string
+# Reason must be mandatory and at least 15 characters.
+# Stale entries (no longer cited anywhere, or now existing in repo/tests) will cause the build to fail.
+
+# Historical invalid ADR citation disclosed in SEC-018 (findings.md lines 221, 311)
+path|docs/adr/0013-worker-registration-bounds-and-rejection-codes.md|Historical invalid citation disclosed in SEC-018
+
+# Invented historical test names cited in SEC-018 remediation disclosure (findings.md line 224)
+test|TestAPI_SubmitJob_Success|Invented historical test name cited in SEC-018 disclosure
+test|TestAPI_JobLifecycle|Invented historical test name cited in SEC-018 disclosure
+test|TestService_SubmitJob_Success|Invented historical test name cited in SEC-018 disclosure
+test|TestWorkerAgent_SingleJobSuccess|Invented historical test name cited in SEC-018 disclosure
+test|TestMigrator_AppliesAllMigrations|Invented historical test name cited in SEC-018 disclosure
+test|TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce|Invented historical test name cited in SEC-018 disclosure
