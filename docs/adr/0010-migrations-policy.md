@@ -32,7 +32,7 @@ Destructive changes (renaming columns, dropping columns, changing types, splitti
 ## Migration Runner Options Evaluated
 
 ### Option 1: Embedded SQL Files with Minimal In-Tree Runner (Selected)
-- **Architecture:** Migration files stored as raw, numbered SQL scripts (`migrations/000001_initial_schema.sql`, `migrations/000002_add_index.sql`) embedded directly into the Go binary using Go 1.16+ `//go:embed migrations/*.sql`.
+- **Architecture:** Migration files stored as raw, numbered SQL scripts (`internal/storage/postgres/migrations/000001_initial_schema.sql`, `internal/storage/postgres/migrations/000002_schema_hardening.sql`) embedded directly into the Go binary using Go 1.16+ `//go:embed migrations/*.sql`.
 - **Mechanism:**
   - A dedicated schema tracking table:
     ```sql
