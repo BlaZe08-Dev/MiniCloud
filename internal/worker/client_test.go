@@ -213,3 +213,65 @@ func TestAgent_AutoReRegistration_On404HeartbeatAndPoll(t *testing.T) {
 		t.Fatalf("expected worker to re-register on 404, got %d registrations", registerCount.Load())
 	}
 }
+
+func TestAgent_Run_DatabaseOutage_DistinguishedFromWorkerUnhealthy(t *testing.T) {
+	var pollCount atomic.Int64
+	var sawServiceUnavailable atomic.Bool
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/workers/register":
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/v1/workers/outage-worker/heartbeat":
+			w.WriteHeader(http.StatusOK)
+		case r.URL.Path == "/v1/workers/outage-worker/poll":
+			pollCount.Add(1)
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			sawServiceUnavailable.Store(true)
+			_, _ = w.Write([]byte(`{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cfg := &config.WorkerConfig{
+		WorkerID:          "outage-worker",
+		CoordinatorURL:    ts.URL,
+		HeartbeatInterval: 25 * time.Millisecond,
+		TotalSlots:        1,
+	}
+	reg := executor.NewRegistry()
+	agent := worker.NewAgent(cfg, reg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+
+	err := agent.Run(ctx)
+	if err != nil {
+		t.Fatalf("expected Agent.Run to exit cleanly on context cancellation, got: %v", err)
+	}
+
+	if !sawServiceUnavailable.Load() {
+		t.Fatalf("expected coordinator to return SERVICE_UNAVAILABLE")
+	}
+	if pollCount.Load() < 1 {
+		t.Fatalf("expected at least 1 poll attempt, got %d", pollCount.Load())
+	}
+}
+
+func TestComputeBackoffWithJitter(t *testing.T) {
+	base := 100 * time.Millisecond
+	max := 2 * time.Second
+
+	for i := 1; i <= 10; i++ {
+		backoff := worker.ComputeBackoffWithJitter(i, base, max)
+		if backoff <= 0 {
+			t.Fatalf("backoff must be positive, got %v", backoff)
+		}
+		if backoff > max {
+			t.Fatalf("backoff %v exceeded max %v", backoff, max)
+		}
+	}
+}

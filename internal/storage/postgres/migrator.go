@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed migrations/*.sql
@@ -220,4 +222,32 @@ func (m *Migrator) Migrate(ctx context.Context, conn *pgx.Conn) (int, error) {
 	}
 
 	return appliedCount, nil
+}
+
+// LatestEmbeddedVersion returns the highest migration version discovered in embedded migrations.
+func (m *Migrator) LatestEmbeddedVersion() (int, error) {
+	migrations, err := m.LoadMigrations()
+	if err != nil {
+		return 0, err
+	}
+	if len(migrations) == 0 {
+		return 0, fmt.Errorf("no embedded migrations found")
+	}
+	return migrations[len(migrations)-1].Version, nil
+}
+
+// CurrentSchemaVersion queries the database schema_migrations table for the latest applied version.
+// If the table does not exist, it returns 0 and nil error.
+func CurrentSchemaVersion(ctx context.Context, pool *pgxpool.Pool) (int, error) {
+	const query = `SELECT COALESCE(MAX(version), 0) FROM schema_migrations;`
+	var version int
+	err := pool.QueryRow(ctx, query).Scan(&version)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" { // undefined_table
+			return 0, nil
+		}
+		return 0, err
+	}
+	return version, nil
 }

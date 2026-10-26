@@ -71,9 +71,24 @@ To guarantee mathematical deadlock prevention across all concurrent multi-table 
 4. `results` (insert-only)
 5. `job_events` (insert-only)
 
-Atomic operations (`DispatchJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited.
+Atomic operations (`DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob`) strictly follow this ordering. Locking rows in reverse or mixed order (e.g., workers before jobs) is strictly prohibited. For `DispatchNextJob`, an unlocked pre-check of the worker validates worker existence, health, and capacity to preserve error precedence (SEC-002) without taking locks; candidate job rows are locked first (`SELECT ... FOR UPDATE SKIP LOCKED`), followed by locking the worker row (`FOR UPDATE`) to recheck capacity and health before creating the attempt.
 
-This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, proving zero deadlocks and zero invariant violations across repeated runs with `-race`.
+This hierarchy is empirically verified under extreme contention by the mixed-operations stress test (`TestPostgresRepository_Concurrency_MixedOperationsStress` in `internal/storage/postgres/concurrency_test.go`), where 60 concurrent goroutines execute `DispatchJob`, `DispatchNextJob`, `CommitAttempt`, `CancelJob`, and `ReapStaleWorkers` across overlapping jobs and workers behind a synchronizing start barrier, as well as `TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier` (10 workers polling 40 jobs simultaneously), proving zero deadlocks, exactly-once dispatch, and zero invariant violations across repeated runs with `-race`.
+
+### Approximate FIFO Dispatch Semantics (Slice 3d)
+In PostgreSQL mode (`NewPostgresService`), job dispatch uses `ORDER BY created_at ASC, id ASC` with `FOR UPDATE SKIP LOCKED`.
+- `created_at` records transaction start time (`NOW()`), so transactions that start in one order may commit in another.
+- The `id` tie-breaker is a textual sort (e.g. `job_10_...` sorts before `job_9_...`).
+Consequently, dispatch order is **approximate FIFO**. Under concurrency, multiple workers polling simultaneously may claim jobs slightly out of arrival order due to row lock contention and `SKIP LOCKED`. Strict arrival ordering is guaranteed only for single-worker sequential polls. Under concurrency, the system strictly guarantees **exactly-once dispatch, zero loss, and zero duplicates** (see ADR-0013).
+
+### Database Connection Pool Timeouts and Migration Separation (Slice 3d)
+In PostgreSQL mode, the coordinator initializes connection pooling via `pgxpool.Pool` and configures session-level runtime parameters on every pooled connection (`poolCfg.ConnConfig.RuntimeParams`):
+- `statement_timeout`: bounds maximum single-statement execution time (default: `5s`, configured via `MINICLOUD_DB_QUERY_TIMEOUT`).
+- `lock_timeout`: bounds maximum duration a transaction waits to acquire table or row locks (default: `5s`, configured via `MINICLOUD_DB_QUERY_TIMEOUT`).
+
+If a query exceeds `statement_timeout` or waits longer than `lock_timeout`, PostgreSQL cancels the statement with SQLSTATE `57014` (`query_canceled`) or `55P03` (`lock_not_available`). The coordinator API error mapper maps these cancellation codes into HTTP 503 `SERVICE_UNAVAILABLE` with header `Retry-After: 1` and an opaque, sanitized JSON body (`{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`), preventing slow queries or lock contention from exhausting connection pool capacity (SEC-008). Operators can tune `MINICLOUD_DB_QUERY_TIMEOUT` if legitimate queries require more headroom.
+
+In contrast, schema migrations executed by `cmd/migrate` / `postgres.Migrator` connect via dedicated `pgx.Conn` connections and are **not** subject to the coordinator's connection pool or its query timeouts (`statement_timeout = 0`, `lock_timeout = 0`). This ensures that large DDL changes, table rewriting, or `VALIDATE CONSTRAINT` operations run without premature cancellation. Verified by `TestMigrator_NotSubjectToCoordinatorQueryTimeout`.
 
 ---
 

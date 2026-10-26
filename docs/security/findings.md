@@ -12,11 +12,11 @@ For findings of **Medium** severity and above, the full structured report format
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **SEC-001** | Medium | Confirmed, Fixed | Coordinator Logging | Worker mismatch log misattributed assigned worker ID to the reporting worker. | `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go:210`), `TestAPI_StaleAttemptRejection` (`internal/api/api_test.go:104`) |
 | **SEC-002** | Low | Confirmed, Fixed | Dispatch Precedence | In-memory repository checked worker health before job state, causing dead jobs to be released back to queue. | `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`), Conformance Suite (`internal/storage/storagetest/conformance.go:64`) |
-| **SEC-003** | Informational | Open (inferred from code review, unconfirmed) | Docker Compose | Compose `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` has no fail-fast syntax `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`). Stale snippet in `docs/testing-postgres.md` previously showed fallback credentials, since corrected. | Verification step: inspect `deployments/docker-compose.yml:8` and test compose parser failure behavior. |
+| **SEC-003** | Informational | Confirmed, Fixed (Slice 3d) | Docker Compose | Compose `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` lacked fail-fast syntax `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`), causing empty password warning. Confirmed by execution. | Fixed via fail-fast `${POSTGRES_PASSWORD:?...}` and `--env-file .env` in Makefile and integration test helpers. |
 | **SEC-004** | Medium | Accepted Risk (V1) | HTTP API & Workers | HTTP API and worker endpoints lack authentication and authorization; open to local network. | Deferred to V3 (ADR-0004, ADR-0012); mitigated by `127.0.0.1` bind default. Verification step: future V3 mTLS/auth suite. |
 | **SEC-005** | Low | Confirmed, Fixed | AST SQL Checker | Initial AST check scanned only `repository.go` and accepted identifier variables; coverage was overstated. | `TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation` (`internal/storage/postgres/security_test.go:569`) |
 | **SEC-006** | Informational | Open (inferred from code review, unconfirmed) | Test Helpers | Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`). | Verification step: add schema name validation against `^[a-z0-9_]+$` and quote via `pgx.Identifier`. |
-| **SEC-007** | Low | Fixed (Slice 3d) | HTTP API Error Handling | Unmapped errors mapped to generic HTTP 500 `INTERNAL_ERROR` with opaque message; credentials/passwords scrubbed in server logs; malformed JSON returns fixed message (`internal/api/handlers.go:19-75`). | `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`) |
+| **SEC-007** | Low | Fixed (Slice 3d) | HTTP API Error Handling | Unmapped errors mapped to generic HTTP 500 `INTERNAL_ERROR` with opaque message; credentials/passwords scrubbed in server logs; malformed JSON returns fixed message (`internal/api/handlers.go:19-75`). | `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_OutageMapping_503RetryAfterOpaqueBody`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`) |
 | **SEC-008** | Low | Fixed (Slice 3d) | Coordinator & API Validation | Worker IDs and route parameters strictly bounded ($\le 128$ chars) and validated against `^[a-zA-Z0-9_-]+$` at API boundary (`internal/api/handlers.go:27-39,105-248`). | `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go:323-412`) |
 | **SEC-009** | Low | Fixed (Slice 3d) | HTTP Server Timeouts | HTTP server enforces explicit `ReadHeaderTimeout` (2s) mitigating Slowloris delays (`internal/api/server.go:15,42`). | `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go:414-473`) |
 | **SEC-010** | Low | Open (inferred from code review, unconfirmed) | In-Memory Collections | Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) lack size caps and eviction (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). | Verification step: `TestInMemoryRepository_MemoryExhaustion_Cap` (future test submitting high volume of jobs asserting memory ceiling or backpressure). |
@@ -24,9 +24,11 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
 | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go:26`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
 | **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go:119-125`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go:1080-1085`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
-| **SEC-015** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `total_slots` is checked only for `<= 0`; upper bound is unconstrained, allowing workers to claim arbitrarily large slot capacity (`internal/coordinator/service.go:207`). | Verification step: `TestAPI_RegisterWorker_SlotsUpperLimit` (future test registering worker with slots $> 1000$ asserting validation rejection). |
-| **SEC-016** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `version` string length is unconstrained at API and coordinator boundary, allowing multi-megabyte version strings that violate PostgreSQL `VARCHAR(64)` constraint or exhaust memory (`internal/domain/models.go:76`). | Verification step: `TestAPI_RegisterWorker_VersionLengthLimit` (future test submitting 100 KiB version string asserting HTTP 400). |
-| **SEC-017** | Low | Open (inferred from audit, unconfirmed) | Worker Registration | `supported_tasks` slice length and element types are unvalidated at API and coordinator boundary; non-allowlisted tasks and arbitrarily large arrays accepted (`internal/domain/models.go:73`). | Verification step: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (future test passing unknown task types or 10,000 tasks asserting rejection). |
+| **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded to `[1, 1024]` at domain boundary and backed by database constraint `chk_workers_total_slots_range` (`internal/coordinator/service.go:127,256`, migration 000003). | `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-016** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `version` string length capped at 64 chars at domain boundary and backed by database constraint `chk_workers_version_length` (`internal/coordinator/service.go:129,259`, migration 000003). Empty version allowed. | `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go:130,262`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
+| **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 
 ---
 
@@ -128,9 +130,9 @@ For findings of **Medium** severity and above, the full structured report format
 - **Regression Test**: `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`), plus shared repository conformance tests (`internal/storage/storagetest/conformance.go:64`).
 
 ### SEC-003: Compose POSTGRES_PASSWORD Missing Fail-Fast Expansion
-- **Status**: Informational, Open (inferred from code review, unconfirmed).
-- **Detail**: `deployments/docker-compose.yml:8` specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` without fail-fast variable expansion syntax. If `POSTGRES_PASSWORD` is unset in the shell environment or `.env`, docker compose evaluates the variable as an empty string. Recommended: update to fail-fast form `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` to prevent accidental container startup with empty password. Note: `docs/testing-postgres.md` previously showed a stale snippet with fallback credentials, since corrected.
-- **Verification Step**: Inspect `deployments/docker-compose.yml:8` and verify compose parser rejects startup when `POSTGRES_PASSWORD` is unset.
+- **Status**: Informational, Confirmed, Fixed (Slice 3d).
+- **Detail**: Confirmed by execution: `env -u POSTGRES_PASSWORD docker compose -f deployments/docker-compose.yml ps` emitted warning `The "POSTGRES_PASSWORD" variable is not set. Defaulting to a blank string.` and proceeded. Fixed by updating `deployments/docker-compose.yml:8` to `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` and passing `--env-file .env` explicitly in `Makefile` and integration test helpers. Execution without `.env` now fails fast with `required variable POSTGRES_PASSWORD is missing a value: set POSTGRES_PASSWORD in .env`. Note: `docs/testing-postgres.md` previously showed a stale snippet with fallback credentials, since corrected.
+- **Verification Step**: Run `env -u POSTGRES_PASSWORD docker compose -f deployments/docker-compose.yml ps` without `--env-file` (assert exit code 1 with error message); run `make db-up`, `make db-down`, and integration tests with `--env-file .env` (assert clean exit code 0).
 
 ### SEC-005: AST SQL Concatenation Checker Coverage Overstatement
 - **Status**: Confirmed, Fixed (Slice 3c follow-up).
@@ -145,7 +147,7 @@ For findings of **Medium** severity and above, the full structured report format
 ### SEC-007: Unmapped Errors Fall Through to HTTP 400 with Internal Error String
 - **Status**: Low, Fixed (Slice 3d).
 - **Detail**: In `internal/api/handlers.go:19-75`, `mapDomainErrorToHTTP` now routes all unmapped errors to HTTP 500 `INTERNAL_ERROR` with an opaque `"internal server error"` message. Server-side structured logs sanitize connection URIs and credential parameters (`password=***`). Furthermore, JSON decoding errors in `HandleSubmitJob`, `HandleRegisterWorker`, `HandleWorkerHeartbeat`, and `HandleReportResult` return a fixed `"malformed JSON request body"` message, preventing decoder internals or input offsets from reaching clients.
-- **Regression Test**: `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
+- **Regression Test**: `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_OutageMapping_503RetryAfterOpaqueBody`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go:212-321`).
 
 ### SEC-008: No Character Set or Length Validation on Worker IDs and Route Parameters
 - **Status**: Low, Fixed (Slice 3d).
@@ -178,17 +180,135 @@ For findings of **Medium** severity and above, the full structured report format
 - **Verification Step**: `TestCoordinator_IDLeakage` (future test asserting whether sequential counters are exposed or replaced with opaque cryptographically random identifiers).
 
 ### SEC-015: Unbounded total_slots Upper Bound in Worker Registration
-- **Status**: Low, Open (inferred from audit, unconfirmed).
-- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:207`), `worker.TotalSlots` is validated only for `<= 0` returning `domain.ErrInvalidRequest`. The upper bound is completely unconstrained, permitting registration requests with `total_slots: 2147483647` or other arbitrary large integers. A malicious or misconfigured worker can claim near-infinite capacity, skewing scheduling math or triggering arithmetic overflow.
-- **Verification Step**: `TestAPI_RegisterWorker_SlotsUpperLimit` (future test registering worker with slots $> 1000$ asserting validation error).
+- **Status**: Low, Confirmed, Fixed (Slice 3d).
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:253-255`), `worker.TotalSlots` is validated to ensure it falls within `[1, 1024]`. Requests with `total_slots < 1` or `total_slots > 1024` return HTTP 400 `INVALID_REQUEST`. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_total_slots_range CHECK (total_slots >= 1 AND total_slots <= 1024)`.
+- **Regression Test**: `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSlotsRange_RejectedByCheckConstraints` (`internal/storage/postgres/migrator_test.go:481`).
 
 ### SEC-016: Unbounded version String Length in Worker Registration
-- **Status**: Low, Open (inferred from audit, unconfirmed).
-- **Detail**: In `POST /v1/workers/register` (`internal/api/handlers.go:179-195`), `worker.Version` is received as an unconstrained string without length or character set limits. While the PostgreSQL schema defines `VARCHAR(64)`, in memory mode arbitrary 100 MiB strings are stored in heap, and in PostgreSQL mode an oversized version triggers a database column length violation rather than a clean HTTP 400 client validation error.
-- **Verification Step**: `TestAPI_RegisterWorker_VersionLengthLimit` (future test registering worker with 100 KiB version string asserting HTTP 400 `INVALID_REQUEST`).
+- **Status**: Low, Confirmed, Fixed (Slice 3d).
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:256-258`), `worker.Version` length is bounded to at most 64 characters (`len(worker.Version) <= 64`). Empty version strings (`""`) are explicitly allowed (defaulting to unversioned worker). As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_version_length CHECK (length(version) <= 64)` and SQLSTATE `22001` (string truncation) is mapped to HTTP 400 `INVALID_REQUEST`.
+- **Regression Test**: `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerVersionLength_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:507`).
 
 ### SEC-017: Unbounded Slice and Unvalidated Task Types in supported_tasks
-- **Status**: Low, Open (inferred from audit, unconfirmed).
-- **Detail**: In `POST /v1/workers/register` (`internal/api/handlers.go:179-195`), `worker.SupportedTasks` is accepted without verifying that individual task entries belong to the allowlisted tasks (`echo`, `sleep`, `sha256_loop`), and without bounding slice length. A worker can register an array containing 10,000 arbitrary strings, consuming storage memory and polluting worker capability metadata.
-- **Verification Step**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (future test registering worker with invalid task types or 10,000 entries asserting validation rejection).
+- **Status**: Low, Confirmed, Fixed (Slice 3d).
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:259-267`), `worker.SupportedTasks` array length is bounded to at most 16 unique tasks (duplicates are deduplicated). Individual task names are validated to ensure they are 1..64 characters in length and match `^[a-z0-9_]{1,64}$`. Empty slices are allowed (worker registers with 0 tasks). Unknown-but-well-formed task names are accepted upon registration to support rolling worker fleet upgrades. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_supported_tasks_count CHECK (coalesce(cardinality(supported_tasks), 0) <= 16)`.
+- **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
+
+### SEC-018: Inaccuracies and Reconstructed Test Output in Slice 3d Progress Report
+- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remediation attempt in the findings register contained a second-order failure by mapping some nonexistent names to other nonexistent names (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `TestWorkerAgent_SingleJobSuccess`, `TestMigrator_AppliesAllMigrations`, `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce`).
+- **Severity**: Informational
+- **Category**: Process / Reporting Integrity
+- **Status**: Confirmed, Remediated (Slice 3d).
+- **Preconditions**: Generating progress reports or remediation summaries from memory or inference rather than cross-checking against `go test -list '.*' ./...` and filesystem paths.
+- **Evidence of Inaccuracies**:
+  1. **Nonexistent test names cited in prior report and remediation**:
+     - `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report); actual real test asserting in-memory lifecycle: `TestInMemoryRepository_JobLifecycle` in `internal/storage/inmemory_test.go:15`)
+     - `TestAPI_JobLifecycle` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestJob_Transitions` (does not exist (invented in an earlier report); actual real tests asserting transition matrix: `TestJob_TransitionTo` in `internal/domain/transition_test.go:79`, `TestJobTransitionMatrix_AllPairs` in `internal/domain/transition_test.go:10`)
+     - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `TestService_WorkerLiveness_ReaperAndRecovery` in `internal/coordinator/service_test.go:54`, `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go:764`)
+     - `TestService_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report); actual real integration/agent tests: `TestLocalCore_MultiProcessIntegration` in `tests/integration/local_core_test.go:25`, `TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating` in `internal/worker/client_test.go:114`)
+     - `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report); actual real tests asserting worker registration limits: `TestAPI_RegisterWorker_SlotsUpperLimit` in `internal/api/api_test.go:811`, `TestAPI_RegisterWorker_VersionLengthLimit` in `internal/api/api_test.go:866`, `TestAPI_RegisterWorker_SupportedTasksAllowlist` in `internal/api/api_test.go:921`, `TestPostgresRepository_Security_WorkerCheckConstraints` in `internal/storage/postgres/security_test.go:888`)
+     - `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report); actual real migration tests: `TestMigrator_FreshMigrate` in `internal/storage/postgres/migrator_test.go:281`, `TestMigrator_IdempotentReRun` in `internal/storage/postgres/migrator_test.go:329`)
+     - `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report); actual real test asserting serialized concurrent migrators: `TestMigrator_ConcurrentMigrators_ExactlyOneApplies` in `internal/storage/postgres/migrator_test.go:374`)
+     - `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report); actual real test: `TestAPI_Slowloris_ReadHeaderTimeout` in `internal/api/api_test.go:414`)
+     - `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report); actual real test: `TestAPI_SubmitJob_BoundaryValues` in `internal/api/api_test.go:476`)
+     - `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report); actual real test: `TestAPI_IdentifierValidation_NegativeCases` in `internal/api/api_test.go:323`)
+     Verification: `go test -list '.*' ./...` verifies exactly 101 tests in the repository. Every real test cited above exists and was verified by opening the test implementation to confirm the assertions it makes.
+  2. **Nonexistent ADR citation**: The report cited `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md` (does not exist, nonexistent path cited in earlier report). The actual repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
+  3. **Incorrect parameter limit**: The report claimed `supported_tasks` limit was `1..32`. The real limit enforced in domain validation and database constraint `chk_workers_supported_tasks_count` is `16` (`MaxWorkerSupportedTasks = 16`).
+- **Second-Order Failure & Disclosure**:
+  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `TestWorkerAgent_SingleJobSuccess`, `TestMigrator_AppliesAllMigrations`) and claimed `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` was a verified real name when the actual test is `TestMigrator_ConcurrentMigrators_ExactlyOneApplies`. This second-order failure was discovered by the owner's verification scan comparing all cited names against `go test -list '.*' ./...`. Every non-existent name has been corrected, verified against active test source code, and explicitly labeled.
+- **Impact**: Progress reports and audit registers failed to provide verifiable, reproducible audit records. Reconstructed outputs obscure test failures or skips.
+- **Root Cause**: Summarizing test execution and mapping test names from model inference or memory instead of piping raw command output to disk and verifying with `go test -list '.*' ./...`.
+- **Remediation & Enforced Protocol**:
+  1. All test runs MUST be redirected to a temporary file (`> /tmp/<name>.log 2>&1`).
+  2. Reports MUST paste directly from the redirected file (or its head/tail) alongside exact grep counts: `grep -cE '^--- (PASS|FAIL|SKIP)' /tmp/<name>.log`.
+  3. No test output, test names, or logs may be summarized, retyped, or reconstructed.
+  4. Standing rule: Every cited test name must come from `go test -list '.*' ./...` and every cited path must exist in the repository filesystem.
+
+### SEC-019: Weak Positive Control in Pool Saturation Security Test
+- **Finding**: In `TestSecurity_PartD_PoolExhaustion`, the positive control for pool saturation was a weak threshold asserting that at least 10 requests had latency $\ge 0.8 \times \text{holdDuration}$. Adversarial mutation testing revealed that commenting out `time.Sleep(holdDuration)` (releasing the table lock immediately) still passed the test because normal queuing delay of 500 requests contending for 10 connections resulted in >100 requests waiting >320ms even without lock contention.
+- **Severity**: Informational
+- **Category**: Test Quality / Verification Rigor
+- **Status**: Confirmed by mutation, Fixed (Slice 3d).
+- **Affected Component**: Integration Test Suite (`tests/integration/part_d_security_test.go:45`)
+- **Remediation**:
+  Replaced the weak count-based control with dual rigorous controls, both of which must hold:
+  1. **Primary Proof (Database Lock-Wait Sampling)**: A background admin sampler queries `pg_stat_activity` every 25ms during the hold window filtered by the coordinator pool's unique `application_name = coord_pool_<schemaName>`, asserting the maximum number of connections observed with `wait_event_type = 'Lock'` is at least `pool_size - 2` (8 out of 10).
+  2. **Secondary Proof (Relative Latency Margin)**: The test runs 3 baseline 500-request batches without the lock held to calculate the median max latency; the locked run's max latency must exceed the baseline median by at least `0.25 * holdDuration` (with requests pre-spawned on a start barrier and `holdDuration = 800ms`).
+- **Mutation Verification**:
+  - **Mutation (i)**: Commenting out `time.Sleep(holdDuration)` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
+  - **Mutation (ii)**: Setting `holdDuration = 1ms` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
+- **Regression Test**: `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`).
+
+---
+
+## Part D Security Testing Verification Summary
+
+The Part D security verification tests were implemented and executed against PostgreSQL on `milestone/3d-postgres-wiring`:
+
+1. **Genuine Pool Saturation (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:45`)**:
+   - 500 concurrent HTTP requests (167 `POST /v1/jobs`, 167 `GET /readyz`, 166 `GET /v1/jobs/nonexistent`) against a 10-connection pool.
+   - Genuinely saturates pool by holding an `ACCESS EXCLUSIVE` table lock on `jobs` for 800ms (`holdDuration`) across requests pre-spawned on a start barrier.
+   - Asserts bounded latency, zero transport crashes, every response 2xx/4xx or opaque 503 with header `Retry-After: 1`, zero 500s, and immediate recovery (<2ms).
+   - Primary proof: Admin sampling of `pg_stat_activity` every 25ms verified 10/10 connections reached `wait_event_type = 'Lock'` (threshold $\ge 8$).
+   - Secondary proof: Locked run max latency exceeded 3-run unlocked baseline median by $\ge 0.25 \times \text{holdDuration}$ (200ms).
+   - Validated by adversarial mutation testing: commenting out `time.Sleep(holdDuration)` and setting `holdDuration = 1ms` both produced definitive test failures. Consistently passes across `-count=5` clean runs.
+2. **Slow Query Context Deadline (`TestSecurity_PartD_SlowQuery_ContextDeadline` in `tests/integration/part_d_security_test.go:260`)**:
+   - PostgreSQL lock contention forcing `statement_timeout` under 200ms query deadline.
+   - Outcome: PASSED. Returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`; no hang, no 500.
+3. **End-to-End SQL Injection Challenge (`TestSecurity_PartD_SQLInjection_EndToEnd` in `tests/integration/part_d_security_test.go:382`)**:
+   - Injections across job payload, task_type, worker ID, version, and supported_tasks.
+   - Outcome: PASSED. Neutralized as literal string data (201) or rejected at boundary (4xx); zero 5xx; 0 schema tables or columns altered.
+4. **Outage Mid-Dispatch & Mid-Commit (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit` in `tests/integration/part_d_security_test.go:707`)**:
+   - Stopped database container mid-execution and restored it.
+   - Outcome: PASSED. Worker backed off and committed cleanly after restore; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs, 0 partial rows.
+5. **Real Base64URL Lease Token Leak Scan (`TestSecurity_PartD_LeakScan` in `tests/integration/part_d_security_test.go:907`)**:
+   - Submits a job, registers a worker, polls to receive assignment, and extracts the real raw 32-byte base64url lease token (`domain.NewLeaseToken`).
+   - Scans all captured client responses (from submit, poll, get, cancel, error) and coordinator logs across full outage cycle.
+   - Asserts zero occurrences of connection strings, passwords, SQL fragments, database socket details (`:5433`, `:5432`), or the real raw base64url lease token string.
+   - Coordinator's own listen address `addr=127.0.0.1:<coordPort>` is explicitly handled to distinguish coordinator listen logs from database host/port leaks.
+   - Sub-test positive control (`PositiveControl_PlantedTokenDetected`): Plants a synthetic base64url lease token in a simulated log buffer and asserts that the leak scanner detects it and fails.
+6. **Migrator Query Timeout Isolation (`TestMigrator_NotSubjectToCoordinatorQueryTimeout` in `internal/storage/postgres/migrator_test.go:640`)**:
+   - Verifies that migration runner connections (`cmd/migrate` / `postgres.Migrator`) connect with unconstrained session timeouts (`statement_timeout = 0`, `lock_timeout = 0`).
+   - Successfully executes a slow migration with `pg_sleep(0.6)` without cancellation, proving migration isolation from the coordinator's short query timeouts.
+
+---
+
+## Documentation Scan Allowlist
+
+The following entries are permitted to appear in audit scans (`grep -rhoE 'Test[A-Z][A-Za-z0-9_]+'` and path checks) of documentation files:
+
+### 1. Future Test Specifications
+These test names do not yet exist in `go test -list '.*' ./...` because they represent designed verification steps for Open, unmitigated findings scheduled for future phases:
+- `TestInMemoryRepository_MemoryExhaustion_Cap`: Future verification test for SEC-010 (in-memory collection bounds).
+- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+- `TestCoordinator_IDLeakage`: Future verification test for SEC-013 (coordinator sequential ID exposure).
+
+### 2. Historical Nonexistent Test Names in SEC-018
+These names do not exist in the test suite and are cited exclusively within SEC-018 as documented negative examples of invented names from prior reports and earlier flawed remediation attempts:
+- `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report))
+- `TestAPI_JobLifecycle` (does not exist (invented in an earlier report))
+- `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report))
+- `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report))
+- `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report))
+- `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report))
+- `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report))
+- `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report))
+- `TestCoordinator_Service` (does not exist (invented in an earlier report))
+- `TestJob_Transitions` (does not exist (invented in an earlier report))
+- `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report))
+- `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report))
+- `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report))
+- `TestService_SubmitJob_Success` (does not exist (invented in an earlier report))
+- `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report))
+
+### 3. Nonexistent Path Citations in SEC-018
+- `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md`: Nonexistent file path cited exclusively in SEC-018 as documented disclosure of an invalid citation in a prior progress report. The real repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
+
+
 

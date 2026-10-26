@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -257,11 +258,16 @@ func TestMigrator_ConcurrentMigrators_ExactlyOneApplies(t *testing.T) {
 		t.Fatalf("migrator 2 error: %v", err2)
 	}
 
-	// Exactly two migrations should have been applied across both runners
+	// Exactly all embedded migrations should have been applied across both runners
 	totalApplied := applied1 + applied2
-	if totalApplied != 2 {
-		t.Fatalf("expected exactly 2 migrations applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
-			totalApplied, applied1, applied2)
+	mChecker := postgres.NewMigrator()
+	expectedMigrations, err := mChecker.LatestEmbeddedVersion()
+	if err != nil {
+		t.Fatalf("failed to determine latest embedded migration version: %v", err)
+	}
+	if totalApplied != expectedMigrations {
+		t.Fatalf("expected exactly %d migrations applied across both concurrent runners, got %d (runner1=%d, runner2=%d)",
+			expectedMigrations, totalApplied, applied1, applied2)
 	}
 }
 
@@ -472,4 +478,240 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 			t.Fatalf("expected check violation chk_workers_status, got: %v", err)
 		}
 	})
+
+	t.Run("WorkerSlotsRange_RejectedByCheckConstraints", func(t *testing.T) {
+		// Zero slots
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_slots_zero', 'v0.1.0', 0, 'HEALTHY', ARRAY['echo']);
+		`)
+		if err == nil {
+			t.Fatalf("expected zero slots to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "chk_workers_slots") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check constraint violation on total_slots <= 0, got: %v", err)
+		}
+
+		// 1025 slots (> 1024)
+		_, err = conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_slots_excess', 'v0.1.0', 1025, 'HEALTHY', ARRAY['echo']);
+		`)
+		if err == nil {
+			t.Fatalf("expected >1024 slots to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check constraint violation on total_slots > 1024, got: %v", err)
+		}
+	})
+
+	t.Run("WorkerVersionLength_RejectedByCheckConstraint", func(t *testing.T) {
+		// 65 chars (> 64)
+		longVersion := strings.Repeat("v", 65)
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_ver_long', $1, 1, 'HEALTHY', ARRAY['echo']);
+		`, longVersion)
+		if err == nil {
+			t.Fatalf("expected >64 chars version to fail, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_version_length") && !strings.Contains(err.Error(), "22001") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected version length violation, got: %v", err)
+		}
+	})
+
+	t.Run("WorkerSupportedTasksCount_RejectedByCheckConstraint", func(t *testing.T) {
+		// 17 tasks (> 16)
+		excessTasks := make([]string, 17)
+		for i := range excessTasks {
+			excessTasks[i] = fmt.Sprintf("task_%d", i)
+		}
+		_, err := conn.Exec(ctx, `
+			INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+			VALUES ('w_tasks_excess', 'v0.1.0', 1, 'HEALTHY', $1);
+		`, excessTasks)
+		if err == nil {
+			t.Fatalf("expected >16 tasks to fail check constraint, got nil")
+		}
+		if !strings.Contains(err.Error(), "chk_workers_supported_tasks_count") && !strings.Contains(err.Error(), "23514") {
+			t.Fatalf("expected check violation chk_workers_supported_tasks_count, got: %v", err)
+		}
+	})
+}
+
+// TestMigrator_PreExistingInvalidRow_ValidationFails verifies that when migration 000003
+// runs against an existing database containing a row that violates the new CHECK constraints,
+// the VALIDATE CONSTRAINT step fails cleanly with a check_violation error (SQLSTATE 23514),
+// proving that pre-existing invalid data cannot be silently certified.
+func TestMigrator_PreExistingInvalidRow_ValidationFails(t *testing.T) {
+	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+	if testURL == "" {
+		t.Skip("skipping postgres test: MINICLOUD_TEST_DATABASE_URL is not set")
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, testURL)
+	if err != nil {
+		t.Fatalf("failed to connect to test database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	schemaName := fmt.Sprintf("test_migrator_pre_existing_%d", time.Now().UnixNano())
+	if _, err := conn.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s;", schemaName)); err != nil {
+		t.Fatalf("failed to create isolated test schema: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cleanConn, err := pgx.Connect(cleanupCtx, testURL)
+		if err == nil {
+			_, _ = cleanConn.Exec(cleanupCtx, fmt.Sprintf("DROP SCHEMA %s CASCADE;", schemaName))
+			_ = cleanConn.Close(cleanupCtx)
+		}
+	})
+
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s;", schemaName)); err != nil {
+		t.Fatalf("failed to set search path: %v", err)
+	}
+
+	// 1. Read real embedded migrations 1 and 2
+	realMigrator := postgres.NewMigrator()
+	allMigrations, err := realMigrator.LoadMigrations()
+	if err != nil {
+		t.Fatalf("failed to load real migrations: %v", err)
+	}
+	if len(allMigrations) < 3 {
+		t.Fatalf("expected at least 3 migrations, got %d", len(allMigrations))
+	}
+
+	// Create test fs with only migrations 1 and 2
+	phase1FS := fstest.MapFS{
+		"migrations/" + allMigrations[0].Name: &fstest.MapFile{Data: []byte(allMigrations[0].Content)},
+		"migrations/" + allMigrations[1].Name: &fstest.MapFile{Data: []byte(allMigrations[1].Content)},
+	}
+	m1 := postgres.NewMigrator(postgres.WithFS(phase1FS), postgres.WithLockID(0x12345678))
+	applied, err := m1.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("phase 1 migration failed: %v", err)
+	}
+	if applied != 2 {
+		t.Fatalf("expected 2 migrations applied, got %d", applied)
+	}
+
+	// 2. Insert a pre-existing worker row with 5000 slots (valid under migration 1/2, invalid under migration 3)
+	_, err = conn.Exec(ctx, `
+		INSERT INTO workers (id, version, total_slots, status, supported_tasks)
+		VALUES ('w_legacy_oversized', 'v0.1.0', 5000, 'HEALTHY', ARRAY['echo']);
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert legacy oversized worker: %v", err)
+	}
+
+	// 3. Now run migration runner that includes migration 000003
+	phase2FS := fstest.MapFS{
+		"migrations/" + allMigrations[0].Name: &fstest.MapFile{Data: []byte(allMigrations[0].Content)},
+		"migrations/" + allMigrations[1].Name: &fstest.MapFile{Data: []byte(allMigrations[1].Content)},
+		"migrations/" + allMigrations[2].Name: &fstest.MapFile{Data: []byte(allMigrations[2].Content)},
+	}
+	m2 := postgres.NewMigrator(postgres.WithFS(phase2FS), postgres.WithLockID(0x12345678))
+	_, err = m2.Migrate(ctx, conn)
+	if err == nil {
+		t.Fatalf("expected migration 000003 to fail when validating constraint on oversized row, got nil")
+	}
+	if !strings.Contains(err.Error(), "chk_workers_total_slots_range") && !strings.Contains(err.Error(), "23514") {
+		t.Fatalf("expected check constraint violation on VALIDATE CONSTRAINT, got: %v", err)
+	}
+
+	// 4. Fix the pre-existing row to conform to the new limit
+	if _, err := conn.Exec(ctx, "UPDATE workers SET total_slots = 100 WHERE id = 'w_legacy_oversized';"); err != nil {
+		t.Fatalf("failed to update worker row: %v", err)
+	}
+
+	// 5. Re-run migration: now it must succeed
+	applied2, err := m2.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("expected migration to succeed after remediation, got error: %v", err)
+	}
+	if applied2 != 1 {
+		t.Fatalf("expected exactly 1 migration applied after fix, got %d", applied2)
+	}
+}
+
+// TestMigrator_NotSubjectToCoordinatorQueryTimeout verifies that migrations executed by
+// cmd/migrate and the Migrator run over standard *pgx.Conn connections that are not subject to
+// the coordinator's short statement_timeout and lock_timeout (e.g. 5s or test-configured 500ms).
+func TestMigrator_NotSubjectToCoordinatorQueryTimeout(t *testing.T) {
+	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+	if testURL == "" {
+		t.Skip("skipping postgres test: MINICLOUD_TEST_DATABASE_URL is unset")
+	}
+
+	cfg, err := pgx.ParseConfig(testURL)
+	if err != nil {
+		t.Fatalf("failed to parse MINICLOUD_TEST_DATABASE_URL: %v", err)
+	}
+	if !strings.HasSuffix(cfg.Database, "_test") {
+		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.Database)
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, testURL)
+	if err != nil {
+		t.Fatalf("failed to connect to test database: %v", err)
+	}
+	defer conn.Close(ctx)
+
+	schemaName := fmt.Sprintf("test_migrator_timeout_%d", time.Now().UnixNano())
+	if _, err := conn.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s;", schemaName)); err != nil {
+		t.Fatalf("failed to create isolated test schema: %v", err)
+	}
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cleanConn, err := pgx.Connect(cleanupCtx, testURL)
+		if err == nil {
+			_, _ = cleanConn.Exec(cleanupCtx, fmt.Sprintf("DROP SCHEMA %s CASCADE;", schemaName))
+			_ = cleanConn.Close(cleanupCtx)
+		}
+	})
+
+	if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s;", schemaName)); err != nil {
+		t.Fatalf("failed to set search path: %v", err)
+	}
+
+	// 1. Verify session parameters on migrator connection are not bound to coordinator's statement_timeout
+	var stmtTimeout, lockTimeout string
+	if err := conn.QueryRow(ctx, "SHOW statement_timeout;").Scan(&stmtTimeout); err != nil {
+		t.Fatalf("failed to inspect statement_timeout: %v", err)
+	}
+	if err := conn.QueryRow(ctx, "SHOW lock_timeout;").Scan(&lockTimeout); err != nil {
+		t.Fatalf("failed to inspect lock_timeout: %v", err)
+	}
+
+	t.Logf("Migrator session timeouts: statement_timeout=%s, lock_timeout=%s", stmtTimeout, lockTimeout)
+
+	// 2. Define a migration that runs longer than coordinator query timeouts (e.g. a 0.6s sleep in migration)
+	slowMigrationSQL := `
+		SELECT pg_sleep(0.6);
+		CREATE TABLE slow_migration_test (id INT PRIMARY KEY);
+	`
+	testFS := fstest.MapFS{
+		"migrations/000001_slow.sql": &fstest.MapFile{Data: []byte(slowMigrationSQL)},
+	}
+
+	migrator := postgres.NewMigrator(postgres.WithFS(testFS), postgres.WithLockID(0x998877))
+	applied, err := migrator.Migrate(ctx, conn)
+	if err != nil {
+		t.Fatalf("migration failed: expected migrator to execute without timeout cancellation, got: %v", err)
+	}
+	if applied != 1 {
+		t.Fatalf("expected 1 migration applied, got %d", applied)
+	}
+
+	// Verify table was created
+	var exists bool
+	checkSQL := fmt.Sprintf("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '%s' AND table_name = 'slow_migration_test');", schemaName)
+	if err := conn.QueryRow(ctx, checkSQL).Scan(&exists); err != nil || !exists {
+		t.Fatalf("expected slow_migration_test table to exist, exists=%v, err=%v", exists, err)
+	}
 }

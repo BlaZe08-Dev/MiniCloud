@@ -388,17 +388,29 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 					return
 				}
 
-				op := (gID + iter) % 5
+				op := (gID + iter) % 6
 				targetJobID := jobIDs[r.Intn(numJobs)]
 				targetWorkerID := workerIDs[r.Intn(numWorkers)]
 
 				switch op {
-				case 0, 1: // DispatchJob
+				case 0: // DispatchJob
 					att, err := repo.DispatchJob(ctx, targetJobID, targetWorkerID)
 					if err == nil && att != nil {
 						attemptsMu.Lock()
 						activeAttempts = append(activeAttempts, activeAttemptInfo{
 							jobID:      targetJobID,
+							attemptID:  att.ID,
+							leaseToken: att.LeaseToken,
+							workerID:   targetWorkerID,
+						})
+						attemptsMu.Unlock()
+					}
+				case 1, 5: // DispatchNextJob
+					j, att, err := repo.DispatchNextJob(ctx, targetWorkerID)
+					if err == nil && att != nil && j != nil {
+						attemptsMu.Lock()
+						activeAttempts = append(activeAttempts, activeAttemptInfo{
+							jobID:      j.ID,
 							attemptID:  att.ID,
 							leaseToken: att.LeaseToken,
 							workerID:   targetWorkerID,
@@ -497,5 +509,150 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 		var slots int
 		_ = slotRows.Scan(&wID, &slots)
 		t.Fatalf("INVARIANT VIOLATION: worker %s has negative available_slots: %d", wID, slots)
+	}
+}
+
+// TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier tests 10 concurrent workers
+// racing across a start barrier to poll and dispatch 40 queued jobs via DispatchNextJob.
+// It verifies:
+// 1. Exactly-once dispatch: every one of the 40 jobs is dispatched exactly once.
+// 2. Zero duplicate attempts: no job ever gets more than 1 attempt.
+// 3. Zero jobs lost: every job reaches RUNNING state and all 40 jobs are accounted for.
+func TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	pool, schemaName := setupTestPool(t)
+	repo := postgres.NewRepository(pool)
+
+	const (
+		numWorkers = 10
+		numJobs    = 40
+	)
+
+	// Seed 10 workers with ample slots (10 slots each)
+	for i := 0; i < numWorkers; i++ {
+		wID := fmt.Sprintf("worker_dnj_barrier_%d", i)
+		worker := &domain.Worker{
+			ID:             wID,
+			Version:        "v1.0.0",
+			TotalSlots:     numJobs,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, worker); err != nil {
+			t.Fatalf("UpsertWorker %s failed: %v", wID, err)
+		}
+	}
+
+	// Seed 40 queued jobs
+	for i := 0; i < numJobs; i++ {
+		jobID := fmt.Sprintf("job_dnj_barrier_%02d", i)
+		job := &domain.Job{
+			ID:             jobID,
+			TaskType:       "echo",
+			Payload:        []byte(fmt.Sprintf(`{"barrier_idx":%d}`, i)),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, job); err != nil {
+			t.Fatalf("SubmitJob %s failed: %v", jobID, err)
+		}
+	}
+
+	var (
+		mu              sync.Mutex
+		dispatchedJobs  = make(map[string]int) // jobID -> count
+		totalDispatched int
+	)
+
+	var wg sync.WaitGroup
+	startBarrier := make(chan struct{})
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		wID := fmt.Sprintf("worker_dnj_barrier_%d", i)
+		go func(workerID string) {
+			defer wg.Done()
+			<-startBarrier
+
+			for {
+				job, att, err := repo.DispatchNextJob(ctx, workerID)
+				if err != nil {
+					if errors.Is(err, domain.ErrNoQueuedJobs) || errors.Is(err, domain.ErrWorkerNoCapacity) {
+						// Queue drained or worker saturated
+						return
+					}
+					t.Errorf("worker %s unexpected dispatch error: %v", workerID, err)
+					return
+				}
+				if job == nil || att == nil {
+					t.Errorf("worker %s returned nil job or attempt without error", workerID)
+					return
+				}
+
+				mu.Lock()
+				dispatchedJobs[job.ID]++
+				totalDispatched++
+				mu.Unlock()
+			}
+		}(wID)
+	}
+
+	close(startBarrier)
+	wg.Wait()
+
+	if totalDispatched != numJobs {
+		t.Fatalf("expected exactly %d jobs dispatched, got %d", numJobs, totalDispatched)
+	}
+
+	// Verify every job was dispatched exactly once
+	for i := 0; i < numJobs; i++ {
+		jobID := fmt.Sprintf("job_dnj_barrier_%02d", i)
+		count := dispatchedJobs[jobID]
+		if count != 1 {
+			t.Fatalf("job %s dispatched %d times (expected 1)", jobID, count)
+		}
+	}
+
+	// Verify database authoritative state:
+	// 1. All 40 jobs in RUNNING state
+	var runningJobCount int
+	queryJobs := fmt.Sprintf("SELECT COUNT(*) FROM %s.jobs WHERE state = 'RUNNING';", schemaName)
+	if err := pool.QueryRow(ctx, queryJobs).Scan(&runningJobCount); err != nil {
+		t.Fatalf("failed to query running jobs: %v", err)
+	}
+	if runningJobCount != numJobs {
+		t.Fatalf("expected %d running jobs in database, got %d", numJobs, runningJobCount)
+	}
+
+	// 2. Exactly 40 attempts in database
+	var attemptCount int
+	queryAttempts := fmt.Sprintf("SELECT COUNT(*) FROM %s.attempts;", schemaName)
+	if err := pool.QueryRow(ctx, queryAttempts).Scan(&attemptCount); err != nil {
+		t.Fatalf("failed to query attempts: %v", err)
+	}
+	if attemptCount != numJobs {
+		t.Fatalf("expected %d attempts in database, got %d", numJobs, attemptCount)
+	}
+
+	// 3. No duplicate attempts per job
+	queryDupAttempts := fmt.Sprintf(`
+		SELECT job_id, COUNT(*) 
+		FROM %s.attempts 
+		GROUP BY job_id 
+		HAVING COUNT(*) > 1;
+	`, schemaName)
+	dupRows, err := pool.Query(ctx, queryDupAttempts)
+	if err != nil {
+		t.Fatalf("failed to query duplicate attempts: %v", err)
+	}
+	defer dupRows.Close()
+	if dupRows.Next() {
+		var jID string
+		var count int
+		_ = dupRows.Scan(&jID, &count)
+		t.Fatalf("INVARIANT VIOLATION: job %s has %d attempts (>1)", jID, count)
 	}
 }

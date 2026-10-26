@@ -46,6 +46,10 @@ func (r *errorInjectingRepository) GetJob(ctx context.Context, id string) (*doma
 	return nil, r.err
 }
 
+func (r *errorInjectingRepository) Ping(ctx context.Context) error {
+	return r.err
+}
+
 func setupErrorServer(injectErr error) (*httptest.Server, *coordinator.Service) {
 	baseRepo := storage.NewInMemoryRepository()
 	repo := &errorInjectingRepository{Repository: baseRepo, err: injectErr}
@@ -281,38 +285,148 @@ func TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500(t *tes
 	}
 }
 
-// TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500 verifies SEC-007:
-// database outages return an opaque 500 INTERNAL_ERROR without leaking network socket details.
-func TestAPI_UnmappedError_DatabaseOutage_SanitizedInternalError500(t *testing.T) {
-	outageErr := errors.New("dial tcp 127.0.0.1:5432: connect: connection refused")
-	ts, _ := setupErrorServer(outageErr)
-	defer ts.Close()
+// TestAPI_OutageMapping_503RetryAfterOpaqueBody verifies that connection failures and context deadline
+// expiry return 503 SERVICE_UNAVAILABLE with Retry-After: 1 and an opaque body, on both job endpoints and /readyz.
+func TestAPI_OutageMapping_503RetryAfterOpaqueBody(t *testing.T) {
+	outageCases := []struct {
+		name        string
+		err         error
+		leakMarkers []string
+	}{
+		{
+			name: "connection refused with internal host and credentials",
+			err:  errors.New("dial tcp db-internal.cluster.local:5432: connect: connection refused; user=minicloud_app password=super_secret_db_pass"),
+			leakMarkers: []string{
+				"connection refused",
+				"5432",
+				"db-internal.cluster.local",
+				"minicloud_app",
+				"super_secret_db_pass",
+				"password=",
+			},
+		},
+		{
+			name: "context deadline exceeded with query context",
+			err:  fmt.Errorf("query timeout while accessing host postgresql://user:secret123@db.prod.internal:5432/minicloud: %w", context.DeadlineExceeded),
+			leakMarkers: []string{
+				"context deadline exceeded",
+				"DeadlineExceeded",
+				"secret123",
+				"db.prod.internal",
+				"5432",
+				"postgresql://",
+			},
+		},
+		{
+			name: "broken pipe socket error with hostname and password pattern",
+			err:  errors.New("write tcp 10.0.0.5:45678->db-node-01.internal:5432: write: broken pipe (password: secret_token_xyz)"),
+			leakMarkers: []string{
+				"broken pipe",
+				"db-node-01.internal",
+				"45678",
+				"secret_token_xyz",
+			},
+		},
+		{
+			name: "connection reset by peer with auth token",
+			err:  errors.New("read tcp 127.0.0.1:5432: read: connection reset by peer (auth token: tok_987654321)"),
+			leakMarkers: []string{
+				"connection reset",
+				"tok_987654321",
+				"5432",
+			},
+		},
+	}
 
-	resp, err := http.Get(ts.URL + "/v1/jobs/job_12345")
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
+	universalForbiddenPatterns := []string{
+		"password",
+		"secret",
+		"5432",
+		"cluster.local",
+		"internal",
+		"dial tcp",
+		"connect:",
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected HTTP 500, got %d", resp.StatusCode)
-	}
+	for _, tc := range outageCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, _ := setupErrorServer(tc.err)
+			defer ts.Close()
 
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	bodyStr := string(bodyBytes)
+			// 1. GET /readyz should return 503 SERVICE_UNAVAILABLE with Retry-After: 1
+			readyResp, err := http.Get(ts.URL + "/readyz")
+			if err != nil {
+				t.Fatalf("readyz request failed: %v", err)
+			}
+			defer readyResp.Body.Close()
 
-	var errResp api.ErrorResponse
-	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
-		t.Fatalf("failed to decode JSON error envelope: %v", err)
-	}
-	if errResp.Error.Code != "INTERNAL_ERROR" {
-		t.Fatalf("expected code INTERNAL_ERROR, got %q", errResp.Error.Code)
-	}
-	if errResp.Error.Message != "internal server error" {
-		t.Fatalf("expected opaque message 'internal server error', got %q", errResp.Error.Message)
-	}
-	if strings.Contains(bodyStr, "connection refused") || strings.Contains(bodyStr, "5432") {
-		t.Fatalf("SECURITY VIOLATION: database outage details leaked in error response: %s", bodyStr)
+			if readyResp.StatusCode != http.StatusServiceUnavailable {
+				t.Fatalf("expected HTTP 503 on readyz, got %d", readyResp.StatusCode)
+			}
+			if retryAfter := readyResp.Header.Get("Retry-After"); retryAfter != "1" {
+				t.Fatalf("expected Retry-After header '1', got %q", retryAfter)
+			}
+
+			readyBodyBytes, _ := io.ReadAll(readyResp.Body)
+			readyBodyStr := string(readyBodyBytes)
+
+			var readyErrResp api.ErrorResponse
+			if err := json.Unmarshal(readyBodyBytes, &readyErrResp); err != nil {
+				t.Fatalf("failed to decode readyz JSON error envelope: %v", err)
+			}
+			if readyErrResp.Error.Code != "SERVICE_UNAVAILABLE" {
+				t.Fatalf("expected code SERVICE_UNAVAILABLE on readyz, got %q", readyErrResp.Error.Code)
+			}
+			if readyErrResp.Error.Message != "service temporarily unavailable" {
+				t.Fatalf("expected opaque message 'service temporarily unavailable' on readyz, got %q", readyErrResp.Error.Message)
+			}
+
+			// 2. GET /v1/jobs/job_12345 should return 503 SERVICE_UNAVAILABLE with Retry-After: 1
+			resp, err := http.Get(ts.URL + "/v1/jobs/job_12345")
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusServiceUnavailable {
+				t.Fatalf("expected HTTP 503, got %d", resp.StatusCode)
+			}
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "1" {
+				t.Fatalf("expected Retry-After header '1', got %q", retryAfter)
+			}
+
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			bodyStr := string(bodyBytes)
+
+			var errResp api.ErrorResponse
+			if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
+				t.Fatalf("failed to decode JSON error envelope: %v", err)
+			}
+			if errResp.Error.Code != "SERVICE_UNAVAILABLE" {
+				t.Fatalf("expected code SERVICE_UNAVAILABLE, got %q", errResp.Error.Code)
+			}
+			if errResp.Error.Message != "service temporarily unavailable" {
+				t.Fatalf("expected opaque message 'service temporarily unavailable', got %q", errResp.Error.Message)
+			}
+
+			// Check leak markers on both readyz and job endpoints
+			for _, marker := range tc.leakMarkers {
+				if strings.Contains(readyBodyStr, marker) {
+					t.Fatalf("SECURITY VIOLATION: outage detail %q leaked in readyz response: %s", marker, readyBodyStr)
+				}
+				if strings.Contains(bodyStr, marker) {
+					t.Fatalf("SECURITY VIOLATION: outage detail %q leaked in job response: %s", marker, bodyStr)
+				}
+			}
+			for _, pat := range universalForbiddenPatterns {
+				if strings.Contains(strings.ToLower(readyBodyStr), pat) {
+					t.Fatalf("SECURITY VIOLATION: pattern %q leaked in readyz response: %s", pat, readyBodyStr)
+				}
+				if strings.Contains(strings.ToLower(bodyStr), pat) {
+					t.Fatalf("SECURITY VIOLATION: pattern %q leaked in job response: %s", pat, bodyStr)
+				}
+			}
+		})
 	}
 }
 
@@ -761,6 +875,258 @@ func TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500(t *testing.T) {
 			}
 			if !strings.Contains(errResp.Error.Message, tc.expectedMsg) {
 				t.Fatalf("expected message to contain %q, got: %s", tc.expectedMsg, errResp.Error.Message)
+			}
+		})
+	}
+}
+
+// TestAPI_RegisterWorker_SlotsUpperLimit verifies SEC-015:
+// Worker registration bounds total_slots between 1 and 1024.
+// Values <= 0 or > 1024 return HTTP 400 INVALID_REQUEST.
+func TestAPI_RegisterWorker_SlotsUpperLimit(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		slots      int
+		wantStatus int
+	}{
+		{"slots_zero", 0, http.StatusBadRequest},
+		{"slots_negative", -1, http.StatusBadRequest},
+		{"slots_one_valid_lower", 1, http.StatusOK},
+		{"slots_ten_valid", 10, http.StatusOK},
+		{"slots_1024_valid_upper", 1024, http.StatusOK},
+		{"slots_1025_exceeds_upper", 1025, http.StatusBadRequest},
+		{"slots_ten_thousand_excessive", 10000, http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-slots-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         "v0.1.0",
+				"total_slots":     tc.slots,
+				"supported_tasks": []string{"echo"},
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if !strings.Contains(errResp.Error.Message, "total_slots must be between 1 and 1024") {
+					t.Fatalf("unexpected message: %s", errResp.Error.Message)
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_RegisterWorker_VersionLengthLimit verifies SEC-016:
+// Worker registration bounds version string to at most 64 characters.
+// An empty version string is allowed (default). Versions exceeding 64 chars return HTTP 400 INVALID_REQUEST.
+func TestAPI_RegisterWorker_VersionLengthLimit(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		version    string
+		wantStatus int
+	}{
+		{"version_empty_allowed", "", http.StatusOK},
+		{"version_standard", "v0.1.0", http.StatusOK},
+		{"version_64_chars_valid_upper", strings.Repeat("v", 64), http.StatusOK},
+		{"version_65_chars_exceeds", strings.Repeat("v", 65), http.StatusBadRequest},
+		{"version_100kib_oversized", strings.Repeat("x", 102400), http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-ver-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         tc.version,
+				"total_slots":     2,
+				"supported_tasks": []string{"echo"},
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if !strings.Contains(errResp.Error.Message, "version length cannot exceed 64 characters") {
+					t.Fatalf("unexpected message: %s", errResp.Error.Message)
+				}
+			}
+		})
+	}
+}
+
+// TestAPI_RegisterWorker_SupportedTasksAllowlist verifies SEC-017:
+// Worker registration bounds supported_tasks array length (at most 16 unique tasks), individual task name
+// length (at most 64 chars), and character set (strictly ^[a-z0-9_]{1,64}$).
+// Empty supported_tasks is allowed (cannot claim jobs). Unknown-but-well-formed task names are accepted
+// upon registration to support rolling worker fleet upgrades. Duplicates in supported_tasks are removed.
+func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
+	ts, _ := setupTestServer()
+	defer ts.Close()
+
+	testCases := []struct {
+		name       string
+		tasks      []string
+		wantStatus int
+		errMsg     string
+	}{
+		{
+			name:       "empty_tasks_allowed",
+			tasks:      []string{},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_tasks_standard",
+			tasks:      []string{"echo", "sleep"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "valid_16_tasks_upper_bound",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "excess_17_unique_tasks_rejected",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t17"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "supported_tasks cannot exceed 16 tasks",
+		},
+		{
+			name:       "17_tasks_with_duplicates_succeeds_after_dedup",
+			tasks:      []string{"t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t1"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "duplicates_removed_standard",
+			tasks:      []string{"echo", "sleep", "echo"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "unknown_well_formed_task_accepted_for_rolling_upgrade",
+			tasks:      []string{"gpu_matrix_mult_v2", "custom_filter"},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "task_name_64_chars_accepted",
+			tasks:      []string{strings.Repeat("a", 64)},
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "task_name_65_chars_rejected",
+			tasks:      []string{strings.Repeat("a", 65)},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_uppercase_rejected",
+			tasks:      []string{"Echo"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_hyphen_rejected",
+			tasks:      []string{"a-b"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_empty_rejected",
+			tasks:      []string{""},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_invalid_charset_injection",
+			tasks:      []string{"echo;rm -rf /"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+		{
+			name:       "task_name_with_spaces_rejected",
+			tasks:      []string{"echo task"},
+			wantStatus: http.StatusBadRequest,
+			errMsg:     "invalid task name",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workerID := fmt.Sprintf("worker-tasks-%s", tc.name)
+			body, _ := json.Marshal(map[string]any{
+				"id":              workerID,
+				"version":         "v0.1.0",
+				"total_slots":     2,
+				"supported_tasks": tc.tasks,
+			})
+
+			resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.StatusCode)
+			}
+
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp api.ErrorResponse
+				_ = json.NewDecoder(resp.Body).Decode(&errResp)
+				if errResp.Error.Code != "INVALID_REQUEST" {
+					t.Fatalf("expected code INVALID_REQUEST, got %s", errResp.Error.Code)
+				}
+				if tc.errMsg != "" && !strings.Contains(errResp.Error.Message, tc.errMsg) {
+					t.Fatalf("expected message to contain %q, got: %s", tc.errMsg, errResp.Error.Message)
+				}
+			} else if tc.name == "duplicates_removed_standard" {
+				// Verify in repository that duplicates were indeed removed
+				listResp, err := http.Get(ts.URL + "/v1/workers")
+				if err != nil {
+					t.Fatalf("failed to query workers: %v", err)
+				}
+				defer listResp.Body.Close()
+				var workers []domain.Worker
+				_ = json.NewDecoder(listResp.Body).Decode(&workers)
+				for _, w := range workers {
+					if w.ID == workerID {
+						if len(w.SupportedTasks) != 2 || w.SupportedTasks[0] != "echo" || w.SupportedTasks[1] != "sleep" {
+							t.Fatalf("expected duplicates removed to [echo sleep], got: %v", w.SupportedTasks)
+						}
+					}
+				}
 			}
 		})
 	}

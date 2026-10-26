@@ -455,6 +455,108 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	return &retAttempt, nil
 }
 
+// DispatchNextJob atomically selects the next eligible QUEUED job matching the worker's supported tasks
+// in FIFO order, transitions it to RUNNING, creates an attempt, and records an audit event.
+//
+// Precondition Error Precedence (strictly matching PostgreSQL transaction):
+//  1. Worker existence (ErrWorkerNotFound)
+//  2. Worker status == HEALTHY (ErrWorkerUnhealthy)
+//  3. Worker has available capacity (ErrWorkerNoCapacity)
+//  4. Eligible job exists (ErrNoQueuedJobs)
+//  5. Job transition validity (ErrInvalidStateTransition)
+func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID string) (*domain.Job, *domain.Attempt, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	worker, exists := r.workers[workerID]
+	if !exists {
+		return nil, nil, domain.ErrWorkerNotFound
+	}
+	if worker.Status != domain.WorkerStatusHealthy {
+		return nil, nil, domain.ErrWorkerUnhealthy
+	}
+
+	availSlots := r.computeAvailableSlotsLocked(worker.ID, worker.TotalSlots)
+	if availSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
+	}
+
+	// Select next eligible QUEUED job in FIFO order matching worker supported tasks
+	var selectedJob *domain.Job
+	for _, id := range r.jobOrder {
+		j := r.jobs[id]
+		if j != nil && j.State == domain.StateQueued && worker.SupportsTask(j.TaskType) {
+			selectedJob = j
+			break
+		}
+	}
+	if selectedJob == nil {
+		return nil, nil, domain.ErrNoQueuedJobs
+	}
+
+	// Invariant: At most one active (RUNNING) attempt per job
+	for _, att := range r.attempts {
+		if att.JobID == selectedJob.ID && (att.State == domain.AttemptRunning || att.State == domain.AttemptPending) {
+			return nil, nil, domain.ErrInvalidRequest
+		}
+	}
+
+	now := r.clock.Now()
+	if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
+		return nil, nil, err
+	}
+
+	// Calculate monotonic attempt number derived from max existing attempt_no + 1
+	attemptNo := 0
+	for _, att := range r.attempts {
+		if att.JobID == selectedJob.ID && att.AttemptNo > attemptNo {
+			attemptNo = att.AttemptNo
+		}
+	}
+	attemptNo++
+
+	r.idSeq++
+	attemptID := fmt.Sprintf("att_%d_%s", r.idSeq, generateRandomHex(6))
+	rawLeaseToken, err := domain.NewLeaseToken()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate secure lease token: %w", err)
+	}
+
+	tokenHash := domain.HashLeaseToken(rawLeaseToken)
+	storedAttempt := &domain.Attempt{
+		ID:             attemptID,
+		JobID:          selectedJob.ID,
+		AttemptNo:      attemptNo,
+		WorkerID:       workerID,
+		LeaseTokenHash: tokenHash,
+		State:          domain.AttemptRunning,
+		StartedAt:      now,
+	}
+	r.attempts[attemptID] = storedAttempt
+	selectedJob.CurrentAttemptID = attemptID
+	selectedJob.UpdatedAt = now
+
+	fromState := domain.StateQueued
+	toState := domain.StateRunning
+	r.recordEventLocked(&domain.JobEvent{
+		JobID:     selectedJob.ID,
+		AttemptID: &attemptID,
+		EventType: domain.JobEventDispatched,
+		FromState: &fromState,
+		ToState:   &toState,
+		CreatedAt: now,
+		Details: map[string]any{
+			"worker_id":  workerID,
+			"attempt_no": attemptNo,
+		},
+	})
+
+	retJob := *selectedJob
+	retAttempt := *storedAttempt
+	retAttempt.LeaseToken = rawLeaseToken
+	return &retJob, &retAttempt, nil
+}
+
 // CommitAttempt atomically validates the commit invariants, updates the attempt, transitions the job
 // to terminal state, stores the result, and records an audit event.
 //
@@ -610,4 +712,9 @@ func (r *InMemoryRepository) ListEventsByJob(ctx context.Context, jobID string) 
 		}
 	}
 	return events, nil
+}
+
+// Ping implements storage.Repository. For InMemoryRepository it is always healthy.
+func (r *InMemoryRepository) Ping(ctx context.Context) error {
+	return nil
 }

@@ -1,26 +1,65 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
 	uriPasswordRegex   = regexp.MustCompile(`://([^:]+):([^@]+)@`)
 	paramPasswordRegex = regexp.MustCompile(`(?i)(password|passwd|pwd)\s*=\s*[^\s]+`)
+	connStringRegex    = regexp.MustCompile(`postgres(ql)?://[^\s'"]+`)
+	hostPortRegex      = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b|localhost(:\d+)?|\b(host|port)=[^\s]+`)
 )
 
 func sanitizeError(msg string) string {
 	msg = uriPasswordRegex.ReplaceAllString(msg, `://$1:***@`)
 	msg = paramPasswordRegex.ReplaceAllString(msg, `$1=***`)
+	msg = connStringRegex.ReplaceAllString(msg, `[REDACTED_CONN_STRING]`)
+	msg = hostPortRegex.ReplaceAllString(msg, `[REDACTED_HOST_PORT]`)
 	return msg
+}
+
+func isConnectionOrTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		// PostgreSQL Class 08 — Connection Exception, Class 57 — Operator Intervention (57014 statement_timeout, 57P01/2/3), or 55P03 lock_not_available
+		if strings.HasPrefix(pgErr.Code, "08") || strings.HasPrefix(pgErr.Code, "57") || pgErr.Code == "55P03" {
+			return true
+		}
+	}
+	errMsg := strings.ToLower(err.Error())
+	if strings.Contains(errMsg, "connection refused") ||
+		strings.Contains(errMsg, "failed to connect") ||
+		strings.Contains(errMsg, "dial tcp") ||
+		strings.Contains(errMsg, "closed pool") ||
+		strings.Contains(errMsg, "broken pipe") ||
+		strings.Contains(errMsg, "connection reset") ||
+		strings.Contains(errMsg, "driver: bad connection") {
+		return true
+	}
+	return false
 }
 
 const maxIdentifierLength = 128
@@ -57,6 +96,9 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
+	if status == http.StatusServiceUnavailable && code == "SERVICE_UNAVAILABLE" {
+		w.Header().Set("Retry-After", "1")
+	}
 	writeJSON(w, status, ErrorResponse{
 		Error: ErrorDetail{
 			Code:    code,
@@ -66,6 +108,11 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 }
 
 func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
+	if isConnectionOrTimeoutError(err) {
+		slog.Error("database outage or connection failure", "err", sanitizeError(err.Error()))
+		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable"
+	}
+
 	switch {
 	case errors.Is(err, domain.ErrJobNotFound):
 		return http.StatusNotFound, "JOB_NOT_FOUND", err.Error()
@@ -368,6 +415,11 @@ func (h *Handler) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleReadyz(w http.ResponseWriter, r *http.Request) {
+	if err := h.coord.Ping(r.Context()); err != nil {
+		slog.Error("readiness probe failed", "err", sanitizeError(err.Error()))
+		writeError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 

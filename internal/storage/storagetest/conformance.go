@@ -417,4 +417,189 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 			t.Fatalf("expected status restored to HEALTHY, got %s", wAfter.Status)
 		}
 	})
+
+	t.Run("DispatchNextJob_PreconditionsAndFIFO", func(t *testing.T) {
+		ctx := context.Background()
+		repo := repoFactory(t)
+
+		// 1. Worker not found
+		_, _, err := repo.DispatchNextJob(ctx, "w_nonexistent")
+		if !errors.Is(err, domain.ErrWorkerNotFound) {
+			t.Fatalf("expected ErrWorkerNotFound, got: %v", err)
+		}
+
+		// Setup unhealthy worker
+		unhealthyWorker := &domain.Worker{
+			ID:             "w_dnj_unhealthy",
+			Version:        "v1.0.0",
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusUnhealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, unhealthyWorker); err != nil {
+			t.Fatalf("UpsertWorker unhealthy failed: %v", err)
+		}
+
+		// 2. Worker unhealthy
+		_, _, err = repo.DispatchNextJob(ctx, "w_dnj_unhealthy")
+		if !errors.Is(err, domain.ErrWorkerUnhealthy) {
+			t.Fatalf("expected ErrWorkerUnhealthy, got: %v", err)
+		}
+
+		// Setup healthy worker with 1 total slot and consume it
+		fullWorker := &domain.Worker{
+			ID:             "w_dnj_full",
+			Version:        "v1.0.0",
+			TotalSlots:     1,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, fullWorker); err != nil {
+			t.Fatalf("UpsertWorker fullWorker failed: %v", err)
+		}
+
+		jobPre := &domain.Job{
+			ID:             "job_dnj_pre",
+			TaskType:       "echo",
+			Payload:        []byte(`{}`),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, jobPre); err != nil {
+			t.Fatalf("SubmitJob jobPre failed: %v", err)
+		}
+		if _, err := repo.DispatchJob(ctx, "job_dnj_pre", "w_dnj_full"); err != nil {
+			t.Fatalf("DispatchJob initial failed: %v", err)
+		}
+
+		// 3. Worker no capacity
+		_, _, err = repo.DispatchNextJob(ctx, "w_dnj_full")
+		if !errors.Is(err, domain.ErrWorkerNoCapacity) {
+			t.Fatalf("expected ErrWorkerNoCapacity, got: %v", err)
+		}
+
+		// Setup healthy worker with 2 slots supporting "echo"
+		echoWorker := &domain.Worker{
+			ID:             "w_dnj_echo",
+			Version:        "v1.0.0",
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, echoWorker); err != nil {
+			t.Fatalf("UpsertWorker echoWorker failed: %v", err)
+		}
+
+		// 4. Empty queue -> ErrNoQueuedJobs
+		_, _, err = repo.DispatchNextJob(ctx, "w_dnj_echo")
+		if !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("expected ErrNoQueuedJobs for empty queue, got: %v", err)
+		}
+
+		// Submit a job with unsupported task type "sleep"
+		sleepJob := &domain.Job{
+			ID:             "job_dnj_sleep",
+			TaskType:       "sleep",
+			Payload:        []byte(`{}`),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, sleepJob); err != nil {
+			t.Fatalf("SubmitJob sleep failed: %v", err)
+		}
+
+		// 5. Queue has jobs, but worker does not support "sleep" -> ErrNoQueuedJobs
+		_, _, err = repo.DispatchNextJob(ctx, "w_dnj_echo")
+		if !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("expected ErrNoQueuedJobs for unsupported task in queue, got: %v", err)
+		}
+
+		// Submit 2 matching "echo" jobs in sequential order
+		echoJob1 := &domain.Job{
+			ID:             "job_dnj_echo_1",
+			TaskType:       "echo",
+			Payload:        []byte(`{"seq":1}`),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, echoJob1); err != nil {
+			t.Fatalf("SubmitJob echoJob1 failed: %v", err)
+		}
+
+		// Give slight gap so created_at ordering is unambiguous
+		time.Sleep(10 * time.Millisecond)
+
+		echoJob2 := &domain.Job{
+			ID:             "job_dnj_echo_2",
+			TaskType:       "echo",
+			Payload:        []byte(`{"seq":2}`),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, echoJob2); err != nil {
+			t.Fatalf("SubmitJob echoJob2 failed: %v", err)
+		}
+
+		// 6. Sequential poll 1: claims echoJob1 (FIFO)
+		j1, att1, err := repo.DispatchNextJob(ctx, "w_dnj_echo")
+		if err != nil {
+			t.Fatalf("DispatchNextJob 1 failed: %v", err)
+		}
+		if j1.ID != echoJob1.ID {
+			t.Fatalf("expected job %s first (FIFO), got %s", echoJob1.ID, j1.ID)
+		}
+		if j1.State != domain.StateRunning {
+			t.Fatalf("expected job state RUNNING, got %s", j1.State)
+		}
+		if att1.AttemptNo != 1 {
+			t.Fatalf("expected attempt_no 1, got %d", att1.AttemptNo)
+		}
+		if att1.State != domain.AttemptRunning {
+			t.Fatalf("expected attempt state RUNNING, got %s", att1.State)
+		}
+		if att1.LeaseToken == "" {
+			t.Fatalf("expected non-empty raw lease token returned to worker")
+		}
+		if att1.LeaseTokenHash != domain.HashLeaseToken(att1.LeaseToken) {
+			t.Fatalf("lease token hash mismatch")
+		}
+
+		// Sequential poll 2: claims echoJob2
+		j2, att2, err := repo.DispatchNextJob(ctx, "w_dnj_echo")
+		if err != nil {
+			t.Fatalf("DispatchNextJob 2 failed: %v", err)
+		}
+		if j2.ID != echoJob2.ID {
+			t.Fatalf("expected job %s second (FIFO), got %s", echoJob2.ID, j2.ID)
+		}
+		if att2.AttemptNo != 1 {
+			t.Fatalf("expected attempt_no 1, got %d", att2.AttemptNo)
+		}
+
+		// Sequential poll 3: worker totalSlots was 2, now has 2 active attempts -> ErrWorkerNoCapacity
+		_, _, err = repo.DispatchNextJob(ctx, "w_dnj_echo")
+		if !errors.Is(err, domain.ErrWorkerNoCapacity) {
+			t.Fatalf("expected ErrWorkerNoCapacity on 3rd poll, got: %v", err)
+		}
+
+		// Verify audit events recorded for job 1
+		events, err := repo.ListEventsByJob(ctx, echoJob1.ID)
+		if err != nil {
+			t.Fatalf("ListEventsByJob failed: %v", err)
+		}
+		foundDispatched := false
+		for _, ev := range events {
+			if ev.EventType == domain.JobEventDispatched {
+				foundDispatched = true
+				break
+			}
+		}
+		if !foundDispatched {
+			t.Fatalf("expected JobEventDispatched event in job 1 audit history")
+		}
+	})
 }

@@ -881,3 +881,84 @@ func TestPostgresRepository_Security_CheckConstraints_NumericBounds(t *testing.T
 		})
 	}
 }
+
+// TestPostgresRepository_Security_WorkerCheckConstraints verifies SEC-015, SEC-016, SEC-017:
+// inserting out-of-bounds worker fields directly into PostgreSQL triggers check constraint violations (SQLSTATE 23514)
+// or data truncation errors (SQLSTATE 22001) that map directly to typed domain.ErrInvalidRequest errors.
+func TestPostgresRepository_Security_WorkerCheckConstraints(t *testing.T) {
+	ctx := context.Background()
+	pool, _ := setupTestPool(t)
+	repo := postgres.NewRepository(pool)
+
+	t.Run("total_slots_zero_rejected", func(t *testing.T) {
+		w := &domain.Worker{
+			ID:             fmt.Sprintf("w_chk_%d", time.Now().UnixNano()),
+			Version:        "v0.1.0",
+			TotalSlots:     0,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		err := repo.UpsertWorker(ctx, w)
+		if err == nil {
+			t.Fatalf("expected error for total_slots=0, got nil")
+		}
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got: %v", err)
+		}
+	})
+
+	t.Run("total_slots_1025_rejected", func(t *testing.T) {
+		w := &domain.Worker{
+			ID:             fmt.Sprintf("w_chk_%d", time.Now().UnixNano()),
+			Version:        "v0.1.0",
+			TotalSlots:     1025,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		err := repo.UpsertWorker(ctx, w)
+		if err == nil {
+			t.Fatalf("expected error for total_slots=1025, got nil")
+		}
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got: %v", err)
+		}
+	})
+
+	t.Run("version_65_chars_rejected", func(t *testing.T) {
+		w := &domain.Worker{
+			ID:             fmt.Sprintf("w_chk_%d", time.Now().UnixNano()),
+			Version:        strings.Repeat("v", 65),
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		err := repo.UpsertWorker(ctx, w)
+		if err == nil {
+			t.Fatalf("expected error for version length > 64, got nil")
+		}
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got: %v", err)
+		}
+	})
+
+	t.Run("supported_tasks_17_items_rejected", func(t *testing.T) {
+		tasks := make([]string, 17)
+		for i := range tasks {
+			tasks[i] = fmt.Sprintf("t%d", i)
+		}
+		w := &domain.Worker{
+			ID:             fmt.Sprintf("w_chk_%d", time.Now().UnixNano()),
+			Version:        "v0.1.0",
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: tasks,
+		}
+		err := repo.UpsertWorker(ctx, w)
+		if err == nil {
+			t.Fatalf("expected error for supported_tasks > 16, got nil")
+		}
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got: %v", err)
+		}
+	})
+}

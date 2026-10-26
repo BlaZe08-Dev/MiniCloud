@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -16,6 +17,26 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
 )
+
+// ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).
+var ErrServiceUnavailable = errors.New("service unavailable: database outage or coordinator failure")
+
+// ComputeBackoffWithJitter calculates exponential backoff with full jitter.
+func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Duration {
+	if failureCount <= 0 {
+		return base
+	}
+	multiplier := 1 << (failureCount - 1)
+	if multiplier > 16 {
+		multiplier = 16
+	}
+	dur := base * time.Duration(multiplier)
+	if dur > max {
+		dur = max
+	}
+	jitterFrac := 0.5 + rand.Float64()*0.5
+	return time.Duration(float64(dur) * jitterFrac)
+}
 
 // Agent runs an independent worker process communicating strictly over HTTP.
 type Agent struct {
@@ -67,7 +88,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	}()
 
 	// 3. Work polling loop
-	pollBackoff := 200 * time.Millisecond
+	consecutiveFailures := 0
+	baseBackoff := 200 * time.Millisecond
+	maxBackoff := 3 * time.Second
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -77,16 +101,29 @@ func (a *Agent) Run(ctx context.Context) error {
 			assignment, err := a.pollWork(ctx)
 			if err != nil {
 				if errors.Is(err, domain.ErrWorkerUnhealthy) {
+					consecutiveFailures = 0
 					slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
-				} else if !errors.Is(err, domain.ErrNoQueuedJobs) {
-					slog.Warn("work poll error", "err", err)
+					time.Sleep(baseBackoff)
+				} else if errors.Is(err, domain.ErrNoQueuedJobs) {
+					consecutiveFailures = 0
+					time.Sleep(baseBackoff)
+				} else if errors.Is(err, ErrServiceUnavailable) {
+					consecutiveFailures++
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
+					time.Sleep(backoff)
+				} else {
+					consecutiveFailures++
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					slog.Warn("work poll error", "err", err, "backoff", backoff)
+					time.Sleep(backoff)
 				}
-				time.Sleep(pollBackoff)
 				continue
 			}
 
+			consecutiveFailures = 0
 			if assignment == nil {
-				time.Sleep(pollBackoff)
+				time.Sleep(baseBackoff)
 				continue
 			}
 
@@ -158,6 +195,10 @@ func (a *Agent) sendHeartbeat(ctx context.Context) error {
 		return nil
 	}
 
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("heartbeat failed with server error %d: %w", resp.StatusCode, ErrServiceUnavailable)
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("heartbeat returned status %d", resp.StatusCode)
 	}
@@ -198,8 +239,14 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 			if errEnvelope.Error.Code == "WORKER_UNHEALTHY" {
 				return nil, domain.ErrWorkerUnhealthy
 			}
+			if errEnvelope.Error.Code == "SERVICE_UNAVAILABLE" {
+				return nil, ErrServiceUnavailable
+			}
 		}
 		return nil, domain.ErrNoWorkersAvailable
+	}
+	if resp.StatusCode >= 500 {
+		return nil, ErrServiceUnavailable
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("poll returned HTTP %d", resp.StatusCode)
@@ -272,26 +319,44 @@ func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.Wo
 		errSummary = err.Error()
 	}
 
-	status, reportErr := a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
-	if reportErr == nil {
-		slog.Info("result successfully committed",
-			"job_id", assignment.JobID,
-			"attempt_id", assignment.AttemptID,
-			"exit_code", exitCode,
-		)
-	} else if IsNonRetryableReportError(status) {
-		slog.Warn("coordinator permanently rejected result (non-retryable)",
+	var status int
+	var reportErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+		if reportErr == nil {
+			slog.Info("result successfully committed",
+				"job_id", assignment.JobID,
+				"attempt_id", assignment.AttemptID,
+				"exit_code", exitCode,
+			)
+			return
+		}
+		if IsNonRetryableReportError(status) {
+			slog.Warn("coordinator permanently rejected result (non-retryable)",
+				"job_id", assignment.JobID,
+				"attempt_id", assignment.AttemptID,
+				"status", status,
+				"err", reportErr,
+			)
+			return
+		}
+		slog.Warn("transient error reporting result to coordinator, retrying",
 			"job_id", assignment.JobID,
 			"attempt_id", assignment.AttemptID,
 			"status", status,
 			"err", reportErr,
+			"attempt", attempt+1,
 		)
-	} else {
-		slog.Error("transient error reporting result to coordinator",
-			"job_id", assignment.JobID,
-			"attempt_id", assignment.AttemptID,
-			"status", status,
-			"err", reportErr,
-		)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(100*(1<<attempt)) * time.Millisecond):
+		}
 	}
+	slog.Error("failed to report result after retries",
+		"job_id", assignment.JobID,
+		"attempt_id", assignment.AttemptID,
+		"status", status,
+		"err", reportErr,
+	)
 }

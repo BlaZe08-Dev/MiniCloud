@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -34,11 +37,74 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Initialize core components
-	repo := storage.NewInMemoryRepository()
+	// 3. Initialize storage and core components
+	var (
+		repo storage.Repository
+		pool *pgxpool.Pool
+	)
+
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
-	svc := coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
+	var svc *coordinator.Service
+
+	if cfg.StorageDriver == "postgres" {
+		bootCtx, bootCancel := context.WithTimeout(context.Background(), cfg.DBQueryTimeout)
+		defer bootCancel()
+
+		poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+		if err != nil {
+			slog.Error("failed to parse database configuration", "err", err)
+			os.Exit(1)
+		}
+		poolCfg.MaxConns = int32(cfg.DBMaxConns)
+		poolCfg.MinConns = int32(cfg.DBMinConns)
+		if cfg.DBQueryTimeout > 0 {
+			if poolCfg.ConnConfig.RuntimeParams == nil {
+				poolCfg.ConnConfig.RuntimeParams = make(map[string]string)
+			}
+			ms := strconv.Itoa(int(cfg.DBQueryTimeout.Milliseconds()))
+			poolCfg.ConnConfig.RuntimeParams["statement_timeout"] = ms
+			poolCfg.ConnConfig.RuntimeParams["lock_timeout"] = ms
+		}
+
+		pool, err = pgxpool.NewWithConfig(bootCtx, poolCfg)
+		if err != nil {
+			slog.Error("failed to connect to postgres pool", "err", err)
+			os.Exit(1)
+		}
+
+		if err := pool.Ping(bootCtx); err != nil {
+			slog.Error("failed to ping postgres database", "err", err)
+			os.Exit(1)
+		}
+
+		// Enforce schema version check on boot
+		mig := postgres.NewMigrator()
+		requiredVer, err := mig.LatestEmbeddedVersion()
+		if err != nil {
+			slog.Error("failed to inspect embedded migrations", "err", err)
+			os.Exit(1)
+		}
+
+		currentVer, err := postgres.CurrentSchemaVersion(bootCtx, pool)
+		if err != nil {
+			slog.Error("failed to query database schema version", "err", err)
+			os.Exit(1)
+		}
+		if currentVer < requiredVer {
+			slog.Error("database schema is behind required version", "current", currentVer, "required", requiredVer)
+			os.Exit(1)
+		}
+
+		slog.Info("connected to postgres storage", "schema_version", currentVer, "max_conns", cfg.DBMaxConns)
+		repo = postgres.NewRepository(pool)
+		svc = coordinator.NewPostgresService(repo, sched, reg, cfg.WorkerTimeout)
+	} else {
+		slog.Info("using in-memory storage driver")
+		repo = storage.NewInMemoryRepository()
+		svc = coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
+	}
+
 	server := api.NewServer(cfg.HTTPAddr, svc)
 
 	// Start reaper loop
@@ -67,6 +133,10 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("error during server shutdown", "err", err)
 		os.Exit(1)
+	}
+
+	if pool != nil {
+		pool.Close()
 	}
 
 	slog.Info("coordinator stopped cleanly")
