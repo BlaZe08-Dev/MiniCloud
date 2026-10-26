@@ -499,7 +499,8 @@ func CheckRuleC(fsys fs.FS, allowlist Allowlist) []Violation {
 				continue
 			}
 
-			lowerLine := strings.ToLower(line)
+			lineWithoutTests := testIdentRe.ReplaceAllString(line, "")
+			lowerLine := strings.ToLower(lineWithoutTests)
 			exempt := false
 			for _, ew := range exemptWords {
 				if strings.Contains(lowerLine, ew) {
