@@ -2,24 +2,24 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `docs/phase4-design`
-- **Current Milestone:** Phase 4 Design Specification — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e).
+- **Current Milestone:** Phase 4 Design Specification Revision — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e revised with Owner Decisions Accepted).
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
-- **Phase 4 — Coordination, Leases, Retries & Cancellation Design Specification (`docs/phase4-design`):**
-  - **ADR 0014 Proposed:** [ADR 0014: Attempt Lease Model, Renewal Protocol, and Expiry Sweeper](adr/0014-lease-model-and-expiry.md) establishing database-clock authority (`lease_expires_at`), dedicated renewal endpoint (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`), 30s lease / 10s renewal / 5s sweeper cadence, deadlock-free sweeper row locking, and rejection of stale results committed after lease expiry (recorded as diagnostic events in `job_events`, never accepted into `results`).
-  - **ADR 0015 Proposed:** [ADR 0015: Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery](adr/0015-retry-policy-and-failure-classification.md) establishing bounded retries via `max_attempts` ($1..20$, default 3), 3-tier failure classification taxonomy (task exit code, worker execution fault, coordinator/lease failure), exponential backoff with full jitter stored in `jobs.not_before`, autonomous requeue via pull dispatch query, poison-job protection, and strict preservation of monotonic `attempt_no` and partial unique index `idx_attempts_active_per_job`.
-  - **ADR 0016 Proposed:** [ADR 0016: Job Cancellation Semantics, Cooperative Worker Termination, and Race Resolution](adr/0016-cancellation-semantics.md) establishing immediate cancellation for `QUEUED` jobs, two-phase cooperative cancellation for `RUNNING` jobs (`CANCEL_REQUESTED`), piggybacked delivery to workers via lease renewal responses and heartbeats, cooperative in-process context cancellation, exhaustive race resolution (completion vs cancel, lease expiry vs cancel, retry vs cancel, duplicate cancel), and API response contract.
-  - **State Machine Specification (`docs/state-machine.md`):** Updated lifecycle documentation with complete Phase 4 job/attempt transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING/QUEUED`), mapping to existing code, and new audit event vocabulary for `job_events` (`lease_renewed`, `lease_expired`, `job_retrying`, `job_cancel_requested`, `diagnostic_late_result`).
-  - **Protocol Specification (`docs/protocol.md`):** Added Section 6 (PROPOSED) defining additive `/v1` endpoints and extensions: dedicated lease renewal endpoint, heartbeat response `cancelled_job_ids`, poll assignment `lease_expires_at`, report result `error_classification`, new typed errors (`LEASE_EXPIRED`, `ATTEMPT_NOT_RUNNING`), and forward/backward compatibility matrix.
-  - **Database Schema Specification (`docs/schema.md`):** Added Section 5 (PROPOSED) outlining Migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `attempts.last_error`, `jobs.not_before`, `jobs.cancel_requested_at`, partial indexes for sweeper and retry dispatch, and check constraints validated via `NOT VALID` then `VALIDATE CONSTRAINT`.
-  - **Failure Model Specification (`docs/failure-model.md`):** Updated failure recovery semantics for Phase 4 covering dead-worker lease reclamation, stale attempt rejection, and cancellation race handling.
-  - **Fault Injection & Property Test Plan (`docs/fault-injection-plan.md`):** Specified comprehensive fault injection test plan mapping all 10 blueprint fault scenarios (FS-01 through FS-10) to concrete planned tests, expected outcomes, evidence collected, and autonomous recovery modes; specified model-based property test harness comparing a reference state machine model against real repositories with injectable clocks.
-  - **Security Threat Model & Test Plan:** Added Section 4 Phase 4 Threat Model Addendum in `docs/security/threat-model.md` analyzing forged/replayed renewals, renewal floods, retry storms, cancel abuse, clock assumptions, and unauthenticated endpoints; updated `docs/security/test-plan.md` with Section 1.4 Phase 4 adversarial test entries.
-  - **Phase 4 Execution Plan (`docs/phase4-plan.md`):** Authored phased implementation plan structuring Phase 4 into five reviewable sub-slices (4a domain/in-memory, 4b migration 000004/PostgreSQL, 4c worker renewal/coordinator sweeper, 4d retries/cancellation, 4e fault suite/security review) with scope, exit criteria, gating tests, and risk mitigations.
-  - **Roadmap Updated (`docs/roadmap.md`):** Marked Phase 3 DONE, Phase 4 In Progress (Design Proposed), and detailed sub-slices 4a–4e.
+- **Phase 4 — Coordination, Leases, Retries & Cancellation Design Specification Revision (`docs/phase4-design`):**
+  - **ADR 0014 Accepted Decisions:** [ADR 0014: Attempt Lease Model, Renewal Protocol, and Expiry Sweeper](adr/0014-lease-model-and-expiry.md) updated with owner decisions marked ACCEPTED (lease 30s, renewal 10s, sweeper interval 5s with batch size 50; dedicated renewal endpoint `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew`; no separate attempt-level timeout in V1; no resurrection of expired attempts). Designed dual grace mechanisms: coordinator startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, 30s) and database outage grace window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, 30s), protecting Phase 3 surviving-worker commit guarantees in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`). Adopted Option 2 late-commit semantics (accept-until-swept while `RUNNING` in database; strictly rejected once swept to `LOST`). Specified sweeper correctness re-check under row lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`).
+  - **ADR 0015 Accepted Decisions:** [ADR 0015: Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery](adr/0015-retry-policy-and-failure-classification.md) updated with owner decisions marked ACCEPTED (exponential backoff base 1s, cap 30s, full jitter $[0.5, 1.5]$, default `max_attempts` 3; 3-tier classification with unknown errors = retryable). Clarified that success (exit code 0) is `AttemptCompleted` without error class; validation failures of allowlisted tasks are permanent; `LOST` attempts consume 1 attempt of `max_attempts` budget. Documented and justified direct `RETRYING -> RUNNING` transition via pull dispatch query without intermediate database write to `QUEUED`. Specified in-memory retry parity (`not_before` filter) and shared conformance suite assertions.
+  - **ADR 0016 Accepted Decisions:** [ADR 0016: Job Cancellation Semantics, Cooperative Worker Termination, and Race Resolution](adr/0016-cancellation-semantics.md) updated with owner decisions marked ACCEPTED (single cancellation delivery channel via renewal response; removed `cancelled_job_ids` from heartbeat response; bounded delivery latency 10s; worker aborts task and suppresses result reporting upon receiving lease-lost; no separate `CANCEL_REQUESTED` deadline; cooperative context cancellation in V1). Corrected cancellation baseline: today `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215` transition a duplicate cancel on `CANCEL_REQUESTED` to `CANCELLED`; Phase 4 changes this to an idempotent HTTP 202 no-op. Cited existing test coverage (`CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363`, which only tests duplicate cancel on terminal `QUEUED`) and added `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+  - **State Machine Specification (`docs/state-machine.md`):** Reconciled attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql:97`. Planned rename/mapping of domain constants `AttemptState` in `internal/domain/state.go:22-27` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`). Updated transition matrix with idempotent duplicate cancel no-op and direct `RETRYING -> RUNNING` dispatch.
+  - **Protocol Specification (`docs/protocol.md`):** Updated Section 3.4 (`/v1/jobs/{id}/cancel` returns 200 for QUEUED/RETRYING, 202 for RUNNING and duplicate cancel, 409 for terminal). Section 6.1: renewal response carries `cancel_requested: true` as single delivery channel. Section 6.2: removed `cancelled_job_ids` from heartbeat response. Stated synchronized deployment rule (V1 coordinator and workers deploy together; non-renewing legacy workers unsupported for tasks $>30$s).
+  - **Database Schema Specification (`docs/schema.md`):** Documented canonical attempt states matching migration 000001, detailed sweeper row-locked re-check query, and dual grace periods.
+  - **Failure Model Specification (`docs/failure-model.md`):** Updated failure recovery principles and scenarios FS-02 through FS-11 incorporating startup and outage grace mechanisms, late-commit Option 2 semantics, and single-channel cancellation.
+  - **Fault Injection & Property Test Plan (`docs/fault-injection-plan.md`):** Updated fault test specifications for FS-02 through FS-10 with grace mechanisms, late-commit semantics, cancellation idempotency, and verified Rule C planned test labels.
+  - **Security Threat Model & Test Plan:** Relabeled renewal flood mitigation as designed, not implemented; verified no rate limiting exists in repository (`internal/api/server.go:12-45`, `internal/api/handlers.go:15-80`); documented in-place defenses (state short-circuit, indexed lookup on primary key, statement_timeout) and accepted risk under SEC-004. Updated `docs/security/test-plan.md` with planned test entries and corrected line citation for `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`).
+  - **Phase 4 Execution Plan (`docs/phase4-plan.md`):** Updated sub-slices 4a–4e: Slice 4a starts with the grace design and existing-test impact list (citing `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` and adding `TestConformance_CancelJob_IdempotentCancelRequested` (planned test)); every sub-slice's exit criteria explicitly mandate mutation proofs for any new test control.
+  - **Roadmap Updated (`docs/roadmap.md`):** Updated Section 4 Phase 4 sub-slices with accepted owner decisions, grace design, single cancellation channel, and sweeper re-check.
 - **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
   - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
     - Rule A: Every cited repository path must exist on disk.
@@ -162,45 +162,53 @@
 
 ---
 
-## 4. Proposed Phase 4 Sub-Slices & Exit Criteria (Design Specification)
+## 4. Proposed Phase 4 Sub-Slices & Exit Criteria (Design Specification Revision)
 
 Detailed in [docs/phase4-plan.md](phase4-plan.md):
 
-### Slice 4a: Domain FSM, In-Memory Repository Parity & Conformance Suite
+### Slice 4a: Grace Design, Existing-Test Impact, Domain State Machine & In-Memory Parity
 - **Scope:**
-  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING/QUEUED`), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`).
-  - `InMemoryRepository` parity with injectable `Clock`.
-  - `internal/storage/storagetest` contract tests for leases, stale rejections, retries, and cancellation.
-  - Model-based state machine conformance property tests.
-- **Exit Criteria:** In-memory repository passes all conformance tests; property test generator executes $\ge 1,000$ random event traces without invariant violations; `-race -count=1` clean.
+  - Grace design: 30s coordinator startup grace, 30s database outage grace protecting Phase 3 surviving-worker commit recovery in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`).
+  - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 202. Existing test `CancelJob_QueuedAndRunning` (`internal/storage/storagetest/conformance.go:299-363`) only tested duplicate cancel on terminal `QUEUED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+  - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql:97`. Map domain constants in `internal/domain/state.go:22-27` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, leases, renewals, and sweeper.
+  - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (planned test).
+- **Exit Criteria:** In-memory repository passes expanded shared conformance suite; property test generator executes $\ge 1,000$ random event traces without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency, and retry backoff.
 
-### Slice 4b: Migration 000004 & PostgreSQL Repository Parity
+### Slice 4b: Schema Migration 000004 & PostgreSQL Repository Parity
 - **Scope:**
   - Migration `000004_leases_retries_cancellation.sql (proposed)` with forward-only schema expansion, sweeper index, retry index, check constraints.
-  - PostgreSQL repository methods: `RenewAttemptLease`, `ReapExpiredLeases`, retry-aware `DispatchNextJob`, atomic `CancelJob`.
-  - Deadlock prevention adhering to canonical row lock ordering.
-- **Exit Criteria:** Migration applies idempotently; shared storagetest suite passes 100% against PostgreSQL container; `-race` clean.
+  - PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases`, retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`.
+  - Sweeper correctness: row-locked re-check under lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`).
+  - Late-commit Option 2: accept-until-swept while attempt is `RUNNING` in database; strictly rejected once swept to `LOST`.
+  - Sweeper dual grace windows: 30s startup grace, 30s outage grace.
+- **Exit Criteria:** Migration applies cleanly; PostgreSQL repository passes all shared conformance tests under `-race`; zero deadlocks under concurrent mixed operations stress test (`-race -count=20`). Mandatory mutation proofs for sweeper lock order/re-check condition, startup grace window, and late-commit acceptance.
 
-### Slice 4c: Worker Renewal Loop & Coordinator Expiry Sweeper
+### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
 - **Scope:**
-  - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew`.
-  - Worker autonomous background renewal goroutine (every 10s for 30s lease).
-  - Coordinator background expiry sweeper ticker (every 5s, batch size 50).
-- **Exit Criteria:** Dead-worker attempt reaped to `LOST` within $35\text{s}$; surviving worker renews cleanly; late results strictly rejected (HTTP 409).
+  - Dedicated renewal endpoint `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew`.
+  - Single cancellation delivery channel: renewal response returns `cancel_requested: true`. Removed `cancelled_job_ids` from heartbeat response.
+  - Worker autonomous background renewal goroutine (every 10s for 30s lease). Worker receiving lease loss (403/409) aborts task via context cancellation and suppresses result reporting.
+  - Coordinator background expiry sweeper ticker (every 5s, batch size 50) honoring 30s startup and outage grace.
+  - Renewal flood defense: documented as designed, not implemented; in-place defenses (state short-circuit, indexed lookup, statement_timeout); accepted risk under SEC-004.
+  - Synchronized deployment rule: V1 coordinator and workers deploy together.
+- **Exit Criteria:** Long-running jobs (>30s) maintain continuous renewals; cancellation delivered exclusively via renewal response within 10s; sweeper reclaims abandoned attempts after grace period. Mandatory mutation proofs for renewal cancellation delivery and worker abort on lease lost.
 
-### Slice 4d: Bounded Retries, Failure Classification & Cooperative Cancellation
+### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
 - **Scope:**
-  - 3-tier failure classification; exponential backoff with jitter in `jobs.not_before`.
-  - Requeue via dispatch query; poison-job handling.
-  - Cancellation: immediate for `QUEUED`, two-phase cooperative for `RUNNING` (`CANCEL_REQUESTED`); context cancellation in worker executor.
-- **Exit Criteria:** Retryable failure retries up to `max_attempts`; permanent failure transitions immediately to `FAILED`; cancelled jobs terminate promptly.
+  - 3-tier failure classification: success is `AttemptCompleted` (no error class); allowlisted task validation errors permanent (`ClassPermanent`); worker abnormal terminations; unknown errors retryable (`ClassRetryable`).
+  - Exponential backoff with full jitter ($[0.5, 1.5]$), base 1s, cap 30s, default 3 max attempts. `LOST` attempts consume 1 attempt.
+  - Cooperative cancellation: worker receives `cancel_requested: true` via renewal, cancels execution context, preempted executor returns `context.Canceled`, worker commits with cancel status.
+  - Exhaustive race resolution (cancel vs completion, cancel vs lease expiry, duplicate cancels).
+- **Exit Criteria:** Transient failures retry up to `max_attempts` with backoff; permanent failures fail immediately; cancelled jobs preempt running workers within 10s; zero jobs stranded in `CANCEL_REQUESTED`. Mandatory mutation proofs for failure classification and jitter distribution.
 
-### Slice 4e: Fault Injection Suite, Property Tests & Security Hardening
+### Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review
 - **Scope:**
   - Automated fault injection suite covering all 10 blueprint scenarios (FS-01 through FS-10).
-  - Model-based property tests against real storage backends.
-  - Adversarial security test suite (renewal forgery, renewal floods, retry storms, cancellation abuse, clock skew).
-- **Exit Criteria:** All 10 fault scenarios verified; zero invariant violations across 10,000 property test transitions; `make test-race` and `make test-docs` 100% clean.
+  - Model-based property tests against real storage backends ($\ge 1,000$ iterations).
+  - Formal security review per ADR-0012: SEC-004 accepted risks, renewal flood boundaries, late result isolation.
+- **Exit Criteria:** All 10 fault scenarios verified with concrete logs; zero invariant violations across property test transitions; full test suite passes `-race -count=1`; Phase 4 security gate certified before release tagging. Mandatory mutation proofs for stale attempt rejection and sweeper lock ordering.
 
 ---
 
@@ -236,7 +244,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-020 (Low, Confirmed, Remediated by Tooling):** Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). Tested in `TestCitations` (`tests/docs/citations_test.go:695`) and `TestFixtures` (`tests/docs/citations_test.go:754`).
   - **SEC-021 (Informational, Confirmed by owner mutation; remediated for unrelated names; residual limitation documented):** Rule C's exemption keywords initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses with identifier token stripping. Verified across four executed mutation cases (separate sentence fails, semicolon clause fails, separate table cell fails, same clause passes). Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. Genuine future tests in use: `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), `TestWorker_ExcessiveTimeoutClamped` (future test). Tested in `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
 - **Open Security Findings (Not Authorized Yet / In Backlog):**
-  - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`).
+  - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`). Phase 4 renewal flood mitigation is designed (token auth, per-attempt state short-circuit, indexed lookup on primary key, statement_timeout) but unauthenticated endpoints and missing application-level rate limiting are accepted risks under SEC-004 for V1.
   - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`).
   - **SEC-010 (Low, Open):** Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). Bypassed in production PostgreSQL mode.
   - **SEC-012 (Informational, Open):** Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-270`).
@@ -254,15 +262,15 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 $ go version
 go version go1.22.2 linux/amd64
 
-$ gofmt -s -w .
-(clean exit, code 0)
+$ gofmt -l .
+(clean exit, code 0, empty output)
 
 $ go vet ./...
-(clean exit, code 0)
+(clean exit, code 0, empty output)
 
 $ make test-docs
 go test ./tests/docs
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.287s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.354s
 
 $ go test -race -count=1 ./...
 ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.055s
@@ -279,5 +287,8 @@ ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.544s
 ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.044s
 ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.937s
 ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.611s
+
+$ go test -v -count=1 ./...
+PASS: 77, SKIP: 26, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
 ```
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*
