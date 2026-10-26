@@ -111,3 +111,19 @@ The following items were identified during static inspection of the codebase. It
     - Worker `SupportedTasks` array length is bounded to $\le 16$ items (empty array permitted), individual task names validated to `^[a-zA-Z0-9_-]+$` with length 1..64 chars, and unknown well-formed tasks accepted for rolling upgrades. Backed by PostgreSQL `chk_workers_supported_tasks_count`.
     - Verified by `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), and `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
+---
+
+## 4. Phase 4 Threat Model Addendum (Leases, Retries, and Cancellation)
+
+Phase 4 expands the control plane attack surface with attempt lease renewal endpoints, automated retry scheduling, and cooperative cancellation workflows:
+
+| Threat Vector | Asset at Risk | Attack Scenario | Mitigation in Phase 4 Architecture | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Forged or Replayed Lease Renewals** | Task ownership, Lease validity | Malicious actor guesses or replays an expired `lease_token` to extend execution of an illegitimate attempt. | Tokens carry $\ge 256$ bits of entropy from `crypto/rand` (`domain.NewLeaseToken`). Only SHA-256 digests (`lease_token_hash`) are stored durably. Renewals verify tokens in constant time (`subtle.ConstantTimeCompare`) against active attempt state. Expired attempts fail with HTTP 409. | designed-not-executed |
+| **Renewal Floods (Coordinator / DB DoS)** | Coordinator availability, DB connection pool | Rogue worker spams `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` at high frequency, starving database connections. | Worker client enforces a fixed renewal ticker ($1/3$ lease duration, 10s). Coordinator enforces pooled `statement_timeout` and `lock_timeout` (5s). Inactive or unknown attempts reject fast before acquiring heavy locks. Rate limiting planned for multi-machine V3. | designed-not-executed |
+| **Retry Storms & Thundering Herds** | Cluster worker capacity, DB throughput | Systemic outage or poison job causes mass concurrent retries across thousands of jobs, crashing the database. | Exponential backoff with full jitter ($[0.5, 1.5]$) decorrelates retry dispatch. `jobs.not_before` prevents premature pull dispatch in SQL. Bounded `max_attempts` ($1..20$) ensures permanent failure after budget exhaustion. | designed-not-executed |
+| **Cancellation Race Exploitation & Abuse** | State integrity, Job lifecycle consistency | Attacker repeatedly hammers `/cancel` during active commit or completion to trigger deadlock or invalid state transitions. | Central FSM validates all transitions. Atomic row locks on `jobs` serialize cancel vs completion. Duplicate cancels on `CANCEL_REQUESTED` return idempotent 200 OK; terminal cancels return HTTP 409 `JOB_ALREADY_TERMINAL`. Cooperative context cancellation cleans up safely. | designed-not-executed |
+| **Worker Clock Skew Manipulation** | Lease duration, Failure detection | Attacker deliberately manipulates worker system time forward or backward to forge lease validity or delay timeouts. | Worker clocks are completely untrusted. All lease deadlines, renewals, and expiration checks evaluate strictly against PostgreSQL `clock_timestamp()` (or coordinator `Clock.Now()`). | designed-not-executed |
+| **Unauthenticated API & Renewal Endpoints (SEC-004)** | Entire platform | Anyone reaching HTTP port can renew, cancel, or report attempts. | Accepted risk in V1. Mitigated by binding exclusively to `127.0.0.1:8080`. Full mutual TLS (mTLS) and token authentication are staged for V3 (ADR-0004). | accepted risk |
+
+
