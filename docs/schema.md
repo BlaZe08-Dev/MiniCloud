@@ -274,8 +274,8 @@ CREATE INDEX idx_job_events_type
 
 | Invariant | Implementation in Schema | Violation Behavior |
 |---|---|---|
-| **At most one active attempt per job** | `CREATE UNIQUE INDEX idx_attempts_active_per_job ON attempts (job_id) WHERE state = 'RUNNING';` | Database rejects concurrent dispatch with `SQLSTATE 23505` (unique constraint violation). |
-| **No Capacity Counter Drift** | `worker_capacity` view deriving `available_slots = total_slots - count(attempts WHERE state = 'RUNNING')`. | Capacity is physically derived from active attempts; zero counter drift across restarts or crashes. |
+| **At most one active attempt per job** | `CREATE UNIQUE INDEX idx_attempts_active_per_job ON attempts (job_id) WHERE state IN ('PENDING', 'RUNNING');` | Database rejects concurrent dispatch with `SQLSTATE 23505` (unique constraint violation). |
+| **No Capacity Counter Drift** | `worker_capacity` view deriving `available_slots = total_slots - count(attempts WHERE state IN ('PENDING', 'RUNNING'))`. | Capacity is physically derived from active attempts; zero counter drift across restarts or crashes. |
 | **Exactly one committed result per job** | `PRIMARY KEY (job_id)` on `results` table with foreign key to `jobs(id)`. | Stale or duplicate commits fail immediately at the database layer. |
 | **Monotonically unique attempt numbers** | `CONSTRAINT uq_attempts_job_attempt_no UNIQUE (job_id, attempt_no)`. | Attempt numbers for a job can never duplicate or collide. |
 | **Bounded Payload (64 KiB)** | `CHECK (octet_length(payload) <= 65536)`. | Rejects oversized payloads at SQL insert time. |
@@ -283,3 +283,57 @@ CREATE INDEX idx_job_events_type
 | **Bounded Error Summary (10 KiB)** | `CHECK (octet_length(error) <= 10240)`. | Prevents massive stack traces or core dumps from ballooning database size. |
 | **Database-Authoritative Timestamps** | `CURRENT_TIMESTAMP` for transaction boundaries; `clock_timestamp()` for event sequencing. | Eliminates worker/coordinator clock skew vulnerability. |
 | **Token Privacy** | `lease_token_hash CHAR(64)` storing SHA-256 digest. | Database dumps never reveal live bearer credentials. |
+
+---
+
+## 5. PROPOSED Phase 4 Migration Outline (`000004_leases_retries_cancellation.sql`)
+
+*Status: PROPOSED (Design only; no SQL migration files created until Slice 4b)*
+
+To support attempt leases, retry backoff scheduling, structured failure classification, and cooperative cancellation without downtime, Migration 000004 is planned with forward-only schema enhancements:
+
+```sql
+-- Step 1: Add lease_expires_at to attempts
+-- Added with a safe default for existing historical rows, then constraint tightened.
+ALTER TABLE attempts 
+    ADD COLUMN lease_expires_at TIMESTAMPTZ NOT NULL 
+    DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+
+-- Step 2: Add failure classification and error tracking to attempts
+ALTER TABLE attempts 
+    ADD COLUMN error_class VARCHAR(32),
+    ADD COLUMN last_error TEXT;
+
+-- Enforce check constraints with NOT VALID then VALIDATE to avoid exclusive lock contention
+ALTER TABLE attempts 
+    ADD CONSTRAINT chk_attempts_error_class 
+    CHECK (error_class IS NULL OR error_class IN ('PERMANENT', 'RETRYABLE', 'UNKNOWN')) 
+    NOT VALID;
+ALTER TABLE attempts VALIDATE CONSTRAINT chk_attempts_error_class;
+
+ALTER TABLE attempts 
+    ADD CONSTRAINT chk_attempts_last_error_size 
+    CHECK (last_error IS NULL OR octet_length(last_error) <= 10240) 
+    NOT VALID;
+ALTER TABLE attempts VALIDATE CONSTRAINT chk_attempts_last_error_size;
+
+-- Step 3: Add retry backoff and cancellation tracking to jobs
+ALTER TABLE jobs 
+    ADD COLUMN not_before TIMESTAMPTZ,
+    ADD COLUMN cancel_requested_at TIMESTAMPTZ;
+
+-- Step 4: Index for high-performance coordinator lease expiry sweeper
+CREATE INDEX idx_attempts_lease_expiry 
+    ON attempts (lease_expires_at ASC) 
+    WHERE state = 'RUNNING';
+
+-- Step 5: Index for retry-eligible job dispatch
+CREATE INDEX idx_jobs_retrying_dispatch 
+    ON jobs (not_before ASC, created_at ASC) 
+    WHERE state = 'RETRYING';
+```
+
+### Operational Invariants & Rollback Policy
+- **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
+- **Zero Lock Contention**: Constraint addition uses `NOT VALID` followed by `VALIDATE CONSTRAINT` ensuring table rewrites and exclusive table locks are avoided during coordinator execution (ADR-0013).
+
