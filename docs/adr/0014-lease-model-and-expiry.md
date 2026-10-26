@@ -1,7 +1,18 @@
 # ADR 0014: Attempt Lease Model, Renewal Protocol, and Expiry Sweeper
 
 ## Status
-PROPOSED (Owner Approval Pending)
+Accepted by Owner (2026-10-26)
+- **Accepted Owner Decisions**:
+  - Lease duration 30 s, renewal interval 10 s, sweeper interval 5 s with batch size 50.
+  - Dedicated renewal endpoint `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew`.
+  - Single cancellation delivery channel via renewal response (`cancel_requested: true`).
+  - No separate attempt-level timeout in V1 (job `timeout_seconds` bounds overall job runtime; leases bound execution intervals).
+  - V1 relies on cooperative context cancellation; hard process kill is deferred to V3 Docker isolation (ADR-0005).
+  - No separate `CANCEL_REQUESTED` deadline (the lease bounds it).
+  - No resurrection of expired attempts (`LOST` / `TIMED_OUT` is terminal; late results strictly rejected and recorded as diagnostic audit events).
+  - Sweeper re-check under row lock (`attempts` state and lease expiration re-verified under `FOR UPDATE`).
+  - Coordinator startup grace period and database outage grace window (30 s grace) protecting Phase 3 surviving-worker commit guarantees.
+- **Proposed (Implementation Details)**: Sub-slices 4a–4e implementation details remain proposed until merged.
 
 ## Context
 In MiniCloud V1 Phase 3, jobs persist durably in PostgreSQL and workers pull work via atomic database transactions (`repo.DispatchNextJob`, ADR-0011 Option A, ADR-0013). However, Phase 3 explicitly deferred in-flight failure handling:
@@ -33,25 +44,30 @@ Blueprint Sections 4, 5, 6, and 10 mandate that:
   ```
 - **Clock Skew Immunity**: Worker system clocks are completely untrusted. All comparisons, renewals, and expirations evaluate against `clock_timestamp()` (PostgreSQL) or `Clock.Now()` (`InMemoryRepository`).
 
-### 2. Lease Timing Ratios & Durations
+### 2. Lease Timing Ratios, Durations, and Bounded Execution
 MiniCloud enforces explicit timing hierarchies across worker health, leases, and task execution:
 - **Worker Heartbeat Interval**: Default 2 seconds (`MINICLOUD_HEARTBEAT_INTERVAL`).
 - **Worker Liveness Timeout**: Default 10 seconds ($5 \times \text{heartbeat interval}$, `MINICLOUD_WORKER_TIMEOUT`).
-- **Attempt Lease Duration**: Default **30 seconds** (`MINICLOUD_DEFAULT_LEASE_DURATION`).
-- **Worker Renewal Interval**: Default **10 seconds** ($1/3$ of lease duration). A healthy worker attempts renewal at $t = 10\text{s}$ and $t = 20\text{s}$, tolerating up to two consecutive transient network failures before the 30-second lease lapses.
+- **Attempt Lease Duration**: Default **30 seconds** (`MINICLOUD_DEFAULT_LEASE_DURATION`). (Accepted by owner).
+- **Worker Renewal Interval**: Default **10 seconds** ($1/3$ of lease duration). A healthy worker attempts renewal at $t = 10\text{s}$ and $t = 20\text{s}$, tolerating up to two consecutive transient network failures before the 30-second lease lapses. (Accepted by owner).
+- **Coordinator Sweeper Cadence**: Ticker interval **5 seconds**, batch size **50** attempts per sweep (`MINICLOUD_SWEEPER_INTERVAL`, `MINICLOUD_SWEEPER_BATCH_SIZE`). (Accepted by owner).
+- **No Separate Attempt-Level Timeout in V1**: Task `timeout_seconds` governs maximum execution runtime across the entire job. In V1, there is no separate per-attempt execution timeout; the 30-second lease boundary governs attempt liveness. (Accepted by owner).
+- **Cooperative Context Cancellation in V1**: Execution termination in V1 relies on cooperative Go context cancellation (`context.Context`). Hard process killing is deferred to V3 Docker container execution isolation (ADR-0005). (Accepted by owner).
 - **Relationship to `timeout_seconds`**: Task `timeout_seconds` governs maximum execution runtime (e.g., 60s, 300s, 86400s). The attempt lease is intentionally decoupled and much shorter (30s). A 1-hour job holds a series of 30-second leases continuously refreshed every 10 seconds. If the worker crashes 5 seconds into execution, the failure is detected and reclaimed within ~35 seconds, rather than waiting 1 hour.
 
-### 3. Worker Renewal Protocol: Dedicated vs Piggyback Analysis
+### 3. Worker Renewal Protocol: Dedicated Endpoint & Single Cancellation Channel
 
-| Dimension | Option 1: Piggyback on Heartbeat (`/heartbeat`) | Option 2: Dedicated Renewal Endpoint (`/renew`) (Recommended) |
+MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol for lease extension and cooperative cancellation delivery:
+
+| Dimension | Option 1: Piggyback on Heartbeat (`/heartbeat`) | Option 2: Dedicated Renewal Endpoint (`/renew`) (Accepted) |
 |---|---|---|
-| **Mechanism** | Worker includes list of active attempt IDs and tokens in `POST /v1/workers/{id}/heartbeat`. | Worker issues `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` for each active execution. |
+| **Mechanism** | Worker includes active attempt IDs and tokens in `POST /v1/workers/{id}/heartbeat`. | Worker issues `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` for each active execution. |
 | **Separation of Concerns** | Conflates node liveness telemetry with task-level attempt ownership. | Strictly decouples node health from task lease contracts. |
-| **Error Granularity** | Partial failures (e.g. 1 attempt expired, 2 valid) require complex response envelopes. | Standard HTTP status codes per attempt: 200 OK, 403 Forbidden, 404 Not Found, 409 Conflict. |
-| **Overhead** | Fewer HTTP requests when concurrency is high ($N$ slots). | $N$ HTTP requests every 10 seconds. In V1 ($1..4$ slots per worker), request overhead is negligible (<0.4 req/sec). |
-| **Failure Isolation** | A malformed or rejected attempt could fail the entire worker heartbeat. | An error on one attempt never compromises worker liveness. |
+| **Error Granularity** | Partial failures require complex batch envelopes. | Standard HTTP status codes per attempt: 200 OK, 403 Forbidden, 404 Not Found, 409 Conflict. |
+| **Overhead** | Fewer HTTP requests at high concurrency. | Negligible in V1 (<0.4 req/sec per worker slot). |
+| **Failure Isolation** | A rejected attempt compromises worker liveness. | An error on one attempt never compromises node liveness. |
 
-**Decision**: MiniCloud adopts **Option 2 (Dedicated Renewal Endpoint)** as the primary authoritative protocol for attempt lease renewal, while preserving `/heartbeat` strictly for worker process liveness.
+**Decision**: MiniCloud adopts **Option 2 (Dedicated Renewal Endpoint)** (Accepted by owner). Heartbeats (`POST /v1/workers/{id}/heartbeat`) remain strictly dedicated to worker node liveness and do not carry renewal tokens or cancelled job arrays.
 
 #### Endpoint Contract: `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew`
 - **Request**:
@@ -75,19 +91,18 @@ MiniCloud enforces explicit timing hierarchies across worker health, leases, and
     "cancel_requested": false
   }
   ```
-- **Cooperative Cancellation Signal**: If `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`) but returns `"cancel_requested": true`. The worker agent inspects this flag and cancels the task's execution context.
-- **Terminal Rejections**:
-  - `403 Forbidden` (`WORKER_MISMATCH`): Permanent; worker immediately aborts execution.
-  - `409 Conflict` (`STALE_ATTEMPT_REJECTED`): Lease has already expired or attempt was superseded; worker aborts execution immediately.
+- **Single Cancellation Channel**: The renewal response is the single channel for delivering cancellation requests to workers. When `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`) and returns `"cancel_requested": true`. The worker agent inspects this flag and triggers cooperative task cancellation via `context.CancelFunc`. Worst-case delivery latency is bounded by exactly one renewal interval (10 seconds default). (Accepted by owner).
+- **Lease-Lost Handling**: If renewal returns HTTP 409 Conflict (`STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 
-### 4. Deadlock-Free Coordinator Lease Sweeper
+### 4. Deadlock-Free Coordinator Lease Sweeper, Re-Check Under Lock, and Grace Periods
+
 The coordinator runs a background lease expiry sweeper (`StartLeaseSweeper`) analogous to the worker reaper loop.
 
 #### Locking Hierarchy
-To prevent deadlocks with concurrent `DispatchNextJob`, `CommitAttempt`, `CancelJob`, and `RenewLease`, the sweeper strictly maintains the canonical lock order defined in ADR-0013:
+To prevent deadlocks with concurrent `DispatchNextJob`, `CommitAttempt`, `CancelJob`, and `RenewAttemptLease`, the sweeper strictly maintains the canonical lock order defined in ADR-0013:
 $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \longrightarrow \text{results} \longrightarrow \text{job\_events}$$
 
-#### Sweeper Algorithm
+#### Sweeper Algorithm & Re-Check Under Lock
 1. **Candidate Scan (Unlocked Read)**:
    ```sql
    SELECT a.id, a.job_id, a.worker_id
@@ -110,35 +125,56 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
      ```sql
      SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
      ```
-   - **Re-verify Under Lock**:
-     - If attempt is no longer `RUNNING` or `lease_expires_at >= clock_timestamp()`, the attempt was concurrently committed or renewed; roll back cleanly.
+   - **RE-CHECK UNDER LOCK (Critical Invariant)**:
+     A concurrent worker renewal (`RenewAttemptLease`) or completion commit (`CommitAttempt`) may have executed between the unlocked candidate scan and the row lock acquisition. Under the row lock, the sweeper evaluates:
+     ```sql
+     -- Verified under exclusive attempt row lock:
+     SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
+     ```
+     If `attempts.state != 'RUNNING'` OR `attempts.lease_expires_at >= clock_timestamp()`, the attempt was concurrently committed or renewed. The sweeper rolls back or skips the candidate cleanly with zero state mutation. (Accepted by owner).
+     - Planned test: `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test).
    - **Transition Attempt**:
      - Update attempt state to `LOST` (or `TIMED_OUT` if cumulative execution exceeded `job.timeout_seconds`).
      - Set `finished_at = clock_timestamp()`, `error = 'lease expired: worker failed to renew'`.
    - **Transition Job**:
      - If `job.state == 'CANCEL_REQUESTED'`, transition job to `CANCELLED`.
-     - Else if `attempt_no < job.max_attempts`, transition job to `RETRYING`, compute exponential backoff with jitter, set `jobs.not_before = clock_timestamp() + backoff`, and requeue.
+     - Else if `attempt_no < job.max_attempts`, transition job to `RETRYING`, compute exponential backoff with full jitter, set `jobs.not_before = clock_timestamp() + backoff`, and allow redelivery.
      - Else (`attempt_no >= job.max_attempts`), transition job to `FAILED` with error `"max attempts exhausted"`.
    - Record `job_events` audit record (`event_type: 'lease_expired'`).
 
-### 5. Stale Attempt Rejection & Diagnostic Auditing
-- **Core Invariant**: A worker resuming after lease expiration is treated as a zombie process.
-- When an expired worker calls `POST /v1/jobs/{id}/attempts/{attempt_id}/result`:
-  1. The transaction locks the job and attempt.
-  2. The attempt state is already `LOST` (or `TIMED_OUT`), not `RUNNING`.
-  3. The commit is rejected with HTTP 409 `STALE_ATTEMPT_REJECTED`.
-  4. The coordinator appends an audit event to `job_events`:
-     ```json
-     {
-       "event_type": "diagnostic_late_result",
-       "details": {
-         "reporting_worker": "worker-1",
-         "attempt_id": "att_01",
-         "reason": "result reported after lease expired"
-       }
-     }
-     ```
-  5. The result is **never** committed to `results` and never alters the job's terminal state.
+#### Restart and Outage Grace Design
+- **The Problem**: Leases expire on database time (`clock_timestamp()`). If a coordinator restarts or the database experiences an outage longer than the lease duration (30s), database time advances. Upon recovery, healthy workers whose tasks were executing normally would find their attempts expired. The sweeper would immediately reap them to `LOST`, requeue the jobs, and cause duplicate execution.
+- **Conflict with Phase 3 Guarantees**: This would break the Phase 3 guarantee that a surviving worker's commit after a coordinator restart is accepted with HTTP 200 COMMITTED, pinned by:
+  - `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`)
+  - `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`)
+- **Grace Mechanism Options Evaluated**:
+  1. *Option A (Startup Grace Period)*: Sweeper delays reaping after coordinator boot.
+  2. *Option B (Outage Grace Window)*: Sweeper suppresses reaping following storage reconnection.
+  3. *Option C (Dynamic Lease Extension in DB)*: Shifting `lease_expires_at` forward by measured downtime.
+- **Accepted Recommendation**: A dual grace period mechanism:
+  1. **Coordinator Startup Grace Period (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30s)**: On coordinator boot or restart, the sweeper suppresses reaping passes until 30 seconds have elapsed. This gives surviving workers a full lease window to reconnect, auto-re-register, and execute at least 3 renewal attempts (renewal interval 10s) or commit completed results before any attempt can be reaped. (Accepted by owner).
+  2. **Database Outage Grace Window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30s)**: When the coordinator detects that the database has recovered from an outage (e.g., `/readyz` probe recovers from HTTP 503 to 200), the sweeper suppresses reaping passes for 30 seconds. (Accepted by owner).
+- **Interaction with Phase 3 Tests**:
+  - In `TestPostgresWiring_CoordinatorRestartRecovery`, Coordinator 1 is killed and Coordinator 2 starts up while a worker executes an 800ms task. With startup grace (30s), Coordinator 2's sweeper does not reap the attempt; the surviving worker commits with HTTP 200 COMMITTED, exactly preserving the Phase 3 contract.
+  - In `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`, the database container is stopped for 1.5s. Outage grace protects the attempt while the worker retries its commit upon database restoration.
+- **Impact on Existing Tests & Owner Approval Candidates**:
+  - Zero existing test assertions are weakened. Existing integration tests run with restarts/outages of 200ms–1.5s, well within the 30s grace window.
+  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse.
+
+### 5. Stale Attempt Rejection & Late Commit Analysis
+
+#### Late Commit Before Sweeper Runs: Option Analysis & Decision
+
+| Dimension | Option 1: Strict Lease Rejection at Commit Time | Option 2: Optimistic Accept-Until-Reaped (Accepted) |
+|---|---|---|
+| **Rule** | `CommitAttempt` rejects if `clock_timestamp() > lease_expires_at`, even if `attempts.state == 'RUNNING'`. | `CommitAttempt` accepts if `attempts.state == 'RUNNING'`, even if `clock_timestamp() > lease_expires_at`, provided sweeper has not reaped it. |
+| **Costs** | Discards valid computational work completed by a slightly slow or delayed worker. | Allows a commit landing in the 0–5s sweeper tick window after lease expiration to finalize the job. |
+| **Effect on Retries** | Sweeper will subsequently reap attempt to `LOST` and trigger an automated retry. | Avoids redundant retry; job completes directly to `SUCCEEDED`. |
+| **Duplicate Execution** | **Increases duplicate execution**: another worker executes the exact same job even though the first worker finished successfully. | **Minimizes duplicate execution**: avoids re-running already completed tasks when no replacement worker has been dispatched. |
+
+**Decision**: MiniCloud adopts **Option 2 (Optimistic Accept-Until-Reaped while `RUNNING`)** (Accepted by owner).
+- **Rationale**: The lease grants exclusive write rights until revoked. If the sweeper has not yet acquired the row lock and marked the attempt `LOST`, no other worker has been assigned to the job. Accepting the successful completion saves cluster resources and prevents unnecessary duplicate execution.
+- **Hard Boundary (No Resurrection)**: Once the sweeper acquires the row lock and transitions the attempt to `LOST` (or `TIMED_OUT`), Option 2 ceases. Any subsequent commit attempt is strictly rejected with HTTP 409 `STALE_ATTEMPT_REJECTED`. The late result is recorded strictly as a `diagnostic_late_result` in `job_events` and is **never** committed to `results`. Expired attempts are never resurrected. (Accepted by owner).
 
 ---
 
@@ -146,15 +182,17 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
 
 ### Positive
 - **Guaranteed Reclamation**: Dead or partitioned workers no longer strand jobs in `RUNNING`.
-- **Mathematical Deadlock Freedom**: Adherence to the strict canonical locking order prevents database deadlocks.
+- **Mathematical Deadlock Freedom**: Adherence to the strict canonical locking order (`jobs -> workers -> attempts -> results -> job_events`) prevents database deadlocks.
 - **Clock Drift Immunity**: Relies 100% on database time (`clock_timestamp()`).
 - **Audit Traceability**: Late results are preserved as diagnostics without corrupting system truth.
+- **Restart & Outage Resilience**: Startup and outage grace periods prevent mass expiration of healthy jobs across coordinator restarts and database blips.
+- **Minimized Duplication**: Accepting unreaped commits while in `RUNNING` avoids duplicate execution while strictly barring resurrection once reaped.
 
 ### Negative / Trade-offs
 - Active workers must maintain a background renewal goroutine while executing tasks.
-- Network partitions between worker and coordinator cause lease expiration even if the worker process is still healthy.
+- Network partitions between worker and coordinator cause lease expiration if the partition exceeds the 30-second lease window plus grace.
 
 ### Invariants Protected
 - Invariant 2: Central State Validation
-- Invariant 3: Stale Attempt Rejection
+- Invariant 3: Stale Attempt Rejection (no resurrection of expired attempts)
 - Invariant 6: Lease Expiry Meaning (coordinator loss of trust, not worker death)
