@@ -29,6 +29,8 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go:130,262`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
 | **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
+| **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
+| **SEC-021** | Informational | Open, Confirmed by Owner Mutation, Remediated (docs/citation-check) | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Owner mutation showed appending `"Verified by TestDoesNotExist_Bar (planned)."` caused `TestDoesNotExist_Bar` (planned) and any other test on that line to pass. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping, ensuring separate clauses do not inherit exemptions. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
 
 ---
 
@@ -244,6 +246,46 @@ For findings of **Medium** severity and above, the full structured report format
   - **Mutation (i)**: Commenting out `time.Sleep(holdDuration)` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
   - **Mutation (ii)**: Setting `holdDuration = 1ms` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
 - **Regression Test**: `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`).
+
+### SEC-020: Documentation Citation Drift and Nonexistent Citations
+- **Finding**: Documentation files (`README.md`, `GEMINI.md`, `CHANGELOG.md`, `docs/**/*.md`) and progress reports accumulated citation drift over time, including absolute file URI schemes (`file:` triple slash), invalid relative paths to migrations (`migrations/` instead of `internal/storage/postgres/migrations/`), legacy API route prefixes (`/api` preceding `/v1`), and fabricated or nonexistent test names.
+- **Severity**: Low
+- **Category**: Documentation Integrity / Tooling
+- **Status**: Confirmed, Remediated by Tooling (`docs/citation-check`).
+- **Affected Component**: Documentation Verification Tooling (`tests/docs/citations_test.go`, `tests/docs/citation_allowlist.txt`, `Makefile: test-docs`).
+- **Evidence**: Static AST-based and regex scanning revealed invalid file URI schemes in `README.md`, incorrect migration directory path in `docs/adr/0010-migrations-policy.md`, and 7 historical nonexistent test/path citations in `docs/security/findings.md`.
+- **Root Cause**: Manual maintenance of documentation without automated test verification of repository paths, test identifiers, line anchors, ADR sequences, and API routes.
+- **Remediation**:
+  1. Standard library test `TestCitations` in `tests/docs/citations_test.go` enforcing Rules A–F:
+     - Rule A: Repository paths must exist on disk.
+     - Rule B: Line number anchors must be within bounds.
+     - Rule C: Test function identifiers must exist in repository test suites parsed via `go/parser`.
+     - Rule D: Forbidden local file URI schemes (`file:` triple slash) and legacy route prefixes (`/api` preceding `/v1`).
+     - Rule E: ADR citations must reference valid ADR numbers with zero gap sequence.
+     - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons ($\ge 15$ chars), and strict non-staleness check.
+  2. Integrated `make test-docs` target into Makefile and developer documentation.
+- **Regression Test**: `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`).
+
+### SEC-021: Whole-Line Exemption Scoping in Documentation Citation Checker (Rule C)
+- **Finding**: In the initial implementation of Rule C (`tests/docs/citations_test.go`), checking for exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) was performed across the entire line. As a result, the presence of an exemption keyword anywhere on a line inadvertently exempted all test identifiers on that line, even fabricated names in unrelated clauses or table cells.
+- **Severity**: Informational
+- **Category**: Test Verification Rigor / Citation Scoping
+- **Status**: Open, Confirmed by Owner Mutation, Remediated (`docs/citation-check`).
+- **Affected Component**: Documentation Citation Checker (`tests/docs/citations_test.go:478-534`)
+- **Evidence (Confirmed by Owner Mutation Run)**:
+  - Appending the line `Verified by TestDoesNotExist_Bar (planned).` (planned) to `docs/security/test-plan.md` in a throwaway worktree caused `go test ./tests/docs` to PASS.
+  - In contrast, the same line without the keyword `(planned)` failed with `[RuleC] cited test "TestDoesNotExist_Bar" does not exist (nonexistent test)`.
+  - Furthermore, having a legitimate future test alongside an unrelated fabricated test on the same line exempted both tests.
+- **Root Cause**: Exemption regex matching was evaluated against the entire line buffer rather than scoping to the specific table cell or sentence clause attached to the identifier.
+- **Remediation**:
+  1. Tightened Rule C exemption scoping in `tests/docs/citations_test.go`:
+     - Lines are segmented into clauses using delimiter regex `[|;]|\. |\.\t|<br\s*/?>`, cleanly isolating markdown table cells and distinct sentences.
+     - Within each clause, test identifier names are stripped (`testIdentRe.ReplaceAllString(clause, "")`) before checking for exemption keywords, preventing test names containing substrings like `Nonexistent` from self-exempting.
+     - An exemption keyword only exempts test names residing in the exact same clause or table cell.
+  2. Added unit test fixtures in `TestFixtures`:
+     - `RuleC_SeparateClause_Fail`: Asserts that `TestFabricated_Foo (nonexistent test); planned feature` in separate clauses fails because `TestFabricated_Foo` does not inherit `planned` across clause boundaries.
+     - `RuleC_ProposedExemption_Pass`: Asserts that `TestLegitimate_Future (planned)` passes when the keyword is in the same clause.
+- **Regression Test**: `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
 
 ---
 
