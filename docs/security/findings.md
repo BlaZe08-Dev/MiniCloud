@@ -28,6 +28,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-016** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `version` string length capped at 64 chars at domain boundary and backed by database constraint `chk_workers_version_length` (`internal/coordinator/service.go:129,259`, migration 000003). Empty version allowed. | `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go:130,262`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
+| **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 
 ---
 
@@ -229,17 +230,34 @@ For findings of **Medium** severity and above, the full structured report format
   3. No test output, test names, or logs may be summarized, retyped, or reconstructed.
   4. Standing rule: Every cited test name must come from `go test -list '.*' ./...` and every cited path must exist in the repository filesystem.
 
+### SEC-019: Weak Positive Control in Pool Saturation Security Test
+- **Finding**: In `TestSecurity_PartD_PoolExhaustion`, the positive control for pool saturation was a weak threshold asserting that at least 10 requests had latency $\ge 0.8 \times \text{holdDuration}$. Adversarial mutation testing revealed that commenting out `time.Sleep(holdDuration)` (releasing the table lock immediately) still passed the test because normal queuing delay of 500 requests contending for 10 connections resulted in >100 requests waiting >320ms even without lock contention.
+- **Severity**: Informational
+- **Category**: Test Quality / Verification Rigor
+- **Status**: Confirmed by mutation, Fixed (Slice 3d).
+- **Affected Component**: Integration Test Suite (`tests/integration/part_d_security_test.go:45`)
+- **Remediation**:
+  Replaced the weak count-based control with dual rigorous controls, both of which must hold:
+  1. **Primary Proof (Database Lock-Wait Sampling)**: A background admin sampler queries `pg_stat_activity` every 25ms during the hold window filtered by the coordinator pool's unique `application_name = coord_pool_<schemaName>`, asserting the maximum number of connections observed with `wait_event_type = 'Lock'` is at least `pool_size - 2` (8 out of 10).
+  2. **Secondary Proof (Relative Latency Margin)**: The test runs 3 baseline 500-request batches without the lock held to calculate the median max latency; the locked run's max latency must exceed the baseline median by at least `0.25 * holdDuration` (with requests pre-spawned on a start barrier and `holdDuration = 800ms`).
+- **Mutation Verification**:
+  - **Mutation (i)**: Commenting out `time.Sleep(holdDuration)` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
+  - **Mutation (ii)**: Setting `holdDuration = 1ms` failed immediately on Primary Control (`observed maximum was 0 lock-waiters, threshold >= 8`).
+- **Regression Test**: `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`).
+
 ---
 
 ## Part D Security Testing Verification Summary
 
 The Part D security verification tests were implemented and executed against PostgreSQL on `milestone/3d-postgres-wiring`:
 
-1. **Genuine Pool Saturation (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:48`)**:
+1. **Genuine Pool Saturation (`TestSecurity_PartD_PoolExhaustion` in `tests/integration/part_d_security_test.go:45`)**:
    - 500 concurrent HTTP requests (167 `POST /v1/jobs`, 167 `GET /readyz`, 166 `GET /v1/jobs/nonexistent`) against a 10-connection pool.
-   - Genuinely saturates pool by holding an `ACCESS EXCLUSIVE` table lock on `jobs` for 400ms (`holdDuration`) in a separate connection.
+   - Genuinely saturates pool by holding an `ACCESS EXCLUSIVE` table lock on `jobs` for 800ms (`holdDuration`) across requests pre-spawned on a start barrier.
    - Asserts bounded latency, zero transport crashes, every response 2xx/4xx or opaque 503 with header `Retry-After: 1`, zero 500s, and immediate recovery (<2ms).
-   - Positive control verified: >=10 requests (495 observed) waited >= 320ms (`holdDuration * 8/10`), proving genuine pool saturation. Max latency: ~1.05s.
+   - Primary proof: Admin sampling of `pg_stat_activity` every 25ms verified 10/10 connections reached `wait_event_type = 'Lock'` (threshold $\ge 8$).
+   - Secondary proof: Locked run max latency exceeded 3-run unlocked baseline median by $\ge 0.25 \times \text{holdDuration}$ (200ms).
+   - Validated by adversarial mutation testing: commenting out `time.Sleep(holdDuration)` and setting `holdDuration = 1ms` both produced definitive test failures. Consistently passes across `-count=5` clean runs.
 2. **Slow Query Context Deadline (`TestSecurity_PartD_SlowQuery_ContextDeadline` in `tests/integration/part_d_security_test.go:260`)**:
    - PostgreSQL lock contention forcing `statement_timeout` under 200ms query deadline.
    - Outcome: PASSED. Returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}`; no hang, no 500.

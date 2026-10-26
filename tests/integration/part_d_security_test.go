@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -55,13 +56,17 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 	coordAddr, _ := getFreePort(t)
 	coordURL := "http://" + coordAddr
 
+	const poolSize = 10
+	coordAppName := fmt.Sprintf("coord_pool_%s", schemaName)
+	coordSchemaURL := fmt.Sprintf("%s&application_name=%s", schemaURL, coordAppName)
+
 	// Start coordinator with pool capped at 10 connections
 	coordCmd := exec.Command(coordBin)
 	coordCmd.Env = append(os.Environ(),
 		"MINICLOUD_HTTP_ADDR="+coordAddr,
 		"MINICLOUD_STORAGE_DRIVER=postgres",
-		"MINICLOUD_DATABASE_URL="+schemaURL,
-		"MINICLOUD_DB_MAX_CONNS=10",
+		"MINICLOUD_DATABASE_URL="+coordSchemaURL,
+		fmt.Sprintf("MINICLOUD_DB_MAX_CONNS=%d", poolSize),
 		"MINICLOUD_DB_MIN_CONNS=2",
 		"MINICLOUD_DB_QUERY_TIMEOUT=2s",
 	)
@@ -97,7 +102,6 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 	}
 
 	const totalRequests = 500
-	var wg sync.WaitGroup
 	type reqResult struct {
 		statusCode int
 		retryAfter string
@@ -105,7 +109,6 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 		body       string
 		err        error
 	}
-	results := make([]reqResult, totalRequests)
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -115,12 +118,115 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 		},
 	}
 
+	runBatch := func() (time.Duration, time.Duration, []reqResult) {
+		results := make([]reqResult, totalRequests)
+		var wg sync.WaitGroup
+		startBarrier := make(chan struct{})
+		for i := 0; i < totalRequests; i++ {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				<-startBarrier
+				reqStart := time.Now()
+
+				var resp *http.Response
+				var err error
+				switch idx % 3 {
+				case 0:
+					payload := fmt.Sprintf(`{"task_type":"echo","payload":{"idx":%d}}`, idx)
+					resp, err = client.Post(coordURL+"/v1/jobs", "application/json", strings.NewReader(payload))
+				case 1:
+					resp, err = client.Get(coordURL + "/readyz")
+				case 2:
+					resp, err = client.Get(fmt.Sprintf("%s/v1/jobs/job_test_%d", coordURL, idx))
+				}
+
+				lat := time.Since(reqStart)
+				if err != nil {
+					results[idx] = reqResult{err: err, latency: lat}
+					return
+				}
+				defer resp.Body.Close()
+
+				bodyBytes, _ := io.ReadAll(resp.Body)
+				results[idx] = reqResult{
+					statusCode: resp.StatusCode,
+					retryAfter: resp.Header.Get("Retry-After"),
+					latency:    lat,
+					body:       string(bodyBytes),
+				}
+			}(i)
+		}
+		start := time.Now()
+		close(startBarrier)
+		wg.Wait()
+		batchDur := time.Since(start)
+		var maxLat time.Duration
+		for _, r := range results {
+			if r.latency > maxLat {
+				maxLat = r.latency
+			}
+		}
+		return batchDur, maxLat, results
+	}
+
+	// Secondary baseline: run 3 batches without lock held and calculate median max latency
+	baselineMaxLatencies := make([]time.Duration, 3)
+	for b := 0; b < 3; b++ {
+		_, maxLat, res := runBatch()
+		baselineMaxLatencies[b] = maxLat
+		for idx, r := range res {
+			if r.err != nil {
+				t.Fatalf("baseline batch %d request %d transport error: %v", b, idx, r.err)
+			}
+			if r.statusCode >= 500 {
+				t.Fatalf("baseline batch %d request %d returned 5xx: %d (body: %s)", b, idx, r.statusCode, r.body)
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	sort.Slice(baselineMaxLatencies, func(i, j int) bool {
+		return baselineMaxLatencies[i] < baselineMaxLatencies[j]
+	})
+	baselineMedian := baselineMaxLatencies[1]
+	t.Logf("Baseline unlocked batches max latencies: %v (median: %v)", baselineMaxLatencies, baselineMedian)
+
+	// Primary proof setup: sample pg_stat_activity every ~25ms during hold window
+	var maxLockWaiters int
+	var lockWaitersMu sync.Mutex
+	stopSampling := make(chan struct{})
+	samplingDone := make(chan struct{})
+
+	go func() {
+		defer close(samplingDone)
+		ticker := time.NewTicker(25 * time.Millisecond)
+		defer ticker.Stop()
+
+		sampleCtx := context.Background()
+		for {
+			select {
+			case <-stopSampling:
+				return
+			case <-ticker.C:
+				var count int
+				err := pool.QueryRow(sampleCtx,
+					"SELECT count(*) FROM pg_stat_activity WHERE application_name = $1 AND wait_event_type = 'Lock'",
+					coordAppName,
+				).Scan(&count)
+				if err == nil {
+					lockWaitersMu.Lock()
+					if count > maxLockWaiters {
+						maxLockWaiters = count
+					}
+					lockWaitersMu.Unlock()
+				}
+			}
+		}
+	}()
+
 	// Genuinely saturate the pool of 10 connections:
-	// Acquire an exclusive table lock on jobs in a separate transaction and hold it for a controlled duration.
-	// When concurrent requests arrive at the coordinator, the first 10 requests touching jobs check out all 10
-	// connections from the pool and block waiting for the lock in PostgreSQL. This 100% saturates the pool.
-	// All remaining requests must queue waiting for a connection from the pool.
-	const holdDuration = 400 * time.Millisecond
+	// Acquire an exclusive table lock on jobs in a separate transaction and hold it for holdDuration.
+	const holdDuration = 800 * time.Millisecond
 	lockAcquired := make(chan struct{})
 	go func() {
 		lockCtx := context.Background()
@@ -154,47 +260,12 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 
 	<-lockAcquired
 
-	startBatch := time.Now()
-	for i := 0; i < totalRequests; i++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			reqStart := time.Now()
+	// Run locked batch
+	batchDuration, maxLatency, results := runBatch()
 
-			var resp *http.Response
-			var err error
-			switch idx % 3 {
-			case 0:
-				// Job submission
-				payload := fmt.Sprintf(`{"task_type":"echo","payload":{"idx":%d}}`, idx)
-				resp, err = client.Post(coordURL+"/v1/jobs", "application/json", strings.NewReader(payload))
-			case 1:
-				// Readiness probe
-				resp, err = client.Get(coordURL + "/readyz")
-			case 2:
-				// Non-existent job query
-				resp, err = client.Get(fmt.Sprintf("%s/v1/jobs/job_test_%d", coordURL, idx))
-			}
+	close(stopSampling)
+	<-samplingDone
 
-			lat := time.Since(reqStart)
-			if err != nil {
-				results[idx] = reqResult{err: err, latency: lat}
-				return
-			}
-			defer resp.Body.Close()
-
-			bodyBytes, _ := io.ReadAll(resp.Body)
-			results[idx] = reqResult{
-				statusCode: resp.StatusCode,
-				retryAfter: resp.Header.Get("Retry-After"),
-				latency:    lat,
-				body:       string(bodyBytes),
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	batchDuration := time.Since(startBatch)
 	t.Logf("Pool exhaustion batch completed: 500 requests across 10 conns in %v", batchDuration)
 
 	// Invariant 1: Coordinator process stayed alive throughout the burst
@@ -209,19 +280,11 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 
 	// Invariant 3: Every response is 2xx, 4xx, or opaque 503 SERVICE_UNAVAILABLE; NO 500s or hangs
 	statusCounts := make(map[int]int)
-	var maxLatency time.Duration
-	var waitedNearHold int
 	for i, r := range results {
 		if r.err != nil {
 			t.Fatalf("request %d encountered transport error: %v", i, r.err)
 		}
 		statusCounts[r.statusCode]++
-		if r.latency > maxLatency {
-			maxLatency = r.latency
-		}
-		if r.latency >= holdDuration*8/10 {
-			waitedNearHold++
-		}
 
 		switch {
 		case r.statusCode >= 200 && r.statusCode < 300:
@@ -248,12 +311,25 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 		}
 	}
 
-	// Positive control: verify that pool saturation occurred (requests waited about the hold time)
-	if waitedNearHold < 10 {
-		t.Fatalf("POSITIVE CONTROL FAILED: pool was not saturated; expected at least 10 requests to wait near hold time (%v), but only %d did (max latency: %v)", holdDuration, waitedNearHold, maxLatency)
-	}
-	t.Logf("Positive control verified: %d requests waited >= %v (holdDuration=%v, maxLatency=%v)", waitedNearHold, holdDuration*8/10, holdDuration, maxLatency)
 	t.Logf("Observed status distribution: %v, max latency: %v", statusCounts, maxLatency)
+
+	// Primary proof: assert the maximum number of connections with wait_event_type = 'Lock' observed is at least pool_size - 2
+	lockWaitersMu.Lock()
+	observedMaxLockWaiters := maxLockWaiters
+	lockWaitersMu.Unlock()
+	t.Logf("Primary proof: maximum lock-waiting connections observed: %d (threshold >= %d)", observedMaxLockWaiters, poolSize-2)
+	if observedMaxLockWaiters < poolSize-2 {
+		t.Fatalf("PRIMARY CONTROL FAILED: pool was not genuinely saturated by lock-waiters; expected at least %d connections with wait_event_type = 'Lock', observed maximum was %d", poolSize-2, observedMaxLockWaiters)
+	}
+
+	// Secondary proof: locked run's max latency must exceed baseline median by at least 0.25 x holdDuration
+	margin := maxLatency - baselineMedian
+	minRequiredMargin := time.Duration(float64(holdDuration) * 0.25)
+	t.Logf("Secondary proof: baseline median=%v, locked max=%v, margin=%v (required >= %v)", baselineMedian, maxLatency, margin, minRequiredMargin)
+	if margin < minRequiredMargin {
+		t.Fatalf("SECONDARY CONTROL FAILED: locked max latency (%v) did not exceed baseline median (%v) by at least 0.25 x holdDuration (%v); margin was %v",
+			maxLatency, baselineMedian, minRequiredMargin, margin)
+	}
 
 	// Invariant 4: System recovers immediately afterwards
 	recStart := time.Now()
@@ -272,8 +348,6 @@ func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
 		t.Fatalf("system did not recover quickly: recovery request took %v (>500ms)", recLatency)
 	}
 	t.Logf("System recovered cleanly: /readyz returned 200 OK in %v", recLatency)
-
-	_ = pool
 }
 
 // TestSecurity_PartD_SlowQuery_ContextDeadline verifies Part D (b):
