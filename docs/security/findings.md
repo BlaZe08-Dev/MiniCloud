@@ -30,7 +30,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
 | **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
-| **SEC-021** | Informational | Open, Confirmed by Owner Mutation, Remediated (docs/citation-check) | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Owner mutation showed appending `"Verified by TestDoesNotExist_Bar (planned)."` caused `TestDoesNotExist_Bar` (planned) and any other test on that line to pass. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping, ensuring separate clauses do not inherit exemptions. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
+| **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
 
 ---
 
@@ -270,12 +270,14 @@ For findings of **Medium** severity and above, the full structured report format
 - **Finding**: In the initial implementation of Rule C (`tests/docs/citations_test.go`), checking for exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) was performed across the entire line. As a result, the presence of an exemption keyword anywhere on a line inadvertently exempted all test identifiers on that line, even fabricated names in unrelated clauses or table cells.
 - **Severity**: Informational
 - **Category**: Test Verification Rigor / Citation Scoping
-- **Status**: Open, Confirmed by Owner Mutation, Remediated (`docs/citation-check`).
+- **Status**: Confirmed by owner mutation; remediated for unrelated names; residual limitation documented
 - **Affected Component**: Documentation Citation Checker (`tests/docs/citations_test.go:478-534`)
-- **Evidence (Confirmed by Owner Mutation Run)**:
-  - Appending the line `Verified by TestDoesNotExist_Bar (planned).` (planned) to `docs/security/test-plan.md` in a throwaway worktree caused `go test ./tests/docs` to PASS.
-  - In contrast, the same line without the keyword `(planned)` failed with `[RuleC] cited test "TestDoesNotExist_Bar" does not exist (nonexistent test)`.
-  - Furthermore, having a legitimate future test alongside an unrelated fabricated test on the same line exempted both tests.
+- **Evidence (Executed Owner Mutation Suite)**:
+  The owner executed an adversarial mutation suite in a throwaway worktree against `docs/security/test-plan.md:93` testing the tightened clause-scoping behavior across four cases:
+  1. **Separate sentence**: Appending `"Verified by TestFab_One (nonexistent). This is planned."` failed with `[RuleC] cited test "TestFab_One" does not exist`.
+  2. **Semicolon clause**: Appending `"Verified by TestFab_Two (nonexistent); coverage is planned."` failed with `[RuleC] cited test "TestFab_Two" does not exist`.
+  3. **Different table cell**: Appending `"| TestFab_Three (nonexistent) | planned |"` failed with `[RuleC] cited test "TestFab_Three" does not exist`.
+  4. **Same clause / self-labeled**: Appending `"Verified by TestFab_Four (planned)."` passed, confirming that attaching an exemption label to the identifier within the same clause permits it by design.
 - **Root Cause**: Exemption regex matching was evaluated against the entire line buffer rather than scoping to the specific table cell or sentence clause attached to the identifier.
 - **Remediation**:
   1. Tightened Rule C exemption scoping in `tests/docs/citations_test.go`:
@@ -285,6 +287,8 @@ For findings of **Medium** severity and above, the full structured report format
   2. Added unit test fixtures in `TestFixtures`:
      - `RuleC_SeparateClause_Fail`: Asserts that `TestFabricated_Foo (nonexistent test); planned feature` in separate clauses fails because `TestFabricated_Foo` does not inherit `planned` across clause boundaries.
      - `RuleC_ProposedExemption_Pass`: Asserts that `TestLegitimate_Future (planned)` passes when the keyword is in the same clause.
+- **Residual Limitation & Operational Policy**:
+  A fabricated name that carries its own exemption label in the same clause still passes by design, because a label-based static exemption cannot distinguish a real future test from a fabricated one. The exemption is a documentation convention, not a proof of legitimacy; every "planned", "future", or "proposed" test name must be human-reviewed when a milestone slice claims coverage. The three genuine labeled future tests in use today are `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), and `TestWorker_ExcessiveTimeoutClamped` (future test).
 - **Regression Test**: `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
 
 ---
