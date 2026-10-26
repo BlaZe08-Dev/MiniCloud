@@ -12,8 +12,8 @@ MiniCloud development is structured into three major releases. Each version buil
 | **V1** | **Phase 0: Design** | Requirements, state machine, invariants, failure model, protocol. | Design docs reviewed; risks and non-goals explicit. | **DONE** |
 | **V1** | **Phase 1: Local Core** | Go module, CLI/API, allowlisted task types (`echo`, `sleep`, `sha256_loop`), multi-process workers. | End-to-end jobs execute across independent processes; unit & integration tests pass `-race`. | **DONE** |
 | **V1** | **Phase 2: Independent Workers** | Worker failure detection loop, heartbeat reaper, attempt IDs, capacity tracking, dispatch transport queue interface. | Worker processes communicate only through HTTP protocol; dead workers detected and evicted; 3-worker batch integration passes `-race`. | **DONE** |
-| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **In Progress** (Design Specifications Accepted by Owner) |
-| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | Planned |
+| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **DONE** |
+| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | **In Progress** (Design Specifications Proposed; ADR-0014, ADR-0015, ADR-0016) |
 | **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire and requeue; audit decisions logged; hard gate for V1 release. | Planned (Post-Phase 4) |
 | **V1** | **V1 Security & Resilience Gate** | Execute V1 fault injection, malformed input fuzzing, and API abuse test suites. | All V1 security test plan suites executed with results; zero unhandled panics or state corruption before tagging `v1.0.0`. | Planned (V1 Final Gate) |
 | **V2** | **Phase 6: Scheduling Research** | Resource-aware scheduling policy, repeatable workload generator, comparative metrics. | Fair comparison with round-robin; p50/p95/p99 latency, queue wait, and throughput recorded. | Planned |
@@ -48,14 +48,36 @@ MiniCloud development is structured into three major releases. Each version buil
 
 ---
 
-## 4. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
+## 4. Proposed Phase 4 Sub-Slices (Retry & Recovery)
+*Complete architectural specifications are detailed in [docs/phase4-plan.md](phase4-plan.md).*
+
+1. **Slice 4a: Domain State Machine, Attempt Lease Primitives, In-Memory Parity & Property Test**:
+   - Update `internal/domain` FSM with new transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING/QUEUED`).
+   - Implement `LeaseExpiresAt`, `RenewLease`, `SweepExpiredLeases`, and `not_before` backoff in `internal/storage.InMemoryRepository`.
+   - Expand shared conformance suite (`internal/storage/storagetest/conformance.go`) and implement property/model-based state machine test harness.
+2. **Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation**:
+   - Author forward-only migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `jobs.not_before`, `jobs.cancel_requested_at`, indexes, and zero-downtime constraints.
+   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical deadlock-free lock order.
+3. **Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring**:
+   - Add `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint; expand worker heartbeat response with `cancelled_job_ids`.
+   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s.
+4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
+   - Implement 3-tier failure classification (`PERMANENT` vs `RETRYABLE`) and exponential backoff with full jitter.
+   - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races.
+5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
+   - Execute all 10 blueprint fault scenarios (FS-01 through FS-10) in `tests/integration/` per [docs/fault-injection-plan.md](fault-injection-plan.md).
+   - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
+
+---
+
+## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
 - **Context & Blueprint Deviation:** In V1 Phase 3, dispatch is FIFO pull (`fifo_pull`). Blueprint Section 6 requires scheduler-driven assignment with round-robin policy.
 - **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
 - **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
 
 ---
 
-## 5. Security and Adversarial Review Gates
+## 6. Security and Adversarial Review Gates
 
 As defined in [ADR 0012](adr/0012-security-and-adversarial-testing-workflow.md) and [security-testing.md](security/security-testing.md), every major milestone enforces explicit security and reliability review gates:
 
