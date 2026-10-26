@@ -33,8 +33,9 @@ Builds the following executables into `bin/`:
 ### Run Tests
 ```bash
 make test-race
+make test-docs
 ```
-Executes all unit and integration tests with the Go race detector enabled.
+Executes all unit and integration tests with the Go race detector enabled, and verifies documentation citation consistency.
 
 ### Run Local Demo
 ```bash
@@ -80,11 +81,11 @@ minicloud/
 ---
 
 ## Documentation Links
-- [System Architecture](file:///home/blazeee/MiniCloud/docs/architecture.md)
-- [State Machine & Transitions](file:///home/blazeee/MiniCloud/docs/state-machine.md)
-- [Failure Model & Fault Matrix](file:///home/blazeee/MiniCloud/docs/failure-model.md)
-- [Protocol Specification](file:///home/blazeee/MiniCloud/docs/protocol.md)
-- [Architecture Decision Records (ADRs)](file:///home/blazeee/MiniCloud/docs/adr/)
-- [Project Blueprint (Technical Source of Truth)](file:///home/blazeee/MiniCloud/docs/source/MiniCloud_Project_Blueprint.pdf)
-- [Engineering Instructions](file:///home/blazeee/MiniCloud/docs/source/MINICLOUD_INSTRUCTIONS.md)
-- [Session Operating Handbook](file:///home/blazeee/MiniCloud/GEMINI.md)
+- [System Architecture](docs/architecture.md)
+- [State Machine & Transitions](docs/state-machine.md)
+- [Failure Model & Fault Matrix](docs/failure-model.md)
+- [Protocol Specification](docs/protocol.md)
+- [Architecture Decision Records (ADRs)](docs/adr/)
+- [Project Blueprint (Technical Source of Truth)](docs/source/MiniCloud_Project_Blueprint.pdf)
+- [Engineering Instructions](docs/source/MINICLOUD_INSTRUCTIONS.md)
+- [Session Operating Handbook](GEMINI.md)

@@ -55,6 +55,21 @@ Never report simulated or assumed results as actual results. Never claim a test 
 - **Approved External Tooling**: Introduction of external analysis or load-testing dependencies requires an explicit Architectural Decision Record (ADR) and approval. Initial load testing must use a plain Go load generator.
 - **Secret Redaction**: Never print credentials, tokens, connection strings, or sensitive lease values to terminal logs, test output, or committed documents.
 
+## Documentation Citation & Verification Rules
+
+To prevent fabricated test output, invalid file citations, broken line anchors, or nonexistent ADR references (as disclosed in SEC-018), MiniCloud enforces automated documentation verification (`make test-docs` / `go test ./tests/docs`):
+
+- **Automated Verification Rules**:
+  - **Repo Paths (Rule A)**: Every cited repository path (`internal`, `cmd`, `tests`, `deployments`, `docs`, or `migrations` ending in `.go`, `.md`, `.yml`, `.sql`) must exist. Relative links are resolved from the document's own directory.
+  - **Line Anchors (Rule B)**: Every line anchor (`path:line`, `path#L123`, `path#L10-L20`) must reference a valid line number within the target file bounds.
+  - **Test Identifiers (Rule C)**: Every cited test identifier (`Test[A-Z]...`) must exist in the test suite (collected by parsing `*_test.go` ASTs), unless the line contains an explicit exemption keyword (`proposed`, `future`, `planned`, `designed, not executed`, `does not exist`, `nonexistent`, `invented`).
+  - **Forbidden Strings (Rule D)**: Local file URI schemes (such as `file:` triple-slash) and legacy route prefixes (such as `/api` preceding `/v1`) are strictly prohibited in documentation.
+  - **ADR Citations (Rule E)**: Every cited ADR number (`ADR-00NN` or `ADR NN`) must map to an existing `docs/adr/00NN-*.md` record.
+- **Allowlist Rules (`tests/docs/citation_allowlist.txt`)**:
+  - Format: `kind|value|reason` where `kind` is `path`, `test`, or `string`.
+  - **Mandatory Justification**: Every entry must include a concrete reason of at least 15 characters explaining why suppression is legitimate.
+  - **Zero Stale Entries**: The test suite fails if an allowlist entry becomes stale—either because the value is no longer cited anywhere in the scanned documentation, or because it now exists in the repository or test suite. This guarantees the allowlist cannot grow silently or mask resolved issues.
+
 ## Milestone Focus Areas
 
 Adversarial testing progresses across milestones in alignment with architectural staging:

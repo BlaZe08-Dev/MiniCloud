@@ -90,3 +90,10 @@ In accordance with [security-testing.md](security-testing.md), every test entry 
    - Native fuzz testing: `go test -fuzz=Fuzz...`
 2. **Controlled Local Scale**: All load tests and fault simulations execute within the physical capacity of the local machine. No invented throughput or latency numbers are permitted; baseline numbers must be established and cited from real runs.
 3. **Automated Regressions**: Any confirmed vulnerability (from [findings.md](findings.md)) must be paired with an automated test in the repository before being marked fixed.
+4. **Documentation Citation Scoping & Adversarial Mutation Proof (SEC-020, SEC-021)**:
+   Documentation citation invariants are verified by `TestCitations` (`tests/docs/citations_test.go:695`) and `TestFixtures` (`tests/docs/citations_test.go:754`). Adversarial mutation testing in a throwaway worktree proved the tightened clause-level scoping behavior of Rule C across four executed cases:
+   - **Case 1 (Separate sentence)**: Appending `"Verified by TestFab_One (nonexistent). This is planned."` failed with `[RuleC] cited test "TestFab_One" does not exist`.
+   - **Case 2 (Semicolon clause)**: Appending `"Verified by TestFab_Two (nonexistent); coverage is planned."` failed with `[RuleC] cited test "TestFab_Two" does not exist`.
+   - **Case 3 (Different table cell)**: Appending `"| TestFab_Three (nonexistent) | planned |"` failed with `[RuleC] cited test "TestFab_Three" does not exist`.
+   - **Case 4 (Same clause / self-labeled)**: Appending `"Verified by TestFab_Four (planned)."` passed, confirming that attaching an exemption label to the identifier within the same clause permits it by design.
+   - **Residual Limitation & Operational Policy**: Label-based static exemptions cannot distinguish genuine future tests (`TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), `TestWorker_ExcessiveTimeoutClamped` (future test)) from fabricated ones carrying their own label; human review is required when any milestone claims coverage.

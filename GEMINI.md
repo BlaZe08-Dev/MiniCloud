@@ -46,6 +46,7 @@ go vet ./...                  # Static analysis
 go test -v -race -count=1 ./... # Run all tests with race detector
 make build                    # Build coordinator, worker, mc binaries
 make test-race                # Race-detector test target
+make test-docs                # Documentation citation consistency target
 make demo                     # End-to-end integration demo
 ```
 

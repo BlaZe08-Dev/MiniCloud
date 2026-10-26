@@ -1,13 +1,25 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `milestone/3d-postgres-wiring`
-- **Current Milestone:** Phase 3, Slice 3d — PostgreSQL Coordinator Wiring, Durable Dispatch (`fifo_pull`), Schema Validation on Boot, `/readyz` Probe, Outage Handling, Surviving-Worker Crash Recovery, and Worker Limit Hardening (SEC-015, SEC-016, SEC-017).
+- **Current Branch:** `docs/citation-check`
+- **Current Milestone:** Milestone `docs/citation-check` — Automated Documentation Citation Checker (`make test-docs`), Path & Test Verification, Allowlist Governance, Rule C Exemption Tightening, and Documentation Quality Hardening (SEC-020, SEC-021).
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
+  - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
+    - Rule A: Every cited repository path must exist on disk.
+    - Rule B: Line number anchors (`path:line`, `path#Lline`) must not exceed file line counts.
+    - Rule C: Test function identifiers must exist in repository test suites parsed via `go/parser` without subprocesses.
+    - Rule D: Prohibits local file URI schemes (`file:` triple slash) and legacy route prefixes (`/api` preceding `/v1`).
+    - Rule E: ADR citations must reference valid ADR numbers with zero gap sequence.
+    - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons ($\ge 15$ characters), and strict non-staleness check.
+  - **Rule C Exemption Tightening:** Tightened Rule C exemption evaluation to individual clauses and table cells (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping, ensuring separate clauses do not inherit exemptions. Verified with fixtures `TestFixtures/RuleC_SeparateClause_Fail` and `TestFixtures/RuleC_ProposedExemption_Pass`.
+  - **Documentation & ADR Corrections:** Fixed `file:` URI schemes in `README.md` and migration path in `docs/adr/0010-migrations-policy.md`.
+  - **Makefile Integration & Security Guidance:** Added `test-docs` target to `Makefile`, documented in `README.md`, `GEMINI.md`, and added documentation verification rules to `docs/security/security-testing.md`.
+  - **Security Findings Register:** Documented `SEC-020` (Documentation Citation Drift and Nonexistent Citations) and `SEC-021` (Whole-Line Exemption Scoping in Rule C Citation Checker; verified across four executed mutation cases, with residual limitation documented for same-clause self-labeling) in `docs/security/findings.md` and `docs/security/test-plan.md`.
 - **Phase 3, Slice 3d — PostgreSQL Coordinator Wiring, Durable Dispatch, Readiness Probe & Recovery (`milestone/3d-postgres-wiring`):**
   - **Durable Dispatch (`repo.DispatchNextJob`):** Single-transaction FIFO pull dispatch in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `attempts`). Employs unlocked worker pre-check preserving SEC-002 error precedence, candidate job selection via `SELECT ... FOR UPDATE SKIP LOCKED`, worker row locking with capacity re-check, and dynamic attempt number derivation (`COALESCE(MAX(attempt_no), 0) + 1`). Implemented in `InMemoryRepository` for shared conformance. Tested under extreme contention with `TestPostgresRepository_Concurrency_MixedOperationsStress` (`-race -count=20`) and `TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier` (`-race -count=50`).
   - **Coordinator Wiring & Queue Split:** Added `NewPostgresService` in `internal/coordinator/service.go`. In PostgreSQL mode, jobs bypass the in-memory queue entirely, preventing unbounded memory growth (SEC-010) and guaranteeing restart durability. In memory mode, the in-memory queue + `DispatchJob` path is preserved.
@@ -167,6 +179,8 @@
   - **SEC-016 (Low, Fixed):** Worker `version` string length capped at 64 characters at domain boundary and backed by database constraint `chk_workers_version_length` (migration 000003). Empty version allowed. Tested in `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:865`) and `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:926`).
   - **SEC-017 (Low, Fixed):** Worker `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 characters `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (migration 000003). Tested in `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:919`) and `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:943`).
   - **SEC-019 (Informational, Confirmed by mutation, Fixed):** Weak positive control in pool saturation test (`TestSecurity_PartD_PoolExhaustion`) replaced by dual proofs: (a) primary proof sampling `pg_stat_activity` for `wait_event_type = 'Lock'` connections $\ge \text{pool\_size} - 2$, and (b) secondary proof requiring locked max latency to exceed 3-run unlocked baseline median by $\ge 0.25 \times \text{holdDuration}$. Confirmed by adversarial mutation testing (commenting out sleep and 1ms hold both produce definitive test failures) and clean `-count=5` execution. Tested in `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`).
+  - **SEC-020 (Low, Confirmed, Remediated by Tooling):** Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). Tested in `TestCitations` (`tests/docs/citations_test.go:695`) and `TestFixtures` (`tests/docs/citations_test.go:754`).
+  - **SEC-021 (Informational, Confirmed by owner mutation; remediated for unrelated names; residual limitation documented):** Rule C's exemption keywords initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses with identifier token stripping. Verified across four executed mutation cases (separate sentence fails, semicolon clause fails, separate table cell fails, same clause passes). Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. Genuine future tests in use: `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), `TestWorker_ExcessiveTimeoutClamped` (future test). Tested in `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
 - **Open Security Findings (Not Authorized Yet / In Backlog):**
   - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`).
   - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`).
@@ -181,7 +195,7 @@
 ---
 
 ## 7. Last Verified Commands & Actual Results
-- **Date:** 2026-10-25
+- **Date:** 2026-10-26
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
@@ -192,19 +206,24 @@ $ gofmt -s -w .
 $ go vet ./...
 (clean exit, code 0)
 
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.287s
+
 $ go test -race -count=1 ./...
-ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.281s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.821s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.054s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.277s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.504s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.162s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.037s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.038s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.129s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.248s
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.086s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.048s
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	9.467s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.055s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.932s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.042s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.147s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.268s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.091s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.103s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.154s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.544s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.044s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.937s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.611s
 ```
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*

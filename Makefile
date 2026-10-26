@@ -1,4 +1,4 @@
-.PHONY: all build test test-race fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db
+.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db
 
 BIN_DIR := bin
 
@@ -17,6 +17,9 @@ test:
 
 test-race:
 	go test -v -race ./...
+
+test-docs:
+	go test ./tests/docs
 
 fmt:
 	gofmt -s -w .
