@@ -194,33 +194,40 @@ For findings of **Medium** severity and above, the full structured report format
 - **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
 ### SEC-018: Inaccuracies and Reconstructed Test Output in Slice 3d Progress Report
-- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks.
+- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remediation attempt in the findings register contained a second-order failure by mapping some nonexistent names to other nonexistent names (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `TestWorkerAgent_SingleJobSuccess`, `TestMigrator_AppliesAllMigrations`, `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce`).
 - **Severity**: Informational
 - **Category**: Process / Reporting Integrity
 - **Status**: Confirmed, Remediated (Slice 3d).
-- **Preconditions**: Generating progress reports from memory or inference rather than piping live command output directly to disk.
+- **Preconditions**: Generating progress reports or remediation summaries from memory or inference rather than cross-checking against `go test -list '.*' ./...` and filesystem paths.
 - **Evidence of Inaccuracies**:
-  1. **Nonexistent test names cited in prior report**:
-     - `TestAPI_JobLifecycle_InMemory` (real name: `TestAPI_SubmitJob_Success` / `TestAPI_JobLifecycle`)
-     - `TestJob_Transitions` (real name: `TestJob_TransitionTo`, `TestJobTransitionMatrix_AllPairs`)
-     - `TestCoordinator_Service` (real name: `TestService_SubmitJob_Success`, etc.)
-     - `TestAgent_Run_SingleJobSuccess` (real name: `TestWorkerAgent_SingleJobSuccess`, etc.)
-     - `TestAPI_WorkerRegistration_Limits` (real name: `TestAPI_RegisterWorker_SlotsUpperLimit`, etc.)
-     - `TestMigrator_ApplyAll_CleanDatabase` (real name: `TestMigrator_AppliesAllMigrations`, etc.)
-     - `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (verified real name)
-     - `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (real name: `TestAPI_Slowloris_ReadHeaderTimeout`)
-     - `TestAPI_JobNumericBounds_Validation` (real name: `TestAPI_SubmitJob_BoundaryValues`)
-     - `TestAPI_WorkerID_ValidationBounds` (real name: `TestAPI_IdentifierValidation_NegativeCases`)
-     Verification: `go test -list '.*' ./...` verifies exactly 101 tests; none of the above fake names exist in the repository.
-  2. **Nonexistent ADR citation**: The report cited `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md`. The actual repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
+  1. **Nonexistent test names cited in prior report and remediation**:
+     - `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report); actual real test asserting in-memory lifecycle: `TestInMemoryRepository_JobLifecycle` in `internal/storage/inmemory_test.go:15`)
+     - `TestAPI_JobLifecycle` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestJob_Transitions` (does not exist (invented in an earlier report); actual real tests asserting transition matrix: `TestJob_TransitionTo` in `internal/domain/transition_test.go:79`, `TestJobTransitionMatrix_AllPairs` in `internal/domain/transition_test.go:10`)
+     - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `TestService_WorkerLiveness_ReaperAndRecovery` in `internal/coordinator/service_test.go:54`, `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go:764`)
+     - `TestService_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report); actual real integration/agent tests: `TestLocalCore_MultiProcessIntegration` in `tests/integration/local_core_test.go:25`, `TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating` in `internal/worker/client_test.go:114`)
+     - `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report); actual real tests asserting worker registration limits: `TestAPI_RegisterWorker_SlotsUpperLimit` in `internal/api/api_test.go:811`, `TestAPI_RegisterWorker_VersionLengthLimit` in `internal/api/api_test.go:866`, `TestAPI_RegisterWorker_SupportedTasksAllowlist` in `internal/api/api_test.go:921`, `TestPostgresRepository_Security_WorkerCheckConstraints` in `internal/storage/postgres/security_test.go:888`)
+     - `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report); actual real migration tests: `TestMigrator_FreshMigrate` in `internal/storage/postgres/migrator_test.go:281`, `TestMigrator_IdempotentReRun` in `internal/storage/postgres/migrator_test.go:329`)
+     - `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+     - `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report); actual real test asserting serialized concurrent migrators: `TestMigrator_ConcurrentMigrators_ExactlyOneApplies` in `internal/storage/postgres/migrator_test.go:374`)
+     - `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report); actual real test: `TestAPI_Slowloris_ReadHeaderTimeout` in `internal/api/api_test.go:414`)
+     - `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report); actual real test: `TestAPI_SubmitJob_BoundaryValues` in `internal/api/api_test.go:476`)
+     - `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report); actual real test: `TestAPI_IdentifierValidation_NegativeCases` in `internal/api/api_test.go:323`)
+     Verification: `go test -list '.*' ./...` verifies exactly 101 tests in the repository. Every real test cited above exists and was verified by opening the test implementation to confirm the assertions it makes.
+  2. **Nonexistent ADR citation**: The report cited `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md` (does not exist, nonexistent path cited in earlier report). The actual repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
   3. **Incorrect parameter limit**: The report claimed `supported_tasks` limit was `1..32`. The real limit enforced in domain validation and database constraint `chk_workers_supported_tasks_count` is `16` (`MaxWorkerSupportedTasks = 16`).
-- **Impact**: Progress reports failed to provide verifiable, reproducible audit records. Reconstructed outputs obscure test failures or skips.
-- **Root Cause**: Summarizing test execution from model inference instead of piping raw command output to disk.
+- **Second-Order Failure & Disclosure**:
+  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `TestWorkerAgent_SingleJobSuccess`, `TestMigrator_AppliesAllMigrations`) and claimed `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` was a verified real name when the actual test is `TestMigrator_ConcurrentMigrators_ExactlyOneApplies`. This second-order failure was discovered by the owner's verification scan comparing all cited names against `go test -list '.*' ./...`. Every non-existent name has been corrected, verified against active test source code, and explicitly labeled.
+- **Impact**: Progress reports and audit registers failed to provide verifiable, reproducible audit records. Reconstructed outputs obscure test failures or skips.
+- **Root Cause**: Summarizing test execution and mapping test names from model inference or memory instead of piping raw command output to disk and verifying with `go test -list '.*' ./...`.
 - **Remediation & Enforced Protocol**:
   1. All test runs MUST be redirected to a temporary file (`> /tmp/<name>.log 2>&1`).
   2. Reports MUST paste directly from the redirected file (or its head/tail) alongside exact grep counts: `grep -cE '^--- (PASS|FAIL|SKIP)' /tmp/<name>.log`.
   3. No test output, test names, or logs may be summarized, retyped, or reconstructed.
-  4. All test citations must be cross-checked against `go test -list '.*' ./...`.
+  4. Standing rule: Every cited test name must come from `go test -list '.*' ./...` and every cited path must exist in the repository filesystem.
 
 ---
 
@@ -251,6 +258,39 @@ The Part D security verification tests were implemented and executed against Pos
 6. **Migrator Query Timeout Isolation (`TestMigrator_NotSubjectToCoordinatorQueryTimeout` in `internal/storage/postgres/migrator_test.go:640`)**:
    - Verifies that migration runner connections (`cmd/migrate` / `postgres.Migrator`) connect with unconstrained session timeouts (`statement_timeout = 0`, `lock_timeout = 0`).
    - Successfully executes a slow migration with `pg_sleep(0.6)` without cancellation, proving migration isolation from the coordinator's short query timeouts.
+
+---
+
+## Documentation Scan Allowlist
+
+The following entries are permitted to appear in audit scans (`grep -rhoE 'Test[A-Z][A-Za-z0-9_]+'` and path checks) of documentation files:
+
+### 1. Future Test Specifications
+These test names do not yet exist in `go test -list '.*' ./...` because they represent designed verification steps for Open, unmitigated findings scheduled for future phases:
+- `TestInMemoryRepository_MemoryExhaustion_Cap`: Future verification test for SEC-010 (in-memory collection bounds).
+- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+- `TestCoordinator_IDLeakage`: Future verification test for SEC-013 (coordinator sequential ID exposure).
+
+### 2. Historical Nonexistent Test Names in SEC-018
+These names do not exist in the test suite and are cited exclusively within SEC-018 as documented negative examples of invented names from prior reports and earlier flawed remediation attempts:
+- `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report))
+- `TestAPI_JobLifecycle` (does not exist (invented in an earlier report))
+- `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report))
+- `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report))
+- `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report))
+- `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report))
+- `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report))
+- `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report))
+- `TestCoordinator_Service` (does not exist (invented in an earlier report))
+- `TestJob_Transitions` (does not exist (invented in an earlier report))
+- `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report))
+- `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report))
+- `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report))
+- `TestService_SubmitJob_Success` (does not exist (invented in an earlier report))
+- `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report))
+
+### 3. Nonexistent Path Citations in SEC-018
+- `docs/adr/0013-worker-registration-bounds-and-rejection-codes.md`: Nonexistent file path cited exclusively in SEC-018 as documented disclosure of an invalid citation in a prior progress report. The real repository file is `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md`.
 
 
 
