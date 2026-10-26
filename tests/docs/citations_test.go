@@ -474,7 +474,71 @@ func CheckRuleB(fsys fs.FS, allowlist Allowlist) []Violation {
 	return violations
 }
 
-// CheckRuleC validates that every cited test identifier exists in the test suite unless exempted on the line.
+func isIdentifierExempt(line string, startIdx, endIdx int) bool {
+	clauseStart := 0
+	for _, delim := range []string{"|", "<br>", "<br/>", ";", ". "} {
+		if idx := strings.LastIndex(line[:startIdx], delim); idx != -1 {
+			offset := idx + len(delim)
+			if offset > clauseStart {
+				clauseStart = offset
+			}
+		}
+	}
+
+	clauseEnd := len(line)
+	for _, delim := range []string{"|", "<br>", "<br/>", ";", ". "} {
+		if idx := strings.Index(line[endIdx:], delim); idx != -1 {
+			offset := endIdx + idx
+			if offset < clauseEnd {
+				clauseEnd = offset
+			}
+		}
+	}
+
+	clause := line[clauseStart:clauseEnd]
+	lowerClause := strings.ToLower(clause)
+
+	hasKeyword := false
+	for _, ew := range exemptWords {
+		if strings.Contains(lowerClause, ew) {
+			hasKeyword = true
+			break
+		}
+	}
+	if !hasKeyword {
+		return false
+	}
+
+	// 1. Check if directly followed by (keyword), : keyword, - keyword
+	suffix := line[endIdx:clauseEnd]
+	trimmedSuffix := strings.TrimLeft(suffix, "`'\" \t")
+	lowerTrimmedSuffix := strings.ToLower(trimmedSuffix)
+	for _, ew := range exemptWords {
+		attachedRe := regexp.MustCompile(`^[\(\:\-][^\)]*` + regexp.QuoteMeta(ew))
+		if attachedRe.MatchString(lowerTrimmedSuffix) {
+			return true
+		}
+	}
+
+	// 2. Check if preceded by keyword as status marker, e.g. "future test: TestX"
+	prefix := line[clauseStart:startIdx]
+	lowerPrefix := strings.ToLower(prefix)
+	for _, ew := range exemptWords {
+		if strings.Contains(lowerPrefix, ew) {
+			return true
+		}
+	}
+
+	// 3. If there is only ONE test identifier in this clause and clause has keyword, it is attached
+	testsInClause := testIdentRe.FindAllString(clause, -1)
+	if len(testsInClause) == 1 {
+		return true
+	}
+
+	return false
+}
+
+// CheckRuleC validates that every cited test identifier exists in the test suite unless exempted locally.
 func CheckRuleC(fsys fs.FS, allowlist Allowlist) []Violation {
 	realTests, err := CollectRealTests(fsys)
 	if err != nil {
@@ -494,37 +558,29 @@ func CheckRuleC(fsys fs.FS, allowlist Allowlist) []Violation {
 		lines := strings.Split(string(content), "\n")
 		for i, line := range lines {
 			lineNum := i + 1
-			matches := testIdentRe.FindAllString(line, -1)
+			matches := testIdentRe.FindAllStringIndex(line, -1)
 			if len(matches) == 0 {
 				continue
 			}
 
-			lineWithoutTests := testIdentRe.ReplaceAllString(line, "")
-			lowerLine := strings.ToLower(lineWithoutTests)
-			exempt := false
-			for _, ew := range exemptWords {
-				if strings.Contains(lowerLine, ew) {
-					exempt = true
-					break
-				}
-			}
-			if exempt {
-				continue
-			}
-
-			for _, m := range matches {
-				topLevel := strings.Split(m, "/")[0]
+			for _, loc := range matches {
+				matchStr := line[loc[0]:loc[1]]
+				topLevel := strings.Split(matchStr, "/")[0]
 				if allowlist.Tests[topLevel] {
 					continue
 				}
-				if !realTests[topLevel] {
-					violations = append(violations, Violation{
-						Rule:    "RuleC",
-						File:    docRel,
-						Line:    lineNum,
-						Message: fmt.Sprintf("cited test %q does not exist", topLevel),
-					})
+				if realTests[topLevel] {
+					continue
 				}
+				if isIdentifierExempt(line, loc[0], loc[1]) {
+					continue
+				}
+				violations = append(violations, Violation{
+					Rule:    "RuleC",
+					File:    docRel,
+					Line:    lineNum,
+					Message: fmt.Sprintf("cited test %q does not exist", topLevel),
+				})
 			}
 		}
 	}
@@ -863,6 +919,38 @@ func TestFixtures(t *testing.T) {
 		violations := CheckRuleC(memFS, al)
 		if len(violations) != 0 {
 			t.Fatalf("expected exemption to suppress violations, got: %v", violations)
+		}
+	})
+
+	t.Run("RuleC_SeparateClause_Fail", func(t *testing.T) {
+		memFS := fstest.MapFS{
+			"docs/test.md": &fstest.MapFile{
+				Data: []byte("Verified by `TestFabricatedMissing`; `TestOtherPlanned` (planned).\n"),
+			},
+		}
+		al, _ := ParseAllowlist("")
+		violations := CheckRuleC(memFS, al)
+		if len(violations) != 1 {
+			t.Fatalf("expected 1 violation for fabricated name in separate clause, got %d: %v", len(violations), violations)
+		}
+		if !strings.Contains(violations[0].Message, "TestFabricatedMissing") {
+			t.Errorf("expected violation to mention TestFabricatedMissing, got %q", violations[0].Message)
+		}
+	})
+
+	t.Run("RuleC_GenuineFutureTests_Pass", func(t *testing.T) {
+		memFS := fstest.MapFS{
+			"docs/test.md": &fstest.MapFile{
+				Data: []byte("- `TestInMemoryRepository_MemoryExhaustion_Cap`: Future verification test for SEC-010.\n" +
+					"- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012.\n" +
+					"- `TestCoordinator_IDLeakage`: Future verification test for SEC-013.\n" +
+					"- `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report))\n"),
+			},
+		}
+		al, _ := ParseAllowlist("")
+		violations := CheckRuleC(memFS, al)
+		if len(violations) != 0 {
+			t.Fatalf("expected 0 violations for genuine labeled future/historical tests, got: %v", violations)
 		}
 	})
 
