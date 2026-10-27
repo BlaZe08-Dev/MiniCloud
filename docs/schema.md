@@ -274,8 +274,8 @@ CREATE INDEX idx_job_events_type
 
 | Invariant | Implementation in Schema | Violation Behavior |
 |---|---|---|
-| **At most one active attempt per job** | `CREATE UNIQUE INDEX idx_attempts_active_per_job ON attempts (job_id) WHERE state = 'RUNNING';` | Database rejects concurrent dispatch with `SQLSTATE 23505` (unique constraint violation). |
-| **No Capacity Counter Drift** | `worker_capacity` view deriving `available_slots = total_slots - count(attempts WHERE state = 'RUNNING')`. | Capacity is physically derived from active attempts; zero counter drift across restarts or crashes. |
+| **At most one active attempt per job** | `CREATE UNIQUE INDEX idx_attempts_active_per_job ON attempts (job_id) WHERE state IN ('PENDING', 'RUNNING');` | Database rejects concurrent dispatch with `SQLSTATE 23505` (unique constraint violation). |
+| **No Capacity Counter Drift** | `worker_capacity` view deriving `available_slots = total_slots - count(attempts WHERE state IN ('PENDING', 'RUNNING'))`. | Capacity is physically derived from active attempts; zero counter drift across restarts or crashes. |
 | **Exactly one committed result per job** | `PRIMARY KEY (job_id)` on `results` table with foreign key to `jobs(id)`. | Stale or duplicate commits fail immediately at the database layer. |
 | **Monotonically unique attempt numbers** | `CONSTRAINT uq_attempts_job_attempt_no UNIQUE (job_id, attempt_no)`. | Attempt numbers for a job can never duplicate or collide. |
 | **Bounded Payload (64 KiB)** | `CHECK (octet_length(payload) <= 65536)`. | Rejects oversized payloads at SQL insert time. |
@@ -283,3 +283,122 @@ CREATE INDEX idx_job_events_type
 | **Bounded Error Summary (10 KiB)** | `CHECK (octet_length(error) <= 10240)`. | Prevents massive stack traces or core dumps from ballooning database size. |
 | **Database-Authoritative Timestamps** | `CURRENT_TIMESTAMP` for transaction boundaries; `clock_timestamp()` for event sequencing. | Eliminates worker/coordinator clock skew vulnerability. |
 | **Token Privacy** | `lease_token_hash CHAR(64)` storing SHA-256 digest. | Database dumps never reveal live bearer credentials. |
+
+---
+
+## 5. PROPOSED Phase 4 Migration Outline (`000004_leases_retries_cancellation.sql`)
+
+*Status: PROPOSED (Design only; no SQL migration files created until Slice 4b)*
+
+To support attempt leases, retry backoff scheduling, structured failure classification, and cooperative cancellation without downtime, Migration 000004 is planned with forward-only schema enhancements:
+
+```sql
+-- Step 1: Add lease_expires_at to attempts
+-- Added with a safe default for existing historical rows, then constraint tightened.
+ALTER TABLE attempts 
+    ADD COLUMN lease_expires_at TIMESTAMPTZ NOT NULL 
+    DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+
+-- Tighten column constraint: drop default so subsequent inserts must explicitly specify lease_expires_at
+ALTER TABLE attempts 
+    ALTER COLUMN lease_expires_at DROP DEFAULT;
+
+-- Step 2: Add failure classification and error tracking to attempts
+ALTER TABLE attempts 
+    ADD COLUMN error_class VARCHAR(32),
+    ADD COLUMN last_error TEXT;
+
+-- Enforce check constraints with NOT VALID then VALIDATE to avoid exclusive lock contention
+ALTER TABLE attempts 
+    ADD CONSTRAINT chk_attempts_error_class 
+    CHECK (error_class IS NULL OR error_class IN ('PERMANENT', 'TRANSIENT', 'UNKNOWN', 'LEASE_EXPIRED')) 
+    NOT VALID;
+ALTER TABLE attempts VALIDATE CONSTRAINT chk_attempts_error_class;
+
+ALTER TABLE attempts 
+    ADD CONSTRAINT chk_attempts_last_error_size 
+    CHECK (last_error IS NULL OR octet_length(last_error) <= 10240) 
+    NOT VALID;
+ALTER TABLE attempts VALIDATE CONSTRAINT chk_attempts_last_error_size;
+
+-- Step 3: Add retry backoff and cancellation tracking to jobs
+ALTER TABLE jobs 
+    ADD COLUMN not_before TIMESTAMPTZ,
+    ADD COLUMN cancel_requested_at TIMESTAMPTZ;
+
+-- Step 4: Index for high-performance coordinator lease expiry sweeper
+CREATE INDEX idx_attempts_lease_expiry 
+    ON attempts (lease_expires_at ASC) 
+    WHERE state = 'RUNNING';
+
+-- Step 5: Index for retry-eligible job dispatch
+CREATE INDEX idx_jobs_retrying_dispatch 
+    ON jobs (not_before ASC, created_at ASC) 
+    WHERE state = 'RETRYING';
+
+-- Step 6: Partial unique index to arbitrate ON CONFLICT DO NOTHING for diagnostic late results (SEC-004 bound)
+CREATE UNIQUE INDEX idx_job_events_unique_diagnostic_late_result 
+    ON job_events (job_id, (details->>'attempt_id')) 
+    WHERE event_type = 'DIAGNOSTIC_LATE_RESULT';
+```
+
+### Canonical State Names & Schema Alignment
+- **Canonical Attempt States**: Migration `000001_initial_schema.sql:97` already defines `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. No schema migration is required for attempt states.
+- **State Reconciliation & Mapping**:
+  - `LOST`: Worker lease expired without renewal (replaces legacy domain `EXPIRED`). Written by sweeper transaction.
+  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`. Reserved attempt state in schema; not written by V1 coordinator or worker (worker executor timeout reports `FAILED` with execution timeout error in V1).
+  - `CANCELLED`: Canonical double-L spelling across both job and attempt states. Written by sweeper (expired lease on a `CANCEL_REQUESTED` job) or commit on an already-terminal `CANCELLED` job closing a `RUNNING` attempt.
+
+### Sweeper Lock Order, Candidate Selection, and Correctness Re-Check
+In accordance with ADR-0014, the sweeper evaluates candidate attempts and executes per-candidate atomic transitions under strict lock ordering:
+
+1. **Candidate Scan (Unlocked Read)**:
+   ```sql
+   SELECT a.id, a.job_id, a.worker_id
+   FROM attempts a
+   WHERE a.state = 'RUNNING'
+     AND a.lease_expires_at < clock_timestamp()
+   ORDER BY a.lease_expires_at ASC
+   LIMIT 50;
+   ```
+   *Why Candidate Scan is Unlocked*: The candidate scan performs an unlocked read against `idx_attempts_lease_expiry` to avoid holding long-lived transaction locks across batch queries. An advisory pre-check before scanning may skip the pass if grace is known to be active, but the authoritative check occurs inside the locks.
+
+2. **Per-Candidate Lock Acquisition Order (`jobs -> workers -> attempts`)**:
+   For each candidate, the sweeper begins an isolated transaction and acquires row locks in canonical order using `SKIP LOCKED` on jobs and plain `FOR UPDATE` under `lock_timeout` on workers and attempts:
+   ```sql
+   -- Step 1: Lock parent job row
+   SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED;
+
+   -- Step 2: Lock assigned worker row
+   SELECT id FROM workers WHERE id = $1 FOR UPDATE;
+
+   -- Step 3: Lock attempt row and execute correctness re-check
+   SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
+   ```
+
+3. **Lock Failure Handling**:
+   - On Step 1: If the parent job row cannot be locked immediately (e.g. concurrent commit, renewal, or cancel), `FOR UPDATE SKIP LOCKED` returns 0 rows. The sweeper skips that candidate cleanly without mutating state, rolls back the transaction, and re-evaluates the candidate on the subsequent sweeper tick.
+   - On Steps 2 and 3: Worker and attempt rows are locked with plain `FOR UPDATE` under PostgreSQL `lock_timeout` (default 5s). If a timeout occurs, the transaction rolls back cleanly on timeout error and retries next tick. `SKIP LOCKED` and `NOWAIT` are never combined.
+
+4. **Re-Check Inside the Locks (Correctness Invariants)**:
+   Under exclusive row locks, the sweeper performs the single authoritative correctness re-check:
+   - `attempts.state == 'RUNNING'`: Ensures the worker has not already committed.
+   - `attempts.lease_expires_at < clock_timestamp()`: Ensures a concurrent renewal has not extended the lease.
+   - **Grace Conditions**: Ensures the coordinator is not within `MINICLOUD_STARTUP_GRACE_PERIOD` (30s after startup) or `MINICLOUD_OUTAGE_GRACE_WINDOW` (30s after database recovery). The only authoritative grace check is this one inside the transaction lock; any earlier check is advisory.
+   If any condition is not met, the transaction rolls back cleanly with zero mutation.
+
+5. **Sweeper State Resolution Rules**:
+   - **Terminal Job (`SUCCEEDED`, `FAILED`, `CANCELLED`)**: If the parent job is already terminal (for example, if a race occurred or a job was cancelled while the worker was running), the sweeper closes the `RUNNING` attempt without modifying the job state: sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise. The job state remains strictly unchanged, worker capacity is freed, and a diagnostic job event is recorded (`event_type: 'LEASE_EXPIRED'`).
+   - **`CANCEL_REQUESTED` Job**: The sweeper closes the attempt as `CANCELLED`, transitions the job to `CANCELLED` (terminal), frees the worker slot, and records a `JOB_CANCELLED` event.
+   - **`RUNNING` Job**:
+     - If `attempt_no < max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, sets `jobs.not_before` for exponential backoff with jitter, transitions the job to `RETRYING`, frees the worker slot, and records `LEASE_EXPIRED` and `JOB_RETRYING` events.
+     - If `attempt_no >= max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, transitions the job to `FAILED` (terminal), frees the worker slot, and records `LEASE_EXPIRED` and `JOB_FAILED` events.
+
+### Startup and Outage Grace Mechanisms
+To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`). Both periods must be >= lease duration (default 30s).
+The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
+
+### Operational Invariants & Rollback Policy
+- **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
+- **Zero Lock Contention**: Constraint addition uses `NOT VALID` followed by `VALIDATE CONSTRAINT` ensuring table rewrites and exclusive table locks are avoided during coordinator execution (ADR-0013).
+

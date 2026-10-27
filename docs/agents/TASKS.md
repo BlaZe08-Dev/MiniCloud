@@ -14,14 +14,14 @@ builds the rest. The other agent audits.
 | `go.mod` / `go.sum` | none | |
 | `internal/domain` | none | |
 | `internal/storage/storagetest` | none | Shared conformance suite |
-| `docs/security/findings.md` | P4-00 | Next free number after the design merge: SEC-023 |
+| `docs/security/findings.md` | P4-00 | Next free number after the design merge: SEC-024 |
 
 ## Active
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | P0-01 | Two-agent workflow files | Claude Code | Orchestrator review | agent/claude/P0-01 | ready |
-| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | waiting for P0-01 merge |
+| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | in progress (Builder addressing audit findings) |
 
 ### P0-01 — Two-agent workflow files
 - Goal: commit the agent rules so both agents read the same file.
@@ -43,9 +43,8 @@ builds the rest. The other agent audits.
 - Goal: the Phase 4 design (the lease, retry and cancellation ADRs numbered 0014 to
   0016, the Phase 4 plan doc and the docs it updates; none on `main` yet) is
   consistent, complete and merged; it becomes the spec for P4 tasks.
-- Owned files: everything changed on `docs/phase4-design`.
-- Builder fixes; auditor reviews only. Auditor writes the review as P4-00.md under
-  `docs/agents/reviews/` (file not created yet).
+- Owned files: everything changed on docs/phase4-design, AGENTS.md section 4 (context map rows only), docs/agents/TASKS.md (the P4-00 entry and the reserved-numbers table), CHANGELOG.md and docs/PROJECT_STATE.md.
+- Builder fixes; auditor reviews only. Auditor wrote reviews docs/agents/reviews/P4-00.md, docs/agents/reviews/P4-00-round2.md, docs/agents/reviews/P4-00-round3.md, and docs/agents/reviews/P4-00-round4.md.
 
 ## Done
 

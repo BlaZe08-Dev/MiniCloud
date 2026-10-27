@@ -14,3 +14,9 @@ test|TestService_SubmitJob_Success|Invented historical test name cited in SEC-01
 test|TestWorkerAgent_SingleJobSuccess|Invented historical test name cited in SEC-018 disclosure
 test|TestMigrator_AppliesAllMigrations|Invented historical test name cited in SEC-018 disclosure
 test|TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce|Invented historical test name cited in SEC-018 disclosure
+
+# Audit probe tests on agent/claude/P4-00-review branch cited in P4-00 review
+path|tests/review/sec022_probe_test.go|Audit probe test on agent/claude/P4-00-review branch
+test|TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot|Audit probe test on agent/claude/P4-00-review branch
+test|TestReviewP400_SEC022|Audit probe test flag cited in SEC-022 verbatim evidence
+test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/claude/P4-00-review branch

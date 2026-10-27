@@ -120,12 +120,12 @@ Evidence labels, used in every report and in `docs/security/findings.md`:
 | Full project spec (source) | `docs/source/MiniCloud_Project_Blueprint.pdf`, `docs/source/MINICLOUD_INSTRUCTIONS.md` |
 | Components and data flow | `docs/architecture.md` |
 | Job and attempt states | `docs/state-machine.md` |
-| Failure handling | `docs/failure-model.md` (fault-injection plan: arrives with P4-00, not on `main` yet) |
+| Failure handling | `docs/failure-model.md`, `docs/fault-injection-plan.md` |
 | HTTP protocol, payload limits, status codes | `docs/protocol.md` |
 | Database schema and locking | `docs/schema.md` (lock order: jobs, workers, attempts, results, job_events) |
 | Local Postgres, test guardrails | `docs/testing-postgres.md`, section 9 below |
-| Decisions | `docs/adr/` (0001–0013 on `main`; the Phase 4 lease, retry and cancellation ADRs arrive with P4-00) |
-| Phase 4 plan and slices | arrives with P4-00, not on `main` yet |
+| Decisions | `docs/adr/` (0001–0016; 0014 leases, 0015 retries, 0016 cancellation) |
+| Phase 4 plan and slices | `docs/phase4-plan.md` |
 | Security | `docs/security/` (threat model, findings register, field limits, test plan, testing workflow), ADR-0012 |
 | Task board and ownership | `docs/agents/TASKS.md` |
 

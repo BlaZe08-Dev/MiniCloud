@@ -31,6 +31,8 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
 | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
+| **SEC-022** | Medium | Open (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; late commit rejected as terminal without closing attempt, permanently leaking worker slot. | `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe test, planned for slice 4a) |
+| **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
 
 ---
 
@@ -290,6 +292,122 @@ For findings of **Medium** severity and above, the full structured report format
 - **Residual Limitation & Operational Policy**:
   A fabricated name that carries its own exemption label in the same clause still passes by design, because a label-based static exemption cannot distinguish a real future test from a fabricated one. The exemption is a documentation convention, not a proof of legitimacy; every "planned", "future", or "proposed" test name must be human-reviewed when a milestone slice claims coverage. The three genuine labeled future tests in use today are `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), and `TestWorker_ExcessiveTimeoutClamped` (future test).
 - **Regression Test**: `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
+
+### SEC-022: Duplicate CancelJob Leaks Worker Slot Permanently via Premature Finalization
+<!-- label: finding -->
+
+- **Finding**: Calling `CancelJob` a second time on a job currently in `CANCEL_REQUESTED` falls through the `else` branch in both storage backends and moves the job directly to terminal `CANCELLED`. When the worker subsequently issues `CommitAttempt`, the commit is rejected with HTTP 409 `JOB_ALREADY_TERMINAL`, but neither backend closes the `RUNNING` attempt nor frees the worker slot. In PostgreSQL, `worker_capacity` counts active attempts (`PENDING` or `RUNNING`), so `available_slots` remains 0 permanently, exhausting fleet capacity across subsequent polls.
+- **Severity**: Medium
+- **Category**: State Transition Logic / Concurrency Defect / Resource Exhaustion
+- **Status**: Open (executed)
+- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go:658-700`, `internal/storage/postgres/repository.go:1135-1233`)
+- **Preconditions**: A job is dispatched and actively executing on a worker (`RUNNING`); a first `CancelJob` transitions the job to `CANCEL_REQUESTED`; a second `CancelJob` request arrives before the worker completes or acknowledges cancellation.
+- **Reproduction Steps**:
+  1. Register a 1-slot worker; submit and dispatch an `echo` job so attempt 1 enters `RUNNING`.
+  2. Issue a first cancellation request: `job.State` transitions to `CANCEL_REQUESTED`.
+  3. Issue a second cancellation request for the same job: `job.State` transitions to `CANCELLED` via fallback `else` branch while attempt 1 remains `RUNNING`.
+  4. Worker completes execution and issues late `CommitAttempt`: coordinator rejects with HTTP 409 `JOB_ALREADY_TERMINAL` and rolls back transaction.
+  5. Check worker slots: `worker_capacity.available_slots` remains 0; next poll returns HTTP 503 `NO_WORKERS_AVAILABLE`.
+- **Evidence**: **executed** (E1 from `docs/agents/reviews/P4-00-evidence.txt`), plus **confirmed by code reading**.
+  ```
+=== E1. SEC-022 probe (executed): MINICLOUD_REVIEW_PROBE=1 go test -race -count=1 -v -run TestReviewP400_SEC022 ./tests/review/  (test DB minicloud_claude_test; URL not printed)
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory
+2026/10/27 14:40:41 INFO worker registered worker_id=w_probe version=v1 slots=1 supported_tasks=[echo]
+    sec022_probe_test.go:60: register worker (1 slot): HTTP 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_1_1db394b06001 task_type=echo state=QUEUED max_attempts=3
+2026/10/27 14:40:41 INFO job dispatched to worker job_id=job_1_1db394b06001 attempt_id=att_1_814035c62de7 attempt_no=1 worker_id=w_probe policy=fifo_pull reason="claimed by polling worker with capacity"
+    sec022_probe_test.go:64: poll #1: HTTP 200 {"assignment":{"job_id":"job_1_1db394b06001","attempt_id":"att_1_814035c62de7","attempt_no":1,"lease_token":"1SQNQcJITZ0mqkU-Z4Ys88h6MlJWFLyimRSximPCcbU","task_type":"echo","payload":{"message":"probe"},"timeout_seconds":60}}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_1_1db394b06001 state=CANCEL_REQUESTED
+    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_1_1db394b06001 state=CANCELLED
+    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCELLED"}
+2026/10/27 14:40:41 WARN rejecting result for already-terminal job job_id=job_1_1db394b06001 attempt_id=att_1_814035c62de7
+    sec022_probe_test.go:80: late worker commit: HTTP 409 {"error":{"code":"JOB_ALREADY_TERMINAL","message":"job is already in a terminal state"}}
+    sec022_probe_test.go:83: job A after commit: HTTP 200 {"id":"job_1_1db394b06001","task_type":"echo","payload":{"message":"probe"},"state":"CANCELLED","priority":0,"max_attempts":3,"timeout_seconds":60,"current_attempt_id":"att_1_814035c62de7","created_at":"2026-10-27T09:10:41.112698084Z","updated_at":"2026-10-27T09:10:41.118406352Z"}
+    sec022_probe_test.go:87: attempts of job A: HTTP 200 {"attempts":[{"id":"att_1_814035c62de7","job_id":"job_1_1db394b06001","attempt_no":1,"worker_id":"w_probe","lease_token_hash":"e621d9ebcf05dcd155deb64931a1c7b3a0ba544f5c7903a3c418cecce697bc35","state":"RUNNING","started_at":"2026-10-27T09:10:41.115900697Z","exit_code":0,"output":""}],"job_id":"job_1_1db394b06001"}
+    sec022_probe_test.go:97: workers: HTTP 200 {"workers":[{"id":"w_probe","version":"v1","status":"HEALTHY","total_slots":1,"available_slots":0,"supported_tasks":["echo"],"last_heartbeat_at":"2026-10-27T09:10:41.109979741Z","registered_at":"2026-10-27T09:10:41.109979741Z"}]}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_2_9e0a0eef31cb task_type=echo state=QUEUED max_attempts=3
+    sec022_probe_test.go:114: poll #2 (job job_2_9e0a0eef31cb queued): HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+    sec022_probe_test.go:119: INVARIANT VIOLATION: job job_1_1db394b06001 is CANCELLED but attempt att_1_814035c62de7 is still RUNNING
+    sec022_probe_test.go:124: SLOT LEAK: idle 1-slot worker cannot claim queued job job_2_9e0a0eef31cb: HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres
+2026/10/27 14:40:41 INFO worker registered worker_id=w_probe version=v1 slots=1 supported_tasks=[echo]
+    sec022_probe_test.go:60: register worker (1 slot): HTTP 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_3_527689fa5dc1 task_type=echo state=QUEUED max_attempts=3
+2026/10/27 14:40:41 INFO job dispatched to worker job_id=job_3_527689fa5dc1 attempt_id=att_job_3_527689fa5dc1_1 attempt_no=1 worker_id=w_probe policy=fifo_pull reason="claimed by polling worker with capacity"
+    sec022_probe_test.go:64: poll #1: HTTP 200 {"assignment":{"job_id":"job_3_527689fa5dc1","attempt_id":"att_job_3_527689fa5dc1_1","attempt_no":1,"lease_token":"amvy56zuUB2APPA9-p0j_OlOHTyJ6bKD8JQrH9i0jK0","task_type":"echo","payload":{"message":"probe"},"timeout_seconds":60}}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_3_527689fa5dc1 state=CANCEL_REQUESTED
+    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_3_527689fa5dc1 state=CANCELLED
+    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCELLED"}
+2026/10/27 14:40:41 WARN rejecting result for already-terminal job job_id=job_3_527689fa5dc1 attempt_id=att_job_3_527689fa5dc1_1
+    sec022_probe_test.go:80: late worker commit: HTTP 409 {"error":{"code":"JOB_ALREADY_TERMINAL","message":"job is already in a terminal state"}}
+    sec022_probe_test.go:83: job A after commit: HTTP 200 {"id":"job_3_527689fa5dc1","task_type":"echo","payload":{"message":"probe"},"state":"CANCELLED","priority":0,"max_attempts":3,"timeout_seconds":60,"current_attempt_id":"att_job_3_527689fa5dc1_1","created_at":"2026-10-27T14:40:41.556294+05:30","updated_at":"2026-10-27T14:40:41.603219+05:30"}
+    sec022_probe_test.go:87: attempts of job A: HTTP 200 {"attempts":[{"id":"att_job_3_527689fa5dc1_1","job_id":"job_3_527689fa5dc1","attempt_no":1,"worker_id":"w_probe","lease_token_hash":"d62a6acd3d483bba2f045158447fadde2998c5ec273800db26a59046a17bc3c2","state":"RUNNING","started_at":"2026-10-27T14:40:41.589419+05:30","exit_code":0,"output":""}],"job_id":"job_3_527689fa5dc1"}
+    sec022_probe_test.go:97: workers: HTTP 200 {"workers":[{"id":"w_probe","version":"v1","status":"HEALTHY","total_slots":1,"available_slots":0,"supported_tasks":["echo"],"last_heartbeat_at":"2026-10-27T14:40:41.547834+05:30","registered_at":"2026-10-27T14:40:41.547834+05:30"}]}
+    sec022_probe_test.go:109: SQL: worker_capacity.available_slots=0, active attempts on terminal jobs=1
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_4_fda8c600b9b5 task_type=echo state=QUEUED max_attempts=3
+    sec022_probe_test.go:114: poll #2 (job job_4_fda8c600b9b5 queued): HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+    sec022_probe_test.go:119: INVARIANT VIOLATION: job job_3_527689fa5dc1 is CANCELLED but attempt att_job_3_527689fa5dc1_1 is still RUNNING
+    sec022_probe_test.go:124: SLOT LEAK: idle 1-slot worker cannot claim queued job job_4_fda8c600b9b5: HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+--- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot (0.62s)
+    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory (0.02s)
+    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres (0.60s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/review	0.646s
+FAIL
+  ```
+  Code reading confirms:
+  In `internal/storage/inmemory.go:679-682` and `internal/storage/postgres/repository.go:1190-1193`, cancellation evaluates:
+  ```go
+  if job.State == domain.StateQueued {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  } else if job.State == domain.StateRunning {
+      targetState = domain.StateCancelRequested
+      eventType = domain.JobEventCancelRequested
+  } else {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  }
+  ```
+  Neither repository checks for `job.State == domain.StateCancelRequested`. Fallback `else` transitions the job to `StateCancelled`, which `internal/domain/transition.go:20` permits (`StateCancelRequested -> StateCancelled`).
+  When worker completes, `CommitAttempt` returns `ErrJobAlreadyTerminal` (`internal/storage/postgres/repository.go:983-984` and `internal/storage/inmemory.go:577-579`) before modifying attempt state, rolling back the transaction. The attempt remains `RUNNING`, holding `available_slots = 0` in `worker_capacity` indefinitely.
+- **Impact**: Fleet-wide worker slot exhaustion (Denial of Service). Any client reaching the unauthenticated API (SEC-004) can issue two cancellation requests per running job to permanently strand worker capacity. In PostgreSQL mode, this slot leak is durable across coordinator restarts.
+- **Root Cause**:
+  1. `CancelJob` omits explicit branch for `CANCEL_REQUESTED`, falling into the `else` branch and prematurely cancelling the job.
+  2. `CommitAttempt` on a terminal job returns early without closing the attempt and freeing the worker slot.
+- **Authorized Fix (Scheduled for Slice 4a)**:
+  1. Handle duplicate cancel on `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"` (same body as initial cancel, no status code change).
+  2. In `CommitAttempt` on a terminal job, close the attempt strictly if still in `RUNNING` (set attempt state to `CANCELLED` if job is `CANCELLED`, or `LOST` otherwise) and release the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and return HTTP 409 `JOB_ALREADY_TERMINAL` (the single stored result stands, an attempt already terminal is never overwritten, and the worker treats HTTP 409 as final without retry).
+  3. The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
+- **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+
+---
+
+### SEC-023: TestMigrator_PreExistingInvalidRow_ValidationFails Missing _test Database Name Guard
+
+- **Finding**: `TestMigrator_PreExistingInvalidRow_ValidationFails` has no `_test` database-name guard. If `MINICLOUD_TEST_DATABASE_URL` pointed at the dev database, it would create a schema there, run migrations and drop it; every other Postgres test helper refuses such names with `SAFETY VIOLATION`.
+- **Severity**: Low
+- **Category**: Test Safety Guardrails / Database Isolation
+- **Status**: Open (executed plus confirmed by code reading)
+- **Affected Component**: PostgreSQL Migrator Tests (`internal/storage/postgres/migrator_test.go:546-575`)
+- **Preconditions**: `MINICLOUD_TEST_DATABASE_URL` is set pointing to a database whose name does not end in `_test` (such as the development database `minicloud`).
+- **Reproduction Steps**:
+  1. Set `MINICLOUD_TEST_DATABASE_URL` pointing to a database name not ending in `_test` (e.g. `minicloud_noguard_probe`).
+  2. Run `go test -v -race -run TestMigrator_PreExistingInvalidRow_ValidationFails ./internal/storage/postgres`.
+  3. Observe that unlike other Postgres tests which fail immediately with `SAFETY VIOLATION: refusing to run test against database...`, this test attempts to connect directly to the database without validating the `_test` suffix.
+- **Evidence**: Executed plus confirmed by code reading of `internal/storage/postgres/migrator_test.go:546-575`.
+  When pointing tests at a database name not ending in `_test` (`minicloud_noguard_probe`), 23 `SAFETY VIOLATION` stops occurred across the suite, but `TestMigrator_PreExistingInvalidRow_ValidationFails` reached the connection step without a safety check:
+  ```
+  --- FAIL: TestMigrator_PreExistingInvalidRow_ValidationFails (0.01s)
+      migrator_test.go:555: failed to connect to test database: failed to connect to `user=postgres database=minicloud_noguard_probe`: 127.0.0.1:5433 (127.0.0.1): server error: FATAL: database "minicloud_noguard_probe" does not exist (SQLSTATE 3D000)
+  ```
+- **Impact**: If `MINICLOUD_TEST_DATABASE_URL` pointed at the development database `minicloud`, the test would connect, create a `test_migrator_pre_existing_*` schema there, run migrations and drop it. While impact is limited to its own temporary schema, it breaks the invariant guardrail promised in `docs/testing-postgres.md`.
+- **Root Cause**: `TestMigrator_PreExistingInvalidRow_ValidationFails` directly calls `pgx.Connect(ctx, testURL)` after checking `testURL == ""` without extracting the database name or asserting that `strings.HasSuffix(dbName, "_test")`.
+- **Recommended Fix**: Fix is NOT authorized yet; adding the same `_test` suffix check as `TestMigrator_FreshMigrate` and other test helpers is a later small task.
+- **Regression Test**: `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`).
 
 ---
 
