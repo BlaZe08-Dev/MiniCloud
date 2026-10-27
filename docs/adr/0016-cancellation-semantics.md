@@ -29,9 +29,10 @@ MiniCloud currently implements cancellation atomically in storage via `repo.Canc
   3. When an attempt finishes, `CommitAttempt` allows the worker's result to transition `CANCEL_REQUESTED` to `SUCCEEDED` or `FAILED`.
   4. If a worker hangs, there is no lease sweeper to force resolution of `CANCEL_REQUESTED`.
 
-Blueprint Sections 3, 5, 8, and 10 mandate that:
-- Cancellation is a cooperative request for running attempts and must be confirmed or resolved.
-- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent.
+Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Section 8 ("Initial HTTP API (suggested)", page 7), and Section 10 ("Test Strategy and Failure Injection", pages 8–10) mandate that:
+- Cancellation is a cooperative request for running attempts and the response distinguishes requested from completed (Blueprint Section 8).
+- Cancellation races with success completion deterministically (Blueprint Section 10).
+- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicate cancels).
 - All concurrent races (cancel vs completion, cancel vs lease expiry, cancel vs retry) must resolve deterministically under explicit row-level locking.
 
 ---
@@ -41,8 +42,8 @@ Blueprint Sections 3, 5, 8, and 10 mandate that:
 ### 1. Behavior Changes Introduced by Phase 4 Design
 The Phase 4 design introduces three concrete behavioral changes to the existing cancellation implementation:
 1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**:
-   - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt.
-   - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op. It returns the existing job state with HTTP 202 `CANCEL_REQUESTED` and does not insert duplicate audit events.
+   - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
+   - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op. It returns the existing job state with HTTP 202 `CANCEL_REQUESTED` and does not insert duplicate audit events. In Slice 4a, `CommitAttempt` on a terminal job closes the attempt and frees the worker capacity slot in the same transaction as the rejection, writing a diagnostic event and returning 409 `JOB_ALREADY_TERMINAL`.
 2. **Cancellation During `RETRYING`**:
    - When a job is in `RETRYING` awaiting backoff, `CancelJob` immediately transitions it to `CANCELLED` (terminal), clears `not_before`, and removes it from dispatch eligibility.
 3. **Running Attempt Resolution via Lease / Sweeper Path**:
@@ -51,24 +52,25 @@ The Phase 4 design introduces three concrete behavioral changes to the existing 
 ### 2. State Differentiation by Lifecycle Phase
 When `POST /v1/jobs/{job_id}/cancel` is invoked:
 1. **If Job is in `QUEUED`**:
-   - Transition: `QUEUED` $\rightarrow$ `CANCELLED` immediately.
+   - Transition: `QUEUED` -> `CANCELLED` immediately.
    - Dispatch transport / in-memory queue: message is dropped and acknowledged (`queue.Ack`).
    - API Response: `200 OK` with `state: "CANCELLED"`, `message: "job cancelled immediately"`.
 2. **If Job is in `RETRYING`**:
-   - Transition: `RETRYING` $\rightarrow$ `CANCELLED` immediately (`internal/domain/transition.go:27`).
+   - Transition: `RETRYING` -> `CANCELLED` immediately (`internal/domain/transition.go:27`).
    - Scheduled retry aborted; `not_before` cleared.
    - API Response: `200 OK` with `state: "CANCELLED"`, `message: "pending retry cancelled immediately"`.
 3. **If Job is in `RUNNING`**:
-   - Transition: `RUNNING` $\rightarrow$ `CANCEL_REQUESTED`.
+   - Transition: `RUNNING` -> `CANCEL_REQUESTED`.
    - Audit Event: Insert `job_events` record with `event_type: 'job_cancel_requested'`.
    - API Response: `202 Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation requested; awaiting worker confirmation"`.
 4. **If Job is in `CANCEL_REQUESTED` (Duplicate Cancel)**:
    - State unchanged: remains in `CANCEL_REQUESTED`.
    - API Response: `202 Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation already requested"`. (Accepted by owner).
+   - `CancelJob` returns an indicator (such as previous state or duplicate flag) allowing the HTTP handler to distinguish initial request from duplicate.
 5. **If Job is in Terminal State (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`)**:
    - Return HTTP `409 Conflict` with error code `JOB_ALREADY_TERMINAL`.
 
-*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is a deliberate additive change to the HTTP API contract in Phase 4.
+*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is an owner-approved compatibility exception, backed by Blueprint section 8 ("response distinguishes requested from completed"), rather than an additive change. Other HTTP status codes returned by `/cancel` include 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
 
 ### 3. Single Downstream Delivery Channel: Lease Renewal (`/renew`)
 MiniCloud adopts a single, dedicated delivery channel for cancellation signals:
@@ -109,12 +111,12 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
   - `CommitAttempt` locks the `jobs` row `FOR UPDATE`.
   - In MiniCloud's FSM (`internal/domain/transition.go:19-23`), `CANCEL_REQUESTED` explicitly permits transitions to `SUCCEEDED`, `FAILED`, and `CANCELLED`.
   - **Rule**: If the worker successfully produced a valid result before receiving the cancel signal, **valid completed work is accepted**:
-    - Job transitions: `CANCEL_REQUESTED` $\rightarrow$ `SUCCEEDED`.
+    - Job transitions: `CANCEL_REQUESTED` -> `SUCCEEDED`.
     - Result is stored in `results`.
     - Event: `JobEventCompleted` with detail `{"overrode_cancel_request": true}`.
   - If the worker confirms cancellation (reports `context.Canceled` or cancel exit code):
-    - Job transitions: `CANCEL_REQUESTED` $\rightarrow$ `CANCELLED`.
-    - Attempt transitions: `AttemptRunning` $\rightarrow$ `AttemptCancelled`.
+    - Job transitions: `CANCEL_REQUESTED` -> `CANCELLED`.
+    - Attempt transitions: `AttemptRunning` -> `AttemptCancelled`.
     - Event: `JobEventCancelled`.
 
 #### Race 2: Cancellation vs Lease Expiry (Zombie / Unresponsive Worker)
@@ -123,10 +125,12 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
   - MiniCloud enforces **no separate `CANCEL_REQUESTED` deadline**; the 30-second lease bounds it. (Accepted by owner).
   - The coordinator lease sweeper (ADR-0014) locks `jobs -> workers -> attempts`.
   - Seeing `job.state == 'CANCEL_REQUESTED'` and `lease_expires_at < clock_timestamp()`:
-    1. Sweeper transitions attempt to `LOST` (or `CANCELLED`).
-    2. Sweeper transitions job: `CANCEL_REQUESTED` $\rightarrow$ `CANCELLED` (terminal).
+    1. Sweeper transitions attempt to `CANCELLED`.
+    2. Sweeper transitions job: `CANCEL_REQUESTED` -> `CANCELLED` (terminal).
     3. Sweeper **suppresses retries**: even if `attempt_no < max_attempts`, a cancelled job is never retried.
     4. Event: `JobEventCancelled` with detail `{"resolved_by": "lease_sweeper", "reason": "worker unresponsive"}`.
+  - **Sweeper Rule for Already-Terminal Jobs**:
+    If the sweeper encounters an attempt whose job is already in a terminal state (`CANCELLED`, `SUCCEEDED`, or `FAILED`), it closes the attempt: to `CANCELLED` if the job is `CANCELLED`, or to `LOST` otherwise. The job state remains unchanged, the worker slot is released, and a diagnostic event is recorded.
 
 #### Race 3: Duplicate Cancellation Requests
 - **Scenario**: Client issues multiple concurrent or sequential `POST /v1/jobs/{id}/cancel` calls.
