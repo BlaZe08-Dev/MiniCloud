@@ -1,0 +1,1697 @@
+P4-00 round 2 review evidence. Raw command output, pasted verbatim from files written by each command.
+Checkout: agent/claude/P4-00-review-2 at c719880 (origin/docs/phase4-design). Scratch paths shortened to their basename in labels only.
+
+=== G1. Preflight, status, Go version (executed)
+$ preflight
+worktree: /home/blazeee/MiniCloud-claude
+test URL: postgres://***@127.0.0.1:5433/minicloud_claude_test?sslmode=disable
+test DB:  minicloud_claude_test
+preflight OK
+$ git status
+On branch agent/claude/P4-00-review-2
+Your branch is up to date with 'origin/docs/phase4-design'.
+
+nothing to commit, working tree clean
+$ git rev-parse HEAD
+c7198806be32d614d089ea2ca474c17a0820ff9e
+$ go version
+go version go1.22.2 linux/amd64
+
+=== G2. Gates, AGENTS.md section 6, DB unset (executed)
+$ test -z "$(gofmt -l .)" || { gofmt -l .; echo "GOFMT FAILED"; }
+(gofmt: no files listed)
+$ go vet ./...
+exit=0
+$ go build ./...
+exit=0
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.307s
+exit=0
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./... | tail -5
+exit=0
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.086s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.645s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.039s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	10.441s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	9.217s
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./... (counts)
+exit=0
+PASS 77 SKIP 26 FAIL 0
+
+=== G3. Cancel handler and mapDomainErrorToHTTP on origin/main (executed)
+$ git show origin/main:internal/api/handlers.go > handlers_main.go   (origin/main = a9453fc)
+a9453fcb5be590d14bfa12fe81b6842265e23ad1
+$ sed -n 110,155p handlers_main.go
+func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
+	if isConnectionOrTimeoutError(err) {
+		slog.Error("database outage or connection failure", "err", sanitizeError(err.Error()))
+		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable"
+	}
+
+	switch {
+	case errors.Is(err, domain.ErrJobNotFound):
+		return http.StatusNotFound, "JOB_NOT_FOUND", err.Error()
+	case errors.Is(err, domain.ErrAttemptNotFound):
+		return http.StatusNotFound, "ATTEMPT_NOT_FOUND", err.Error()
+	case errors.Is(err, domain.ErrWorkerNotFound):
+		return http.StatusNotFound, "WORKER_NOT_FOUND", err.Error()
+	case errors.Is(err, domain.ErrWorkerMismatch):
+		return http.StatusForbidden, "WORKER_MISMATCH", err.Error()
+	case errors.Is(err, domain.ErrStaleAttempt):
+		return http.StatusConflict, "STALE_ATTEMPT_REJECTED", err.Error()
+	case errors.Is(err, domain.ErrJobAlreadyTerminal):
+		return http.StatusConflict, "JOB_ALREADY_TERMINAL", err.Error()
+	case errors.Is(err, domain.ErrUnknownTaskType):
+		return http.StatusBadRequest, "UNKNOWN_TASK_TYPE", err.Error()
+	case errors.Is(err, domain.ErrPayloadTooLarge):
+		return http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", err.Error()
+	case errors.Is(err, domain.ErrNoQueuedJobs):
+		return http.StatusNoContent, "NO_QUEUED_JOBS", err.Error()
+	case errors.Is(err, domain.ErrNoWorkersAvailable):
+		return http.StatusServiceUnavailable, "NO_WORKERS_AVAILABLE", err.Error()
+	case errors.Is(err, domain.ErrWorkerUnhealthy):
+		return http.StatusServiceUnavailable, "WORKER_UNHEALTHY", err.Error()
+	case errors.Is(err, domain.ErrInvalidRequest):
+		return http.StatusBadRequest, "INVALID_REQUEST", err.Error()
+	case errors.Is(err, domain.ErrJobNotQueued):
+		return http.StatusConflict, "JOB_NOT_QUEUED", err.Error()
+	case errors.Is(err, domain.ErrWorkerTaskUnsupported):
+		return http.StatusBadRequest, "WORKER_TASK_UNSUPPORTED", err.Error()
+	case errors.Is(err, domain.ErrWorkerNoCapacity):
+		return http.StatusConflict, "WORKER_NO_CAPACITY", err.Error()
+	default:
+		var invErr *domain.InvalidStateTransitionError
+		if errors.As(err, &invErr) {
+			return http.StatusBadRequest, "INVALID_STATE_TRANSITION", invErr.Error()
+		}
+		slog.Error("internal server error", "err", sanitizeError(err.Error()))
+		return http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
+	}
+}
+$ sed -n 253,272p handlers_main.go
+func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
+		return
+	}
+
+	job, err := h.coord.CancelJob(r.Context(), jobID)
+	if err != nil {
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"job_id":  job.ID,
+		"state":   job.State,
+		"message": "cancellation processed",
+	})
+}
+$ sed -n 34,50p handlers_main.go
+func isConnectionOrTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		// PostgreSQL Class 08 — Connection Exception, Class 57 — Operator Intervention (57014 statement_timeout, 57P01/2/3), or 55P03 lock_not_available
+		if strings.HasPrefix(pgErr.Code, "08") || strings.HasPrefix(pgErr.Code, "57") || pgErr.Code == "55P03" {
+			return true
+		}
+$ sed -n 98,101p handlers_main.go
+func writeError(w http.ResponseWriter, status int, code, message string) {
+	if status == http.StatusServiceUnavailable && code == "SERVICE_UNAVAILABLE" {
+		w.Header().Set("Retry-After", "1")
+	}
+$ grep -n -E "StatusAccepted|202" handlers_main.go
+(grep exit 1)
+$ git diff --stat origin/main HEAD -- internal/   (no Go changes on this branch)
+(end)
+
+=== G4. Cancel-contract leftovers: 202 / StatusAccepted / exception / duplicate / ADR-0004 (executed)
+$ git grep -n -E '(^|[^0-9-])202([^0-9-]|$)' -- docs CHANGELOG.md (excluding round-1 review files)
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:9:  - `findings.md`: Raised `SEC-022` to Medium severity with evidence label **executed** and pasted verbatim execution evidence from audit review probe (`docs/agents/reviews/P4-00-evidence.txt`). Defined 3-part fix scope in Slice 4a: (a) duplicate cancel on `CANCEL_REQUESTED` is an idempotent 202 no-op; (b) `CommitAttempt` on a terminal job closes attempt and frees worker slot in same transaction, records diagnostic event, and returns HTTP 409 `JOB_ALREADY_TERMINAL`; (c) regression test is audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test). Registered `SEC-023` (Low, Open) for missing test database guard.
+docs/agents/handoffs/P4-00.md:48:| R-01 | `docs/security/findings.md`, `docs/security/threat-model.md`, `docs/adr/0016-cancellation-semantics.md`, `docs/phase4-plan.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md` | Raised SEC-022 to Medium (executed); authorized 3-part fix scope in Slice 4a (idempotent 202 cancel, terminal commit closes attempt + frees slot, regression probe). |
+docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/handoffs/P4-00.md:83:  - Earlier documentation drafts claimed that cancelling a `RUNNING` job returns HTTP 202 `Accepted` as existing behavior. That claim was wrong and was found by the audit probe (`docs/agents/reviews/P4-00-evidence.txt:32, 74`, showing `cancel #1: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCEL_REQUESTED"}` and `cancel #2: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCELLED"}`).
+docs/agents/handoffs/P4-00.md:99:  - Owner override R-16 & R-17: Every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception; no duplicate field).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+docs/security/test-plan.md:56:| **Duplicate Cancellation Idempotency** | Multiple concurrent or sequential cancel requests on a `CANCEL_REQUESTED` job. | Idempotently returns HTTP 202 `CANCEL_REQUESTED` with zero duplicate audit events; attempt remains running. | `TestConformance_CancelJob_IdempotentCancelRequested` (planned test, designed, not executed) |
+docs/source/MiniCloud_Project_Blueprint.pdf:338:<path d="M508.749 317.399C516.777 287.314 508.991 253.884 485.389 230.282C461.788 206.681 428.36 198.895 398.273 206.923C376.231 184.928 343.39 174.956 311.148 183.596C278.906 192.234 255.45 217.292 247.36 247.361C217.291 255.451 192.233 278.91 183.595 311.149C174.957 343.391 184.927 376.232 206.924 398.274C198.896 428.359 206.683 461.789 230.284 485.391C253.885 508.992 287.313 516.779 317.401 508.75C339.442 530.745 372.286 540.717 404.525 532.079C436.767 523.441 460.223 498.384 468.313 468.315C498.383 460.224 523.44 436.766 532.078 404.526C540.716 372.285 530.747 339.443 508.749 317.402V317.399ZM470.899 244.776C486.892 260.77 493.488 282.601 490.687 303.412L415.577 260.046C412.411 258.218 408.509 258.218 405.345 260.046L317.401 310.82V277.526C317.401 275.191 318.652 273.005 320.676 271.837L387.644 233.174C414.178 218.353 448.346 222.223 470.901 244.776H470.899ZM357.837 311.144L398.275 334.491V381.185L357.837 404.532L317.398 381.185V334.491L357.837 311.144ZM264.776 269.693C265.207 239.305 285.644 211.649 316.453 203.393C338.3 197.54 360.505 202.744 377.127 215.573L302.014 258.937C298.848 260.764 296.898 264.144 296.898 267.798V369.346L268.065 352.699C266.043 351.531 264.776 349.353 264.776 347.017V269.691V269.693ZM203.391 316.454C209.244 294.608 224.854 277.978 244.276 269.999V356.73C244.276 360.384 246.226 363.763 249.392 365.591L337.337 416.365L308.503 433.013C306.481 434.181 303.961 434.188 301.939 433.02L234.971 394.357C208.868 378.789 195.138 347.261 203.391 316.454ZM244.775 470.9C228.781 454.906 222.186 433.075 224.986 412.264L300.096 455.63C303.263 457.457 307.164 457.457 310.328 455.63L398.273 404.856V438.149C398.273 440.485 397.022 442.671 394.997 443.839L328.029 482.502C301.495 497.322 267.327 493.452 244.772 470.9H244.775ZM450.897 445.982C450.466 476.371 430.029 504.027 399.22 512.283C377.373 518.136 355.168 512.932 338.547 500.102L413.659 456.738C416.826 454.911 418.775 451.532 418.775 447.877V346.329L447.609 362.977C449.631 364.145 450.897 366.323 450.897 368.659V445.985V445.982ZM512.282 399.221C506.429 421.068 490.819 437.697 471.397 445.676V358.946C471.397 355.292 469.448 351.912 466.281 350.085L378.336 299.311L407.17 282.663C409.192 281.495 411.712 281.487 413.734 282.655L480.702 321.318C506.805 336.887 520.536 368.415 512.282 399.221Z" fill="black"/>
+$ git grep -n -E 'StatusAccepted|202 Accepted|HTTP 202' -- docs CHANGELOG.md (excl. round-1)
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/handoffs/P4-00.md:83:  - Earlier documentation drafts claimed that cancelling a `RUNNING` job returns HTTP 202 `Accepted` as existing behavior. That claim was wrong and was found by the audit probe (`docs/agents/reviews/P4-00-evidence.txt:32, 74`, showing `cancel #1: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCEL_REQUESTED"}` and `cancel #2: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCELLED"}`).
+docs/agents/handoffs/P4-00.md:99:  - Owner override R-16 & R-17: Every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception; no duplicate field).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+docs/security/test-plan.md:56:| **Duplicate Cancellation Idempotency** | Multiple concurrent or sequential cancel requests on a `CANCEL_REQUESTED` job. | Idempotently returns HTTP 202 `CANCEL_REQUESTED` with zero duplicate audit events; attempt remains running. | `TestConformance_CancelJob_IdempotentCancelRequested` (planned test, designed, not executed) |
+$ git grep -n -i -E 'additive exception|compatibility exception|ADR-0004 exception|ADR 0004 exception' -- docs CHANGELOG.md (excl. round-1)
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:14:  - `0016-cancellation-semantics.md`: Stated clearly that cancel status codes are unchanged from today: every cancel response is HTTP 200 (no new status code, no ADR-0004 exception, no duplicate response field). A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (state `CANCEL_REQUESTED`) and changes nothing. Resolved cancellation races: duplicate cancel on `CANCEL_REQUESTED` is an idempotent HTTP 200 no-op; `CommitAttempt` on terminal job closes attempt and frees worker slot in same transaction returning 409 `JOB_ALREADY_TERMINAL`; sweeper closes `RUNNING` attempts on terminal jobs to `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise) without modifying job state. Cited Blueprint Sections 3, 5, 8, 10.
+docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/handoffs/P4-00.md:99:  - Owner override R-16 & R-17: Every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception; no duplicate field).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+$ git grep -n -i -E 'duplicate.{0,20}(field|flag|: *true)|"duplicate"|`duplicate`' -- docs CHANGELOG.md (excl. round-1)
+docs/adr/0016-cancellation-semantics.md:69:   - Duplicate cancellation returns HTTP 200 with the identical response body as the initial request, changes nothing, and adds no duplicate audit events. There is no `duplicate` response field.
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:14:  - `0016-cancellation-semantics.md`: Stated clearly that cancel status codes are unchanged from today: every cancel response is HTTP 200 (no new status code, no ADR-0004 exception, no duplicate response field). A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (state `CANCEL_REQUESTED`) and changes nothing. Resolved cancellation races: duplicate cancel on `CANCEL_REQUESTED` is an idempotent HTTP 200 no-op; `CommitAttempt` on terminal job closes attempt and frees worker slot in same transaction returning 409 `JOB_ALREADY_TERMINAL`; sweeper closes `RUNNING` attempts on terminal jobs to `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise) without modifying job state. Cited Blueprint Sections 3, 5, 8, 10.
+docs/agents/handoffs/P4-00.md:64:| R-17 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-17: no duplicate response field; duplicate cancel on CANCEL_REQUESTED returns HTTP 200 with same body. |
+docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/handoffs/P4-00.md:99:  - Owner override R-16 & R-17: Every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception; no duplicate field).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+$ git grep -n -i -E 'ADR[- ]?0004' -- docs CHANGELOG.md (excl. round-1) | grep -i cancel
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:14:  - `0016-cancellation-semantics.md`: Stated clearly that cancel status codes are unchanged from today: every cancel response is HTTP 200 (no new status code, no ADR-0004 exception, no duplicate response field). A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (state `CANCEL_REQUESTED`) and changes nothing. Resolved cancellation races: duplicate cancel on `CANCEL_REQUESTED` is an idempotent HTTP 200 no-op; `CommitAttempt` on terminal job closes attempt and frees worker slot in same transaction returning 409 `JOB_ALREADY_TERMINAL`; sweeper closes `RUNNING` attempts on terminal jobs to `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise) without modifying job state. Cited Blueprint Sections 3, 5, 8, 10.
+docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/handoffs/P4-00.md:99:  - Owner override R-16 & R-17: Every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception; no duplicate field).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+docs/security/threat-model.md:133:| **Unauthenticated API & Renewal Endpoints (SEC-004)** | Entire platform | Anyone reaching HTTP port can renew, cancel, or report attempts. | Accepted risk in V1. Mitigated by binding exclusively to `127.0.0.1:8080`. Full mutual TLS (mTLS) and token authentication are staged for V3 (ADR-0004). | accepted risk |
+$ git grep -n -i -E 'Accepted' -- docs CHANGELOG.md (excl. round-1) | grep -i -E 'cancel' | grep -v -i 'accepted by owner'
+docs/PROJECT_STATE.md:5:- **Current Milestone:** Phase 4 Design Specification Revision — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e revised with Owner Decisions Accepted).
+docs/adr/0016-cancellation-semantics.md:5:- **Accepted Owner Decisions**:
+docs/adr/0016-cancellation-semantics.md:73:*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+docs/agents/handoffs/P4-00.md:83:  - Earlier documentation drafts claimed that cancelling a `RUNNING` job returns HTTP 202 `Accepted` as existing behavior. That claim was wrong and was found by the audit probe (`docs/agents/reviews/P4-00-evidence.txt:32, 74`, showing `cancel #1: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCEL_REQUESTED"}` and `cancel #2: HTTP 200 {"job_id":"...","message":"cancellation processed","state":"CANCELLED"}`).
+docs/phase4-plan.md:51:     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+docs/protocol.md:151:*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
+docs/security/threat-model.md:133:| **Unauthenticated API & Renewal Endpoints (SEC-004)** | Entire platform | Anyone reaching HTTP port can renew, cancel, or report attempts. | Accepted risk in V1. Mitigated by binding exclusively to `127.0.0.1:8080`. Full mutual TLS (mTLS) and token authentication are staged for V3 (ADR-0004). | accepted risk |
+
+=== G5. Handoff citation docs/agents/reviews/P4-00-evidence.txt:32, 74 (executed)
+$ sed -n 32p docs/agents/reviews/P4-00-evidence.txt
+    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+$ sed -n 74p docs/agents/reviews/P4-00-evidence.txt
+
+$ grep -n "cancel #" docs/agents/reviews/P4-00-evidence.txt
+13:    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+15:    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCELLED"}
+32:    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+34:    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCELLED"}
+
+=== G6. Existing tests that call CancelJob or /cancel (executed)
+$ grep -rn -E 'CancelJob\(|/cancel' --include='*_test.go' internal tests cmd; grep -rn -E 'CancelJob\(|/cancel' internal/storage/storagetest
+internal/storage/inmemory_test.go:589:	cancelledJob, err := repo.CancelJob(ctx, "job_event_test")
+internal/storage/inmemory_test.go:607:	_, err = repo.CancelJob(ctx, "job_event_test")
+internal/storage/postgres/concurrency_test.go:438:					_, _ = repo.CancelJob(ctx, targetJobID)
+internal/coordinator/service_test.go:411:	if _, err := repo.CancelJob(ctx, job1.ID); err != nil {
+internal/coordinator/service_test.go:486:	if _, err := baseRepo.CancelJob(ctx, job.ID); err != nil {
+internal/storage/storagetest/conformance.go:326:		cancelledJob, err := repo.CancelJob(ctx, "j_cancel_q")
+internal/storage/storagetest/conformance.go:335:		_, err = repo.CancelJob(ctx, "j_cancel_q")
+internal/storage/storagetest/conformance.go:356:		reqJob, err := repo.CancelJob(ctx, "j_cancel_r")
+$ grep -rn -i -E '"cancel|cancel"|Cancel\(' --include='*_test.go' internal tests cmd | grep -v -E 'context|cancel\(\)|WithCancel|WithTimeout|defer cancel' 
+internal/storage/inmemory_test.go:591:		t.Fatalf("CancelJob failed: %v", err)
+internal/storage/postgres/testhelper_test.go:85:		defer cleanupCancel()
+internal/storage/postgres/migrator_test.go:69:		defer cleanupCancel()
+tests/integration/postgres_wiring_test.go:98:		defer cleanupCancel()
+tests/integration/worker_liveness_test.go:58:	defer reaperCancel()
+tests/integration/part_d_security_test.go:411:	defer txCancel()
+internal/coordinator/service_test.go:412:		t.Fatalf("CancelJob failed: %v", err)
+internal/coordinator/service_test.go:480:	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"msg":"cancel-me"}`), 30, 3)
+internal/coordinator/service_test.go:487:		t.Fatalf("CancelJob failed: %v", err)
+$ sed -n '299,363p' internal/storage/storagetest/conformance.go
+	t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+		ctx := context.Background()
+		repo := repoFactory(t)
+
+		worker := &domain.Worker{
+			ID:             "w_cancel",
+			Version:        "v1.0.0",
+			TotalSlots:     2,
+			Status:         domain.WorkerStatusHealthy,
+			SupportedTasks: []string{"echo"},
+		}
+		if err := repo.UpsertWorker(ctx, worker); err != nil {
+			t.Fatalf("UpsertWorker failed: %v", err)
+		}
+
+		// Cancel QUEUED job -> transitions to CANCELLED
+		qJob := &domain.Job{
+			ID:             "j_cancel_q",
+			TaskType:       "echo",
+			Payload:        []byte("test"),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, qJob); err != nil {
+			t.Fatalf("SubmitJob failed: %v", err)
+		}
+		cancelledJob, err := repo.CancelJob(ctx, "j_cancel_q")
+		if err != nil {
+			t.Fatalf("CancelJob on QUEUED failed: %v", err)
+		}
+		if cancelledJob.State != domain.StateCancelled {
+			t.Fatalf("expected state CANCELLED, got %s", cancelledJob.State)
+		}
+
+		// Cancelling already terminal job must fail
+		_, err = repo.CancelJob(ctx, "j_cancel_q")
+		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+		}
+
+		// Cancel RUNNING job -> transitions to CANCEL_REQUESTED
+		rJob := &domain.Job{
+			ID:             "j_cancel_r",
+			TaskType:       "echo",
+			Payload:        []byte("test"),
+			State:          domain.StateQueued,
+			MaxAttempts:    3,
+			TimeoutSeconds: 30,
+		}
+		if err := repo.SubmitJob(ctx, rJob); err != nil {
+			t.Fatalf("SubmitJob failed: %v", err)
+		}
+		if _, err := repo.DispatchJob(ctx, "j_cancel_r", "w_cancel"); err != nil {
+			t.Fatalf("DispatchJob failed: %v", err)
+		}
+
+		reqJob, err := repo.CancelJob(ctx, "j_cancel_r")
+		if err != nil {
+			t.Fatalf("CancelJob on RUNNING failed: %v", err)
+		}
+		if reqJob.State != domain.StateCancelRequested {
+			t.Fatalf("expected state CANCEL_REQUESTED, got %s", reqJob.State)
+		}
+	})
+$ sed -n '559,612p' internal/storage/inmemory_test.go
+func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+
+	now := time.Now().UTC()
+	job := &domain.Job{
+		ID:        "job_event_test",
+		TaskType:  "echo",
+		Payload:   []byte(`{"msg":"test"}`),
+		State:     domain.StateQueued,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	if err := repo.SubmitJob(ctx, job); err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	events, err := repo.ListEventsByJob(ctx, "job_event_test")
+	if err != nil {
+		t.Fatalf("ListEventsByJob failed: %v", err)
+	}
+	if len(events) < 2 {
+		t.Fatalf("expected at least 2 events (SUBMITTED, QUEUED), got %d", len(events))
+	}
+	if events[0].EventType != domain.JobEventSubmitted || events[1].EventType != domain.JobEventQueued {
+		t.Fatalf("unexpected events: %+v", events)
+	}
+
+	// Cancel the queued job
+	cancelledJob, err := repo.CancelJob(ctx, "job_event_test")
+	if err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
+	if cancelledJob.State != domain.StateCancelled {
+		t.Fatalf("expected CANCELLED, got %s", cancelledJob.State)
+	}
+
+	eventsAfterCancel, err := repo.ListEventsByJob(ctx, "job_event_test")
+	if err != nil {
+		t.Fatalf("ListEventsByJob failed: %v", err)
+	}
+	lastEvent := eventsAfterCancel[len(eventsAfterCancel)-1]
+	if lastEvent.EventType != domain.JobEventCancelled {
+		t.Fatalf("expected last event CANCELLED, got %s", lastEvent.EventType)
+	}
+
+	// Cancelling already cancelled job returns ErrJobAlreadyTerminal
+	_, err = repo.CancelJob(ctx, "job_event_test")
+	if err != domain.ErrJobAlreadyTerminal {
+		t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+	}
+}
+
+$ sed -n '425,445p' internal/storage/postgres/concurrency_test.go
+						candidate = activeAttempts[r.Intn(len(activeAttempts))]
+						hasCandidate = true
+					}
+					attemptsMu.Unlock()
+
+					if hasCandidate {
+						outcome := domain.AttemptOutcome{
+							ExitCode: 0,
+							Output:   "stress ok",
+						}
+						_, _ = repo.CommitAttempt(ctx, candidate.jobID, candidate.attemptID, candidate.leaseToken, candidate.workerID, outcome)
+					}
+				case 3: // CancelJob
+					_, _ = repo.CancelJob(ctx, targetJobID)
+				case 4: // ReapStaleWorkers / RecordHeartbeat
+					if iter%2 == 0 {
+						_, _ = repo.ReapStaleWorkers(ctx, 1*time.Millisecond)
+					} else {
+						_ = repo.RecordHeartbeat(ctx, targetWorkerID, 2)
+					}
+				}
+$ sed -n '400,420p' internal/coordinator/service_test.go
+	// Submit job 1 and job 2
+	job1, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"one"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob 1 failed: %v", err)
+	}
+	job2, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"two"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob 2 failed: %v", err)
+	}
+
+	// Directly cancel job 1 in repository to simulate cancellation or out-of-band state change
+	if _, err := repo.CancelJob(ctx, job1.ID); err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
+
+	// Worker polls: coordinator claims job 1, checks repository, sees it's CANCELLED, drops it,
+	// and claims job 2!
+	assignment, err := svc.PollWork(ctx, "worker-1")
+	if err != nil {
+		t.Fatalf("PollWork failed: %v", err)
+	}
+$ sed -n '476,500p' internal/coordinator/service_test.go
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+
+	// Submit job (queued)
+	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"msg":"cancel-me"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+
+	// Directly cancel the job in storage so its state becomes CANCELLED (not QUEUED)
+	if _, err := baseRepo.CancelJob(ctx, job.ID); err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
+	}
+
+	// Poll work:
+	// Worker was healthy when PollWork inspected it, but inside DispatchJob,
+	// the job is CANCELLED (not QUEUED) AND the worker is UNHEALTHY.
+	// DispatchJob returns ErrJobNotQueued (precedence: job state checked before worker health).
+	// Coordinator must Ack the queue item, drop it, and find no more work.
+	assignment, err := svc.PollWork(ctx, "worker-race")
+	if assignment != nil {
+		t.Fatalf("expected nil assignment for dead job, got %+v", assignment)
+	}
+	if !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs after claim loop dropped dead job, got %v", err)
+$ sed -n '446,515p' internal/storage/postgres/concurrency_test.go
+			}
+		}(i)
+	}
+
+	close(startBarrier)
+	wg.Wait()
+
+	if ctx.Err() != nil {
+		t.Fatalf("concurrency test exceeded deadline, possible deadlock encountered: %v", ctx.Err())
+	}
+
+	// Invariant 1: Exactly at most ONE active attempt per job in the entire database
+	checkActiveAttempts := fmt.Sprintf(`
+		SELECT job_id, COUNT(*) 
+		FROM %s.attempts 
+		WHERE state IN ('PENDING', 'RUNNING') 
+		GROUP BY job_id 
+		HAVING COUNT(*) > 1;
+	`, schemaName)
+	rows, err := pool.Query(ctx, checkActiveAttempts)
+	if err != nil {
+		t.Fatalf("failed to query active attempts: %v", err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var jID string
+		var cnt int
+		_ = rows.Scan(&jID, &cnt)
+		t.Fatalf("INVARIANT VIOLATION: job %s has %d active attempts (>1)", jID, cnt)
+	}
+
+	// Invariant 2: At most ONE result per job
+	checkResults := fmt.Sprintf(`
+		SELECT job_id, COUNT(*) 
+		FROM %s.results 
+		GROUP BY job_id 
+		HAVING COUNT(*) > 1;
+	`, schemaName)
+	resRows, err := pool.Query(ctx, checkResults)
+	if err != nil {
+		t.Fatalf("failed to query results: %v", err)
+	}
+	defer resRows.Close()
+	if resRows.Next() {
+		var jID string
+		var cnt int
+		_ = resRows.Scan(&jID, &cnt)
+		t.Fatalf("INVARIANT VIOLATION: job %s has %d result rows (>1)", jID, cnt)
+	}
+
+	// Invariant 3: Derived available slots never negative
+	checkNegativeSlots := fmt.Sprintf(`
+		SELECT id, available_slots 
+		FROM %s.worker_capacity 
+		WHERE available_slots < 0;
+	`, schemaName)
+	slotRows, err := pool.Query(ctx, checkNegativeSlots)
+	if err != nil {
+		t.Fatalf("failed to query worker capacity: %v", err)
+	}
+	defer slotRows.Close()
+	if slotRows.Next() {
+		var wID string
+		var slots int
+		_ = slotRows.Scan(&wID, &slots)
+		t.Fatalf("INVARIANT VIOLATION: worker %s has negative available_slots: %d", wID, slots)
+	}
+}
+
+// TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier tests 10 concurrent workers
+$ grep -n 'func Test' internal/storage/postgres/concurrency_test.go
+19:func TestPostgresRepository_Concurrency_SameJobDispatchRaced(t *testing.T) {
+107:func TestPostgresRepository_Concurrency_WorkerCapacityRaced(t *testing.T) {
+209:func TestPostgresRepository_Concurrency_DuplicateCommitRaced(t *testing.T) {
+316:func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
+521:func TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier(t *testing.T) {
+$ ls tests
+architecture
+docs
+integration
+$ grep -rn -E 'cancel' cmd/ --include='*.go' | grep -v _test | grep -i -E 'StatusOK|/cancel|StatusCode'
+$ grep -rln -i 'cancel' cmd internal/api internal/worker tests/integration
+cmd/coordinator/main.go
+cmd/worker/main.go
+cmd/migrate/main.go
+internal/api/api_test.go
+internal/worker/client_test.go
+internal/api/server.go
+tests/integration/worker_liveness_test.go
+tests/integration/postgres_wiring_test.go
+internal/api/handlers.go
+tests/integration/part_d_security_test.go
+$ grep -rn -E 'CancelJob|/cancel' cmd internal/api internal/worker tests/integration
+internal/api/server.go:64:	s.mux.HandleFunc("POST /v1/jobs/{id}/cancel", s.handler.HandleCancelJob)
+internal/api/handlers.go:253:func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
+internal/api/handlers.go:260:	job, err := h.coord.CancelJob(r.Context(), jobID)
+$ sed -n 141p docs/fault-injection-plan.md
+4. **No Active Attempt After Terminal State**: When `jobs.state` is in `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`, zero attempts exist with `state IN ('PENDING', 'RUNNING')`.
+
+=== G7. Memory-mode queue claim path and the service tests that assert it (executed)
+$ grep -n -E '^func (New|\(s \*Service\) (CancelJob|PollWork|claimFromQueue|claim))' internal/coordinator/service.go
+25:func generateID(prefix string) string {
+39:func (realClock) Now() time.Time {
+67:func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+72:func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, q queue.Queue, workerTimeout time.Duration) *Service {
+93:func NewPostgresService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+109:func (s *Service) Ping(ctx context.Context) error {
+114:func (s *Service) SetClock(c Clock) {
+135:func isValidTaskName(name string) bool {
+150:func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte, timeoutSec, maxAttempts int) (*domain.Job, error) {
+214:func (s *Service) GetJob(ctx context.Context, id string) (*domain.Job, error) {
+219:func (s *Service) ListAttempts(ctx context.Context, jobID string) ([]*domain.Attempt, error) {
+228:func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error) {
+257:func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) error {
+309:func (s *Service) Heartbeat(ctx context.Context, workerID string, availableSlots int) error {
+314:func (s *Service) ListWorkers(ctx context.Context) ([]*domain.Worker, error) {
+320:func (s *Service) ReapInactiveWorkers(ctx context.Context) ([]string, error) {
+336:func (s *Service) StartReaper(ctx context.Context, interval time.Duration) {
+352:func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignment, error) {
+466:func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken, workerID string, exitCode int, output, errSummary string) (*domain.Job, error) {
+$ sed -n '225,240p' internal/coordinator/service.go
+}
+
+// CancelJob cancels a queued or running job atomically.
+func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	job, err := s.repo.CancelJob(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if job.State == domain.StateCancelled && !s.dispatchViaRepo && s.queue != nil {
+		_ = s.queue.Ack(ctx, job.ID)
+	}
+
+$ sed -n '380,400p' internal/coordinator/service.go
+			TaskType:       job.TaskType,
+			Payload:        job.Payload,
+			TimeoutSeconds: job.TimeoutSeconds,
+		}, nil
+	}
+
+	worker, err := s.repo.GetWorker(ctx, workerID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Poll from an UNHEALTHY worker returns ErrWorkerUnhealthy
+	if worker.Status != domain.WorkerStatusHealthy {
+		return nil, domain.ErrWorkerUnhealthy
+	}
+
+	if !worker.HasCapacity() {
+		return nil, domain.ErrNoWorkersAvailable
+	}
+
+	for {
+$ grep -n 'NewServiceWithQueue\|NewPostgresService' -r internal cmd tests --include='*.go' | grep -v '^internal/coordinator/service.go' | wc -l
+tests/integration/multi_worker_batch_test.go:35:	// 2. Start in-process Coordinator HTTP Server using NewServiceWithQueue
+tests/integration/multi_worker_batch_test.go:40:	svc := coordinator.NewServiceWithQueue(repo, sched, reg, q, 10*time.Second)
+internal/coordinator/service_test.go:393:	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+internal/coordinator/service_test.go:466:	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+internal/coordinator/service_test.go:532:	svc := coordinator.NewServiceWithQueue(repo, sched, reg, q, 10*time.Second)
+internal/coordinator/service_test.go:582:	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+internal/coordinator/service_test.go:678:	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+internal/coordinator/service_test.go:728:	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+internal/coordinator/service_test.go:776:	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
+$ for each NewServiceWithQueue call in internal/coordinator/service_test.go: enclosing test, and spy assertions in it
+internal/coordinator/service_test.go:393 in TestService_Claim_JobNoLongerQueued_Dropped(t (func at 386)
+internal/coordinator/service_test.go:466 in TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased(t (func at 458)
+internal/coordinator/service_test.go:532 in TestService_Claim_Redelivery_NoDuplicateAttempt(t (func at 526)
+internal/coordinator/service_test.go:582 in TestService_CommitResult_AckOnlyOnAccepted(t (func at 575)
+internal/coordinator/service_test.go:678 in TestService_ClaimOutcome_TransientFailure_QueueReleased(t (func at 665)
+internal/coordinator/service_test.go:728 in TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased(t (func at 716)
+internal/coordinator/service_test.go:776 in TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t (func at 764)
+$ grep -n -E 'spy\.get(Acked|Released|Claimed)|getAcked|getReleased' internal/coordinator/service_test.go
+426:	acked := spy.getAcked()
+504:	acked := spy.getAcked()
+516:	released := spy.getReleased()
+608:	if len(spy.getAcked()) != 0 {
+609:		t.Fatalf("expected no Ack on worker mismatch, got %v", spy.getAcked())
+617:	if len(spy.getAcked()) != 0 {
+618:		t.Fatalf("expected no Ack on wrong lease token, got %v", spy.getAcked())
+626:	if len(spy.getAcked()) != 0 {
+627:		t.Fatalf("expected no Ack on wrong attempt ID, got %v", spy.getAcked())
+635:	acked := spy.getAcked()
+645:	if len(spy.getAcked()) != 1 {
+646:		t.Fatalf("expected no duplicate Ack on already terminal job, got: %v", spy.getAcked())
+703:	released := spy.getReleased()
+708:	acked := spy.getAcked()
+752:	acked := spy.getAcked()
+756:	released := spy.getReleased()
+799:	released := spy.getReleased()
+803:	acked := spy.getAcked()
+$ sed -n 60,108p internal/coordinator/service.go
+	queue           queue.Queue
+	clock           Clock
+	workerTimeout   time.Duration
+	dispatchViaRepo bool
+}
+
+// NewService constructs a new Coordinator Service with the default in-memory queue.
+func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+	return NewServiceWithQueue(repo, sched, reg, queue.NewInMemoryQueue(), workerTimeout)
+}
+
+// NewServiceWithQueue constructs a new Coordinator Service with a specified dispatch Queue.
+func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, q queue.Queue, workerTimeout time.Duration) *Service {
+	if workerTimeout <= 0 {
+		workerTimeout = 10 * time.Second
+	}
+	if q == nil {
+		q = queue.NewInMemoryQueue()
+	}
+	return &Service{
+		repo:            repo,
+		scheduler:       sched,
+		executorReg:     reg,
+		queue:           q,
+		clock:           realClock{},
+		workerTimeout:   workerTimeout,
+		dispatchViaRepo: false,
+	}
+}
+
+// NewPostgresService constructs a new Coordinator Service wired directly to PostgreSQL repository dispatch (ADR-0011 Option A).
+// In this mode, no in-memory queue is used, preventing unbounded memory growth (SEC-010), and all dispatches flow
+// through repo.DispatchNextJob.
+func NewPostgresService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+	if workerTimeout <= 0 {
+		workerTimeout = 10 * time.Second
+	}
+	return &Service{
+		repo:            repo,
+		scheduler:       sched,
+		executorReg:     reg,
+		queue:           nil,
+		clock:           realClock{},
+		workerTimeout:   workerTimeout,
+		dispatchViaRepo: true,
+	}
+}
+
+// Ping checks repository reachability for readiness probes.
+$ sed -n '458,475p;500,530p' internal/coordinator/service_test.go
+func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased(t *testing.T) {
+	ctx := context.Background()
+	baseRepo := storage.NewInMemoryRepository()
+	repo := &workerUnhealthyOnDispatchRepo{Repository: baseRepo}
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{
+		ID:             "worker-race",
+		Status:         domain.WorkerStatusHealthy,
+		TotalSlots:     1,
+		AvailableSlots: 1,
+		SupportedTasks: []string{"echo"},
+	}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("expected ErrNoQueuedJobs after claim loop dropped dead job, got %v", err)
+	}
+
+	// Verify dead job was Acked and removed
+	acked := spy.getAcked()
+	foundAcked := false
+	for _, id := range acked {
+		if id == job.ID {
+			foundAcked = true
+		}
+	}
+	if !foundAcked {
+		t.Fatalf("expected cancelled job %s to be Acked, got acked: %v", job.ID, acked)
+	}
+
+	// Verify dead job was NEVER Released back to queue
+	released := spy.getReleased()
+	for _, id := range released {
+		if id == job.ID {
+			t.Fatalf("CRITICAL INVARIANT VIOLATION: cancelled job %s was Released back to queue", job.ID)
+		}
+	}
+}
+
+// TestService_Claim_Redelivery_NoDuplicateAttempt tests Instruction 3:
+// Redelivery of an already-dispatched job must not create a second attempt.
+func TestService_Claim_Redelivery_NoDuplicateAttempt(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+$ sed -n '386,398p;420,440p' internal/coordinator/service_test.go
+func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
+	ctx := context.Background()
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	innerQ := queue.NewInMemoryQueue()
+	spy := newSpyQueue(innerQ)
+	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+
+	w := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
+	if err := svc.RegisterWorker(ctx, w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+	}
+	if assignment.JobID != job2.ID {
+		t.Fatalf("expected assignment for job 2 (%s), got %s", job2.ID, assignment.JobID)
+	}
+
+	// Verify job 1 was acked/dropped from queue
+	acked := spy.getAcked()
+	foundJob1 := false
+	for _, id := range acked {
+		if id == job1.ID {
+			foundJob1 = true
+		}
+	}
+	if !foundJob1 {
+		t.Fatalf("expected dropped job 1 to be acked from queue, got acked: %v", acked)
+	}
+}
+
+// workerUnhealthyOnDispatchRepo wraps storage.Repository and simulates a worker becoming UNHEALTHY
+// during the dispatch window, ensuring tests can verify dispatch error precedence.
+type workerUnhealthyOnDispatchRepo struct {
+$ awk '/^func Test/{n=NR; l=$0} NR==411||NR==486{print NR" in "n": "l}' internal/coordinator/service_test.go
+411 in 386: func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
+486 in 458: func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased(t *testing.T) {
+$ grep -n -E 'queue\.|Claim\(|Ack\(|Nack\(' internal/coordinator/service.go
+195:		if err := s.queue.Enqueue(ctx, &queue.Item{
+238:		_ = s.queue.Ack(ctx, job.ID)
+401:		item, err := s.queue.Claim(ctx, worker)
+414:				_ = s.queue.Ack(ctx, item.JobID)
+420:				_ = s.queue.Release(ctx, item.JobID)
+425:			_ = s.queue.Release(ctx, item.JobID)
+513:		_ = s.queue.Ack(ctx, job.ID)
+$ grep -n -i -E 'queue' docs/phase4-plan.md docs/adr/0015-retry-policy-and-failure-classification.md docs/adr/0016-cancellation-semantics.md
+docs/adr/0016-cancellation-semantics.md:56:   - Dispatch transport / in-memory queue: message is dropped and acknowledged (`queue.Ack`).
+docs/adr/0015-retry-policy-and-failure-classification.md:125:   - In both PostgreSQL and in-memory modes, `repo.DispatchNextJob` and `repo.DispatchJob` accept jobs that are either `QUEUED` or in `RETRYING` with `not_befo
+docs/adr/0015-retry-policy-and-failure-classification.md:126:   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the sepa
+$ grep -n -i -E 'status|accepted' docs/roadmap.md | sed -n 1,12p
+16:| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale res
+
+=== G8. Cross-document consistency greps (executed)
+$ git grep -n -E 'RETRYABLE|INFRASTRUCTURE_FAULT|ClassRetryable' -- docs CHANGELOG.md (excl. round-1 review files, docs/source)
+docs/PROJECT_STATE.md:199:  - 3-tier failure classification: success is `AttemptCompleted` (no error class); allowlisted task validation errors permanent (`ClassPermanent`); worker abnormal terminations; unknown errors retryable (`ClassRetryable`).
+docs/agents/handoffs/P4-00.md:13:  - `0015-retry-policy-and-failure-classification.md`: Enforced strict 4-value `error_class` taxonomy (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`) and dropped `INFRASTRUCTURE_FAULT` everywhere. Reconciled in-memory parity: `repo.DispatchNextJob` performs pull dispatch in both modes. Verified and cited Blueprint Sections 5 and 13 for direct `RETRYING -> RUNNING` pull dispatch.
+docs/agents/handoffs/P4-00.md:28:  - Attributed task board origin to owner draft ("Committed agent rules and task board from owner draft..."). Removed empty bullet item in `docs/PROJECT_STATE.md`. Replaced all LaTeX math notation with standard Markdown plain text. Updated SEC-022 to Medium (executed) with probe citation. Replaced `INFRASTRUCTURE_FAULT` with `LEASE_EXPIRED`. Updated sweeper locking to canonical lock order without `NOWAIT`.
+docs/agents/handoffs/P4-00.md:39:4. **Failure Classification & Error Codes:** Bounded `error_class` values to exactly four (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), dropping `INFRASTRUCTURE_FAULT`. Created an unambiguous 3-tier HTTP 409 conflict evaluation table. Added missing 400 and 503 error codes to cancel endpoint.
+docs/agents/handoffs/P4-00.md:50:| R-03 | `docs/adr/0015-retry-policy-and-failure-classification.md`, `docs/schema.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/phase4-plan.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md` | Bounded error_class strictly to PERMANENT, TRANSIENT, UNKNOWN, LEASE_EXPIRED; dropped INFRASTRUCTURE_FAULT; enforced via migration 000004 CHECK constraint. |
+docs/agents/handoffs/P4-00.md:89:  - Owner override R-03: Strictly 4 error_class values; dropped INFRASTRUCTURE_FAULT everywhere.
+docs/roadmap.md:65:   - Implement 3-tier failure classification (`PERMANENT` vs `RETRYABLE`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
+$ git grep -n -o -E "error_class[^.]{0,120}(PERMANENT|TRANSIENT|UNKNOWN|LEASE_EXPIRED)[^.]{0,80}" -- docs CHANGELOG.md (excl.)
+CHANGELOG.md:20:error_class = "LEASE_EXPIRED"`; direct `RETRYING -> RUNNING` pull dispatch justified against Blueprint Secti
+docs/PROJECT_STATE.md:20:error_class = "LEASE_EXPIRED"` (alternative infinite retries rejected to avoid poison job cluster loops); ci
+docs/adr/0015-retry-policy-and-failure-classification.md:59:error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSIENT`, `UNKNOWN`, and `LEASE_EXPIRED`
+docs/adr/0015-retry-policy-and-failure-classification.md:85:error_class` is stamped with `"LEASE_EXPIRED"`
+docs/adr/0015-retry-policy-and-failure-classification.md:85:error_class: "LEASE_EXPIRED"`
+docs/agents/handoffs/P4-00.md:13:error_class` taxonomy (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`) and dropped `INFRASTRUCTURE_FAULT` everywhere
+docs/agents/handoffs/P4-00.md:16:error_class` CHECK constraint restricting `error_class` strictly to `PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`
+docs/agents/handoffs/P4-00.md:39:error_class` values to exactly four (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), dropping `INFRASTRUCTURE_FAULT`
+docs/agents/handoffs/P4-00.md:50:error_class strictly to PERMANENT, TRANSIENT, UNKNOWN, LEASE_EXPIRED; dropped INFRASTRUCTURE_FAULT; enforced via migration 000004 CHECK constraint
+docs/phase4-plan.md:104:error_class` (strictly checked for `'PERMANENT'`, `'TRANSIENT'`, `'UNKNOWN'`, `'LEASE_EXPIRED'`), `attempts
+docs/phase4-plan.md:116:error_class = 'LEASE_EXPIRED'`), set exponential backoff `not_before`, transition job to `RETRYING`, free wo
+docs/phase4-plan.md:117:error_class = 'LEASE_EXPIRED'`), transition job to `FAILED`, free worker slot, record `attempt
+docs/phase4-plan.md:198:error_class` values: `PERMANENT`, `TRANSIENT`, `UNKNOWN` (defaults to `UNKNOWN`)
+docs/protocol.md:289:error_classification": "PERMANENT"
+docs/protocol.md:456:error_classification": "PERMANENT"
+docs/protocol.md:459:error_classification` values:* `"PERMANENT"`, `"TRANSIENT"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure)
+docs/schema.md:314:error_class IS NULL OR error_class IN ('PERMANENT', 'TRANSIENT', 'UNKNOWN', 'LEASE_EXPIRED')) 
+docs/schema.md:389:error_class = 'LEASE_EXPIRED'`, sets `jobs
+docs/schema.md:390:error_class = 'LEASE_EXPIRED'`, transitions the job to `FAILED` (terminal), frees the worker slot, and recor
+$ git grep -n -E 'error_class|error_classification|ErrorClassification' -- docs/state-machine.md docs/failure-model.md
+docs/failure-model.md:30:| **FS-10** | **Task times out, emits excessive output, or crashes** | Executor aborts task via `context.WithTimeout`, truncates output to 64 KiB, and reports structured failure with `exit_code` and `error_classification`. Input validation failures are classified `PERMANENT`. | Phase 1 / Phase 4 | Task-level timeout enforced; Phase 4 classifies retryability. |
+$ git grep -n -E 'NOWAIT' -- docs CHANGELOG.md (excl.)
+docs/adr/0014-lease-model-and-expiry.md:134:     If a lock timeout occurs, the transaction rolls back cleanly. (Note: `SKIP LOCKED` and `NOWAIT` are never combined).
+docs/agents/handoffs/P4-00.md:12:  - `0014-lease-model-and-expiry.md`: Specified single canonical sweeper lock order: unlocked candidate scan; per candidate: `SELECT jobs ... FOR UPDATE SKIP LOCKED` (0 rows = skip candidate and retry next tick), then plain `FOR UPDATE` under `lock_timeout` on workers and attempts rows; single grace check inside locks. Eliminated `SKIP LOCKED` + `NOWAIT` combination. Specified autonomous outage grace detection on failed ticks or database-time gap > 3x sweep interval activating a 30s grace window capped by 30s cooldown (dropping /readyz and wall-clock gap claims). Formulated explicit 3-step 409 evaluation priority table: (1) terminal job -> `JOB_ALREADY_TERMINAL`; (2) swept to `LOST` -> `LEASE_EXPIRED`; (3) superseded/mismatch -> `STALE_ATTEMPT_REJECTED`. Specified worker renewal error handling (404 without error envelope treated as old coordinator; 400 logs error and continues task execution). Removed contradictory "unexpired lease" requirements for renewal/commit. Verified and cited Blueprint Sections 3, 5, 8, 10, 13.
+docs/agents/handoffs/P4-00.md:16:  - Proposed migration `000004_leases_retries_cancellation.sql`: added `chk_attempts_error_class` CHECK constraint restricting `error_class` strictly to `PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`. Specified dropping the backfill default immediately after backfill so new rows require explicit values. Documented canonical sweeper lock order without `NOWAIT`. Added note on `TIMED_OUT` status as a reserved state in migration 000001, unused by V1 coordinator, and not introduced in migration 000004.
+docs/agents/handoffs/P4-00.md:28:  - Attributed task board origin to owner draft ("Committed agent rules and task board from owner draft..."). Removed empty bullet item in `docs/PROJECT_STATE.md`. Replaced all LaTeX math notation with standard Markdown plain text. Updated SEC-022 to Medium (executed) with probe citation. Replaced `INFRASTRUCTURE_FAULT` with `LEASE_EXPIRED`. Updated sweeper locking to canonical lock order without `NOWAIT`.
+docs/agents/handoffs/P4-00.md:37:2. **Canonical Sweeper Concurrency & Outage Grace:** Specified one canonical locking pattern (`SELECT jobs ... FOR UPDATE SKIP LOCKED` followed by plain `FOR UPDATE` under `lock_timeout` on workers and attempts, with one grace check inside locks). Eliminated impossible `SKIP LOCKED` + `NOWAIT` syntax. Replaced wall-clock and /readyz outage heuristics with autonomous database-clock gap detection (> 3x sweep interval) and failed-tick detection, protected by a 30s grace window and 30s cooldown.
+docs/agents/handoffs/P4-00.md:55:| R-08 | `docs/adr/0014-lease-model-and-expiry.md`, `docs/schema.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md` | Specified single canonical sweeper lock order (SKIP LOCKED on jobs, plain FOR UPDATE on workers/attempts under lock_timeout, 1 grace check inside locks); eliminated SKIP LOCKED + NOWAIT. |
+docs/agents/handoffs/P4-00.md:94:  - Owner override R-08: Canonical sweeper lock order without NOWAIT.
+docs/agents/handoffs/P4-00.md:220:  - *Assumption*: PostgreSQL sweeper could combine `SKIP LOCKED` and `NOWAIT`.
+docs/phase4-plan.md:112:      2. Per-candidate lock order `jobs -> workers -> attempts`: `SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED` (0 rows = skip and retry next tick), then workers and attempts rows with plain `FOR UPDATE` under PostgreSQL `lock_timeout` (default 5s). One grace check inside locks. `SKIP LOCKED` and `NOWAIT` are never combined.
+docs/schema.md:376:   - On Steps 2 and 3: Worker and attempt rows are locked with plain `FOR UPDATE` under PostgreSQL `lock_timeout` (default 5s). If a timeout occurs, the transaction rolls back cleanly on timeout error and retries next tick. `SKIP LOCKED` and `NOWAIT` are never combined.
+$ git grep -n -E 'MINICLOUD_DEFAULT_LEASE_DURATION|MINICLOUD_LEASE_SWEEPER_INTERVAL' -- docs CHANGELOG.md (excl.)
+$ git grep -n -E 'MINICLOUD_[A-Z_]+' -o -h -- docs CHANGELOG.md (excl.) | sort | uniq -c
+      9 MINICLOUD_DATABASE_URL
+      8 MINICLOUD_DB_QUERY_TIMEOUT
+      4 MINICLOUD_HEARTBEAT_INTERVAL
+      1 MINICLOUD_INSTRUCTIONS
+      4 MINICLOUD_LEASE_DURATION
+     12 MINICLOUD_OUTAGE_GRACE_WINDOW
+      2 MINICLOUD_REAPER_INTERVAL
+      1 MINICLOUD_REVIEW_PROBE
+      2 MINICLOUD_SECURITY_INSTRUCTIONS
+     11 MINICLOUD_STARTUP_GRACE_PERIOD
+      1 MINICLOUD_SWEEPER_BATCH_SIZE
+      4 MINICLOUD_SWEEPER_INTERVAL
+     18 MINICLOUD_TEST_DATABASE_URL
+      8 MINICLOUD_WORKER_TIMEOUT
+$ git grep -n -E 'SKIP LOCKED' -- CHANGELOG.md docs/PROJECT_STATE.md docs/fault-injection-plan.md
+CHANGELOG.md:19:  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Specified unlocked candidate scan with canonical per-candidate locking (`SELECT jobs ... FOR UPDATE SKIP LOCKED`, then plain `FOR UPDATE` under `lock_timeout` on workers and attempts) to eliminate lock contention, lock order (`jobs -> workers -> attempts`), handling of `CANCEL_REQUESTED`, autonomous outage g
+CHANGELOG.md:41:  - **Durable Dispatch (`repo.DispatchNextJob`):** Implemented single-transaction FIFO pull dispatch directly in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `attempts`). Employs unlocked worker pre-check preserving SEC-002 error precedence, candidate job selection via `SELECT ... FOR UPDATE SKIP LOCKE
+CHANGELOG.md:109:  - `docs/adr/0011-postgres-dispatch-and-recovery.md`: Accepted Architecture Decision Record defining PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED` pull dispatch (Option A), dynamic worker capacity derivation in SQL (no counter drift), surviving-worker restart recovery guarantees, SHA-256 hashed lease tokens, and accepting Candidate C (honest FIFO pull baseline, policy name `"fif
+docs/PROJECT_STATE.md:19:  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Maintained canonical lock order (`jobs -> workers -> attempts`). Documented candidate scan using unlocked read and `FOR UPDATE SKIP LOCKED` on jobs and plain `FOR UPDATE` under `lock_timeout` on workers and attempts to eliminate lock contention; specified `CANCEL_REQUESTED` resolution to terminal `C
+docs/PROJECT_STATE.md:35:  - **Durable Dispatch (`repo.DispatchNextJob`):** Single-transaction FIFO pull dispatch in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `attempts`). Employs unlocked worker pre-check preserving SEC-002 error precedence, candidate job selection via `SELECT ... FOR UPDATE SKIP LOCKED`, worker r
+docs/PROJECT_STATE.md:75:  - **ADR 0011 Accepted by Owner:** [ADR 0011: PostgreSQL Dispatch Mechanics, Restart Recovery, and Database Invariants](adr/0011-postgres-dispatch-and-recovery.md) adopting `SELECT ... FOR UPDATE SKIP LOCKED` (Option A), dynamic worker capacity derivation in SQL (no counter drift), surviving-worker restart recovery guarantees, SHA-256 hashed lease tokens, and **Candidate 
+docs/PROJECT_STATE.md:148:  - Implement `internal/queue.Queue` backed by PostgreSQL transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
+$ git grep -n -i -E 'batch (size )?(of )?[0-9]+|LIMIT [0-9]+' -- docs CHANGELOG.md (excl.)
+docs/PROJECT_STATE.md:192:  - Coordinator background expiry sweeper ticker (every 5s, batch size 50) honoring 30s startup and outage grace.
+docs/adr/0011-postgres-dispatch-and-recovery.md:41:      LIMIT 1
+docs/adr/0011-postgres-dispatch-and-recovery.md:150:     FOR UPDATE SKIP LOCKED LIMIT 1;
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:43:   LIMIT 1
+docs/adr/0014-lease-model-and-expiry.md:6:  - Lease duration 30 s, renewal interval 10 s, sweeper interval 5 s with batch size 50.
+docs/adr/0014-lease-model-and-expiry.md:118:   LIMIT 50;
+docs/adr/0015-retry-policy-and-failure-classification.md:112:  LIMIT 1
+docs/phase4-plan.md:9:1. **Durable Attempt Leases**: Leases on database time (`lease_expires_at`), periodic worker renewal, and background sweeper reclamation ([ADR 0014](adr/0014-lease-model-and-expiry.md)). Accepted parameters: 30s attempt lease (`
+docs/phase4-plan.md:142:  - Sweeper lock contention with active workers. *Mitigation:* Small batches (LIMIT 50) and strict lock order `jobs -> workers -> attempts`.
+docs/schema.md:357:   LIMIT 50;
+$ git grep -n -i -E '(lease|renew|sweep|grace)[a-z ]{0,25}(of |every |=|: )?[0-9]+ ?(s|sec|seconds)\b' -- docs CHANGELOG.md (excl.) | grep -v -E '\b(30|10|5) ?(s|sec|seconds)\b'
+$ git grep -n -E 'job\.(cancelled|retrying|failed)|attempt\.lost' -- docs (excl.)
+docs/phase4-plan.md:63:     - When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before` and recording a `job.cancelled` event.
+docs/phase4-plan.md:115:         - If `CANCEL_REQUESTED`: close attempt as `CANCELLED`, transition job to `CANCELLED`, free worker slot, record `job.cancelled` event.
+docs/phase4-plan.md:116:         - If `RUNNING` and `attempt_no < max_attempts`: close attempt as `LOST` (`error_class = 'LEASE_EXPIRED'`), set exponential backoff `not_before`, transition job to `RET
+docs/phase4-plan.md:117:         - If `RUNNING` and `attempt_no >= max_attempts`: close attempt as `LOST` (`error_class = 'LEASE_EXPIRED'`), transition job to `FAILED`, free worker slot, record `attem
+docs/schema.md:387:   - **`CANCEL_REQUESTED` Job**: The sweeper closes the attempt as `CANCELLED`, transitions the job to `CANCELLED` (terminal), frees the worker slot, and records a `job.cancelled` e
+docs/schema.md:389:     - If `attempt_no < max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, sets `jobs.not_before` for exponential backoff with jitter, transitions the jo
+docs/schema.md:390:     - If `attempt_no >= max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, transitions the job to `FAILED` (terminal), frees the worker slot, and record
+$ git grep -n -E '`COMPLETED`, `FAILED`, (or )?`CANCELLED`' -- docs (excl.)
+docs/phase4-plan.md:114:         - If parent job is already terminal (`COMPLETED`, `FAILED`, `CANCELLED`): close attempt as `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise), leave job state unchanged, free worker slot, and record diagnostic event.
+docs/protocol.md:148:- `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in a terminal state: `COMPLETED`, `FAILED`, or `CANCELLED`).
+docs/protocol.md:468:| 1 | Target Job is already in a terminal state (`COMPLETED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Final: Worker halts execution, frees capacity slot, does not report result |
+docs/schema.md:386:   - **Terminal Job (`COMPLETED`, `FAILED`, `CANCELLED`)**: If the parent job is already terminal (for example, if a race occurred or a job was cancelled while the worker was running), the sweeper closes the `RUNNING` attempt without modifyi
+$ grep -n 'chk_jobs_state' -A3 internal/storage/postgres/migrations/000001_initial_schema.sql
+28:    CONSTRAINT chk_jobs_state 
+29-        CHECK (state IN (
+30-            'SUBMITTED', 'QUEUED', 'RUNNING', 
+31-            'CANCEL_REQUESTED', 'CANCELLED', 
+$ grep -n -E 'JobEvent[A-Za-z]+ +JobEventType|JobEvent[A-Za-z]+ += ' internal/domain/*.go
+internal/domain/events.go:9:	JobEventSubmitted       JobEventType = "JOB_SUBMITTED"
+internal/domain/events.go:10:	JobEventQueued          JobEventType = "JOB_QUEUED"
+internal/domain/events.go:11:	JobEventDispatched      JobEventType = "JOB_DISPATCHED"
+internal/domain/events.go:12:	JobEventCompleted       JobEventType = "JOB_COMPLETED"
+internal/domain/events.go:13:	JobEventFailed          JobEventType = "JOB_FAILED"
+internal/domain/events.go:14:	JobEventCancelled       JobEventType = "JOB_CANCELLED"
+internal/domain/events.go:15:	JobEventCancelRequested JobEventType = "JOB_CANCEL_REQUESTED"
+$ sed -n 28,34p internal/storage/postgres/migrations/000001_initial_schema.sql
+    CONSTRAINT chk_jobs_state 
+        CHECK (state IN (
+            'SUBMITTED', 'QUEUED', 'RUNNING', 
+            'CANCEL_REQUESTED', 'CANCELLED', 
+            'SUCCEEDED', 'FAILED', 'RETRYING', 'DEAD_LETTER'
+        )),
+
+$ grep -n -E 'event_type' internal/storage/postgres/migrations/*.sql
+internal/storage/postgres/migrations/000001_initial_schema.sql:156:    event_type VARCHAR(64) NOT NULL,
+internal/storage/postgres/migrations/000001_initial_schema.sql:167:    ON job_events (event_type, created_at DESC);
+$ grep -n -E 'job_events' -A12 internal/storage/postgres/migrations/000001_initial_schema.sql | grep -i -E 'unique|index|constraint|check'
+163:CREATE INDEX idx_job_events_job_timeline 
+166:CREATE INDEX idx_job_events_type 
+$ grep -rn -i 'unique' internal/storage/postgres/migrations/ | grep -i event
+$ git grep -n -i -E 'jobs *(->|→|,) *workers' -- docs CHANGELOG.md AGENTS.md (excl.)
+AGENTS.md:11:with PostgreSQL 16 as the durable source of truth. A coordinator accepts jobs, workers
+AGENTS.md:125:| Database schema and locking | `docs/schema.md` (lock order: jobs, workers, attempts, results, job_events) |
+CHANGELOG.md:19:  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Specified unlocked candidate scan with canonical per-candidate locking (`SELECT jobs ... FOR UPDATE SKIP LOCKED`, then plain `FOR UPDATE` under `lock_timeout` on workers
+CHANGELOG.md:23:  - **ADR 0014 (Attempt Lease Model, Renewal Protocol, and Expiry Sweeper):** Architectural Decision Record specifying RUNNING attempt leases with database-clock authority (`lease_expires_at TIMESTAMPTZ`), dedicated renewal endpoint (`POST /v1/
+CHANGELOG.md:41:  - **Durable Dispatch (`repo.DispatchNextJob`):** Implemented single-transaction FIFO pull dispatch directly in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `atte
+CHANGELOG.md:69:  - Mathematical deadlock prevention: Documented and enforced strict row locking order (`jobs` -> `workers` -> `attempts` -> `results` -> `job_events`) across all multi-table transactions. Empirically verified under extreme contention by `TestP
+docs/PROJECT_STATE.md:19:  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Maintained canonical lock order (`jobs -> workers -> attempts`). Documented candidate scan using unlocked read and `FOR UPDATE SKIP LOCKED` on jobs and plain `F
+docs/PROJECT_STATE.md:35:  - **Durable Dispatch (`repo.DispatchNextJob`):** Single-transaction FIFO pull dispatch in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `attempts`). Empl
+docs/PROJECT_STATE.md:106:  - **Deadlock-Free Row Lock Ordering:** Documented and enforced strict row locking order (`jobs` -> `workers` -> `attempts` -> `results` -> `job_events`) across all multi-table transactions. Empirically validated with `TestPostgresRe
+docs/PROJECT_STATE.md:182:  - Sweeper correctness: row-locked re-check under lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`).
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:15:1. **Lock Ordering & Deadlock Prevention**: Concurrent operations (`CommitAttempt`, `CancelJob`, `DispatchNextJob`) access `jobs`, `workers`, and `attempts` rows. If `DispatchNextJob` locks worker b
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:100:- **Deadlock Free**: Canonical `jobs` -> `workers` -> `attempts` locking mathematically eliminates deadlocks.
+docs/adr/0014-lease-model-and-expiry.md:108:jobs -> workers -> attempts -> results -> job_events
+docs/adr/0014-lease-model-and-expiry.md:241:- **Mathematical Deadlock Freedom**: Adherence to the strict canonical locking order (`jobs -> workers -> attempts -> results -> job_events`) prevents database deadlocks.
+docs/adr/0016-cancellation-semantics.md:126:  - The coordinator lease sweeper (ADR-0014) locks `jobs -> workers -> attempts`.
+docs/phase4-plan.md:12:4. **Sweeper Correctness Under Lock**: Sweeper executes canonical row-locked re-check (`SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`, with `jobs FOR UPDATE SKIP L
+docs/phase4-plan.md:109:    - `SweepExpiredLeases`: single-transaction lock-ordered candidate sweep (`jobs -> workers -> attempts -> results -> job_events`).
+docs/phase4-plan.md:112:      2. Per-candidate lock order `jobs -> workers -> attempts`: `SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED` (0 rows = skip and retry next tick), then workers and attempts rows with plain `FOR UPDATE`
+docs/phase4-plan.md:142:  - Sweeper lock contention with active workers. *Mitigation:* Small batches (LIMIT 50) and strict lock order `jobs -> workers -> attempts`.
+docs/schema.md:361:2. **Per-Candidate Lock Acquisition Order (`jobs -> workers -> attempts`)**:
+docs/security/field-limits.md:6:This document defines the normative limits across all entity types (Jobs, Workers, Attempts, Results), documenting the exact byte/character limits, regular expression character sets, default values, database constraint names, an
+docs/security/threat-model.md:87:   - `InMemoryRepository` stores jobs, workers, and events in unbounded Go maps and slices without eviction or size caps. `InMemoryQueue` slice is unbounded. A high volume of submissions will consume memory indefinitely.
+$ git grep -n -i -E 'unexpired|valid, unexpired|within 30s lease|up to 5 times' -- docs (excl.)
+docs/agents/handoffs/P4-00.md:12:  - `0014-lease-model-and-expiry.md`: Specified single canonical sweeper lock order: unlocked candidate scan; per candidate: `SELECT jobs ... FOR UPDATE SKIP LOCKED` (0 rows = skip candidate and retry next tick), then plain `FOR UPDATE` under `lock_timeout` on worker
+docs/agents/handoffs/P4-00.md:36:1. **Symmetric Accept-Until-Swept Rule:** Eliminated the contradiction where renewals and commits were required to evaluate an "unexpired" lease timestamp. Leases grant exclusive execution rights until reaped by the sweeper. While `attempts.state == 'RUNNING'`, both 
+docs/agents/handoffs/P4-00.md:54:| R-07 | `docs/adr/0014-lease-model-and-expiry.md`, `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md`, `docs/state-machine.md` | Removed all requirements for an "unexpired lease" on renewal/commit; reworded to check attempt is still RUNNING (not swept). |
+docs/agents/handoffs/P4-00.md:93:  - Owner override R-07: Accept-until-swept while RUNNING; removed contradictory unexpired lease assertions.
+docs/agents/handoffs/P4-00.md:217:    - *Result*: Proven flawed. Requiring unexpired leases on renewal or commit caused cascading aborts during coordinator restarts or transient network delays. Resolved by the symmetric accept-until-swept rule: exclusive rights persist until the background sweeper r
+docs/phase4-plan.md:108:    - `RenewLease`: atomic transaction verifying attempt ownership, unexpired lease, and constant-time token comparison.
+docs/security/test-plan.md:59:| **Result Report Network Drop** | Network drops result report; worker retries submission up to 5 times. | Worker recovers autonomously within 60s bounded delivery loop; commits with HTTP 200 `COMMITTED` as long as attempt is still `RUNNING` (not swept). | `TestFault_Re
+$ cat -n internal/domain/transition.go | sed -n 4,33p
+     4	var allowedTransitions = map[JobState]map[JobState]bool{
+     5		StateSubmitted: {
+     6			StateQueued:   true,
+     7			StateRejected: true,
+     8		},
+     9		StateQueued: {
+    10			StateRunning:   true,
+    11			StateCancelled: true,
+    12		},
+    13		StateRunning: {
+    14			StateSucceeded:       true,
+    15			StateRetrying:        true,
+    16			StateFailed:          true,
+    17			StateCancelRequested: true,
+    18		},
+    19		StateCancelRequested: {
+    20			StateCancelled: true,
+    21			StateSucceeded: true,
+    22			StateFailed:    true,
+    23		},
+    24		StateRetrying: {
+    25			StateQueued:    true,
+    26			StateFailed:    true,
+    27			StateCancelled: true,
+    28		},
+    29		StateSucceeded: {},
+    30		StateFailed:    {},
+    31		StateCancelled: {},
+    32		StateRejected:  {},
+    33	}
+$ cat -n internal/domain/transition_test.go | sed -n 10,43p
+    10	func TestJobTransitionMatrix_AllPairs(t *testing.T) {
+    11		allStates := domain.AllJobStates()
+    12	
+    13		// expectedValid defines the exact set of valid transitions per domain specification.
+    14		expectedValid := map[domain.JobState]map[domain.JobState]bool{
+    15			domain.StateSubmitted: {
+    16				domain.StateQueued:   true,
+    17				domain.StateRejected: true,
+    18			},
+    19			domain.StateQueued: {
+    20				domain.StateRunning:   true,
+    21				domain.StateCancelled: true,
+    22			},
+    23			domain.StateRunning: {
+    24				domain.StateSucceeded:       true,
+    25				domain.StateRetrying:        true,
+    26				domain.StateFailed:          true,
+    27				domain.StateCancelRequested: true,
+    28			},
+    29			domain.StateCancelRequested: {
+    30				domain.StateCancelled: true,
+    31				domain.StateSucceeded: true,
+    32				domain.StateFailed:    true,
+    33			},
+    34			domain.StateRetrying: {
+    35				domain.StateQueued:    true,
+    36				domain.StateFailed:    true,
+    37				domain.StateCancelled: true,
+    38			},
+    39			domain.StateSucceeded: {},
+    40			domain.StateFailed:    {},
+    41			domain.StateCancelled: {},
+    42			domain.StateRejected:  {},
+    43		}
+
+=== G9. Line-citation sample, sed -n (executed)
+$ sed -n '320,333p' internal/coordinator/service.go
+func (s *Service) ReapInactiveWorkers(ctx context.Context) ([]string, error) {
+    reaped, err := s.repo.ReapStaleWorkers(ctx, s.workerTimeout)
+    if err != nil {
+        return nil, err
+    }
+    if len(reaped) > 0 {
+        slog.Warn("reaped inactive workers due to heartbeat timeout",
+            "count", len(reaped),
+            "worker_ids", reaped,
+            "timeout", s.workerTimeout,
+        )
+    }
+    return reaped, nil
+}
+$ sed -n '401,409p' internal/coordinator/service.go
+        item, err := s.queue.Claim(ctx, worker)
+        if err != nil {
+            if errors.Is(err, queue.ErrNoWork) {
+                return nil, domain.ErrNoQueuedJobs
+            }
+            return nil, err
+        }
+
+        attempt, err := s.repo.DispatchJob(ctx, item.JobID, worker.ID)
+$ sed -n '658,659p' internal/storage/inmemory.go
+func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
+    r.mu.Lock()
+$ sed -n '677,683p' internal/storage/inmemory.go
+        targetState = domain.StateCancelRequested
+        eventType = domain.JobEventCancelRequested
+    } else {
+        targetState = domain.StateCancelled
+        eventType = domain.JobEventCancelled
+    }
+
+$ sed -n '577,579p' internal/storage/inmemory.go
+    }
+    if job.State.IsTerminal() {
+        return nil, domain.ErrJobAlreadyTerminal
+$ sed -n '1135,1136p' internal/storage/postgres/repository.go
+// CancelJob atomically cancels a queued or running job and logs the corresponding audit event.
+func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
+$ sed -n '1188,1193p' internal/storage/postgres/repository.go
+        targetState = domain.StateCancelRequested
+        eventType = domain.JobEventCancelRequested
+    } else {
+        targetState = domain.StateCancelled
+        eventType = domain.JobEventCancelled
+    }
+$ sed -n '1213,1216p' internal/storage/postgres/repository.go
+    var attemptIDParam *string
+    if job.CurrentAttemptID != "" {
+        attemptIDParam = &job.CurrentAttemptID
+    }
+$ sed -n '981,988p' internal/storage/postgres/repository.go
+    }
+    job.State = domain.JobState(jobStateStr)
+    if job.State.IsTerminal() {
+        return nil, domain.ErrJobAlreadyTerminal
+    }
+    if currentAttemptID == nil || *currentAttemptID != attemptID {
+        return nil, domain.ErrStaleAttempt
+    }
+$ sed -n '634,634p' internal/storage/postgres/repository.go
+        VALUES ($1, $2, $3, $4, $5, 'RUNNING', CURRENT_TIMESTAMP)
+$ sed -n '873,873p' internal/storage/postgres/repository.go
+        VALUES ($1, $2, $3, $4, $5, 'RUNNING', clock_timestamp())
+$ sed -n '946,946p' internal/storage/postgres/repository.go
+func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
+$ sed -n '19,27p' internal/domain/transition.go
+    StateCancelRequested: {
+        StateCancelled: true,
+        StateSucceeded: true,
+        StateFailed:    true,
+    },
+    StateRetrying: {
+        StateQueued:    true,
+        StateFailed:    true,
+        StateCancelled: true,
+$ sed -n '22,27p' internal/domain/state.go
+    AttemptPending   AttemptState = "PENDING"
+    AttemptRunning   AttemptState = "RUNNING"
+    AttemptCompleted AttemptState = "COMPLETED"
+    AttemptFailed    AttemptState = "FAILED"
+    AttemptExpired   AttemptState = "EXPIRED"
+    AttemptCanceled  AttemptState = "CANCELED"
+$ sed -n '267,267p' internal/api/handlers.go
+    writeJSON(w, http.StatusOK, map[string]any{
+$ sed -n '267,270p' internal/worker/client.go
+// or 409 Conflict for STALE_ATTEMPT_REJECTED / JOB_ALREADY_TERMINAL).
+func IsNonRetryableReportError(statusCode int) bool {
+    return statusCode == http.StatusForbidden || statusCode == http.StatusConflict || statusCode == http.StatusNotFound
+}
+$ sed -n '324,325p' internal/worker/client.go
+    for attempt := 0; attempt < 5; attempt++ {
+        status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+$ sed -n '354,356p' internal/worker/client.go
+        }
+    }
+    slog.Error("failed to report result after retries",
+$ sed -n '16,16p' internal/worker/client_test.go
+func TestIsNonRetryableReportError(t *testing.T) {
+$ sed -n '38,40p' internal/worker/client_test.go
+}
+
+func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
+$ sed -n '112,114p' internal/worker/client_test.go
+}
+
+func TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating(t *testing.T) {
+$ sed -n '167,167p' tests/integration/postgres_wiring_test.go
+func TestPostgresWiring_CoordinatorRestartRecovery(t *testing.T) {
+$ sed -n '794,794p' tests/integration/part_d_security_test.go
+func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *testing.T) {
+$ sed -n '299,299p' internal/storage/storagetest/conformance.go
+    t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+$ sed -n '363,364p' internal/storage/storagetest/conformance.go
+    })
+
+$ sed -n '559,559p' internal/storage/inmemory_test.go
+func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t *testing.T) {
+$ sed -n '25,25p' tests/integration/local_core_test.go
+func TestLocalCore_MultiProcessIntegration(t *testing.T) {
+$ sed -n '26,26p' tests/integration/multi_worker_batch_test.go
+func TestThreeWorkerBatch_Integration(t *testing.T) {
+$ sed -n '21,21p' internal/api/api_test.go
+    "github.com/BlaZe08-Dev/Minicloud/internal/executor"
+$ sed -n '96,97p' internal/storage/postgres/migrations/000001_initial_schema.sql
+    CONSTRAINT chk_attempts_state 
+        CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST')),
+$ sed -n '546,546p' internal/storage/postgres/migrator_test.go
+func TestMigrator_PreExistingInvalidRow_ValidationFails(t *testing.T) {
+$ sed -n '575,576p' internal/storage/postgres/migrator_test.go
+    }
+
+$ sed -n '10,10p' internal/domain/transition_test.go
+func TestJobTransitionMatrix_AllPairs(t *testing.T) {
+$ awk 'NR>=1136 && /^}/ {print NR": "$0; exit}' internal/storage/postgres/repository.go
+1233: }
+$ awk 'NR>=658 && /^}/ {print NR": "$0; exit}' internal/storage/inmemory.go
+700: }
+$ grep -n 'func newTestService\|NewService\|NewInMemory' internal/api/api_test.go | head -5
+27:	repo := storage.NewInMemoryRepository()
+30:	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+54:	baseRepo := storage.NewInMemoryRepository()
+58:	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+585:	repo := storage.NewInMemoryRepository()
+$ grep -n 'diagonal\|transition.go' docs/state-machine.md
+docs/state-machine.md:40:*Note: In the domain FSM (`internal/domain/transition.go:27`), the diagonal is strictly `—` (no self-transitions). A duplicate cancel on `CANCEL_REQUESTED` is handled at the coordinator service and HTTP API layer as an idempotent HTTP 200 no-op without invoking an FSM state transition. Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
+docs/adr/0016-cancellation-semantics.md:59:   - Transition: `RETRYING` -> `CANCELLED` immediately (`internal/domain/transition.go:27`).
+docs/adr/0016-cancellation-semantics.md:112:  - In MiniCloud's FSM (`internal/domain/transition.go:19-23`), `CANCEL_REQUESTED` explicitly permits transitions to `SUCCEEDED`, `FAILED`, and `CANCELLED`.
+
+=== G10. Test names: unlabeled nonexistent names, existing names, RuleF subtest (executed)
+=== Test names cited in the 16 changed docs that are NOT in go test -list or a t.Run subtest name, with every citing line that lacks a planned/future/probe label
+--- TestAgent_Run_SingleJobSuccess (not in test list; unlabeled occurrences:)
+docs/security/findings.md:215:     - `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report); actual real integration/agent tests: `TestLocalCore_MultiProcessIntegration` in `tests/integration/local_core_test.go:25`, `TestAgent_Run_Wor
+docs/security/findings.md:458:- `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report))
+--- TestAPI_JobLifecycle (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:210:     - `TestAPI_JobLifecycle` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:459:- `TestAPI_JobLifecycle` (does not exist (invented in an earlier report))
+--- TestAPI_JobLifecycle_InMemory (not in test list; unlabeled occurrences:)
+docs/security/findings.md:209:     - `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report); actual real test asserting in-memory lifecycle: `TestInMemoryRepository_JobLifecycle` in `internal/storage/inmemory_test.go:15`)
+docs/security/findings.md:460:- `TestAPI_JobLifecycle_InMemory` (does not exist (invented in an earlier report))
+--- TestAPI_JobNumericBounds_Validation (not in test list; unlabeled occurrences:)
+docs/security/findings.md:222:     - `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report); actual real test: `TestAPI_SubmitJob_BoundaryValues` in `internal/api/api_test.go:476`)
+docs/security/findings.md:461:- `TestAPI_JobNumericBounds_Validation` (does not exist (invented in an earlier report))
+--- TestAPI_ReadHeaderTimeout_SlowLorisProtection (not in test list; unlabeled occurrences:)
+docs/security/findings.md:221:     - `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report); actual real test: `TestAPI_Slowloris_ReadHeaderTimeout` in `internal/api/api_test.go:414`)
+docs/security/findings.md:462:- `TestAPI_ReadHeaderTimeout_SlowLorisProtection` (does not exist (invented in an earlier report))
+--- TestAPI_SubmitJob_Success (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:211:     - `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:463:- `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report))
+--- TestAPI_WorkerID_ValidationBounds (not in test list; unlabeled occurrences:)
+docs/security/findings.md:223:     - `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report); actual real test: `TestAPI_IdentifierValidation_NegativeCases` in `internal/api/api_test.go:323`)
+docs/security/findings.md:464:- `TestAPI_WorkerID_ValidationBounds` (does not exist (invented in an earlier report))
+--- TestAPI_WorkerRegistration_Limits (not in test list; unlabeled occurrences:)
+docs/security/findings.md:217:     - `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report); actual real tests asserting worker registration limits: `TestAPI_RegisterWorker_SlotsUpperLimit` in `internal/api/api_test.go:811`, `TestA
+docs/security/findings.md:465:- `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report))
+--- TestCoordinator_IDLeakage (not in test list; unlabeled occurrences:)
+docs/security/findings.md:454:- `TestCoordinator_IDLeakage`: Future verification test for SEC-013 (coordinator sequential ID exposure).
+--- TestCoordinator_Service (not in test list; unlabeled occurrences:)
+docs/security/findings.md:213:     - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `TestService_WorkerLiveness_ReaperAndRecovery` in `internal/coordinator/service_test.go:54
+docs/security/findings.md:466:- `TestCoordinator_Service` (does not exist (invented in an earlier report))
+--- TestFab_One (not in test list; unlabeled occurrences:)
+docs/security/test-plan.md:112:   - **Case 1 (Separate sentence)**: Appending `"Verified by TestFab_One (nonexistent). This is planned."` failed with `[RuleC] cited test "TestFab_One" does not exist`.
+docs/security/findings.md:279:  1. **Separate sentence**: Appending `"Verified by TestFab_One (nonexistent). This is planned."` failed with `[RuleC] cited test "TestFab_One" does not exist`.
+--- TestFabricated_Foo (not in test list; unlabeled occurrences:)
+docs/security/findings.md:290:     - `RuleC_SeparateClause_Fail`: Asserts that `TestFabricated_Foo (nonexistent test); planned feature` in separate clauses fails because `TestFabricated_Foo` does not inherit `planned` across clause boundaries.
+--- TestFab_Three (not in test list; unlabeled occurrences:)
+docs/security/test-plan.md:114:   - **Case 3 (Different table cell)**: Appending `"| TestFab_Three (nonexistent) | planned |"` failed with `[RuleC] cited test "TestFab_Three" does not exist`.
+docs/security/findings.md:281:  3. **Different table cell**: Appending `"| TestFab_Three (nonexistent) | planned |"` failed with `[RuleC] cited test "TestFab_Three" does not exist`.
+--- TestFab_Two (not in test list; unlabeled occurrences:)
+docs/security/test-plan.md:113:   - **Case 2 (Semicolon clause)**: Appending `"Verified by TestFab_Two (nonexistent); coverage is planned."` failed with `[RuleC] cited test "TestFab_Two" does not exist`.
+docs/security/findings.md:280:  2. **Semicolon clause**: Appending `"Verified by TestFab_Two (nonexistent); coverage is planned."` failed with `[RuleC] cited test "TestFab_Two" does not exist`.
+--- TestInMemoryRepository_MemoryExhaustion_Cap (not in test list; unlabeled occurrences:)
+docs/security/findings.md:452:- `TestInMemoryRepository_MemoryExhaustion_Cap`: Future verification test for SEC-010 (in-memory collection bounds).
+--- TestJob_Transitions (not in test list; unlabeled occurrences:)
+docs/security/findings.md:212:     - `TestJob_Transitions` (does not exist (invented in an earlier report); actual real tests asserting transition matrix: `TestJob_TransitionTo` in `internal/domain/transition_test.go:79`, `TestJobTransitionMatrix_AllPairs` in 
+docs/security/findings.md:467:- `TestJob_Transitions` (does not exist (invented in an earlier report))
+--- TestMigrator_AppliesAllMigrations (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:219:     - `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:468:- `TestMigrator_AppliesAllMigrations` (does not exist (invented in an earlier report))
+--- TestMigrator_ApplyAll_CleanDatabase (not in test list; unlabeled occurrences:)
+docs/security/findings.md:218:     - `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report); actual real migration tests: `TestMigrator_FreshMigrate` in `internal/storage/postgres/migrator_test.go:281`, `TestMigrator_IdempotentRe
+docs/security/findings.md:469:- `TestMigrator_ApplyAll_CleanDatabase` (does not exist (invented in an earlier report))
+--- TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:220:     - `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report); actual real test asserting serialized concurrent migrators: `TestMigrator_ConcurrentMigrators_ExactlyOneApplies` in 
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:470:- `TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce` (does not exist (invented in an earlier report))
+--- TestReviewP400_OldCoordinator_RenewRouteResponse (not in test list; unlabeled occurrences:)
+docs/agents/handoffs/P4-00.md:79:    3. `test TestReviewP400_OldCoordinator_RenewRouteResponse`
+--- TestReviewP400_SEC022 (not in test list; unlabeled occurrences:)
+docs/security/findings.md:313:=== E1. SEC-022 probe (executed): MINICLOUD_REVIEW_PROBE=1 go test -race -count=1 -v -run TestReviewP400_SEC022 ./tests/review/  (test DB minicloud_claude_test; URL not printed)
+docs/agents/handoffs/P4-00.md:80:    4. `test TestReviewP400_SEC022` (the `-run` pattern string cited in the SEC-022 verbatim evidence, not a real test name)
+--- TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot (not in test list; unlabeled occurrences:)
+docs/agents/handoffs/P4-00.md:78:    2. `test TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot`
+docs/agents/handoffs/P4-00.md:234:    - Labels: **executed** (demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` with verbatim output in `docs/agents/reviews/P4-00-evidence.txt`) plus **confirmed by code reading** (`internal/storag
+docs/security/findings.md:314:=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot
+docs/security/findings.md:315:=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory
+docs/security/findings.md:334:=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres
+docs/security/findings.md:354:--- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot (0.62s)
+docs/security/findings.md:355:    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory (0.02s)
+docs/security/findings.md:356:    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres (0.60s)
+--- TestService_SubmitJob_Success (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:214:     - `TestService_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:471:- `TestService_SubmitJob_Success` (does not exist (invented in an earlier report))
+--- TestWorkerAgent_SingleJobSuccess (not in test list; unlabeled occurrences:)
+docs/security/findings.md:202:- **Finding**: The slice 3d follow-up progress report contained reconstructed test output with nonexistent test names, an invalid ADR citation, and an incorrect upper limit for worker supported tasks. Furthermore, an initial remed
+docs/security/findings.md:216:     - `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
+docs/security/findings.md:228:  During the initial remediation of SEC-018, the remediation text itself introduced non-existent test names into the "real name" mappings (`TestAPI_SubmitJob_Success`, `TestAPI_JobLifecycle`, `TestService_SubmitJob_Success`, `Test
+docs/security/findings.md:472:- `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report))
+--- TestWorker_ExcessiveTimeoutClamped (not in test list; unlabeled occurrences:)
+docs/security/findings.md:453:- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+=== end
+=== Existing-test names cited by the Phase 4 docs, checked against go test -list '.*' ./... (top-level) and t.Run names (subtests)
+EXISTS   TestPostgresRepository_Conformance
+EXISTS   TestInMemoryRepository_Conformance
+EXISTS   TestMigrator_FreshMigrate
+EXISTS   TestPostgresRepository_Concurrency_MixedOperationsStress
+EXISTS   TestService_Claim_Redelivery_NoDuplicateAttempt
+EXISTS   TestIsNonRetryableReportError
+EXISTS   TestAgent_ReportResult_RejectionHandling
+EXISTS   TestJobTransitionMatrix_AllPairs
+EXISTS   TestInMemoryRepository_SubmitJob_And_CancelJob_Events
+EXISTS   TestPostgresWiring_CoordinatorRestartRecovery
+EXISTS   TestSecurity_PartD_Outage_MidDispatchAndMidCommit
+EXISTS   TestMigrator_PreExistingInvalidRow_ValidationFails
+EXISTS   TestLocalCore_MultiProcessIntegration
+EXISTS   TestThreeWorkerBatch_Integration
+EXISTS   CancelJob_QueuedAndRunning
+EXISTS   RuleF_Allowlist_StaleFail
+ABSENT   TestAPI_CancelJob_SuccessReturns200
+$ grep -rn 'TestAPI_CancelJob_SuccessReturns200' docs CHANGELOG.md
+docs/phase4-plan.md:52:     - Planned test: `TestAPI_CancelJob_SuccessReturns200` (planned test).
+docs/phase4-plan.md:91:  - `TestAPI_CancelJob_SuccessReturns200` (planned test)
+$ grep -n 'func TestPostgresRepository_Conformance\|func TestInMemory.*Conformance\|storagetest.Run' -r internal
+internal/storage/postgres/repository_test.go:13:func TestPostgresRepository_Conformance(t *testing.T) {
+internal/storage/inmemory_test.go:613:func TestInMemoryRepository_Conformance(t *testing.T) {
+$ go test -list '.*' ./tests/docs/
+TestCitations
+TestFixtures
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.002s
+$ go test -count=1 -v -run 'TestFixtures/RuleF_Allowlist_StaleFail' ./tests/docs/
+=== RUN   TestFixtures
+=== RUN   TestFixtures/RuleF_Allowlist_StaleFail
+--- PASS: TestFixtures (0.00s)
+    --- PASS: TestFixtures/RuleF_Allowlist_StaleFail (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.003s
+
+=== G11. Blueprint PDF section titles and cited content, pdftotext -layout per page (executed)
+$ pdfinfo docs/source/MiniCloud_Project_Blueprint.pdf | grep Pages
+Pages:           14
+$ for p in 1..14: pdftotext -layout -f $p -l $p ... | grep -E "^ *[0-9]{1,2}\. +[A-Z]"  (section headings per page)
+page 2:   1. Executive Summary
+page 2:   2. Product Identity and Project Ideology
+page 3:   3. Users, Use Cases, and Requirements
+page 4:   4. System Architecture
+page 5:   5. Job Lifecycle and Consistency Model
+page 6:   6. Scheduling Strategy and Research Question
+page 7:   7. Technology Stack and Repository Layout
+page 8:   8. API, Data Model, and Configuration
+page 9:   9. Security and Safe Execution
+page 9:   10. Test Strategy and Failure Injection
+page 10:     0. Design           Week 1         Requirements, invariants, API/state-machine       Design docs reviewed; risks and non-goals
+page 10:     1. Local core       Weeks 2–4      Go module, CLI/API, predefined task types, 2      End-to-end jobs work; unit/integration tests
+page 10:     2. Independent      Month 2        Registration, heartbeat, dispatch, attempt IDs.   Worker processes communicate only through
+page 10:     3. Durable state    Months 3–4     PostgreSQL schema/migrations, atomic              Accepted jobs recover correctly across
+page 10:     4. Retry/recovery   Months 4–5     Leases, bounded retry, stale attempt rejection.   Fault suite verifies invariants and no stale
+page 10:     5. Queue and        Months 5–6     Redis Streams, Docker executor,                   Pending delivery and safe task limits tested.
+page 10:     6. Scheduling       Months 7–8     Resource-aware policy, benchmark generator.       Fair comparison with round-robin and saved
+page 10:     7. Multi-machine    Months 8–9     Network deployment, auth, TLS, network fault      Workers on separate hosts can execute jobs
+page 10:     8. Hardening        Months 10–12   Metrics, docs, performance tuning, reproducible   Fresh setup succeeds from README;
+page 10:   12. Definition of Done and Benchmark Plan
+page 11:   13. Main Risks and Mitigations
+page 11:   14. How Claude Should Work on MiniCloud
+page 12:   15. Copy-Ready Claude Project Prompt
+page 12:   1. Correctness before scale or UI.
+page 12:   2. Explicit invariants, state transitions, protocols, failure semantics, and measurable results.
+page 12:   3. Modular monolith control plane initially; do not split services just to look distributed.
+page 12:   4. The database is the source of truth for accepted job state after persistence is implemented. Queue messages are transpo
+page 12:   5. Expect at-least-once execution under retries. Do not claim exactly-once execution for arbitrary side effects. Use idemp
+page 12:   6. Every important claim must be backed by tests or reproducible benchmarks.
+page 12:   7. Small changes; keep the repository buildable and tests passing after each milestone.
+page 13:   1. Inspect the repository tree, README, Go version, Git status, existing tests, and relevant source files.
+page 13:   2. State the current milestone and the smallest next deliverable.
+page 13:   3. Identify risks or ambiguities before making architecture-changing assumptions.
+page 13:   1. Give a short plan.
+page 13:   2. List the files to create/change and why.
+page 13:   3. Implement only the scoped milestone.
+page 13:   4. Add or update tests for normal and failure paths.
+page 13:   5. Run gofmt, go test ./..., and relevant build/integration checks when possible.
+page 13:   6. Report exact commands and actual outcomes. Never claim tests passed unless they were run.
+page 13:   7. Summarize limitations, remaining risks, and the next milestone.
+page 13:   8. Update documentation and architecture decision records when behavior or design changes.
+page 13:   0. Design: state machine, protocol, invariants, failure model.
+page 13:   1. Local core: Go module, CLI/API, predefined task types, two workers.
+page 13:   2. Independent workers: registration, heartbeat, dispatch, attempt IDs.
+page 13:   3. Durable state: PostgreSQL schema/migrations and coordinator restart recovery.
+page 13:   4. Retry/recovery: leases, bounded retry, stale-attempt rejection, fault tests.
+page 13:   5. Queue/isolation: Redis Streams and constrained Docker executor.
+page 13:   6. Scheduling research: resource-aware scheduler and repeatable benchmark generator.
+page 13:   7. Multi-machine: authentication, TLS, network-failure testing.
+page 13:   8. Hardening: metrics, docs, performance study, reproducible release.
+page 14:   16. Final Checklist for the Project Owner
+$ grep -n -i -E "initial http api|suggested|requested from completed|RETRYING|cancellation race|races with|lease|late result|diagnostic|jitter|backoff|idempot|retryable|permanent|at-least-once|exactly-once|max_attempts|bounded retr" per page (pdftotext -layout)
+page 2:8:  is to implement and measure the hard parts: job lifecycle semantics, worker coordination, durable state, leases,
+page 2:27:     advertised as exactly-once.
+page 2:54:   • Do not claim exactly-once execution for arbitrary tasks; distinguish delivery, execution attempts, and result
+page 3:54:    FR-08      Recovery                    Expired lease is detected and handled according to policy.
+page 4:52:   • 5. Worker accepts the attempt under a lease, executes a registered task, and emits a structured outcome.
+page 5:30:    RUNNING             An attempt holds a valid lease.                 SUCCEEDED, RETRYING, FAILED, CANCEL_REQUESTED
+page 5:35:    RETRYING            A failed/lost attempt is eligible for another   QUEUED, FAILED, CANCELLED
+page 5:40:    FAILED              Retry policy exhausted or permanent             Terminal
+page 5:53:   • Only a worker holding a valid lease/attempt token may submit an outcome for that attempt.
+page 5:55:   • A terminal result is committed once at the job level. Late results from stale attempts are rejected or retained as
+page 5:56:     diagnostic events, not accepted as the final result.
+page 5:58:   • Retries are bounded by an explicit maximum-attempt policy and retryable/permanent error classification.
+page 5:60:   • A lease expiry is evidence that the coordinator has stopped trusting the worker; it does not prove the worker
+page 5:63:   • The system provides at-least-once execution semantics under retries. Tasks with external side effects must be
+page 5:64:     idempotent or use an application-specific deduplication mechanism.
+page 6:9:  Lease design
+page 6:10:   • Each attempt receives an opaque token or version and a lease expiry time.
+page 6:12:   • Workers heartbeat or renew leases while running, subject to timeout policy.
+page 6:14:   • Coordinator recovery scans expired RUNNING leases and decides whether to retry, fail, or mark uncertain based
+page 6:17:   • Use database time or a consistent server-side timestamp source for durable lease comparisons where practical; do
+page 6:20:   • A worker that resumes after its lease expires must not be able to overwrite a newer attempt's result.
+page 8:2:  Initial HTTP API (suggested)
+page 8:11:    POST /v1/jobs/{job_id}/cancel                     Request cancellation; response distinguishes requested from completed.
+page 8:26:    Job                          id, task_type, payload, state, priority, requirements, max_attempts, created_at, updated_at, deadline,
+page 8:29:    Attempt                      id, job_id, attempt_no, worker_id, lease_token_hash/version, state, started_at, lease_expires_at,
+page 8:58:   MINICLOUD_DEFAULT_MAX_ATTEMPTS=3
+page 9:27:  10. Test Strategy and Failure Injection
+page 9:31:    Unit                   State transitions, retry classification, scheduler eligibility, lease   Fast correctness feedback.
+page 9:57:   • Old worker returns a result after its lease expired and a newer attempt started.
+page 10:5:   • Cancellation races with success completion.
+page 10:12:  11. 6–12 Month Roadmap and Exit Criteria
+page 10:27:    4. Retry/recovery   Months 4–5     Leases, bounded retry, stale attempt rejection.   Fault suite verifies invariants and no stale
+page 10:40:                                       release.                                          benchmarks reproducible.
+page 10:64:   • Worker loss triggers the documented lease/retry behavior.
+page 11:36:    False exactly-once claim   A crash can occur between side effect and          At-least-once semantics; idempotency and deduplicated
+page 11:42:    Lease race                 Old worker can return after reassignment.          Attempt versions/tokens and atomic result commit.
+page 12:49:  5. Expect at-least-once execution under retries. Do not claim exactly-once execution for arbitrary side effects. Use idemp
+page 12:68:  - A worker may report an outcome only for a valid attempt/lease token or version.
+page 12:70:  - Retries are bounded and classify retryable vs permanent failures.
+page 12:71:  - Lease expiry means the coordinator no longer trusts the worker; it does not prove the worker stopped.
+page 13:36:  4. Retry/recovery: leases, bounded retry, stale-attempt rejection, fault tests.
+page 13:40:  8. Hardening: metrics, docs, performance study, reproducible release.
+page 13:49:  - Worker loss follows documented lease/retry policy.
+$ pdftotext -layout -f 7 -l 7 ... | grep -n "^ *[0-9]*\. " ; tail -8 of page 7
+1:  7. Technology Stack and Repository Layout
+  at real boundaries, not for every trivial function. This makes state-machine tests fast and lets storage/queue
+  implementations be swapped without rewriting the core logic.
+
+
+
+
+MINICLOUD PROJECT BLUEPRINT · v1.0                                                                                                   Page 7
+$ head -12 of page 8 (pdftotext -layout -f 8 -l 8)
+  8. API, Data Model, and Configuration
+  Initial HTTP API (suggested)
+    Method / path                                     Purpose
+
+    POST /v1/jobs                                     Submit a job; returns job ID and initial state.
+
+    GET /v1/jobs/{job_id}                             Fetch state, timestamps, result summary and latest attempt.
+
+    GET /v1/jobs/{job_id}/attempts                    Fetch attempt history.
+
+    POST /v1/jobs/{job_id}/cancel                     Request cancellation; response distinguishes requested from completed.
+
+$ grep -n "8\. API" page 8
+1:  8. API, Data Model, and Configuration
+$ head -8 of page 5 / page 6; grep 6. heading line
+bp/p5.txt:22:  5. Job Lifecycle and Consistency Model
+bp/p6.txt:23:  6. Scheduling Strategy and Research Question
+$ page 9 lines 25-30
+
+
+  10. Test Strategy and Failure Injection
+  Test pyramid
+    Layer                  Examples                                                                Purpose
+
+$ page 4 / page 6 heading lines
+bp/p4.txt:10:  4. System Architecture
+bp/p6.txt:23:  6. Scheduling Strategy and Research Question
+$ page 3 heading
+14:  3. Users, Use Cases, and Requirements
+$ page 11 lines 25-45 (section 13 table)
+   Do not invent numeric performance claims. First establish a baseline on the development machine, save
+   the hardware/software configuration, repeat runs, and report variance. Any target threshold should be
+   justified by measured baseline and scope.
+
+
+  13. Main Risks and Mitigations
+    Risk                       Why it matters                                     Mitigation
+
+    Scope creep                Too many features can prevent a correct            Phase gates; defer UI, AI, consensus, multi-tenancy.
+                               core.
+
+    False exactly-once claim   A crash can occur between side effect and          At-least-once semantics; idempotency and deduplicated
+                               acknowledgement.                                   commit.
+
+    Queue/database             Job record and dispatch message can                Define source of truth; transactional outbox or reconciler
+    split-brain                diverge.                                           when needed.
+
+    Lease race                 Old worker can return after reassignment.          Attempt versions/tokens and atomic result commit.
+
+    Unsafe code execution      Worker host may be compromised.                    Predefined tasks first; later constrained containers and
+                                                                                  least privilege.
+$ git grep -n -i -E 'blueprint[^.]{0,40}section|section[s]? [0-9]+[^.]{0,30}blueprint|Blueprint Section' -- docs CHANGELOG.md (excl.)
+CHANGELOG.md:20:Blueprint Section 5 and 13
+docs/PROJECT_STATE.md:20:Blueprint Section 5 and Section 13 justifying direct `RETRYING -> RUNNING` pull dispatch
+docs/PROJECT_STATE.md:215:Blueprint Section 6 requires scheduler-driven round-robin assignment
+docs/adr/0003-pull-based-worker-protocol.md:32:Blueprint Section 4 and Section 6
+docs/adr/0003-pull-based-worker-protocol.md:36:Blueprint Section 6 specifies scheduler-driven round-robin, V1 Phase 3 dispatch is FIFO pull
+docs/adr/0011-postgres-dispatch-and-recovery.md:98:blueprint Section 4 and Section 6: scheduler actively selects worker before worker claims attempt
+docs/adr/0011-postgres-dispatch-and-recovery.md:98:Blueprint Section 6
+docs/adr/0011-postgres-dispatch-and-recovery.md:192:Blueprint Section 6:** In V1 Phase 3, dispatch is FIFO pull rather than scheduler-driven round-robin
+docs/adr/0011-postgres-dispatch-and-recovery.md:224:Blueprint Section 6 before V1 completion, an explicit slice—**Assignment-Based Round-Robin**—is scheduled **i
+docs/adr/0014-lease-model-and-expiry.md:23:Blueprint Sections 4, 5, 6, and 10 mandate that:
+docs/adr/0015-retry-policy-and-failure-classification.md:20:Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Fai
+docs/adr/0015-retry-policy-and-failure-classification.md:103:Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) conceptually lists `RETRYING -> QUEUED
+docs/adr/0016-cancellation-semantics.md:32:Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Section 8 ("Initial HTTP API (suggest
+docs/adr/0016-cancellation-semantics.md:33:Blueprint Section 8)
+docs/adr/0016-cancellation-semantics.md:34:Blueprint Section 10)
+docs/agents/handoffs/P4-00.md:12:Blueprint Sections 3, 5, 8, 10, 13
+docs/agents/handoffs/P4-00.md:13:Blueprint Sections 5 and 13 for direct `RETRYING -> RUNNING` pull dispatch
+docs/agents/handoffs/P4-00.md:14:Blueprint Sections 3, 5, 8, 10
+docs/fault-injection-plan.md:4:Blueprint Section 10 ("Test Strategy and Failure Injection"), Blueprint Section 12, and [ADR 0012](adr/0012-s
+docs/roadmap.md:17:Blueprint Section 6
+docs/roadmap.md:74:Blueprint Section 6 requires scheduler-driven assignment with round-robin policy
+$ grep -n -i -E 'initial|attempt n|attempt_no|monoton|CANCEL_REQUESTED|cooperative' page 5 text
+24:    State               Meaning                                         Allowed next states (initial policy)
+30:    RUNNING             An attempt holds a valid lease.                 SUCCEEDED, RETRYING, FAILED, CANCEL_REQUESTED
+51:   • A job has a stable ID; each execution has a distinct monotonically increasing attempt number or unique attempt ID.
+$ sed -n 23,60p page 6 | grep -i -c lease
+0
+$ grep -n -i "round-robin" bp/p6.txt bp/p7.txt (section 6 spans page 6 line 23 to page 7 line 1)
+bp/p6.txt:25:   • Round-robin across healthy workers that have capacity.
+bp/p6.txt:42:   improve p95 completion latency or throughput compared with round-robin without causing starvation or
+$ grep -n -i -E "pull|assign" bp/p4.txt
+23:    Scheduler           Selects eligible worker and policy decision;          Durable truth about job state.
+29:    Executor            Runs a bounded task and captures output/exit          Scheduler decisions.
+48:   • 3. Scheduler chooses an eligible worker according to the active policy.
+$ grep -n -E "12\. Definition" bp/p10.txt
+50:  12. Definition of Done and Benchmark Plan
+
+=== G12. Allowlist removal simulation in throwaway worktree, and scope (executed)
+=== Simulation in throwaway worktree ~/mc-mut-claude at c719880: stub tests/review/sec022_probe_test.go with the two probe test names (state after slice 4a cherry-pick), then remove the four probe allowlist entries as phase4-plan.md:78 instructs
+$ cat tests/review/sec022_probe_test.go
+package review
+
+import "testing"
+
+func TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot(t *testing.T) { t.Skip("simulation stub") }
+
+func TestReviewP400_OldCoordinator_RenewRouteResponse(t *testing.T) { t.Skip("simulation stub") }
+$ sed -i '/^# Audit probe tests/d; /sec022_probe_test.go|/d; /^test|TestReviewP400_/d' tests/docs/citation_allowlist.txt; git diff --stat
+ tests/docs/citation_allowlist.txt | 5 -----
+ 1 file changed, 5 deletions(-)
+$ go test -count=1 ./tests/docs 2>&1 | grep -E 'TestReviewP400|sec022|FAIL|^ok' | head -20
+--- FAIL: TestCitations (0.27s)
+    --- FAIL: TestCitations/RuleC_TestIdentifiers (0.10s)
+        citations_test.go:727: docs/agents/handoffs/P4-00.md:80: [RuleC] cited test "TestReviewP400_SEC022" does not exist
+        citations_test.go:727: docs/security/findings.md:313: [RuleC] cited test "TestReviewP400_SEC022" does not exist
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.276s
+FAIL
+$ git checkout -- tests/docs/citation_allowlist.txt  (all four entries back, stub still present)
+$ go test -count=1 ./tests/docs 2>&1 | grep -E 'stale|FAIL|^ok' | head
+--- FAIL: TestCitations (0.32s)
+    --- FAIL: TestCitations/RuleF_Allowlist (0.02s)
+        citations_test.go:748: tests/docs/citation_allowlist.txt:19: [RuleF] allowlist entry is stale: path "tests/review/sec022_probe_test.go" now exists in repository
+        citations_test.go:748: tests/docs/citation_allowlist.txt:20: [RuleF] allowlist entry is stale: test "TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot" now exists in test suite
+        citations_test.go:748: tests/docs/citation_allowlist.txt:22: [RuleF] allowlist entry is stale: test "TestReviewP400_OldCoordinator_RenewRouteResponse" now exists in test suite
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.325s
+FAIL
+worktree removed
+$ git diff --name-only aa13a4c..HEAD | grep -v -E '^(docs/|CHANGELOG.md)'
+tests/docs/citation_allowlist.txt
+$ git diff --name-only origin/main...HEAD | grep -v -E '^(docs/|CHANGELOG.md)'
+AGENTS.md
+tests/docs/citation_allowlist.txt
+$ git grep -n -E 'tests/integration/sec022|ReturnsAccepted|three probe|probe allowlist' -- docs CHANGELOG.md
+docs/phase4-plan.md:78:  - Remove the four probe allowlist entries in `tests/docs/citation_allowlist.txt` when moving the audit probe into the normal test tree.
+(exit 0)
+$ git grep -n -i -E 'allowlist' -- docs/phase4-plan.md docs/agents/handoffs/P4-00.md CHANGELOG.md docs/PROJECT_STATE.md
+CHANGELOG.md:24:  - **ADR 0015 (Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery):** Architectural Decision Record specifying bounded retries up to `max_attempts` (1..20, default 3), exponential backoff base 1s, cap 30s, full
+CHANGELOG.md:34:- **Automated Documentation Citation Checker (`tests/docs/citations_test.go`, `tests/docs/citation_allowlist.txt`, `Makefile: test-docs`):**
+CHANGELOG.md:35:  - Implemented standard library static documentation citation verifier validating paths, line anchors, test identifiers, URI schemes, ADR citations, and allowlist freshness across `docs/` (excluding `docs/source/`), `README.md`, `GEM
+CHANGELOG.md:36:  - Enforces six citation rules: Rule A (existing repository paths), Rule B (line anchors within file line bounds), Rule C (test identifiers exist in repository test suites parsed via `go/parser`), Rule D (prohibits `file:` triple sla
+CHANGELOG.md:48:  - **Worker Registration Limits (SEC-015, SEC-016, SEC-017):** Bounded `total_slots` to 1..1024, `version` to <= 64 characters (empty allowed), `supported_tasks` to <= 16 unique items (duplicates deduplicated; each task name 1..64 ch
+CHANGELOG.md:76:  - Security review suite: Added `internal/storage/postgres/security_test.go` verifying immunity against SQL injection across all fields, exact payload/output boundary limits (65535, 65536, 65537 bytes), forged token rejection, commit
+CHANGELOG.md:137:  - `docs/adr/0005-docker-isolation-in-v3.md`: Deferring Docker container execution to V3 with unprivileged allowlisted task execution in V1/V2 (Accepted).
+CHANGELOG.md:159:  - `internal/executor`: Allowlisted task execution registry with `echo`, `sleep` (bounded duration <= 10s), and `sha256_loop` (bounded iterations <= 1,000,000), context-driven timeout enforcement, 64 KiB payload limit, and 64 KiB ou
+docs/PROJECT_STATE.md:29:    - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons (>= 15 characters), and strict non-staleness check.
+docs/PROJECT_STATE.md:42:  - **Worker Registration Limits (SEC-015, SEC-016, SEC-017):** Bounded `total_slots` to 1..1024, `version` to <= 64 characters (empty allowed), `supported_tasks` to <= 16 unique items (duplicates deduplicated; each task name
+docs/PROJECT_STATE.md:113:  - **Security Review Test Suite:** Added `internal/storage/postgres/security_test.go` covering SQL injection, boundary limits (65535, 65536, 65537 bytes), forged tokens, replay attacks, context cancellation atomicity, and a
+docs/PROJECT_STATE.md:199:  - 3-tier failure classification: success is `AttemptCompleted` (no error class); allowlisted task validation errors permanent (`ClassPermanent`); worker abnormal terminations; unknown errors retryable (`ClassRetryable`).
+docs/PROJECT_STATE.md:241:  - **SEC-017 (Low, Fixed):** Worker `supported_tasks` slice bounded to <= 16 unique items (duplicates deduplicated), individual task names bounded to 64 characters `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks
+docs/PROJECT_STATE.md:243:  - **SEC-020 (Low, Confirmed, Remediated by Tooling):** Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by stan
+docs/PROJECT_STATE.md:254:  - Allowlisted in-process tasks only (`echo`, `sleep`, `sha256_loop`) until V3 Docker containers.
+docs/agents/handoffs/P4-00.md:31:- `tests/docs/citation_allowlist.txt`:
+docs/agents/handoffs/P4-00.md:32:  - Added allowlist entries for audit review probe test and review evidence files.
+docs/agents/handoffs/P4-00.md:74:- **Deviation (tests/docs/citation_allowlist.txt)**:
+docs/agents/handoffs/P4-00.md:75:  - `tests/docs/citation_allowlist.txt` was edited in Part 2, which is outside P4-00's owned files listed in `docs/agents/TASKS.md`.
+docs/agents/handoffs/P4-00.md:76:  - *Reason*: The audit review (`docs/agents/reviews/P4-00.md` and `docs/agents/reviews/P4-00-evidence.txt`) cites probe test files, flags, and test names that exist only on branch `agent/claude/P4-00-review`. Adding 
+docs/agents/handoffs/P4-00.md:81:  - *Removal Condition*: The four entries must be deleted in slice 4a when the probe moves into the normal test tree; the citation checker's stale-entry detection (`RuleF_Allowlist_StaleFail`) will flag them.
+docs/phase4-plan.md:13:5. **Bounded Retries with Backoff**: Structured failure classification (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`), exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 ma
+docs/phase4-plan.md:68:    - Add `AttemptOutcome.ErrorClassification` (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`). Exit code 0 is `AttemptCompleted` without error class. Validation failures of allowlisted tasks are `Clas
+docs/phase4-plan.md:78:  - Remove the four probe allowlist entries in `tests/docs/citation_allowlist.txt` when moving the audit probe into the normal test tree.
+docs/phase4-plan.md:196:    - Validation failures of allowlisted tasks (`echo`, `sleep`, `sha256_loop`) are `ClassPermanent`.
+docs/phase4-plan.md:212:    - Mutating classification of allowlisted task validation error to `ClassTransient` must cause failure classification test to fail.
+docs/phase4-plan.md:218:  - `TestExecutor_AllowlistValidation_PermanentFailure` (planned test)
+
+=== G13. SEC-022 evidence block vs round-1 E1 (executed)
+$ diff <(sed -n 313,359p docs/security/findings.md) <(sed -n 4,51p docs/agents/reviews/P4-00-evidence.txt)
+47a48
+> 
+diff exit=1
+
+=== G14. LaTeX, roadmap, threat model, task board, PROJECT_STATE leftovers (executed)
+$ git grep -n -E '\\(text|ge|le|times|cdot)|\$\$|\$[0-9]' -- docs CHANGELOG.md (excl. round-1 review files, docs/source)
+CHANGELOG.md:75:  - Time & clock authority: Enforced database time via `make_interval(secs => $1::double precision)` in `ReapStaleWorkers` and `CURRENT_TIMESTAMP` in `RecordHeartbeat`. Added injectabl
+docs/PROJECT_STATE.md:112:  - **Time & Clock Authority:** Enforced database time via `make_interval(secs => $1::double precision)` in `ReapStaleWorkers` and `CURRENT_TIMESTAMP` in `RecordHeartbeat`. A
+docs/PROJECT_STATE.md:182:  - Sweeper correctness: row-locked re-check under lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`)
+docs/adr/0011-postgres-dispatch-and-recovery.md:30:      WHERE w.id = $1
+docs/adr/0011-postgres-dispatch-and-recovery.md:38:        AND j.task_type = ANY($2) -- worker.SupportedTasks
+docs/adr/0011-postgres-dispatch-and-recovery.md:46:          current_attempt_id = $3,
+docs/adr/0011-postgres-dispatch-and-recovery.md:56:      $3, uj.id, (SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM attempts WHERE job_id = uj.id),
+docs/adr/0011-postgres-dispatch-and-recovery.md:57:      $1, $4, 'RUNNING', CURRENT_TIMESTAMP
+docs/adr/0011-postgres-dispatch-and-recovery.md:147:            OR held_for_worker_id = $1
+docs/adr/0011-postgres-dispatch-and-recovery.md:269:   WHERE id = $1 AND lease_token_hash = $2;
+docs/adr/0011-postgres-dispatch-and-recovery.md:281:   SET state = 'RUNNING', current_attempt_id = $2, updated_at = CURRENT_TIMESTAMP
+docs/adr/0011-postgres-dispatch-and-recovery.md:282:   WHERE id = $1 AND state = 'QUEUED';
+docs/adr/0012-security-and-adversarial-testing-workflow.md:16:- **Merged Code & Discovered Defects**: When testing already-merged components or running adversarial evaluations, the full sequence ($\te
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:33:$$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts}$$
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:41:   WHERE state = 'QUEUED' AND task_type = ANY($1)
+docs/adr/0013-durable-dispatch-and-coordinator-recovery.md:51:   WHERE id = $1
+docs/adr/0014-lease-model-and-expiry.md:41:      $1, $2, $3, $4, $5, 'RUNNING', clock_timestamp(),
+docs/adr/0014-lease-model-and-expiry.md:42:      clock_timestamp() + make_interval(secs => $6::double precision)
+docs/adr/0014-lease-model-and-expiry.md:123:     SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED;
+docs/adr/0014-lease-model-and-expiry.md:128:     SELECT id FROM workers WHERE id = $1 FOR UPDATE;
+docs/adr/0014-lease-model-and-expiry.md:132:     SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
+docs/adr/0015-retry-policy-and-failure-classification.md:110:    AND task_type = ANY($1)
+docs/adr/0015-retry-policy-and-failure-classification.md:139:     SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM attempts WHERE job_id = $1;
+docs/agents/handoffs/P4-00.md:22:  - Removed all LaTeX math notation ($500\text{ms}$, $[0.5, 1.5]$, $\ge$, $\le$). Updated FS-03 and FS-04 to reference exact 409 error codes (`LEASE_EXPIRED`, `JOB_ALR
+docs/phase4-plan.md:12:4. **Sweeper Correctness Under Lock**: Sweeper executes canonical row-locked re-check (`SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order
+docs/phase4-plan.md:112:      2. Per-candidate lock order `jobs -> workers -> attempts`: `SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED` (0 rows = skip and retry next t
+docs/roadmap.md:69:   - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
+docs/schema.md:365:   SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED;
+docs/schema.md:368:   SELECT id FROM workers WHERE id = $1 FOR UPDATE;
+docs/schema.md:371:   SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
+docs/security/findings.md:20:| **SEC-008** | Low | Fixed (Slice 3d) | Coordinator & API Validation | Worker IDs and route parameters strictly bounded ($\le 128$ chars) and validated against `^[a-zA-Z0
+docs/security/findings.md:29:| **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual ta
+docs/security/findings.md:115:- **Evidence**: Probe observation confirmed negative values were accepted in memory mode returning 201 Created. Static inspection showed coordinator used `if maxAttempts 
+docs/security/findings.md:119:  1. Validate `max_attempts` ($1..20$, default 3 when omitted or null) and `timeout_seconds` ($1..86400$, default 60 when omitted or null) at API and coordinator boundari
+docs/security/findings.md:158:- **Detail**: In `internal/api/handlers.go:27-39`, `isValidIdentifier` enforces that all worker IDs, route IDs (`{id}`, `{attempt_id}`), and report request worker IDs are
+docs/security/findings.md:238:- **Finding**: In `TestSecurity_PartD_PoolExhaustion`, the positive control for pool saturation was a weak threshold asserting that at least 10 requests had latency $\ge 
+docs/security/findings.md:267:     - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons ($\ge 15$ chars), and strict non-staleness check.
+docs/security/findings.md:422:   - Primary proof: Admin sampling of `pg_stat_activity` every 25ms verified 10/10 connections reached `wait_event_type = 'Lock'` (threshold $\ge 8$).
+docs/security/findings.md:423:   - Secondary proof: Locked run max latency exceeded 3-run unlocked baseline median by $\ge 0.25 \times \text{holdDuration}$ (200ms).
+docs/security/security-testing.md:21:$$\text{Understand} \longrightarrow \text{Threat Model} \longrightarrow \text{Attack} \longrightarrow \text{Observe} \longrightarrow \text{Report} \longrightarrow 
+docs/security/security-testing.md:80:  - Input size bounds (payload/output $\le 64\text{ KiB}$), API body limits ($\le 1\text{ MiB}$), header timeouts.
+docs/testing-postgres.md:44:      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+docs/testing-postgres.md:117:	@docker compose -f deployments/docker-compose.yml --env-file .env exec -it postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+(end LaTeX grep)
+$ git grep -n 'Established' -- CHANGELOG.md docs/PROJECT_STATE.md
+CHANGELOG.md:66:  - `docs/roadmap.md`: Established explicit security review gates for Milestone V1, V2, and V3 exit criteria.
+$ grep -n 'P4-00' docs/agents/TASKS.md
+17:| `docs/security/findings.md` | P4-00 | Next free number after the design merge: SEC-024 |
+24:| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | in progress (Builder addressing audit findings) |
+42:### P4-00 — Phase 4 design close-out
+46:- Owned files: everything changed on docs/phase4-design, AGENTS.md section 4 (context map rows only), docs/agents/TASKS.md (the P4-00 entry and the reserved-numbers table), CHANGELOG.md and docs/PROJECT_STATE.md.
+47:- Builder fixes; auditor reviews only. Auditor writes the review as P4-00.md under docs/agents/reviews/ (file not created yet).
+$ grep -n -i 'phase 4' docs/roadmap.md
+16:| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worke
+17:| **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire 
+45:   - `internal/scheduler` is intentionally not used in the V1 dispatch loop during Phase 3 (temporary until post-Phase 4 assignment slice).
+51:## 4. Proposed Phase 4 Sub-Slices (Retry & Recovery)
+67:5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
+69:   - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
+73:## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
+76:- **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or d
+$ grep -n -i -E 'in-place|in place|short-circuit|indexed lookup' docs/security/threat-model.md docs/phase4-plan.md docs/PROJECT_STATE.md
+docs/security/threat-model.md:128:| **Renewal Floods (Coordinator / DB DoS)** | Coordinator availability, DB connection pool | Rogue worker spams `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` at high frequency, starving database connections. | Rate limiting is designed, not implemented (no rate limiting exists in repository; confirmed in `internal/api/server.go:12-45` and `internal/api/handlers.go:15-80`). In-plac
+docs/phase4-plan.md:154:    - Rate Limiting Defense Documentation: renewal flooding is formally recorded as designed, not implemented (R-23); in-place defenses are fast state short-circuit, indexed lookup on primary key, and statement timeout; accepted risk under SEC-004.
+docs/PROJECT_STATE.md:193:  - Renewal flood defense: documented as designed, not implemented; in-place defenses (state short-circuit, indexed lookup, statement_timeout); accepted risk under SEC-004.
+docs/PROJECT_STATE.md:246:  - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`). Phase 4 renewal flood mitigation is designed (token auth, per-attempt state short-circuit, indexed lookup on primary key, statement_timeout) but unauthenticated endpoints and missing application-level rate limiting ar
+$ grep -n -i -E 'diagnostic|late.result|growth' docs/security/threat-model.md
+47:| | | | **Unbounded In-Memory Growth (DoS)**: Monotonic map growth under load without rate limits (SEC-010). | None in `InMemoryRepository` (`internal/storage/inmemory.go:19-25`) or `InMemoryQueue` (`internal/queue/inmemory.go:18-24`). | inferred from code review (unconfirmed) |
+116:    - Remediation: (a) Handle `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"`; (b) in `CommitAttempt` on a terminal job, close the attempt and free the worker slot in the same transaction as the rejection, write diagnostic event, and return HTTP 409 (authorized in Slice 4a).
+132:| **Diagnostic Late-Result Table Bloat** | Storage capacity, DB performance | Attacker repeatedly sends late result reports for terminal jobs, flooding `job_events` with diagnostic rows under SEC-004. | At most one `diagnostic_late_result` event is written per attempt (guaranteed by unique constraint or `ON CONFLICT DO NOTHING`). Additional calls return HTTP 409 without inserting duplicate event rows. | designed-
+$ grep -n -i 'TIMED_OUT' docs/state-machine.md docs/adr/0015-retry-policy-and-failure-classification.md docs/adr/0014-lease-model-and-expiry.md
+docs/state-machine.md:66:  `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
+docs/state-machine.md:70:- **Canonical Attempt States**: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`.
+docs/state-machine.md:81:| `AttemptTimedOut` (reserved) | `"TIMED_OUT"` | `TIMED_OUT` | Reserved state in schema; not written in V1 | Reserved; worker executor timeout reports `FAILED` with execution timeout |
+docs/state-machine.md:93:    AttemptTimedOut  AttemptState = "TIMED_OUT"
+docs/state-machine.md:107:Database migration `000001_initial_schema.sql:97` already defined `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. Th
+docs/state-machine.md:153:- `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
+docs/adr/0015-retry-policy-and-failure-classification.md:144:   - When attempt 1 fails or expires, its state is updated to `FAILED`, `LOST`, or `TIMED_OUT` **in the same transaction** before the job enters `RETRYING`.
+docs/adr/0014-lease-model-and-expiry.md:12:  - No resurrection of expired attempts (`LOST` / `TIMED_OUT` is terminal; late results strictly rejected and recorded as diagnostic audit events).
+$ sed -n 128p docs/security/threat-model.md
+| **Renewal Floods (Coordinator / DB DoS)** | Coordinator availability, DB connection pool | Rogue worker spams `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` at high frequency, starving database connections. | Rate limiting is designed, not implemented (no rate limiting exists in repository; confirmed in `internal/api/server.go:12-45` and `internal/api/handlers.go:15-80`). In-place defenses rely on: (1) state short-circuit rejecting unknown or inactive attempts before taking row locks (designed, not yet implemented), (2) indexed primary key lookups (designed, not yet implemented), and (3) pooled `statement_timeout` and `lock_timeout` (5s). Residual flood risk is an accepted risk under SEC-004 (localhost-only bind default). Application-layer token bucket rate limiting is deferred to V3 multi-machine hardening. | designed, not implemented |
+$ git show origin/main:docs/roadmap.md | grep -n "ge 1,000"
+(exit 1)
+$ git show aa13a4c:docs/roadmap.md | grep -n "ge 1,000"
+69:   - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
+$ git log --oneline origin/main -1; git merge-base --is-ancestor aa13a4c origin/main && echo aa13a4c-on-main || echo aa13a4c-not-on-main
+a9453fc Merge pull request #16 from BlaZe08-Dev/agent/claude/P0-01
+aa13a4c-not-on-main
+$ grep -n -E "^\s*-\s*(\*\*[^*]*\*\*:?)?\s*$" docs/PROJECT_STATE.md
+11:- **Two-Agent Workflow Infrastructure (P0-01, PR #16, `main` at `a9453fc`):**
+16:- **Phase 4 — Coordination, Leases, Retries & Cancellation Design Specification Second Revision (`docs/phase4-design`):**
+22:- **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
+34:- **Phase 3, Slice 3d — PostgreSQL Coordinator Wiring, Durable Dispatch, Readiness Probe & Recovery (`milestone/3d-postgres-wiring`):**
+52:- **Phase 3, Slice 3d — Authorized Security Hardening (SEC-003, SEC-007, SEC-008, SEC-009, SEC-011, SEC-014) (`milestone/3d-postgres-queue`):**
+59:- **Persistent Security, Adversarial Testing & Reliability Instructions (`docs/security-instructions`):**
+72:- **Phase 3 — Durable State Design Specifications (`docs/phase3-design`):**
+83:- **Phase 3, Slice 3a — Repository Atomicity Refactor & Worker Re-Registration (`milestone/3a-repository-atomicity`):**
+95:- **Phase 3, Slice 3b — Database Provisioning, Schema & Forward-Only Migrations (`milestone/3b-migrations-and-schema`):**
+104:- **Phase 3, Slice 3c — PostgreSQL Repository Implementation & Review Hardening (`milestone/3c-postgres-repository`):**
+123:- **Scope:**
+131:- **Scope:**
+139:- **Scope:**
+147:- **Scope:**
+155:- **Scope:**
+169:- **Scope:**
+179:- **Scope:**
+188:- **Scope:**
+198:- **Scope:**
+206:- **Scope:**
+232:- **Fixed Security Findings (Slice 3d):**
+245:- **Open Security Findings (Not Authorized Yet / In Backlog):**
+251:- **Distributed & Architectural Limitations:**
+(exit 0)
+$ grep -n -i "owner draft" CHANGELOG.md docs/PROJECT_STATE.md
+CHANGELOG.md:13:  - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Committed agent rules and task board from owner draft with builder/
+docs/PROJECT_STATE.md:13:  - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Committed agent rules and task board from owner draft with
+$ sed -n 196,200p docs/PROJECT_STATE.md
+
+### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
+- **Scope:**
+  - 3-tier failure classification: success is `AttemptCompleted` (no error class); allowlisted task validation errors permanent (`ClassPermanent`); worker abnormal terminations; unknown errors retryable (`ClassRetryable`).
+  - Exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 max attempts. `LOST` attempts consume 1 attempt.
+
+=== G15. Roadmap Phase 4 status (R-22) (executed)
+$ sed -n 51,53p docs/roadmap.md
+## 4. Proposed Phase 4 Sub-Slices (Retry & Recovery)
+*Complete architectural specifications are detailed in [docs/phase4-plan.md](phase4-plan.md).*
+
+$ grep -n -i -E "status|proposed|accepted|audit" docs/roadmap.md
+10:| Version | Phase | Scope | Exit Criteria | Status |
+15:| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly a
+16:| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale res
+17:| **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted
+51:## 4. Proposed Phase 4 Sub-Slices (Retry & Recovery)
+$ git diff aa13a4c..HEAD -- docs/roadmap.md
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index 2f3fe21..04f3f2f 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -13,7 +13,7 @@ MiniCloud development is structured into three major releases. Each version buil
+ | **V1** | **Phase 1: Local Core** | Go module, CLI/API, allowlisted task types (`echo`, `sleep`, `sha256_loop`), multi-process workers. | End-to-end jobs execute across independent processes; unit & integration tests pass `-race`. | **DONE** |
+ | **V1** | **Phase 2: Independent Workers** | Worker failure detection loop, heartbeat reaper, attempt IDs, capacity tracking, dispatch transport queue interface. | Worker processes communicate only through HTTP protocol; dead workers detected and evicted; 3-worker batch integration passes `-race`. | **DONE** |
+ | **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly across coordinator restarts; DB is authoritative truth; surviving workers commit results after reboot. | **DONE** |
+-| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | **In Progress** (Design Specifications Proposed; ADR-0014, ADR-0015, ADR-0016) |
++| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | **In Progress** (Design Accepted by Owner; ADR-0014, ADR-0015, ADR-0016) |
+ | **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire and requeue; audit decisions logged; hard gate for V1 release. | Planned (Post-Phase 4) |
+ | **V1** | **V1 Security & Resilience Gate** | Execute V1 fault injection, malformed input fuzzing, and API abuse test suites. | All V1 security test plan suites executed with results; zero unhandled panics or state corruption before tagging `v1.0.0`. | Planned (V1 Final Gate) |
+ | **V2** | **Phase 6: Scheduling Research** | Resource-aware scheduling policy, repeatable workload generator, comparative metrics. | Fair comparison with round-robin; p50/p95/p99 latency, queue wait, and throughput recorded. | Planned |
+@@ -63,7 +63,7 @@ MiniCloud development is structured into three major releases. Each version buil
+    - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s with startup grace suppression (30s).
+ 4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
+    - Implement 3-tier failure classification (`PERMANENT` vs `RETRYABLE`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
+-   - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 202).
++   - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 200).
+ 5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
+    - Execute all 10 blueprint fault scenarios (FS-01 through FS-10) in `tests/integration/` per [docs/fault-injection-plan.md](fault-injection-plan.md).
+    - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
