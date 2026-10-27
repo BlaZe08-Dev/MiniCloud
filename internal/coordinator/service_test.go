@@ -626,3 +626,51 @@ func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t *testing
 		t.Fatalf("expected job 2 after the slot was freed, got %v (assignment=%v)", err, second)
 	}
 }
+
+// TestService_PollWork_DispatchesDueRetryingJob: in memory mode a RETRYING job is claimed
+// through repo.DispatchNextJob once its not_before has passed, with attempt number 2, and is not
+// stranded as it was when memory dispatch used a separate queue.
+func TestService_PollWork_DispatchesDueRetryingJob(t *testing.T) {
+	ctx := context.Background()
+	clk := newMockClock(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	svc := newDispatchCoordinator(t, repo, "worker-retry", 1)
+	svc.SetClock(clk)
+
+	job := submitEcho(t, svc, "retry")
+	first, err := svc.PollWork(ctx, "worker-retry")
+	if err != nil {
+		t.Fatalf("PollWork failed: %v", err)
+	}
+
+	// Attempt 1 is lost and the job waits 5s (stands in for the sweeper of slice 4b).
+	att, _ := repo.GetAttempt(ctx, first.AttemptID)
+	att.State = domain.AttemptLost
+	if err := repo.UpdateAttempt(ctx, att); err != nil {
+		t.Fatalf("UpdateAttempt failed: %v", err)
+	}
+	notBefore := clk.Now().Add(5 * time.Second)
+	j, _ := repo.GetJob(ctx, job.ID)
+	j.State = domain.StateRetrying
+	j.NotBefore = &notBefore
+	if err := repo.UpdateJob(ctx, j); err != nil {
+		t.Fatalf("UpdateJob failed: %v", err)
+	}
+
+	if _, err := svc.PollWork(ctx, "worker-retry"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs before not_before, got %v", err)
+	}
+	requireJobState(t, repo, job.ID, domain.StateRetrying)
+
+	clk.Advance(5 * time.Second)
+	second, err := svc.PollWork(ctx, "worker-retry")
+	if err != nil {
+		t.Fatalf("PollWork on a due RETRYING job failed: %v", err)
+	}
+	if second.JobID != job.ID || second.AttemptNo != 2 {
+		t.Fatalf("expected job %s attempt 2, got %+v", job.ID, second)
+	}
+	requireJobState(t, repo, job.ID, domain.StateRunning)
+	requireAttempts(t, repo, job.ID, 2)
+	requireSlots(t, repo, "worker-retry", 0)
+}
