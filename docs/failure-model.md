@@ -42,3 +42,43 @@ When writing automated fault injection tests, every test case must explicitly do
 3. **Expected Invariant:** State transition verification, stale rejection, or bounded retry.
 4. **Evidence Collected:** Logs with `job_id` and `attempt_id`, status codes, final job state in repository.
 5. **Recovery Mode:** Autonomous (system self-heals) vs. Operator-required (manual intervention).
+
+---
+
+## 4. Worker-Side Result Delivery Protocol During Extended Outages
+
+### The Delivery Gap Under Extended Downtime
+Inspection of the current worker implementation in `internal/worker/client.go:324-355` (`executeAndReport`) reveals that `ReportResult` retries at most 5 times with exponential backoff ($100\text{ms} \times 2^{\text{attempt}}$), yielding approximately 3.1 seconds of total retry duration ($100\text{ms} + 200\text{ms} + 400\text{ms} + 800\text{ms} + 1600\text{ms} = 3.1\text{s}$). If a coordinator restart or database outage lasts longer than 3.1 seconds (e.g., a 15–45 second coordinator crash), any task that completes *during* the outage discards its completed result at the worker side. Even if the coordinator restarts and enables its 30-second startup grace period, no result is delivered, resulting in lost work and redundant retry dispatch.
+
+### Designed Worker Delivery Behavior
+To guarantee end-to-end result preservation during coordinator or database outages, Phase 4 specifies the following worker client behavior for finished but unreported results:
+1. **Capped, Jittered Backoff Loop**:
+   When reporting a finished result, transient errors (HTTP 500, 502, 503, 504, connection reset, connection refused, context deadline) trigger retries using exponential backoff with full jitter:
+   $$\text{backoff} = \min\left(\text{max\_report\_backoff}, \text{base\_report\_backoff} \times 2^{\text{attempt}}\right) \times \text{jitter}$$
+   where `base_report_backoff = 500ms`, `max_report_backoff = 5.0s`, and `jitter \in [0.5, 1.5]`.
+2. **Concurrent Ongoing Lease Renewal**:
+   While the worker's result reporting loop retries, the worker's lease renewal mechanism **continues active lease renewal** (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`) every 10 seconds. Under the symmetric accept-until-swept rule (ADR-0014), renewals and commits are accepted while `attempts.state == 'RUNNING'`. Once the coordinator recovers, renewal extends `lease_expires_at` from database time, ensuring the attempt is never reaped while the worker is actively delivering its completed result.
+3. **Terminal Rejection Halts Delivery**:
+   If `ReportResult` or `RenewAttemptLease` receives an explicit terminal rejection:
+   - HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED` / `JOB_ALREADY_TERMINAL`)
+   - HTTP 403 Forbidden (`WORKER_MISMATCH`)
+   - HTTP 404 Not Found (e.g., attempt unknown to coordinator)
+   The worker immediately aborts the delivery loop, logs the terminal rejection, and halts delivery without further retries.
+4. **Explicit Delivery Bound**:
+   The reporting retry loop is bounded by a cumulative deadline of $\text{lease\_duration} + \text{grace\_window}$ (default: $30\text{s} + 30\text{s} = 60\text{s}$), or terminates early if renewal receives HTTP 409 `LEASE_EXPIRED` (indicating the sweeper reaped the attempt).
+
+### Existing Test Impact Analysis
+- **Tests Pinning Current Behavior**:
+  - `internal/worker/client_test.go:16-38` (`TestIsNonRetryableReportError`): Pins classification of HTTP 403, 404, 409 as terminal/non-retryable and 200, 400, 500, 502, 503, 504 as retryable.
+  - `internal/worker/client_test.go:40-105` (`TestAgent_ReportResult_RejectionHandling`): Pins single-invocation status code rejection handling.
+  - `internal/worker/client.go:324-355` (`executeAndReport`): Implements the current 5-attempt retry loop.
+- **Assertion Impact**:
+  Neither existing test asserts or depends on the 5-attempt iteration limit or the 3.1-second cap. Zero assertions in existing tests are weakened or removed.
+- **Candidate for Owner Approval**:
+  Expanding `executeAndReport` in `internal/worker/client.go:324-355` from a fixed 5-iteration loop to a 60-second time-bounded loop with capped jittered backoff and concurrent lease renewal during reporting is submitted as an additive resilience candidate for owner approval in Slice 4b.
+
+### Planned Verification Tests
+- `TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success` (planned test).
+- `TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport` (planned test).
+- `TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace` (planned test).
+- `TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately` (planned test).

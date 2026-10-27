@@ -49,13 +49,17 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-05: Coordinator Crashes After Submission Before Dispatch or During Execution
-- **Planned Test Identifier**: `TestFault_CoordinatorCrash_AfterSubmit` (planned test)
-- **Target Fault Scenario**: Client successfully submits job; job is persisted in PostgreSQL in `QUEUED` state. Coordinator crashes immediately before any worker claims it, or while workers are executing tasks.
-- **Injection Mechanism**: Test coordinator receives `POST /v1/jobs`, returns HTTP 201 Created, and is immediately terminated with `SIGKILL`. A replacement coordinator starts on the same port and connects to PostgreSQL.
+- **Planned Test Identifiers**:
+  - `TestFault_CoordinatorCrash_AfterSubmit` (planned test)
+  - `TestFault_CoordinatorCrash_ResultFinishesDuringDowntime` (planned test)
+- **Target Fault Scenario**: Client successfully submits job; job is persisted in PostgreSQL in `QUEUED` state. Coordinator crashes either before any worker claims it, or while a worker is executing the task. The coordinator remains offline for an extended 45-second downtime (exceeding the 30-second lease duration). Crucially, a running task completes execution **during** the 45-second downtime (e.g., at $t = 15\text{s}$).
+- **Injection Mechanism**:
+  1. Sub-scenario A (crash before dispatch): Coordinator receives `POST /v1/jobs`, returns HTTP 201 Created, and is immediately terminated with `SIGKILL`. Replacement coordinator starts after 45s and connects to PostgreSQL.
+  2. Sub-scenario B (result completes *during* downtime): Worker claims job and begins execution. Coordinator is terminated with `SIGKILL` and held down for 45s. At $t = 15\text{s}$, the task completes. The worker client enters its result delivery retry loop with capped jittered backoff while continuing background lease renewal attempts. A replacement coordinator starts at $t = 45\text{s}$ on the same address.
 - **Expected Outcome**:
-  - `QUEUED` jobs remain durably in PostgreSQL and dispatch to workers upon next poll.
-  - For `RUNNING` jobs, the restarted coordinator's sweeper observes the startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, 30s) and does not reap healthy in-flight attempts, allowing surviving workers to renew or commit (preserving Phase 3 guarantee in `TestPostgresWiring_CoordinatorRestartRecovery`).
-- **Evidence Collected**: `jobs.state` verified as `QUEUED` in DB post-crash; surviving worker commit succeeds with HTTP 200 COMMITTED; job completes to `SUCCEEDED`.
+  - For Sub-scenario A: `QUEUED` jobs remain durably in PostgreSQL and dispatch to workers upon next poll once coordinator recovers.
+  - For Sub-scenario B: The worker client retries `ReportResult` with capped, jittered backoff throughout the 45s outage while continuing renewal attempts. Upon coordinator recovery at $t = 45\text{s}$, the sweeper's startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, 30s) suppresses reaping. Under the symmetric accept-until-swept rule, the worker's queued result commit succeeds with HTTP 200 `COMMITTED`, moving the job to `SUCCEEDED` and preserving Phase 3 guarantees (`TestPostgresWiring_CoordinatorRestartRecovery`) even when execution completes mid-downtime.
+- **Evidence Collected**: `jobs.state` verified as `QUEUED` in DB post-crash; surviving worker commit succeeds with HTTP 200 `COMMITTED`; single result row in `results`; job completes to `SUCCEEDED`.
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-06: Coordinator Crashes After Receiving Result Before/After Committing It

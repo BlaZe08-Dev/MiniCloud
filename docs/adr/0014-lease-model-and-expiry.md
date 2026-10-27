@@ -157,9 +157,11 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
 - **Interaction with Phase 3 Tests**:
   - In `TestPostgresWiring_CoordinatorRestartRecovery`, Coordinator 1 is killed and Coordinator 2 starts up while a worker executes an 800ms task. With startup grace (30s), Coordinator 2's sweeper does not reap the attempt; the surviving worker commits with HTTP 200 COMMITTED, exactly preserving the Phase 3 contract.
   - In `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`, the database container is stopped for 1.5s. Outage grace protects the attempt while the worker retries its commit upon database restoration.
+- **Worker-Side Result Delivery Pairing During Outages**:
+  Coordinator-side grace periods must be paired with worker-side delivery resilience. If a task completes execution during a coordinator or database outage, the worker's result delivery loop (`internal/worker/client.go:324-355`) retries `ReportResult` with capped jittered backoff ($500\text{ms}$ base to $5.0\text{s}$ cap) and concurrently continues issuing lease renewals every 10s until the coordinator recovers. This ensures that in scenarios with extended coordinator downtime (e.g. 45s), work that finished mid-downtime is not discarded by the worker before the coordinator and its startup grace window become available.
 - **Impact on Existing Tests & Owner Approval Candidates**:
   - Zero existing test assertions are weakened. Existing integration tests run with restarts/outages of 200ms–1.5s, well within the 30s grace window.
-  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse.
+  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `executeAndReport` from 5 attempts to a 60-second time-bounded loop with capped jittered backoff and ongoing lease renewal is an additive durability improvement submitted for owner approval.
 
 ### 5. Stale Attempt Rejection & Symmetric Accept-Until-Swept Rule
 
