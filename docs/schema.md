@@ -347,7 +347,7 @@ CREATE UNIQUE INDEX idx_job_events_unique_diagnostic_late_result
 - **State Reconciliation & Mapping**:
   - `LOST`: Worker lease expired without renewal (replaces legacy domain `EXPIRED`). Written by sweeper transaction.
   - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`. Reserved attempt state in schema; not written by V1 coordinator or worker (worker executor timeout reports `FAILED` with execution timeout error in V1).
-  - `CANCELLED`: Canonical double-L spelling across both job and attempt states. Written by worker cancel acknowledgment or sweeper.
+  - `CANCELLED`: Canonical double-L spelling across both job and attempt states. Written by sweeper (expired lease on a `CANCEL_REQUESTED` job) or commit on an already-terminal `CANCELLED` job closing a `RUNNING` attempt.
 
 ### Sweeper Lock Order, Candidate Selection, and Correctness Re-Check
 In accordance with ADR-0014, the sweeper evaluates candidate attempts and executes per-candidate atomic transitions under strict lock ordering:
@@ -396,8 +396,7 @@ In accordance with ADR-0014, the sweeper evaluates candidate attempts and execut
 
 ### Startup and Outage Grace Mechanisms
 To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`). Both periods must be >= lease duration (default 30s).
-The only authoritative grace check is the one inside the sweeper transaction lock. Any earlier pre-check is advisory and must be labelled so or removed.
-**Cooldown definition**: it starts when a grace window ends; during the cooldown a new outage detection does NOT open a new grace window, so reaping proceeds. Maximum continuous suppression of reaping is therefore one window length. Outage detection counts connection-class errors, not slow ticks or query timeouts.
+The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 
 ### Operational Invariants & Rollback Policy
 - **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
