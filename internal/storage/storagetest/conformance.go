@@ -603,3 +603,310 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		}
 	})
 }
+
+// Harness pairs a repository under test with a backend-specific hook that forces a job
+// into an arbitrary state. The hook stands in for transitions that the public repository
+// API cannot reach yet (for example CANCEL_REQUESTED -> CANCELLED while the attempt is
+// still RUNNING, or RETRYING before the retry slices land).
+type Harness struct {
+	Repo          storage.Repository
+	ForceJobState func(t *testing.T, jobID string, state domain.JobState)
+}
+
+func conformanceWorker(t *testing.T, repo storage.Repository, id string, slots int) {
+	t.Helper()
+	err := repo.UpsertWorker(context.Background(), &domain.Worker{
+		ID:             id,
+		Version:        "v1.0.0",
+		TotalSlots:     slots,
+		Status:         domain.WorkerStatusHealthy,
+		SupportedTasks: []string{"echo"},
+	})
+	if err != nil {
+		t.Fatalf("UpsertWorker(%s) failed: %v", id, err)
+	}
+}
+
+func conformanceQueuedJob(t *testing.T, repo storage.Repository, id string) {
+	t.Helper()
+	err := repo.SubmitJob(context.Background(), &domain.Job{
+		ID:             id,
+		TaskType:       "echo",
+		Payload:        []byte(`{"message":"x"}`),
+		State:          domain.StateQueued,
+		MaxAttempts:    3,
+		TimeoutSeconds: 30,
+	})
+	if err != nil {
+		t.Fatalf("SubmitJob(%s) failed: %v", id, err)
+	}
+}
+
+// conformanceRunningJob submits a job and dispatches it to workerID.
+func conformanceRunningJob(t *testing.T, repo storage.Repository, jobID, workerID string) *domain.Attempt {
+	t.Helper()
+	conformanceQueuedJob(t, repo, jobID)
+	att, err := repo.DispatchJob(context.Background(), jobID, workerID)
+	if err != nil {
+		t.Fatalf("DispatchJob(%s, %s) failed: %v", jobID, workerID, err)
+	}
+	return att
+}
+
+func conformanceSlots(t *testing.T, repo storage.Repository, workerID string) int {
+	t.Helper()
+	w, err := repo.GetWorker(context.Background(), workerID)
+	if err != nil {
+		t.Fatalf("GetWorker(%s) failed: %v", workerID, err)
+	}
+	return w.AvailableSlots
+}
+
+func conformanceAttemptState(t *testing.T, repo storage.Repository, attemptID string) domain.AttemptState {
+	t.Helper()
+	att, err := repo.GetAttempt(context.Background(), attemptID)
+	if err != nil {
+		t.Fatalf("GetAttempt(%s) failed: %v", attemptID, err)
+	}
+	return att.State
+}
+
+func conformanceEvents(t *testing.T, repo storage.Repository, jobID string) []*domain.JobEvent {
+	t.Helper()
+	events, err := repo.ListEventsByJob(context.Background(), jobID)
+	if err != nil {
+		t.Fatalf("ListEventsByJob(%s) failed: %v", jobID, err)
+	}
+	return events
+}
+
+func countEvents(events []*domain.JobEvent, typ domain.JobEventType) int {
+	n := 0
+	for _, ev := range events {
+		if ev.EventType == typ {
+			n++
+		}
+	}
+	return n
+}
+
+// RunCancelIdempotentCancelRequestedConformance verifies SEC-022 part (a): a duplicate
+// cancel on a CANCEL_REQUESTED job is an idempotent repository no-op. It is wrapped by
+// TestConformance_CancelJob_IdempotentCancelRequested in each backend's test package.
+func RunCancelIdempotentCancelRequestedConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	repo := newHarness(t).Repo
+	conformanceWorker(t, repo, "w_idem", 1)
+	att := conformanceRunningJob(t, repo, "j_idem", "w_idem")
+
+	first, err := repo.CancelJob(ctx, "j_idem")
+	if err != nil {
+		t.Fatalf("first CancelJob failed: %v", err)
+	}
+	if first.State != domain.StateCancelRequested {
+		t.Fatalf("first cancel: expected CANCEL_REQUESTED, got %s", first.State)
+	}
+	eventsAfterFirst := conformanceEvents(t, repo, "j_idem")
+
+	for i := 2; i <= 3; i++ {
+		dup, err := repo.CancelJob(ctx, "j_idem")
+		if err != nil {
+			t.Fatalf("duplicate cancel #%d must be a no-op, got error: %v", i, err)
+		}
+		if dup.State != domain.StateCancelRequested {
+			t.Fatalf("duplicate cancel #%d: expected CANCEL_REQUESTED, got %s", i, dup.State)
+		}
+		if dup.ID != first.ID || dup.CurrentAttemptID != first.CurrentAttemptID || !dup.UpdatedAt.Equal(first.UpdatedAt) {
+			t.Fatalf("duplicate cancel #%d must return the job unchanged: first=%+v dup=%+v", i, first, dup)
+		}
+	}
+
+	if got := len(conformanceEvents(t, repo, "j_idem")); got != len(eventsAfterFirst) {
+		t.Fatalf("duplicate cancel must record no audit event: %d events before, %d after", len(eventsAfterFirst), got)
+	}
+	if got := conformanceAttemptState(t, repo, att.ID); got != domain.AttemptRunning {
+		t.Fatalf("duplicate cancel must leave the attempt RUNNING, got %s", got)
+	}
+	if got := conformanceSlots(t, repo, "w_idem"); got != 0 {
+		t.Fatalf("worker slot must stay held while the attempt runs, available=%d", got)
+	}
+
+	// The worker's own commit must still be accepted: the job was not finalised early.
+	job, err := repo.CommitAttempt(ctx, "j_idem", att.ID, att.LeaseToken, "w_idem", domain.AttemptOutcome{ExitCode: 0, Output: "done"})
+	if err != nil {
+		t.Fatalf("worker commit after duplicate cancels must be accepted, got: %v", err)
+	}
+	if job.State != domain.StateSucceeded {
+		t.Fatalf("expected SUCCEEDED after commit, got %s", job.State)
+	}
+	if got := conformanceAttemptState(t, repo, att.ID); got != domain.AttemptCompleted {
+		t.Fatalf("expected attempt COMPLETED, got %s", got)
+	}
+	if got := conformanceSlots(t, repo, "w_idem"); got != 1 {
+		t.Fatalf("worker slot must be free after commit, available=%d", got)
+	}
+}
+
+// RunCancelRetryingImmediatelyCancelledConformance verifies that cancelling a RETRYING
+// job moves it straight to CANCELLED. Wrapped by
+// TestConformance_CancelJob_RetryingImmediatelyCancelled.
+func RunCancelRetryingImmediatelyCancelledConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	h := newHarness(t)
+	repo := h.Repo
+	conformanceQueuedJob(t, repo, "j_retry_cancel")
+	h.ForceJobState(t, "j_retry_cancel", domain.StateRetrying)
+
+	job, err := repo.CancelJob(ctx, "j_retry_cancel")
+	if err != nil {
+		t.Fatalf("CancelJob on RETRYING failed: %v", err)
+	}
+	if job.State != domain.StateCancelled {
+		t.Fatalf("expected CANCELLED, got %s", job.State)
+	}
+	if job.NotBefore != nil {
+		t.Fatalf("expected not_before cleared, got %v", job.NotBefore)
+	}
+
+	events := conformanceEvents(t, repo, "j_retry_cancel")
+	last := events[len(events)-1]
+	if last.EventType != domain.JobEventCancelled || last.FromState == nil || *last.FromState != domain.StateRetrying {
+		t.Fatalf("expected JOB_CANCELLED from RETRYING as last event, got %+v", last)
+	}
+
+	if _, err := repo.CancelJob(ctx, "j_retry_cancel"); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+		t.Fatalf("second cancel on CANCELLED job: expected ErrJobAlreadyTerminal, got %v", err)
+	}
+}
+
+// RunCommitAttemptTerminalJobConformance verifies SEC-022 part (b): a commit on an
+// already-terminal job is rejected with ErrJobAlreadyTerminal, and the same call closes
+// the attempt only while it is still RUNNING, frees the worker slot and records a bounded
+// diagnostic event. Wrapped by TestConformance_CommitAttempt_TerminalJob.
+func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	outcome := domain.AttemptOutcome{ExitCode: 0, Output: "late"}
+
+	forced := []struct {
+		name         string
+		jobState     domain.JobState
+		wantAttempt  domain.AttemptState
+		wantJobState domain.JobState
+	}{
+		{"cancelled_job_closes_attempt_cancelled", domain.StateCancelled, domain.AttemptCancelled, domain.StateCancelled},
+		{"succeeded_job_closes_attempt_lost", domain.StateSucceeded, domain.AttemptLost, domain.StateSucceeded},
+		{"failed_job_closes_attempt_lost", domain.StateFailed, domain.AttemptLost, domain.StateFailed},
+	}
+	for _, tc := range forced {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			repo := h.Repo
+			conformanceWorker(t, repo, "w_term", 1)
+			att := conformanceRunningJob(t, repo, "j_term", "w_term")
+			h.ForceJobState(t, "j_term", tc.jobState)
+
+			_, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome)
+			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+			}
+			closed, err := repo.GetAttempt(ctx, att.ID)
+			if err != nil {
+				t.Fatalf("GetAttempt failed: %v", err)
+			}
+			if closed.State != tc.wantAttempt {
+				t.Fatalf("expected attempt %s, got %s", tc.wantAttempt, closed.State)
+			}
+			if closed.FinishedAt == nil {
+				t.Fatalf("closed attempt must carry finished_at")
+			}
+			if got := conformanceSlots(t, repo, "w_term"); got != 1 {
+				t.Fatalf("worker slot must be freed by the rejected commit, available=%d", got)
+			}
+			job, err := repo.GetJob(ctx, "j_term")
+			if err != nil {
+				t.Fatalf("GetJob failed: %v", err)
+			}
+			if job.State != tc.wantJobState || job.Result != nil {
+				t.Fatalf("rejected commit must not change the job or store a result: %+v", job)
+			}
+			if got := countEvents(conformanceEvents(t, repo, "j_term"), domain.JobEventDiagnosticLateResult); got != 1 {
+				t.Fatalf("expected exactly 1 DIAGNOSTIC_LATE_RESULT event, got %d", got)
+			}
+
+			// A retry of the same commit is rejected again: no second event, attempt untouched.
+			if _, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+				t.Fatalf("retried commit: expected ErrJobAlreadyTerminal, got %v", err)
+			}
+			if got := countEvents(conformanceEvents(t, repo, "j_term"), domain.JobEventDiagnosticLateResult); got != 1 {
+				t.Fatalf("diagnostic event must be bounded to one per attempt, got %d", got)
+			}
+			if got := conformanceAttemptState(t, repo, att.ID); got != tc.wantAttempt {
+				t.Fatalf("retried commit changed the attempt to %s", got)
+			}
+		})
+	}
+
+	t.Run("completed_attempt_never_overwritten", func(t *testing.T) {
+		h := newHarness(t)
+		repo := h.Repo
+		conformanceWorker(t, repo, "w_done", 1)
+		att := conformanceRunningJob(t, repo, "j_done", "w_done")
+		if _, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 0, Output: "first"}); err != nil {
+			t.Fatalf("first commit failed: %v", err)
+		}
+		before, _ := repo.GetAttempt(ctx, att.ID)
+
+		_, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 1, Error: "replay"})
+		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+		}
+		after, _ := repo.GetAttempt(ctx, att.ID)
+		if after.State != domain.AttemptCompleted || after.Output != before.Output || after.ExitCode != before.ExitCode {
+			t.Fatalf("a COMPLETED attempt must never be overwritten: before=%+v after=%+v", before, after)
+		}
+		job, _ := repo.GetJob(ctx, "j_done")
+		if job.State != domain.StateSucceeded || job.Result == nil || job.Result.Output != "first" {
+			t.Fatalf("the first result must stand: %+v", job)
+		}
+	})
+
+	t.Run("foreign_attempt_is_not_closed", func(t *testing.T) {
+		h := newHarness(t)
+		repo := h.Repo
+		conformanceWorker(t, repo, "w_foreign", 2)
+		attA := conformanceRunningJob(t, repo, "j_foreign_a", "w_foreign")
+		attB := conformanceRunningJob(t, repo, "j_foreign_b", "w_foreign")
+		h.ForceJobState(t, "j_foreign_a", domain.StateCancelled)
+
+		// Terminal job A, but the caller names job B's attempt.
+		_, err := repo.CommitAttempt(ctx, "j_foreign_a", attB.ID, attB.LeaseToken, "w_foreign", outcome)
+		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+		}
+		if got := conformanceAttemptState(t, repo, attB.ID); got != domain.AttemptRunning {
+			t.Fatalf("an attempt of another job must not be closed, got %s", got)
+		}
+		if got := countEvents(conformanceEvents(t, repo, "j_foreign_a"), domain.JobEventDiagnosticLateResult); got != 0 {
+			t.Fatalf("no diagnostic event may be recorded for an attempt of another job, got %d", got)
+		}
+		_ = attA
+	})
+
+	t.Run("unknown_attempt_records_nothing", func(t *testing.T) {
+		h := newHarness(t)
+		repo := h.Repo
+		conformanceWorker(t, repo, "w_unknown", 1)
+		conformanceRunningJob(t, repo, "j_unknown", "w_unknown")
+		h.ForceJobState(t, "j_unknown", domain.StateCancelled)
+
+		for i := 0; i < 3; i++ {
+			_, err := repo.CommitAttempt(ctx, "j_unknown", "att_does_not_exist", "tok", "w_unknown", outcome)
+			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+			}
+		}
+		if got := countEvents(conformanceEvents(t, repo, "j_unknown"), domain.JobEventDiagnosticLateResult); got != 0 {
+			t.Fatalf("unauthenticated junk attempt IDs must not grow job_events, got %d diagnostic events", got)
+		}
+	})
+}

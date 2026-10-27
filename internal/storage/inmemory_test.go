@@ -615,3 +615,33 @@ func TestInMemoryRepository_Conformance(t *testing.T) {
 		return storage.NewInMemoryRepository()
 	})
 }
+
+func newInMemoryHarness(t *testing.T) storagetest.Harness {
+	repo := storage.NewInMemoryRepository()
+	return storagetest.Harness{
+		Repo: repo,
+		ForceJobState: func(t *testing.T, jobID string, state domain.JobState) {
+			t.Helper()
+			job, err := repo.GetJob(context.Background(), jobID)
+			if err != nil {
+				t.Fatalf("GetJob(%s) failed: %v", jobID, err)
+			}
+			job.State = state
+			if err := repo.UpdateJob(context.Background(), job); err != nil {
+				t.Fatalf("UpdateJob(%s) failed: %v", jobID, err)
+			}
+		},
+	}
+}
+
+func TestConformance_CancelJob_IdempotentCancelRequested(t *testing.T) {
+	storagetest.RunCancelIdempotentCancelRequestedConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
+	storagetest.RunCancelRetryingImmediatelyCancelledConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
+	storagetest.RunCommitAttemptTerminalJobConformance(t, newInMemoryHarness)
+}
