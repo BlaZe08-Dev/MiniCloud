@@ -17,7 +17,7 @@ Accepted by Owner (2026-10-26)
 ## Context
 MiniCloud jobs are finite computational tasks that may encounter transient errors (network timeouts, node preemption, database connection blips) or permanent errors (bad input syntax, unhandled application exceptions, missing parameters).
 
-Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Failure Injection", pages 8–10) mandate that:
+Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Failure Injection", pages 9–10) mandate that:
 1. Retries must be bounded by an explicit `max_attempts` budget.
 2. The platform must distinguish retryable vs. permanent errors.
 3. The platform provides **at-least-once execution semantics** under retries. It must explicitly disclaim exactly-once execution for arbitrary external side effects.
@@ -123,7 +123,7 @@ The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSI
 To guarantee seamless testing and environment parity between in-memory and PostgreSQL modes:
 1. **In-Memory Repository and Queue Dispatch Rule**:
    - In both PostgreSQL and in-memory modes, `repo.DispatchNextJob` and `repo.DispatchJob` accept jobs that are either `QUEUED` or in `RETRYING` with `not_before <= now` (where `now` is `clock_timestamp()` in PostgreSQL and the injected `Clock.Now()` in in-memory mode), with zero re-enqueue.
-   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends.
+   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends. Existing coordinator unit tests that construct `NewServiceWithQueue` with a spy queue (`internal/coordinator/service_test.go:353-375`) and assert queue `Ack`/`Release` calls are affected and rewritten to assert observable domain outcomes (job state, attempt, slot), each marked as a candidate for owner approval.
    - In-memory event recording records the actual `from_state` (`QUEUED` or `RETRYING`), and all timestamped mutations evaluate against the injected `Clock`.
 2. **Shared Conformance Suite Assertions**:
    The shared conformance test suite (`internal/storage/storagetest`) asserts identical state machine behavior across both in-memory and PostgreSQL repositories:
@@ -141,7 +141,7 @@ To guarantee seamless testing and environment parity between in-memory and Postg
    - Attempt 1 fails -> attempt 2 is created with `attempt_no = 2`. Unique constraint `(job_id, attempt_no)` is guaranteed.
 2. **At Most One Active Attempt (`idx_attempts_active_per_job`)**:
    - Partial unique index: `WHERE state IN ('PENDING', 'RUNNING')`.
-   - When attempt 1 fails or expires, its state is updated to `FAILED`, `LOST`, or `TIMED_OUT` **in the same transaction** before the job enters `RETRYING`.
+   - When attempt 1 fails or expires, its state is updated to `FAILED` or `LOST` (or `CANCELLED`) **in the same transaction** before the job enters `RETRYING`.
    - Zero active attempts exist while the job is in `RETRYING`.
    - When attempt 2 is dispatched, exactly one active attempt exists. The partial unique index is never violated.
 
