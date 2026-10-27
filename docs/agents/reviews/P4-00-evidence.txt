@@ -1,0 +1,165 @@
+Review P4-00 evidence (raw command output, concatenated verbatim from saved logs).
+Branch agent/claude/P4-00-review, base commit aa13a4c. Go: go version go1.22.2 linux/amd64.
+
+=== E1. SEC-022 probe (executed): MINICLOUD_REVIEW_PROBE=1 go test -race -count=1 -v -run TestReviewP400_SEC022 ./tests/review/  (test DB minicloud_claude_test; URL not printed)
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory
+2026/10/27 14:40:41 INFO worker registered worker_id=w_probe version=v1 slots=1 supported_tasks=[echo]
+    sec022_probe_test.go:60: register worker (1 slot): HTTP 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_1_1db394b06001 task_type=echo state=QUEUED max_attempts=3
+2026/10/27 14:40:41 INFO job dispatched to worker job_id=job_1_1db394b06001 attempt_id=att_1_814035c62de7 attempt_no=1 worker_id=w_probe policy=fifo_pull reason="claimed by polling worker with capacity"
+    sec022_probe_test.go:64: poll #1: HTTP 200 {"assignment":{"job_id":"job_1_1db394b06001","attempt_id":"att_1_814035c62de7","attempt_no":1,"lease_token":"1SQNQcJITZ0mqkU-Z4Ys88h6MlJWFLyimRSximPCcbU","task_type":"echo","payload":{"message":"probe"},"timeout_seconds":60}}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_1_1db394b06001 state=CANCEL_REQUESTED
+    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_1_1db394b06001 state=CANCELLED
+    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_1_1db394b06001","message":"cancellation processed","state":"CANCELLED"}
+2026/10/27 14:40:41 WARN rejecting result for already-terminal job job_id=job_1_1db394b06001 attempt_id=att_1_814035c62de7
+    sec022_probe_test.go:80: late worker commit: HTTP 409 {"error":{"code":"JOB_ALREADY_TERMINAL","message":"job is already in a terminal state"}}
+    sec022_probe_test.go:83: job A after commit: HTTP 200 {"id":"job_1_1db394b06001","task_type":"echo","payload":{"message":"probe"},"state":"CANCELLED","priority":0,"max_attempts":3,"timeout_seconds":60,"current_attempt_id":"att_1_814035c62de7","created_at":"2026-10-27T09:10:41.112698084Z","updated_at":"2026-10-27T09:10:41.118406352Z"}
+    sec022_probe_test.go:87: attempts of job A: HTTP 200 {"attempts":[{"id":"att_1_814035c62de7","job_id":"job_1_1db394b06001","attempt_no":1,"worker_id":"w_probe","lease_token_hash":"e621d9ebcf05dcd155deb64931a1c7b3a0ba544f5c7903a3c418cecce697bc35","state":"RUNNING","started_at":"2026-10-27T09:10:41.115900697Z","exit_code":0,"output":""}],"job_id":"job_1_1db394b06001"}
+    sec022_probe_test.go:97: workers: HTTP 200 {"workers":[{"id":"w_probe","version":"v1","status":"HEALTHY","total_slots":1,"available_slots":0,"supported_tasks":["echo"],"last_heartbeat_at":"2026-10-27T09:10:41.109979741Z","registered_at":"2026-10-27T09:10:41.109979741Z"}]}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_2_9e0a0eef31cb task_type=echo state=QUEUED max_attempts=3
+    sec022_probe_test.go:114: poll #2 (job job_2_9e0a0eef31cb queued): HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+    sec022_probe_test.go:119: INVARIANT VIOLATION: job job_1_1db394b06001 is CANCELLED but attempt att_1_814035c62de7 is still RUNNING
+    sec022_probe_test.go:124: SLOT LEAK: idle 1-slot worker cannot claim queued job job_2_9e0a0eef31cb: HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres
+2026/10/27 14:40:41 INFO worker registered worker_id=w_probe version=v1 slots=1 supported_tasks=[echo]
+    sec022_probe_test.go:60: register worker (1 slot): HTTP 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_3_527689fa5dc1 task_type=echo state=QUEUED max_attempts=3
+2026/10/27 14:40:41 INFO job dispatched to worker job_id=job_3_527689fa5dc1 attempt_id=att_job_3_527689fa5dc1_1 attempt_no=1 worker_id=w_probe policy=fifo_pull reason="claimed by polling worker with capacity"
+    sec022_probe_test.go:64: poll #1: HTTP 200 {"assignment":{"job_id":"job_3_527689fa5dc1","attempt_id":"att_job_3_527689fa5dc1_1","attempt_no":1,"lease_token":"amvy56zuUB2APPA9-p0j_OlOHTyJ6bKD8JQrH9i0jK0","task_type":"echo","payload":{"message":"probe"},"timeout_seconds":60}}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_3_527689fa5dc1 state=CANCEL_REQUESTED
+    sec022_probe_test.go:74: cancel #1: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+2026/10/27 14:40:41 INFO job cancellation requested job_id=job_3_527689fa5dc1 state=CANCELLED
+    sec022_probe_test.go:76: cancel #2: HTTP 200 {"job_id":"job_3_527689fa5dc1","message":"cancellation processed","state":"CANCELLED"}
+2026/10/27 14:40:41 WARN rejecting result for already-terminal job job_id=job_3_527689fa5dc1 attempt_id=att_job_3_527689fa5dc1_1
+    sec022_probe_test.go:80: late worker commit: HTTP 409 {"error":{"code":"JOB_ALREADY_TERMINAL","message":"job is already in a terminal state"}}
+    sec022_probe_test.go:83: job A after commit: HTTP 200 {"id":"job_3_527689fa5dc1","task_type":"echo","payload":{"message":"probe"},"state":"CANCELLED","priority":0,"max_attempts":3,"timeout_seconds":60,"current_attempt_id":"att_job_3_527689fa5dc1_1","created_at":"2026-10-27T14:40:41.556294+05:30","updated_at":"2026-10-27T14:40:41.603219+05:30"}
+    sec022_probe_test.go:87: attempts of job A: HTTP 200 {"attempts":[{"id":"att_job_3_527689fa5dc1_1","job_id":"job_3_527689fa5dc1","attempt_no":1,"worker_id":"w_probe","lease_token_hash":"d62a6acd3d483bba2f045158447fadde2998c5ec273800db26a59046a17bc3c2","state":"RUNNING","started_at":"2026-10-27T14:40:41.589419+05:30","exit_code":0,"output":""}],"job_id":"job_3_527689fa5dc1"}
+    sec022_probe_test.go:97: workers: HTTP 200 {"workers":[{"id":"w_probe","version":"v1","status":"HEALTHY","total_slots":1,"available_slots":0,"supported_tasks":["echo"],"last_heartbeat_at":"2026-10-27T14:40:41.547834+05:30","registered_at":"2026-10-27T14:40:41.547834+05:30"}]}
+    sec022_probe_test.go:109: SQL: worker_capacity.available_slots=0, active attempts on terminal jobs=1
+2026/10/27 14:40:41 INFO job submitted and queued job_id=job_4_fda8c600b9b5 task_type=echo state=QUEUED max_attempts=3
+    sec022_probe_test.go:114: poll #2 (job job_4_fda8c600b9b5 queued): HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+    sec022_probe_test.go:119: INVARIANT VIOLATION: job job_3_527689fa5dc1 is CANCELLED but attempt att_job_3_527689fa5dc1_1 is still RUNNING
+    sec022_probe_test.go:124: SLOT LEAK: idle 1-slot worker cannot claim queued job job_4_fda8c600b9b5: HTTP 503 {"error":{"code":"NO_WORKERS_AVAILABLE","message":"no healthy workers with available capacity"}}
+--- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot (0.62s)
+    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory (0.02s)
+    --- FAIL: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres (0.60s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/review	0.646s
+FAIL
+
+=== E2. Mixed-version probe (executed): MINICLOUD_REVIEW_PROBE=1 go test -race -count=1 -v -run TestReviewP400_OldCoordinator ./tests/review/
+=== RUN   TestReviewP400_OldCoordinator_RenewRouteResponse
+    sec022_probe_test.go:76: POST /v1/jobs/job_x/attempts/att_x/renew -> HTTP 404 Content-Type="text/plain; charset=utf-8" body="404 page not found"
+    sec022_probe_test.go:76: POST /v1/jobs/job_x/attempts/att_x/result -> HTTP 404 Content-Type="application/json" body="{\"error\":{\"code\":\"JOB_NOT_FOUND\",\"message\":\"job not found\"}}"
+--- PASS: TestReviewP400_OldCoordinator_RenewRouteResponse (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.029s
+
+=== E3. PostgreSQL rejects SKIP LOCKED and NOWAIT on one locking clause (executed, read-only, minicloud_claude_test)
+ERROR:  syntax error at or near "NOWAIT"
+LINE 1: ...tname = current_database() FOR UPDATE SKIP LOCKED NOWAIT; RO...
+                                                             ^
+
+=== E4. Old-spelling grep re-run (executed)
+$ grep -rn '"EXPIRED"' internal/
+internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+$ grep -rn '"CANCELED"' internal/
+internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+$ grep -rn 'AttemptExpired' internal/
+internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+$ grep -rn 'AttemptCanceled' internal/
+internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+
+=== E5. error_class / CHECK constraints in existing migrations (executed)
+$ grep -n -iE 'error_class|chk_attempts' internal/storage/postgres/migrations/*.sql
+internal/storage/postgres/migrations/000001_initial_schema.sql:88:    CONSTRAINT chk_attempts_attempt_no 
+internal/storage/postgres/migrations/000001_initial_schema.sql:96:    CONSTRAINT chk_attempts_state 
+internal/storage/postgres/migrations/000001_initial_schema.sql:100:    CONSTRAINT chk_attempts_output_size 
+internal/storage/postgres/migrations/000001_initial_schema.sql:102:    CONSTRAINT chk_attempts_error_size 
+
+=== E6. Tests touching cancel / retry states (executed)
+$ grep -rn --include=*_test.go -E '/cancel|CancelJob\(|StateCancelRequested|CANCEL_REQUESTED|StateRetrying|RETRYING|AttemptExpired|AttemptCanceled|"EXPIRED"|"CANCELED"' . | grep -v '^./tests/docs' | grep -v '^./tests/review'
+tests/review/sec022_probe_test.go:99:	status, body = call(t, ts, "POST", "/v1/jobs/"+jobA+"/cancel", `{}`)
+tests/review/sec022_probe_test.go:101:	status, body = call(t, ts, "POST", "/v1/jobs/"+jobA+"/cancel", `{}`)
+internal/domain/transition_test.go:25:			domain.StateRetrying:        true,
+internal/domain/transition_test.go:27:			domain.StateCancelRequested: true,
+internal/domain/transition_test.go:29:		domain.StateCancelRequested: {
+internal/domain/transition_test.go:34:		domain.StateRetrying: {
+internal/storage/inmemory_test.go:589:	cancelledJob, err := repo.CancelJob(ctx, "job_event_test")
+internal/storage/inmemory_test.go:607:	_, err = repo.CancelJob(ctx, "job_event_test")
+internal/storage/postgres/concurrency_test.go:438:					_, _ = repo.CancelJob(ctx, targetJobID)
+internal/coordinator/service_test.go:411:	if _, err := repo.CancelJob(ctx, job1.ID); err != nil {
+internal/coordinator/service_test.go:486:	if _, err := baseRepo.CancelJob(ctx, job.ID); err != nil {
+$ sed -n 29,38p internal/domain/transition_test.go
+		domain.StateCancelRequested: {
+			domain.StateCancelled: true,
+			domain.StateSucceeded: true,
+			domain.StateFailed:    true,
+		},
+		domain.StateRetrying: {
+			domain.StateQueued:    true,
+			domain.StateFailed:    true,
+			domain.StateCancelled: true,
+		},
+
+=== E7. EnqueueRetry search, code and docs (executed)
+$ grep -rn 'EnqueueRetry' --include=*.go --include=*.md . | grep -v '^./.git'
+(no matches)
+
+=== E8. Rate limiting search (executed)
+$ grep -rn -i -E 'rate.?limit|token.?bucket|x/time/rate' internal/ cmd/ | grep -v _test
+(no matches)
+
+=== E9. Wrong or imprecise citations in the design (confirmed by sed -n, executed)
+-- findings.md SEC-022 cites internal/domain/transition.go:21 for CANCEL_REQUESTED -> CANCELLED:
+$ sed -n 19,23p internal/domain/transition.go | cat -n  (numbering starts at 19)
+19		StateCancelRequested: {
+20			StateCancelled: true,
+21			StateSucceeded: true,
+22			StateFailed:    true,
+23		},
+-- failure-model.md cites internal/worker/client_test.go:40-105 for TestAgent_ReportResult_RejectionHandling; the function ends at:
+client_test.go line 112 closes the function
+-- ADR-0015 cites Blueprint 'Section 5 ("Job Lifecycle and State Machine", p. 11-12)' and 'Section 13 ("Failure Handling & Edge Cases", p. 28-29)':
+$ pdfinfo docs/source/MiniCloud_Project_Blueprint.pdf | grep Pages
+Pages:           14
+$ pdftotext -layout ... | grep -n -E '^  (5|13)\. '
+244:  5. Job Lifecycle and Consistency Model
+660:  13. Main Risks and Mitigations
+749:  5. Expect at-least-once execution under retries. Do not claim exactly-once execution for arbitrary side effects. Use idemp
+794:  5. Run gofmt, go test ./..., and relevant build/integration checks when possible.
+813:  5. Queue/isolation: Redis Streams and constrained Docker executor.
+$ grep -n -i 'jitter\|backoff\|idempot' (blueprint text)
+286:     idempotent or use an application-specific deduplication mechanism.
+666:    False exactly-once claim   A crash can occur between side effect and          At-least-once semantics; idempotency and deduplicated
+$ sed -n 257,258p (blueprint section 5 RETRYING row)
+    RETRYING            A failed/lost attempt is eligible for another   QUEUED, FAILED, CANCELLED
+                        attempt.
+
+=== E10. Worker report loop timing (confirmed by code reading)
+$ sed -n 324,325p internal/worker/client.go; sed -n 351,355p internal/worker/client.go
+	for attempt := 0; attempt < 5; attempt++ {
+		status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Duration(100*(1<<attempt)) * time.Millisecond):
+		}
+	}
+
+=== E11. Gates on this branch (executed)
+gofmt -l . : 0 files
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./... (tail)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.053s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.607s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.041s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.958s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	6.350s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.025s
+$ go test -v -race -count=1 $(go list ./... | grep -v /tests/review)  -> PASS 77 SKIP 26 FAIL 0
+$ go test -v -race -count=1 ./...  -> PASS 77 SKIP 28 FAIL 0
+$ make test-db (tail)
+    --- PASS: TestPostgresRepository_Security_WorkerCheckConstraints/supported_tasks_17_items_rejected (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	18.520s
