@@ -186,9 +186,10 @@ throwaway worktree, show the test fails, restore, show it passes.
   output counts as unverified.
 
 0. **Start**: read this file, `docs/PROJECT_STATE.md` and your task entry; load other
-   docs on demand via the context map. Run `git status`, `git log --oneline -10`,
-   `go version`, `go build ./...` and the gates, and report the real results. If the
-   next step changes architecture, stop and ask before building.
+   docs on demand via the context map. Run the database preflight from section 9 and
+   stop if it fails. Run `git status`, `git log --oneline -10`, `go version`,
+   `go build ./...` and the gates, and report the real results. If the next step
+   changes architecture, stop and ask before building.
 1. **Spec**: the orchestrator writes the task in `docs/agents/TASKS.md` (goal,
    acceptance criteria, owned files, out of scope, builder, auditor, migration number
    if any).
@@ -278,11 +279,45 @@ grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | sed -E 's#//[^@]*@#//***@#'   # c
 docker exec minicloud-postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "SELECT datname, xact_commit FROM pg_stat_database WHERE datname LIKE '"'"'minicloud%'"'"' ORDER BY 1"'
 ```
 
-**Reset your own database only** (never another agent's; never `make db-reset-test`
-from an agent worktree, it resets the shared `minicloud_test`):
+**Preflight** (run at the start of every task, section 7 step 0, from the worktree
+root). Prints the test database from `.env` with the password redacted, and fails if
+`.env` is missing or an agent worktree still points at the shared `minicloud_test`:
 ```bash
-docker exec minicloud-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS minicloud_claude_test" -c "CREATE DATABASE minicloud_claude_test"'
+(
+  [ -f .env ] || { echo "STOP: no .env in $(pwd)" >&2; exit 1; }
+  URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-)
+  DB=$(printf '%s\n' "$URL" | sed -E 's#^.*/([^/?]+)([?].*)?$#\1#')
+  echo "worktree: $(git rev-parse --show-toplevel)"
+  echo "test URL: $(printf '%s\n' "$URL" | sed -E 's#//[^@]*@#//***@#')"
+  echo "test DB:  $DB"
+  [ -n "$DB" ] || { echo "STOP: MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; }
+  if [ "$(git rev-parse --show-toplevel)" != "$HOME/MiniCloud" ] && [ "$DB" = minicloud_test ]; then
+    echo "STOP: agent worktree points at the shared minicloud_test; fix .env (section 9)" >&2; exit 1
+  fi
+  echo "preflight OK"
+)
 ```
+
+**Reset your own database only** (never another agent's; never `make db-reset-test`
+from an agent worktree, it resets the shared `minicloud_test`). Step 1 reads the name
+from this worktree's `.env`. Step 2 refuses unless the name is `minicloud_<agent>_test`
+(lowercase letters and digits for `<agent>`) and not `minicloud_test`. Copying it
+from another worktree is therefore safe: it always acts on the database of the `.env`
+it runs next to.
+```bash
+# 1. database name from this worktree's .env
+DB=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2- | sed -E 's#^.*/([^/?]+)([?].*)?$#\1#')
+# 2. guarded drop and recreate
+if [ "$DB" = minicloud_test ] || ! printf '%s\n' "$DB" | grep -Eqx 'minicloud_[a-z0-9]+_test'; then
+  echo "REFUSED: '$DB' is not a per-agent test database (minicloud_<agent>_test)" >&2
+  false   # exit status 1 without closing an interactive shell
+else
+  echo "resetting $DB"
+  docker exec minicloud-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS $1" -c "CREATE DATABASE $1"' sh "$DB"
+fi
+```
+The name reaches `psql` only after it matches the pattern above, so it cannot carry
+SQL or shell syntax.
 
 Throwaway mutation worktrees (`~/mc-mut-<agent>`) copy the agent's `.env`, so they use
 the agent's own database too.
