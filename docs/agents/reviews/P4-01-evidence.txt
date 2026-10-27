@@ -1,0 +1,659 @@
+# P4-01 audit evidence (verbatim command output; auditor worktree ~/MiniCloud-claude-audit, HEAD fde4ca7, MINICLOUD_TEST_DATABASE_URL unset for every Go test)
+
+===== [A] preflight (AGENTS.md section 9, run as written)
+## preflight
+worktree: /home/blazeee/MiniCloud-claude-audit
+test URL: postgres://***@127.0.0.1:5433/minicloud_claude_test?sslmode=disable
+test DB:  minicloud_claude_test
+preflight OK
+exit=0
+
+===== [B] scope, Fix 1, Fix 2, Fix 3 and coverage commands (each section starts with '### $ <command>')
+### $ git log --oneline origin/main..HEAD
+fde4ca7 docs(agents): update task board with P4-00 close-out and register P4-01 and P4-4a (Fix 3)
+d27000a docs(handoff): rebuild P4-00 handoff with section citations and review statuses (Fix 2, R5-01)
+f774731 docs(project-state): drop ErrAttemptNotRunning from Phase 4 scope (Fix 1, R5-02)
+80c9e11 docs(plan): drop ErrAttemptNotRunning and associated planned tests (Fix 1, R5-02)
+12f31cb docs(protocol): drop ErrAttemptNotRunning from protocol 409 table (Fix 1, R5-02)
+f1007e2 docs(adr): drop ErrAttemptNotRunning from ADR-0014 (Fix 1, R5-02)
+8cbb627 docs(agents): add P4-00 round-5 audit review
+[exit=0]
+
+### $ git diff --name-status origin/main..HEAD
+M	docs/PROJECT_STATE.md
+M	docs/adr/0014-lease-model-and-expiry.md
+M	docs/agents/TASKS.md
+D	docs/agents/handoffs/P4-00-citation-check.txt
+M	docs/agents/handoffs/P4-00.md
+A	docs/agents/reviews/P4-00-round5-evidence.txt
+A	docs/agents/reviews/P4-00-round5.md
+M	docs/phase4-plan.md
+M	docs/protocol.md
+[exit=0]
+
+### $ git diff --stat origin/main..HEAD
+ docs/PROJECT_STATE.md                         |    2 +-
+ docs/adr/0014-lease-model-and-expiry.md       |    2 +-
+ docs/agents/TASKS.md                          |   24 +-
+ docs/agents/handoffs/P4-00-citation-check.txt |  439 ------
+ docs/agents/handoffs/P4-00.md                 |  199 ++-
+ docs/agents/reviews/P4-00-round5-evidence.txt | 1891 +++++++++++++++++++++++++
+ docs/agents/reviews/P4-00-round5.md           |  352 +++++
+ docs/phase4-plan.md                           |    5 +-
+ docs/protocol.md                              |    4 +-
+ 9 files changed, 2356 insertions(+), 562 deletions(-)
+[exit=0]
+
+### $ git diff --name-only origin/main..HEAD | grep -E "^(tests|internal|cmd)/|\.sql$|findings.md|citation_allowlist"
+[grep exit=1]
+### $ git rev-parse origin/main origin/agent/claude/P4-00-review-5
+f6c7ec8f72d84c3990a7b5951628cd259d405d50
+72b431a947eb7670e8f9dd2d855c537b1a47ff6e
+[exit=0]
+
+### $ git ls-tree -r origin/agent/claude/P4-00-review-5 --name-only -- docs/agents/reviews
+docs/agents/reviews/.gitkeep
+docs/agents/reviews/P4-00-evidence.txt
+docs/agents/reviews/P4-00-round2-evidence.txt
+docs/agents/reviews/P4-00-round2.md
+docs/agents/reviews/P4-00-round3-evidence.txt
+docs/agents/reviews/P4-00-round3.md
+docs/agents/reviews/P4-00-round4-evidence.txt
+docs/agents/reviews/P4-00-round4.md
+docs/agents/reviews/P4-00-round5-evidence.txt
+docs/agents/reviews/P4-00-round5.md
+docs/agents/reviews/P4-00.md
+[exit=0]
+
+### cmp P4-00-round5.md
+[cmp exit=0]
+### cmp P4-00-round5-evidence.txt
+[cmp exit=0]
+### $ git grep -n ErrAttemptNotRunning HEAD
+HEAD:docs/agents/reviews/P4-00-round3-evidence.txt:532:docs/PROJECT_STATE.md:173:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:521:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1223:$ git grep -n -E 'ATTEMPT_NOT_RUNNING|ErrAttemptNotRunning' -- docs CHANGELOG.md internal cmd tests ':!docs/agents/reviews'
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1225:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1435:$ git grep -n -E 'ErrAttemptNotRunning|ErrJobCancelRequested' origin/main -- docs | head; echo '---- HEAD'; git grep -n -E 'ErrAttemptNotRunning|ErrJobCancelRequested|ErrLeaseExpired' -- docs ':!docs/agents' | cut -c1-220
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1439:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJo
+HEAD:docs/agents/reviews/P4-00-round4.md:69:| R-10 | RESOLVED | as R3-08 (400 and 404 renewal codes); `docs/protocol.md:483` keeps `ATTEMPT_NOT_RUNNING` only as a deprecated code | See R4-05 for the planned `ErrAttemptNotRunning`. |
+HEAD:docs/agents/reviews/P4-00-round4.md:144:- `ErrAttemptNotRunning` is named as a planned domain error only at `docs/PROJECT_STATE.md:174`, with no
+HEAD:docs/agents/reviews/P4-00-round4.md:341:  - `ErrAttemptNotRunning` at `docs/PROJECT_STATE.md:174`:
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:24:142f622 docs(adr): update ADR-0014 evaluation order with ErrAttemptNotRunning (D-R4-05)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:25:d706df8 docs(protocol): update error table with WORKER_NOT_FOUND, ErrAttemptNotRunning and fix sweep event (D-R4-03, D-R4-05)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:46:+  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning` (Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED`; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:114:+      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would surface as HTTP 500).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:131:+    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:169:+| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:186:+The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running). Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED` (an attempt that is no longer `RUNNING` is stale; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:243:docs/phase4-plan.md:135	      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_A
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:396:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:520:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:615:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:682:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:966:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1157:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1345:$ grep -rn 'ErrAttemptNotRunning' --include=*.go . ; echo '(no Go hits above means the identifier does not exist)'; awk 'NR>=7 && NR<=26 {printf "errors.go:%d\t%s\n", NR, $0}' internal/domain/errors.go; awk 'NR>=110 && NR<=155 {printf "handlers.go:%d\t%s\n", NR, $0}' internal/api/handlers.go; awk 'NR>=585 && NR<=591 {printf "inmemory.go:%d\t%s\n", NR, $0}' internal/storage/inmemory.go; awk 'NR>=1022 && NR<=1025 {printf "repository.go:%d\t%s\n", NR, $0}' internal/storage/postgres/repository.go
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1429:$ git grep -n -E 'ErrAttemptNotRunning' -- docs CHANGELOG.md ':!docs/agents' | cut -c1-260
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1431:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptC
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1432:docs/adr/0014-lease-model-and-expiry.md:232:  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning` (Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `ST
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1433:docs/phase4-plan.md:135:      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would su
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1434:docs/phase4-plan.md:169:    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1435:docs/protocol.md:471:| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacit
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1829:docs/agents/handoffs/P4-00.md:104:| R4-05 | D-R4-05 | RESOLVED | `a20f19d`, `f5b9bfb`, `e0a2cd4`, `d706df8`, `142f622`, `6ee7336` (`docs/fault-injection-plan.md:47`, `docs/security/threat-model.md:132`, `docs/state-machine.md:15`, `docs/phase4-plan.md:35`, `docs/adr/0016-cancellation-semantics.md:46`, `docs/protocol.md:473`, `docs/protocol.md:471`, `docs/protocol.md:484`, `docs/adr/0014-lease-model-and-expiry.md:232`, `docs/phase4-plan.md:134`, `docs/phase4-plan.md:169`) | Standardized uppercase `DIAGNOSTIC_LATE_RESULT` in `docs/fault-injection-plan.md:47` and `docs/security/threat-model.md:132`. Removed worker acknowledgement phrase from `docs/state-machine.md:15`. Added "only if the attempt is still RUNNING" qualifier to `docs/phase4-plan.md:35` and `docs/adr/0016-cancellation-semantics.md:46`. Added `WORKER_NOT_FOUND` (404) row to protocol 6.3 table (`docs/protocol.md:473`). Documented `domain.ErrAttemptNotRunning` mapped to HTTP 409 `STALE_ATTEMPT_REJECTED` in `docs/protocol.md:471`, `docs/protocol.md:484`, `docs/adr/0014-lease-model-and-expiry.md:232`, `docs/phase4-plan.md:134`, `docs/phase4-plan.md:169` with planned tests in Slice 4b (`docs/phase4-plan.md:153`) and Slice 4c (`docs/phase4-plan.md:196`). |
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1833:protocol.md:471	| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token 
+HEAD:docs/agents/reviews/P4-00-round5.md:28:- **R5-02 is a design-doc wording and sequencing issue** around `domain.ErrAttemptNotRunning`. It
+HEAD:docs/agents/reviews/P4-00-round5.md:52:| R4-05 | RESOLVED | See the item list below. | The `ErrAttemptNotRunning` text is now present but has wrong claims about today's code: new finding R5-02. |
+HEAD:docs/agents/reviews/P4-00-round5.md:63:- The `ErrAttemptNotRunning` to 409 mapping is at `docs/protocol.md:471`, `:484`,
+HEAD:docs/agents/reviews/P4-00-round5.md:111:- "Open questions: none" (`:219`): not quite true. The slice sequencing of `ErrAttemptNotRunning`
+HEAD:docs/agents/reviews/P4-00-round5.md:118:## Check 3: `ErrAttemptNotRunning` (executed: G3-*)
+HEAD:docs/agents/reviews/P4-00-round5.md:119:- **Today's code:** the identifier does not exist. `grep -rn ErrAttemptNotRunning --include=*.go .`
+HEAD:docs/agents/reviews/P4-00-round5.md:141:- **The gap:** if 4b switches the repository from `ErrStaleAttempt` to `ErrAttemptNotRunning` before 4c
+HEAD:docs/agents/reviews/P4-00-round5.md:228:  - `:27`, `:50`, `:104`: `docs/phase4-plan.md:134` (4b `ErrAttemptNotRunning`) is the `LOST` row; the
+HEAD:docs/agents/reviews/P4-00-round5.md:278:- `:50`: "(surfacing as HTTP 500 today)" for `ErrAttemptNotRunning`, which does not exist today (R5-02).
+HEAD:docs/agents/reviews/P4-00-round5.md:288:- `:219`: "Open questions: none". The `ErrAttemptNotRunning` slice sequencing (R5-02) was open.
+HEAD:docs/agents/reviews/P4-00-round5.md:300:### R5-02 (minor) The `ErrAttemptNotRunning` text misstates today's code and leaves a 4b-to-4c window that turns a 409 into a 500
+HEAD:docs/agents/reviews/P4-00-round5.md:317:  - Option (a): define `ErrAttemptNotRunning` as wrapping `ErrStaleAttempt` (for example
+HEAD:docs/agents/reviews/P4-00-round5.md:328:1. The owner text called the `ErrAttemptNotRunning` 500 "today's" behavior in conditional form ("today it
+[exit=0]
+### $ git grep -n -i "AttemptNotRunning\|attempt_not_running\|ATTEMPT_NOT_RUNNING" HEAD
+HEAD:docs/adr/0014-lease-model-and-expiry.md:232:  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`.
+HEAD:docs/agents/handoffs/P4-00.md:22:  - Inserted exact D-R3-01 outage grace sentence (failure-model.md failure modes FS-01 and FS-07). Updated FS-06 to HTTP 409 `JOB_ALREADY_TERMINAL` (removed 200 COMMITTED claims). Updated FS-11 with renewal unextended expiry, commit resolution, and repository duplicate cancel no-op. Clarified deterministic HTTP 400 (`INVALID_REQUEST`) as terminal on result reporting path, halting delivery loop (failure-model.md failure recovery paths). Renewal 409 codes include `STALE_ATTEMPT_REJECTED`; renewal 400 codes removed `ATTEMPT_NOT_RUNNING`. Bounded result delivery loop (failure-model.md failure recovery paths).
+HEAD:docs/agents/handoffs/P4-00.md:94:| R3-08 | R3-08 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/adr/0015-retry-policy-and-failure-classification.md` (Decision), `docs/adr/0016-cancellation-semantics.md` (Decision), `docs/schema.md` (sweeper), `docs/protocol.md` (sections 5.2, 5.3, 6.2, 6.3), `docs/state-machine.md` (sections 2, 3, 5), `docs/failure-model.md` (recovery paths), `docs/phase4-plan.md` (slices 4b and 4c) | Unified cross-document mismatches: renewal response status field is `status: "RENEWED"` (`docs/protocol.md` section 5.2); renewal 400 error codes are `INVALID_REQUEST` and `WORKER_TASK_UNSUPPORTED` (removed `ATTEMPT_NOT_RUNNING`); terminal-job sweep event is unified to uppercase `LEASE_EXPIRED` (matching ADR-0014, schema.md, and protocol.md); standardized `JOB_CANCELLED` and `JOB_CANCEL_REQUESTED` constants in state-machine.md. |
+HEAD:docs/agents/reviews/P4-00-round3-evidence.txt:87:docs/agents/handoffs/P4-00.md:13:  - `0014-lease-model-and-expiry.md`: Corrected Blueprint citations to Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Failure Injection", pages 9–10). Specified single canonical sweeper lock order: unlocked candidate scan; per candidate: `SELECT jobs ... FOR UPDATE SKIP LOCKED` (0 rows = skip candidate and retry next tick), then plain `FOR UPDATE` under `lock_timeout` on workers and attempts rows; authoritative grace check inside locks (earlier check is advisory). Cooldown starts when grace window ends; maximum continuous suppression is one window length (30s). Sweeper tick failure counts connection-class errors only. Formulated explicit 409 evaluation priority table: (1) terminal job -> `JOB_ALREADY_TERMINAL`; (2) swept to `LOST` -> `LEASE_EXPIRED`; (3) superseded/mismatch -> `STALE_ATTEMPT_REJECTED`; with 403 `WORKER_MISMATCH` and 404s, plus "Diagnostic Event Written?" column (`DIAGNOSTIC_LATE_RESULT`). Specified worker renewal response on `CANCEL_REQUESTED` returns unextended expiry, bounded by 30s; worker renewal error handling (404 recognized codes `JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND` halt renewal; un-enveloped 404 treated as old coordinator; 400 recognized codes `INVALID_REQUEST`, `ATTEMPT_NOT_RUNNING`, `WORKER_TASK_UNSUPPORTED` log error and continue task execution).
+HEAD:docs/agents/reviews/P4-00-round3-evidence.txt:532:docs/PROJECT_STATE.md:173:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round3-evidence.txt:708:docs/agents/handoffs/P4-00.md:13:  - `0014-lease-model-and-expiry.md`: Corrected Blueprint citations to Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Failure Injection", pages 9–10). Specified single canonical sweeper lock order: unlocked candidate scan; per candidate: `SELECT jobs ... FOR UPDATE SKIP LOCKED` (0 rows = skip candidate and retry next tick), then plain `FOR UPDATE` under `lock_timeout` on workers and attempts rows; authoritative grace check inside locks (earlier check is advisory). Cooldown starts when grace window ends; maximum continuous suppression is one window length (30s). Sweeper tick failure counts connection-class errors only. Formulated explicit 409 evaluation priority table: (1) terminal job -> `JOB_ALREADY_TERMINAL`; (2) swept to `LOST` -> `LEASE_EXPIRED`; (3) superseded/mismatch -> `STALE_ATTEMPT_REJECTED`; with 403 `WORKER_MISMATCH` and 404s, plus "Diagnostic Event Written?" column (`DIAGNOSTIC_LATE_RESULT`). Specified worker renewal response on `CANCEL_REQUESTED` returns unextended expiry, bounded by 30s; worker renewal error handling (404 recognized codes `JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND` halt renewal; un-enveloped 404 treated as old coordinator; 400 recognized codes `INVALID_REQUEST`, `ATTEMPT_NOT_RUNNING`, `WORKER_TASK_UNSUPPORTED` log error and continue task execution).
+HEAD:docs/agents/reviews/P4-00-round3.md:98:| R-10 | PARTIAL (R3-08) | The 404 codes now match: `docs/adr/0014-lease-model-and-expiry.md:97`, `docs/protocol.md:416`. The result path 400/404 is at `docs/failure-model.md:63-65`. | The renewal 400 codes still differ. `docs/failure-model.md:69` and `docs/phase4-plan.md:169` include `ATTEMPT_NOT_RUNNING`. `docs/adr/0014-lease-model-and-expiry.md:98` and `docs/protocol.md:418` do not, and `docs/protocol.md:478` calls it deprecated. |
+HEAD:docs/agents/reviews/P4-00-round3.md:236:  - Line 13 says ADR-0014 lists the 400 codes "`INVALID_REQUEST`, `ATTEMPT_NOT_RUNNING`,
+HEAD:docs/agents/reviews/P4-00-round3.md:366:- Renewal 400 codes (R-10): `ATTEMPT_NOT_RUNNING` is at `docs/failure-model.md:69` and
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:68:docs/agents/handoffs/P4-00.md:23:  - Inserted exact D-R3-01 outage grace sentence (lines 10, 28). Updated FS-06 to HTTP 409 `JOB_ALREADY_TERMINAL` (removed 200 COMMITTED claims). Updated FS-11 with renewal unextended expiry, commit resolution, and repository duplicate cancel no-op. Clarified deterministic HTTP 400 (`INVALID_REQUEST`) as terminal on result reporting path, halting delivery loop. Renewal 409 codes include `STALE_ATTEMPT_REJECTED`; 400 codes removed `ATTEMPT_NOT_RUNNING`.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:521:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1125:docs/agents/handoffs/P4-00.md:93:| R3-08 | R3-08 | RESOLVED | `docs/adr/0014-lease-model-and-expiry.md:98, 144`, `docs/adr/0015-retry-policy-and-failure-classification.md:59`, `docs/adr/0016-cancellation-semantics.md:46`, `docs/schema.md:391`, `docs/protocol.md:386, 417, 470`, `docs/state-machine.md:46-48`, `docs/failure-model.md:65`, `docs/phase4-plan.md:122` (`7720e21`, `eb51516`, `8995350`, `9a4c35a`, `b3d3d45`, `dc3c9c3`, `94ba435`) | Unified cross-document mismatches: renewal response status field is `status: "ACTIVE"` (matching protocol.md:386); renewal 400 error codes are `INVALID_REQUEST` and `WORKER_TASK_UNSUPPORTED` (removed `ATTEMPT_NOT_RUNNING`); terminal-job sweep event is unified to uppercase `LEASE_EXPIRED` (matching ADR-0014:144, schema.md:391, and protocol.md:470); standardized `JOB_CANCELLED` and `JOB_CANCEL_REQUESTED` constants in state-machine.md. |
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1223:$ git grep -n -E 'ATTEMPT_NOT_RUNNING|ErrAttemptNotRunning' -- docs CHANGELOG.md internal cmd tests ':!docs/agents/reviews'
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1225:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1226:docs/agents/handoffs/P4-00.md:23:  - Inserted exact D-R3-01 outage grace sentence (lines 10, 28). Updated FS-06 to HTTP 409 `JOB_ALREADY_TERMINAL` (removed 200 COMMITTED claims). Updated FS-11 with renewal unextended expiry, commit resolution, and repository duplicate cancel no-op. Clarified deterministic HTTP 400 (`INVALID_REQUEST`) as terminal on result reporting path, halting delivery loop. Renewal 409 codes include `STALE_ATTEMPT_REJECTED`; 400 codes removed `ATTEMPT_NOT_RUNNING`.
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1227:docs/agents/handoffs/P4-00.md:93:| R3-08 | R3-08 | RESOLVED | `docs/adr/0014-lease-model-and-expiry.md:98, 144`, `docs/adr/0015-retry-policy-and-failure-classification.md:59`, `docs/adr/0016-cancellation-semantics.md:46`, `docs/schema.md:391`, `docs/protocol.md:386, 417, 470`, `docs/state-machine.md:46-48`, `docs/failure-model.md:65`, `docs/phase4-plan.md:122` (`7720e21`, `eb51516`, `8995350`, `9a4c35a`, `b3d3d45`, `dc3c9c3`, `94ba435`) | Unified cross-document mismatches: renewal response status field is `status: "ACTIVE"` (matching protocol.md:386); renewal 400 error codes are `INVALID_REQUEST` and `WORKER_TASK_UNSUPPORTED` (removed `ATTEMPT_NOT_RUNNING`); terminal-job sweep event is unified to uppercase `LEASE_EXPIRED` (matching ADR-0014:144, schema.md:391, and protocol.md:470); standardized `JOB_CANCELLED` and `JOB_CANCEL_REQUESTED` constants in state-machine.md. |
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1228:docs/protocol.md:483:The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1435:$ git grep -n -E 'ErrAttemptNotRunning|ErrJobCancelRequested' origin/main -- docs | head; echo '---- HEAD'; git grep -n -E 'ErrAttemptNotRunning|ErrJobCancelRequested|ErrLeaseExpired' -- docs ':!docs/agents' | cut -c1-220
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1439:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJo
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:1485:483	The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+HEAD:docs/agents/reviews/P4-00-round4.md:69:| R-10 | RESOLVED | as R3-08 (400 and 404 renewal codes); `docs/protocol.md:483` keeps `ATTEMPT_NOT_RUNNING` only as a deprecated code | See R4-05 for the planned `ErrAttemptNotRunning`. |
+HEAD:docs/agents/reviews/P4-00-round4.md:131:  and `docs/phase4-plan.md:174`. `ATTEMPT_NOT_RUNNING` appears only as deprecated
+HEAD:docs/agents/reviews/P4-00-round4.md:144:- `ErrAttemptNotRunning` is named as a planned domain error only at `docs/PROJECT_STATE.md:174`, with no
+HEAD:docs/agents/reviews/P4-00-round4.md:341:  - `ErrAttemptNotRunning` at `docs/PROJECT_STATE.md:174`:
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:24:142f622 docs(adr): update ADR-0014 evaluation order with ErrAttemptNotRunning (D-R4-05)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:25:d706df8 docs(protocol): update error table with WORKER_NOT_FOUND, ErrAttemptNotRunning and fix sweep event (D-R4-03, D-R4-05)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:46:+  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning` (Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED`; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:114:+      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would surface as HTTP 500).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:123:+  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:131:+    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:139:+  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:169:+| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:185:-The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:186:+The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running). Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED` (an attempt that is no longer `RUNNING` is stale; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:243:docs/phase4-plan.md:135	      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_A
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:396:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:520:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:531:    153|   - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:533:    196|   - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:615:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:677:    232|   3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:682:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:966:    135|       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1157:    471| | 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`doma
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1161:    232|   3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1167:    153|   - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1169:    196|   - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1307:NOT-IN-CODE | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | (`docs/phase4-plan.md
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1318:NOT-IN-CODE | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | (`docs/phase4-plan.md
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1345:$ grep -rn 'ErrAttemptNotRunning' --include=*.go . ; echo '(no Go hits above means the identifier does not exist)'; awk 'NR>=7 && NR<=26 {printf "errors.go:%d\t%s\n", NR, $0}' internal/domain/errors.go; awk 'NR>=110 && NR<=155 {printf "handlers.go:%d\t%s\n", NR, $0}' internal/api/handlers.go; awk 'NR>=585 && NR<=591 {printf "inmemory.go:%d\t%s\n", NR, $0}' internal/storage/inmemory.go; awk 'NR>=1022 && NR<=1025 {printf "repository.go:%d\t%s\n", NR, $0}' internal/storage/postgres/repository.go
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1429:$ git grep -n -E 'ErrAttemptNotRunning' -- docs CHANGELOG.md ':!docs/agents' | cut -c1-260
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1431:docs/PROJECT_STATE.md:174:  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptC
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1432:docs/adr/0014-lease-model-and-expiry.md:232:  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning` (Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `ST
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1433:docs/phase4-plan.md:135:      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would su
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1434:docs/phase4-plan.md:169:    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1435:docs/protocol.md:471:| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacit
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1436:docs/protocol.md:484:The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) 
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1770:NOT-IN-CODE TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected; labelled-planned-lines: 1
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1772:NOT-IN-CODE TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt; labelled-planned-lines: 1
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1829:docs/agents/handoffs/P4-00.md:104:| R4-05 | D-R4-05 | RESOLVED | `a20f19d`, `f5b9bfb`, `e0a2cd4`, `d706df8`, `142f622`, `6ee7336` (`docs/fault-injection-plan.md:47`, `docs/security/threat-model.md:132`, `docs/state-machine.md:15`, `docs/phase4-plan.md:35`, `docs/adr/0016-cancellation-semantics.md:46`, `docs/protocol.md:473`, `docs/protocol.md:471`, `docs/protocol.md:484`, `docs/adr/0014-lease-model-and-expiry.md:232`, `docs/phase4-plan.md:134`, `docs/phase4-plan.md:169`) | Standardized uppercase `DIAGNOSTIC_LATE_RESULT` in `docs/fault-injection-plan.md:47` and `docs/security/threat-model.md:132`. Removed worker acknowledgement phrase from `docs/state-machine.md:15`. Added "only if the attempt is still RUNNING" qualifier to `docs/phase4-plan.md:35` and `docs/adr/0016-cancellation-semantics.md:46`. Added `WORKER_NOT_FOUND` (404) row to protocol 6.3 table (`docs/protocol.md:473`). Documented `domain.ErrAttemptNotRunning` mapped to HTTP 409 `STALE_ATTEMPT_REJECTED` in `docs/protocol.md:471`, `docs/protocol.md:484`, `docs/adr/0014-lease-model-and-expiry.md:232`, `docs/phase4-plan.md:134`, `docs/phase4-plan.md:169` with planned tests in Slice 4b (`docs/phase4-plan.md:153`) and Slice 4c (`docs/phase4-plan.md:196`). |
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1833:protocol.md:471	| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token 
+HEAD:docs/agents/reviews/P4-00-round5.md:28:- **R5-02 is a design-doc wording and sequencing issue** around `domain.ErrAttemptNotRunning`. It
+HEAD:docs/agents/reviews/P4-00-round5.md:52:| R4-05 | RESOLVED | See the item list below. | The `ErrAttemptNotRunning` text is now present but has wrong claims about today's code: new finding R5-02. |
+HEAD:docs/agents/reviews/P4-00-round5.md:63:- The `ErrAttemptNotRunning` to 409 mapping is at `docs/protocol.md:471`, `:484`,
+HEAD:docs/agents/reviews/P4-00-round5.md:111:- "Open questions: none" (`:219`): not quite true. The slice sequencing of `ErrAttemptNotRunning`
+HEAD:docs/agents/reviews/P4-00-round5.md:118:## Check 3: `ErrAttemptNotRunning` (executed: G3-*)
+HEAD:docs/agents/reviews/P4-00-round5.md:119:- **Today's code:** the identifier does not exist. `grep -rn ErrAttemptNotRunning --include=*.go .`
+HEAD:docs/agents/reviews/P4-00-round5.md:133:    `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test) at
+HEAD:docs/agents/reviews/P4-00-round5.md:136:    `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test) at
+HEAD:docs/agents/reviews/P4-00-round5.md:141:- **The gap:** if 4b switches the repository from `ErrStaleAttempt` to `ErrAttemptNotRunning` before 4c
+HEAD:docs/agents/reviews/P4-00-round5.md:228:  - `:27`, `:50`, `:104`: `docs/phase4-plan.md:134` (4b `ErrAttemptNotRunning`) is the `LOST` row; the
+HEAD:docs/agents/reviews/P4-00-round5.md:278:- `:50`: "(surfacing as HTTP 500 today)" for `ErrAttemptNotRunning`, which does not exist today (R5-02).
+HEAD:docs/agents/reviews/P4-00-round5.md:288:- `:219`: "Open questions: none". The `ErrAttemptNotRunning` slice sequencing (R5-02) was open.
+HEAD:docs/agents/reviews/P4-00-round5.md:300:### R5-02 (minor) The `ErrAttemptNotRunning` text misstates today's code and leaves a 4b-to-4c window that turns a 409 into a 500
+HEAD:docs/agents/reviews/P4-00-round5.md:317:  - Option (a): define `ErrAttemptNotRunning` as wrapping `ErrStaleAttempt` (for example
+HEAD:docs/agents/reviews/P4-00-round5.md:318:    `fmt.Errorf("%w: attempt not running", ErrStaleAttempt)`). The existing mapping then covers it from
+HEAD:docs/agents/reviews/P4-00-round5.md:328:1. The owner text called the `ErrAttemptNotRunning` 500 "today's" behavior in conditional form ("today it
+HEAD:docs/agents/reviews/P4-00.md:132:  `ATTEMPT_NOT_RUNNING` and `JOB_CANCELLED`, which no other section uses. Check order matters:
+HEAD:docs/protocol.md:484:The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+[exit=0]
+### $ git grep -n -c ErrAttemptNotRunning HEAD -- . (per file)
+HEAD:docs/agents/reviews/P4-00-round3-evidence.txt:1
+HEAD:docs/agents/reviews/P4-00-round4-evidence.txt:5
+HEAD:docs/agents/reviews/P4-00-round4.md:3
+HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:23
+HEAD:docs/agents/reviews/P4-00-round5.md:13
+[exit=0]
+### $ git grep -n -c ErrAttemptNotRunning HEAD -- . :!docs/agents/reviews
+[exit=1] (1 = empty)
+### $ grep -rn ErrAttemptNotRunning --include=*.go .
+[exit=1]
+### $ git grep -n -i "500" HEAD -- docs/protocol.md docs/adr/0014* docs/phase4-plan.md docs/PROJECT_STATE.md | grep -i "stale\|not.running\|INTERNAL"
+HEAD:docs/PROJECT_STATE.md:58:  - **SEC-014 (Numeric Parameters Boundary Validation):** Updated `SubmitJobRequest` and coordinator `SubmitJob` to validate `max_attempts` (1..20, default 3 when omitted or null) and `timeout_seconds` (1..86400, default 60 when omitted or null) with typed `domain.ErrInvalidRequest` mapped to HTTP 400. Mapped PostgreSQL check constraint violations (`chk_jobs_max_attempts` and `chk_jobs_timeout` under SQLSTATE `23514`) to `domain.ErrInvalidRequest` ensuring check constraint violations always return HTTP 400 client errors and never 500 internal errors. Verified by `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), and `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`).
+HEAD:docs/PROJECT_STATE.md:239:  - **SEC-014 (Medium/Low, Fixed):** `max_attempts` (1..20) and `timeout_seconds` (1..86400) validated at API/coordinator boundary; PostgreSQL check constraint violations map to HTTP 400 `INVALID_REQUEST`. Tested in `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), and `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`).
+HEAD:docs/adr/0014-lease-model-and-expiry.md:191:  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `executeAndReport` from 5 attempts to a 60-second time-bounded loop with capped jittered backoff and ongoing lease renewal is an additive durability improvement submitted for owner approval in Slice 4c.
+[exit=0]
+### $ git log -3 --format='%H %P %s' f6c7ec8
+f6c7ec8f72d84c3990a7b5951628cd259d405d50 a9453fcb5be590d14bfa12fe81b6842265e23ad1 a9efa6e55cb0f4ac6a1ff01458de07e17f3ce34b Merge pull request #17 from BlaZe08-Dev/docs/phase4-design
+a9efa6e55cb0f4ac6a1ff01458de07e17f3ce34b 13288c8ec96f736aa05e79345b9ceefb5c363024 docs(handoff): avoid awaiting worker acknowledgement phrase in handoff text
+13288c8ec96f736aa05e79345b9ceefb5c363024 d3cf819768136715bb69cac36e4c27d2c19c4ea0 docs(handoff): rewrite P4-00 handoff with verified citations and round-4 resolutions (D-R4-01)
+[exit=0]
+
+### $ git merge-base --is-ancestor a9efa6e f6c7ec8 && echo a9efa6e-ancestor-of-f6c7ec8
+a9efa6e-ancestor-of-f6c7ec8
+[exit=0]
+
+### $ git rev-parse a9efa6e
+a9efa6e55cb0f4ac6a1ff01458de07e17f3ce34b
+[exit=0]
+
+### $ git cat-file -t 523d2e2; git show --stat --format='%h %s' 523d2e2 | head -6
+commit
+523d2e2 docs(agents): add P4-00 round-4 audit review
+
+ docs/agents/reviews/P4-00-round4-evidence.txt | 3282 +++++++++++++++++++++++++
+ docs/agents/reviews/P4-00-round4.md           |  461 ++++
+ 2 files changed, 3743 insertions(+)
+[exit=0]
+
+### $ git ls-tree --name-only HEAD docs/agents/handoffs/
+docs/agents/handoffs/.gitkeep
+docs/agents/handoffs/P0-01-citation-proof.txt
+docs/agents/handoffs/P0-01.md
+docs/agents/handoffs/P4-00.md
+[exit=0]
+
+### $ grep -nE '[A-Za-z0-9_./-]+\.(go|md|sql|txt)[: ]?:[0-9]+|:[0-9]+(-[0-9]+)?\b' docs/agents/handoffs/P4-00.md | grep -vE '[0-9]{1,2}:[0-9]{2}' | head -20
+[exit=0]
+
+### $ grep -nEi '#L[0-9]+|\bL[0-9]{1,4}\b|\blines? [0-9]+|\blines [0-9]+' docs/agents/handoffs/P4-00.md
+[exit=1]
+
+### $ grep -nEi 'line' docs/agents/handoffs/P4-00.md
+38:*Note: The exact current line numbers for all design document locations are documented in the review tables (see `docs/agents/reviews/P4-00-round5.md`).*
+61:| R-20 | RESOLVED | No | `docs/security/findings.md` (SEC-020), `docs/failure-model.md` (recovery paths) | Line citations verified. |
+76:| R2-06 | D-R2-06 | RESOLVED | No | `docs/security/test-plan.md` (section 6) | Removed all 202 leftovers. Line updated to HTTP 200 with state `CANCEL_REQUESTED` (same body as first cancel). Handoff 202 references corrected. |
+88:| R3-02 | D-R3-02 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/protocol.md` (section 6.3 error table), `docs/failure-model.md` (FS-06), `docs/fault-injection-plan.md` (section 3), `docs/phase4-plan.md` (slices 4a and 4b), `docs/adr/0016-cancellation-semantics.md` (Decision), `docs/security/findings.md` (SEC-022) | Retried commit on terminal job returns HTTP 409 `JOB_ALREADY_TERMINAL`. Removed all "HTTP 200 COMMITTED" claims. Single stored result stands; worker treats 409 as final and halts delivery loop. `CommitAttempt` closes attempt strictly if still in `RUNNING` (added "only if the attempt is still RUNNING" to summary lines in `docs/phase4-plan.md` and `docs/adr/0016-cancellation-semantics.md` per D-R4-05). Added known gap: deduplication of identical result payload to return HTTP 200 is future improvement, not Phase 4. Added planned test `TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged` (planned test). |
+101:| R4-01 | D-R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) | `docs/agents/handoffs/P4-00.md` | Handoff rewritten truthfully: renewal response status unified to `"RENEWED"` (removed `"ACTIVE"`), sweeper cadence corrected to 5s, `docs/agents/TASKS.md` updated with reviews round 2, 3, and 4; status columns aligned with audit review table verbatim; unsupported claims removed; open questions verified. Residual citation line inaccuracies addressed in R5-01 by replacing line numbers with document and section names. |
+111:| R5-01 | minor under the owner's rule | Rebuild handoff without line numbers | `docs/agents/handoffs/P4-00.md` | Rebuild handoff so it cannot be wrong about line numbers; name documents and sections instead; align status columns with round-5 audit review verbatim; reword outage trigger mentions per D-R3-01; delete one-off citation-check file. |
+[exit=0]
+
+### $ grep -nEic 'connection-class|connection class' docs/agents/handoffs/P4-00.md
+0
+[exit=1]
+
+### $ grep -rnEi 'connection-class|connection class' docs CHANGELOG.md --include=* -l
+docs/agents/reviews/P4-00-round3-evidence.txt
+docs/agents/reviews/P4-00-round3.md
+docs/agents/reviews/P4-00-round5.md
+docs/agents/reviews/P4-00-round4-evidence.txt
+docs/agents/reviews/P4-00-round5-evidence.txt
+docs/agents/reviews/P4-00-round2.md
+docs/agents/reviews/P4-00-round4.md
+[exit=0]
+
+### $ grep -nEio '.{60}(verif[a-z]*|mechanical[a-z]*|confirmed).{60}' docs/agents/handoffs/P4-00.md
+53:`docs/PROJECT_STATE.md` (Section 1) | Grounded citations in verified Blueprint PDF: Section 5 ("Job Lifecycle and Consistency Mo
+71:n slice 4a. Removed claim that existing tests keep passing. Verified 6 coordinator unit tests use spyQueue in `internal/coordina
+91:4.1), `CHANGELOG.md`, `docs/PROJECT_STATE.md` (Section 1) | Verified and corrected all code citations: `internal/storage/postgre
+95:fication.md` (Decision), `docs/phase4-plan.md` (Slice 4a) | Verified that exactly 6 tests in `internal/coordinator/service_test.
+101: table verbatim; unsupported claims removed; open questions verified. Residual citation line inaccuracies addressed in R5-01 by 
+102:ntics.md` (Decision), `docs/state-machine.md` (section 3) | Confirmed failed commit on CANCEL_REQUESTED ends attempt FAILED and j
+116:OMPLETED` was improperly used for job states. Investigation confirmed that attempt-state uses (`COMPLETED`) in `docs/schema.md` (
+219:rmance_CancelJob_IdempotentCancelRequested` (planned test): Verifies that duplicate cancel on `CANCEL_REQUESTED` returns HTTP 20
+220:nce_CancelJob_RetryingImmediatelyCancelled` (planned test): Verifies that cancelling a job in `RETRYING` transitions immediately
+223:epository_Sweeper_ConcurrentRenewalRecheck` (planned test): Verifies row-locked sweeper re-check skips mutation if lease renewed
+224:ory_CommitAttempt_TerminalJobClosesAttempt` (planned test): Verifies CommitAttempt closes attempt strictly if still in RUNNING o
+225:ng_CoordinatorRestartGrace_SurvivingCommit` (planned test): Verifies 30s startup grace allows surviving workers to commit cleanl
+226:ator_LeaseSweeper_ReclaimsAbandonedAttempt` (planned test): Verifies autonomous reclamation of abandoned attempt after lease exp
+227:r_InterTickGapExceedsThreshold_EntersGrace` (planned test): Verifies that database-time gap > 3x sweep interval between successf
+228:r_InterTickGapBelowThreshold_EntersNoGrace` (planned test): Verifies that database-time gap <= 3x sweep interval enters no grace
+229:inator_LeaseSweeper_FailedTick_EntersGrace` (planned test): Verifies that any failed sweeper tick opens 30s outage grace window 
+230:Sweeper_CandidateLockTimeout_EntersNoGrace` (planned test): Verifies that a lock timeout on a single candidate is not a failed t
+231:seSweeper_CooldownPreventsConsecutiveGrace` (planned test): Verifies that 30s cooldown after grace window prevents consecutive g
+232:itOnTerminalJobLeavesAttemptStateUnchanged` (planned test): Verifies that a retried commit on a terminal job returns HTTP 409 JO
+233:FailureOnCancelRequestedYieldsCancelledJob` (planned test): Verifies that a failed commit on CANCEL_REQUESTED transitions attemp
+234:ent_RenewOldCoordinatorGracefulDegradation` (planned test): Verifies worker encountering un-enveloped 404 disables renewals and 
+235: - `TestWorker_Client_Renew400KeepsRunning` (planned test): Verifies worker encountering HTTP 400 from renewal disables renewals
+236:ker_Client_ResultDeliveryLoop_BoundedRetry` (planned test): Verifies 60s bounded result delivery loop during extended outages.
+237:ort_RetryDuringCoordinatorDowntime_Success` (planned test): Verifies result completed during 45s outage commits successfully onc
+238:ndReport_OngoingRenewalWhileRetryingReport` (planned test): Verifies concurrent lease renewal prevents attempt reaping while ret
+246: output in `docs/agents/reviews/P4-00-evidence.txt`) plus **confirmed by code reading** (`internal/storage/inmemory.go`, `interna
+[exit=0]
+
+### $ grep -n 'make test-db was NOT run' docs/agents/handoffs/P4-00.md
+89:| R3-03 | D-R3-03 | PARTIAL (R5-01, minor) | Yes | `docs/agents/handoffs/P4-00.md` | Replaced false `make test-db` claim with exact statement: "make test-db was NOT run (docs-only task)". Corrected status column based on round-5 audit. Corrected citations and open questions. |
+198:make test-db was NOT run (docs-only task)
+[exit=0]
+
+### $ sed -n 5p docs/agents/handoffs/P4-00.md | cmp - <(printf '%s\n' 'Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7ec8); design head at merge a9efa6e.') && echo EXACT
+- /dev/fd/63 differ: byte 1, line 1
+[exit=1]
+
+### $ git grep -n 'citation-check' HEAD -- . ':!docs/agents/reviews'
+HEAD:docs/PROJECT_STATE.md:23:- **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
+HEAD:docs/agents/TASKS.md:46:- Owned files: `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-00-citation-check.txt` (to delete), `docs/phase4-plan.md`, `docs/protocol.md`, `docs/adr/0014-lease-model-and-expiry.md`, `docs/agents/TASKS.md`, `docs/agents/reviews/P4-00-round5.md` and `docs/agents/reviews/P4-00-round5-evidence.txt`.
+HEAD:docs/agents/handoffs/P4-00.md:111:| R5-01 | minor under the owner's rule | Rebuild handoff without line numbers | `docs/agents/handoffs/P4-00.md` | Rebuild handoff so it cannot be wrong about line numbers; name documents and sections instead; align status columns with round-5 audit review verbatim; reword outage trigger mentions per D-R3-01; delete one-off citation-check file. |
+HEAD:docs/security/findings.md:256:- **Status**: Confirmed, Remediated by Tooling (`docs/citation-check`).
+[exit=0]
+
+### $ sed -n 4p docs/agents/handoffs/P4-00.md | cmp - <(printf '%s\n' 'Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7ec8); design head at merge a9efa6e.') && echo EXACT
+EXACT
+[exit=0]
+
+### $ grep -c '' docs/agents/handoffs/P4-00.md; grep -n 'Last commit\|d3cf819' docs/agents/handoffs/P4-00.md
+253
+[exit=1]
+
+### $ grep -noEi "[^.|]*(verif|confirm|mechanical|truthful|implemented in full|addressed|unsupported claims removed)[^.|]*" handoff (excluding the planned-test "Verifies" lines 219-242)
+40: What Was Addressed 
+53: Grounded citations in verified Blueprint PDF: Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Section 8 ("API, Data Model, and Configuration", page 8), Section 10 ("Test Strategy and Failure Injection", pages 9–10)
+55: Verified old names do not appear anywhere
+59: Verified message alignments
+60: The LOST budget consequence uses the wrong time formula; verified formula is corrected in ADR-0015 Decision
+61: Line citations verified
+63: Verified FS-07 V2 transport evaluation
+71: Verified 6 coordinator unit tests use spyQueue in `internal/coordinator/service_test
+77: Rebuilt resolution tables matching exact IDs from review with round-5 audit statuses; added Round 4 and Round 5 sections; removed false test-db claim and false "everything resolved" statements; verified all fix locations
+91: Verified and corrected all code citations: `internal/storage/postgres/repository
+95: Verified that exactly 6 tests in `internal/coordinator/service_test
+101: Handoff rewritten truthfully: renewal response status unified to `"RENEWED"` (removed `"ACTIVE"`), sweeper cadence corrected to 5s, `docs/agents/TASKS
+101:md` updated with reviews round 2, 3, and 4; status columns aligned with audit review table verbatim; unsupported claims removed; open questions verified
+101: Residual citation line inaccuracies addressed in R5-01 by replacing line numbers with document and section names
+102: Confirmed failed commit on CANCEL_REQUESTED ends attempt FAILED and job CANCELLED (cancel wins)
+116: Investigation confirmed that attempt-state uses (`COMPLETED`) in `docs/schema
+127:  - As verified by the audit probe in `docs/agents/reviews/P4-00-evidence
+132:  All owner decisions have been implemented in full across all design documents, and the documentation test suite passes cleanly under `make test-docs`
+206: All round-5 audit findings (R5-01, R5-02) have been addressed per owner direction
+241:  - `TestProperty_StateMachine_ModelConformance` (planned test): Random sequence generator verifying distributed state invariants
+246:txt`) plus **confirmed by code reading** (`internal/storage/inmemory
+249:    - Labels: **executed** (in P0-01 handoff) plus **confirmed by code reading** (`internal/storage/postgres/migrator_test
+251:- **Verification and audit notes**:
+253:  - Slices 4a–4e will execute the full suite of planned tests across memory and PostgreSQL repositories, confirming all distributed invariants
+[exit=0]
+
+### $ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 -run "TestAPI_StaleAttemptRejection" ./internal/api/
+--- PASS: TestAPI_StaleAttemptRejection (0.02s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.049s
+
+### $ grep -n "AttemptRunning\|att.State != \|attStateStr != " internal/storage/inmemory.go internal/storage/postgres/repository.go (CommitAttempt not-running branches)
+internal/storage/inmemory.go:589:	if att.State != domain.AttemptRunning {
+internal/storage/postgres/repository.go:1023:	if attStateStr != string(domain.AttemptRunning) {
+
+### $ grep -rn "UPDATE attempts\|\.State = domain.Attempt" in tests (non-running attempt seeding): 
+[exit=1] (1 = no test seeds a non-RUNNING attempt)
+### $ grep -rn 'StatusAccepted' --include=*.go . | head -3
+[exit=0]
+
+### $ git branch -r --list 'origin/agent/claude/P4-00-review' 'origin/agent/claude/P4-00-review-5'
+  origin/agent/claude/P4-00-review
+  origin/agent/claude/P4-00-review-5
+[exit=0]
+
+### $ grep -n 'minicloud_test\|_test.*guard\|migrator_test' docs/agents/handoffs/P0-01.md | head -5 | cut -c1-200
+61:   (the brief and the draft said `minicloud_test_claude` / `minicloud_test_gemini`).
+66:       migrator_test.go:78: SAFETY VIOLATION: refusing to run test against database "minicloud_test_claude"; name must end in '_test'
+68:       migrator_test.go:136: SAFETY VIOLATION: refusing to run test against database "minicloud_test_claude"; name must end in '_test'
+70:       migrator_test.go:159: SAFETY VIOLATION: refusing to run test against database "minicloud_test_claude"; name must end in '_test'
+72:       migrator_test.go:195: SAFETY VIOLATION: refusing to run test against database "minicloud_test_claude"; name must end in '_test'
+[exit=0]
+
+### $ sed -n 389,396p docs/security/findings.md | cut -c1-240
+### SEC-023: TestMigrator_PreExistingInvalidRow_ValidationFails Missing _test Database Name Guard
+
+- **Finding**: `TestMigrator_PreExistingInvalidRow_ValidationFails` has no `_test` database-name guard. If `MINICLOUD_TEST_DATABASE_URL` pointed at the dev database, it would create a schema there, run migrations and drop it; every other Po
+- **Severity**: Low
+- **Category**: Test Safety Guardrails / Database Isolation
+- **Status**: Open (executed plus confirmed by code reading)
+- **Affected Component**: PostgreSQL Migrator Tests (`internal/storage/postgres/migrator_test.go:546-575`)
+- **Preconditions**: `MINICLOUD_TEST_DATABASE_URL` is set pointing to a database whose name does not end in `_test` (such as the development database `minicloud`).
+[exit=0]
+
+### $ handoff status cells (id | status) for R4-01..R4-05, R3-03, R2-07, R2-10, R5-01, R5-02
+ R2-07 | PARTIAL (R5-01, minor) 
+ R2-10 | RESOLVED 
+ R3-03 | PARTIAL (R5-01, minor) 
+ R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) 
+ R4-02 | RESOLVED 
+ R4-03 | RESOLVED 
+ R4-04 | RESOLVED 
+ R4-05 | RESOLVED 
+ R5-01 | minor under the owner's rule 
+ R5-02 | minor 
+
+### $ round-5 review Check 1 table rows (id | status)
+ R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) 
+ R4-02 | RESOLVED 
+ R4-03 | RESOLVED 
+ R4-04 | RESOLVED 
+ R4-05 | RESOLVED 
+ R3-03 | PARTIAL (R5-01, minor) 
+ R2-07 | PARTIAL (R5-01, minor) 
+ R2-10 | RESOLVED 
+
+### $ handoff rows with status other than RESOLVED (R-01..R3-09 tables)
+ R2-07 | R2-07 | PARTIAL (R5-01, minor) 
+ R3-03 | D-R3-03 | PARTIAL (R5-01, minor) 
+ R4-01 | D-R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) 
+ R5-01 | minor under the owner's rule | Rebuild handoff without line numbers 
+ R5-02 | minor | Drop non-existent error 
+
+### $ awk: count of rows per status in handoff
+      3 PARTIAL
+     46 RESOLVED
+### $ git grep -n -i -E 'HTTP 500|surfaces? as (an )?(HTTP )?500|INTERNAL_ERROR' HEAD -- docs ':!docs/agents/reviews' ':!docs/source' | cut -c1-230
+HEAD:docs/PROJECT_STATE.md:39:  - **Readiness Probe (`/readyz`) & Outage Resilience:** Updated `/readyz` endpoint in `internal/api/handlers.go` to verify repository reachability via `repo.Ping(ctx)`. Mapped connection failures and
+HEAD:docs/PROJECT_STATE.md:54:  - **SEC-007 (Internal Error Sanitization & Opaque HTTP 500):** Mapped unmapped repository or driver errors to generic HTTP 500 `INTERNAL_ERROR` with opaque message (`"internal server error"`). Scrub
+HEAD:docs/PROJECT_STATE.md:235:  - **SEC-007 (Low, Fixed):** Unmapped repository and driver errors mapped to HTTP 500 `INTERNAL_ERROR` with opaque message; sanitized server logging; fixed malformed JSON message (`internal/api/hand
+HEAD:docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a comm
+HEAD:docs/failure-model.md:56:   When reporting a finished result, transient errors (HTTP 500, 502, 503, 504, connection reset, connection refused, context deadline) trigger retries using exponential backoff with full jitter:
+HEAD:docs/security/field-limits.md:73:| Unmapped Driver Error | Unhandled SQLSTATE | Unmapped internal error | `500 INTERNAL_ERROR` | `{"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}` (Scrubbed server logs) |
+HEAD:docs/security/findings.md:19:| **SEC-007** | Low | Fixed (Slice 3d) | HTTP API Error Handling | Unmapped errors mapped to generic HTTP 500 `INTERNAL_ERROR` with opaque message; credentials/passwords scrubbed in server logs; m
+HEAD:docs/security/findings.md:114:  4. In PostgreSQL mode, issue the same request: observe unmapped SQLSTATE `23514` check constraint violation returned as an opaque HTTP 500 `INTERNAL_ERROR` instead of HTTP 400 `INVALID_REQUEST`
+HEAD:docs/security/findings.md:115:- **Evidence**: Probe observation confirmed negative values were accepted in memory mode returning 201 Created. Static inspection showed coordinator used `if maxAttempts <= 0 { maxAttempts = 3 }`
+HEAD:docs/security/findings.md:153:- **Detail**: In `internal/api/handlers.go:19-75`, `mapDomainErrorToHTTP` now routes all unmapped errors to HTTP 500 `INTERNAL_ERROR` with an opaque `"internal server error"` message. Server-side
+HEAD:docs/security/threat-model.md:41:| | | | **Internal Error / Schema Leakage**: Unmapped errors return raw driver strings in HTTP responses (SEC-007). | `mapDomainErrorToHTTP` maps unmapped errors to HTTP 500 `INTERNAL_ERROR` w
+HEAD:docs/security/threat-model.md:78:   - Unmapped repository and driver errors map to HTTP 500 `INTERNAL_ERROR` with opaque `"internal server error"` message while logging sanitized error server-side.
+[exit=0]
+
+### $ git grep -n 'mapDomainErrorToHTTP\|error mapping' HEAD -- docs ':!docs/agents/reviews' | cut -c1-230
+HEAD:docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a comm
+HEAD:docs/phase4-plan.md:135:      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`) -> return 409 `STALE_ATTEMPT_REJECTED` (already returned by `CommitAttempt` in `internal/storage/inmemor
+HEAD:docs/security/field-limits.md:6:This document defines the normative limits across all entity types (Jobs, Workers, Attempts, Results), documenting the exact byte/character limits, regular expression character sets, default va
+HEAD:docs/security/field-limits.md:59:To ensure server-side diagnostics do not leak sensitive infrastructure internals to clients, all PostgreSQL driver and check violations are intercepted by `internal/storage/postgres/repository
+HEAD:docs/security/findings.md:153:- **Detail**: In `internal/api/handlers.go:19-75`, `mapDomainErrorToHTTP` now routes all unmapped errors to HTTP 500 `INTERNAL_ERROR` with an opaque `"internal server error"` message. Server-side
+HEAD:docs/security/threat-model.md:41:| | | | **Internal Error / Schema Leakage**: Unmapped errors return raw driver strings in HTTP responses (SEC-007). | `mapDomainErrorToHTTP` maps unmapped errors to HTTP 500 `INTERNAL_ERROR` w
+[exit=0]
+
+### $ git ls-tree -r --name-only HEAD | grep -E 'handoffs/P4-01|reviews/P4-01'
+[exit=1]
+
+
+===== [C] diff of the four Fix-1 design files vs origin/main (git diff origin/main..HEAD -- PROJECT_STATE.md adr/0014 protocol.md phase4-plan.md)
+diff --git a/docs/PROJECT_STATE.md b/docs/PROJECT_STATE.md
+index 4cf5be9..4764f5f 100644
+--- a/docs/PROJECT_STATE.md
++++ b/docs/PROJECT_STATE.md
+@@ -171,7 +171,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+   - Grace design: 30s coordinator startup grace, 30s database outage grace protecting Phase 3 surviving-worker commit recovery in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`).
+   - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED`. Slice 4a changes duplicate-cancel behavior (job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes. Existing test `CancelJob_QueuedAndRunning` (`internal/storage/storagetest/conformance.go:299-363`, line 335) and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` (`internal/storage/inmemory_test.go:559-611`, line 607) only tested duplicate cancel on terminal `QUEUED`/`CANCELLED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+   - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql:97`. Map domain constants in `internal/domain/state.go:22-27` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+-  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrAttemptNotRunning`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
++  - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
+   - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, leases, renewals, and sweeper.
+   - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (planned test).
+ - **Exit Criteria:** In-memory repository passes expanded shared conformance suite; property test generator executes >= 1,000 random event traces without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency, and retry backoff.
+diff --git a/docs/adr/0014-lease-model-and-expiry.md b/docs/adr/0014-lease-model-and-expiry.md
+index 0f752e6..f4e16db 100644
+--- a/docs/adr/0014-lease-model-and-expiry.md
++++ b/docs/adr/0014-lease-model-and-expiry.md
+@@ -229,7 +229,7 @@ jobs -> workers -> attempts -> results -> job_events
+   Evaluation order on `CommitAttempt`:
+   1. Terminal Job -> HTTP 409 `JOB_ALREADY_TERMINAL`, `domain.ErrJobAlreadyTerminal`. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). The result row from the first commit is the single stored result; the retry is rejected; the worker treats the 409 as final. (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
+   2. Swept Attempt (`LOST`) -> HTTP 409 `LEASE_EXPIRED`, `domain.ErrLeaseExpired`.
+-  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning` (Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED`; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
++  3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`.
+   The worker treats all three 409 codes as terminal and halts retrying.
+ - **Hard Boundary (No Resurrection Once Swept)**: Once the sweeper acquires row locks and transitions the attempt to `LOST`, Option 2 ceases. Any subsequent commit or renewal attempt is strictly rejected with HTTP 409 Conflict (`LEASE_EXPIRED`) and `domain.ErrLeaseExpired`. At most one `DIAGNOSTIC_LATE_RESULT` audit event is written per attempt (using `ON CONFLICT DO NOTHING` arbitrated by partial unique index `idx_job_events_unique_diagnostic_late_result` on `(job_id, (details->>'attempt_id')) WHERE event_type = 'DIAGNOSTIC_LATE_RESULT'`) to bound unauthenticated table growth under SEC-004. The result is **never** committed to `results`. Expired attempts are never resurrected. (Accepted by owner).
+ - **Planned Verification Tests**:
+diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+index b3bb409..833e367 100644
+--- a/docs/phase4-plan.md
++++ b/docs/phase4-plan.md
+@@ -132,7 +132,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+     - Update `CommitAttempt`: enforce 409 evaluation order:
+       1. Terminal job -> close attempt (strictly if still in `RUNNING`), free worker slot, record diagnostic event, and return 409 `JOB_ALREADY_TERMINAL` (the single stored result stands; an attempt already terminal is never overwritten).
+       2. Attempt swept to `LOST` -> return 409 `LEASE_EXPIRED` (`domain.ErrLeaseExpired`).
+-      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would surface as HTTP 500).
++      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`) -> return 409 `STALE_ATTEMPT_REJECTED` (already returned by `CommitAttempt` in `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go`, and mapped by `mapDomainErrorToHTTP` in `internal/api/handlers.go`).
+     - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`internal/storage/inmemory.go:615-618`, `internal/storage/postgres/repository.go:1046-1049`, `internal/domain/transition.go:21`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4).
+     - Update `CancelJob`: idempotent no-op on `CANCEL_REQUESTED`, immediate `CANCELLED` on `RETRYING`.
+   - Run shared conformance test suite against live PostgreSQL container.
+@@ -150,7 +150,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+   - `TestPostgresRepository_Sweeper_CanonicalLockOrder` (planned test)
+   - `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test)
+   - `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test)
+-  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+   - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+   - `TestPostgresRepository_Concurrency_MixedOperationsStress` (expanded with leases, cancels, and Invariant 4 check)
+ - **Risks & Mitigations**:
+@@ -166,7 +165,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+     - Single cancellation channel: renewal response returns `{"status": "RENEWED", "cancel_requested": true, "lease_expires_at": "<current_expiry>"}` when job is in `CANCEL_REQUESTED`, without extending `lease_expires_at`.
+     - **Heartbeat Cleanup**: Remove `cancelled_job_ids` from worker heartbeat response. Heartbeats remain purely for worker liveness (`{"status": "ACK"}`).
+     - Expand `POST /v1/workers/{id}/poll` assignment response with `lease_expires_at` and `lease_duration_seconds`.
+-    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+     - Rate Limiting Defense Documentation: renewal flooding is formally recorded as designed, not yet implemented (R-23); planned endpoint defenses are fast state short-circuit, indexed lookup on primary key, and statement timeout; accepted risk under SEC-004.
+   - Worker Agent (`internal/worker`):
+     - Dedicated background renewal goroutine per running attempt ticking every 10s (1/3 lease duration; `MINICLOUD_LEASE_DURATION / 3`).
+@@ -193,7 +191,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+     - Mutating outage gap threshold or cooldown must cause outage grace recovery tests to fail.
+ - **Gating Tests**:
+   - `TestAPI_RenewLease_SuccessAndStaleRejection` (planned test)
+-  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+   - `TestAgent_PeriodicLeaseRenewal_Success` (planned test)
+   - `TestAgent_LeaseRenewal_ReceivesCancelRequested` (planned test)
+   - `TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt` (planned test)
+diff --git a/docs/protocol.md b/docs/protocol.md
+index 2c33978..0858020 100644
+--- a/docs/protocol.md
++++ b/docs/protocol.md
+@@ -468,7 +468,7 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
+ |---|---|---|---|:---:|---|
+ | 1 | Target Job is already in a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
+ | 2 | Attempt state is `LOST` (swept by coordinator lease sweeper) | 409 Conflict | `LEASE_EXPIRED` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
+-| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
++| 3 | Attempt state is not `RUNNING`, attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
+ | 4 | Reporting worker ID does not match assigned worker | 403 Forbidden | `WORKER_MISMATCH` | No | Final: Worker halts execution, does not report result |
+ | 5 | Reporting worker does not exist | 404 Not Found | `WORKER_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
+ | 6 | Target job or attempt does not exist | 404 Not Found | `JOB_NOT_FOUND` / `ATTEMPT_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
+@@ -481,7 +481,7 @@ When committing a result on a job in `CANCEL_REQUESTED`:
+ - A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING` or `FAILED`).
+ - If the lease expires before commit, the sweeper reaps the attempt as `CANCELLED` and job as `CANCELLED`, recording `JOB_CANCELLED`.
+ 
+-The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running). Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED` (an attempt that is no longer `RUNNING` is stale; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
++The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+ 
+ ---
+ 
+
+===== [D] gates
+21:test-docs:
+22-	go test ./tests/docs
+23-
+24-fmt:
+### $ go version
+go version go1.22.2 linux/amd64
+### $ gofmt -l .
+[gofmt exit=0]
+### $ go vet ./...
+[exit=0]
+### $ go build ./...
+[exit=0]
+### $ env -u MINICLOUD_TEST_DATABASE_URL make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.587s
+[exit=0]
+go test exit=0
+### $ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...  (full log: scratch gate-v.log)
+PASS 77 SKIP 26 FAIL 0
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.030s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.914s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.045s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.129s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.170s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.086s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.035s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.029s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.116s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.128s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.496s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.035s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	11.433s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.904s
+### MINICLOUD_TEST_DATABASE_URL in env: [unset]
+
+===== [E] git diff origin/main..HEAD -- docs/agents/TASKS.md
+diff --git a/docs/agents/TASKS.md b/docs/agents/TASKS.md
+index 281e366..0ad9e8d 100644
+--- a/docs/agents/TASKS.md
++++ b/docs/agents/TASKS.md
+@@ -10,18 +10,19 @@ builds the rest. The other agent audits.
+ 
+ | Resource | Held by | Notes |
+ |---|---|---|
+-| Next migration number | 000004 | Reserved for the Phase 4 Postgres slice (4b) |
++| Next migration number | 000004 | Held by slice 4b; reserved for the Phase 4 Postgres slice (4b) |
+ | `go.mod` / `go.sum` | none | |
+ | `internal/domain` | none | |
+ | `internal/storage/storagetest` | none | Shared conformance suite |
+-| `docs/security/findings.md` | P4-00 | Next free number after the design merge: SEC-024 |
++| `docs/security/findings.md` | P4-4a | Held for the SEC-022 status line only; next free SEC number SEC-024 |
+ 
+ ## Active
+ 
+ | ID | Title | Builder | Auditor | Branch | Status |
+ |---|---|---|---|---|---|
+ | P0-01 | Two-agent workflow files | Claude Code | Orchestrator review | agent/claude/P0-01 | ready |
+-| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | in progress (Builder addressing audit findings) |
++| P4-01 | Phase 4 design follow-up (round-5 minors) | Gemini | Claude Code | agent/gemini/P4-01 | in review after push. |
++| P4-4a | Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire) | Claude Code | Gemini | agent/claude/P4-4a | in progress. |
+ 
+ ### P0-01 — Two-agent workflow files
+ - Goal: commit the agent rules so both agents read the same file.
+@@ -39,14 +40,19 @@ builds the rest. The other agent audits.
+ - Out of scope: any Go code outside `tests/docs`, any design doc, `PROJECT_STATE.md`,
+   `CHANGELOG.md` (the owner adds the changelog line at merge).
+ 
+-### P4-00 — Phase 4 design close-out
+-- Goal: the Phase 4 design (the lease, retry and cancellation ADRs numbered 0014 to
+-  0016, the Phase 4 plan doc and the docs it updates; none on `main` yet) is
+-  consistent, complete and merged; it becomes the spec for P4 tasks.
+-- Owned files: everything changed on docs/phase4-design, AGENTS.md section 4 (context map rows only), docs/agents/TASKS.md (the P4-00 entry and the reserved-numbers table), CHANGELOG.md and docs/PROJECT_STATE.md.
+-- Builder fixes; auditor reviews only. Auditor wrote reviews docs/agents/reviews/P4-00.md, docs/agents/reviews/P4-00-round2.md, docs/agents/reviews/P4-00-round3.md, and docs/agents/reviews/P4-00-round4.md.
++### P4-01 — Phase 4 design follow-up (round-5 minors)
++- Goal: fix the two minor findings of the round-5 audit of P4-00, bring the round-5 review onto main, and register the next two tasks on the task board.
++- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-01`. Status: in review after push.
++- Owned files: `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-00-citation-check.txt` (to delete), `docs/phase4-plan.md`, `docs/protocol.md`, `docs/adr/0014-lease-model-and-expiry.md`, `docs/agents/TASKS.md`, `docs/agents/reviews/P4-00-round5.md` and `docs/agents/reviews/P4-00-round5-evidence.txt`.
++
++### P4-4a — Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire)
++- Goal: Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire).
++- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4a`. Status: in progress.
++- Owned files: internal/domain/**, internal/storage/** (in-memory and postgres repositories, storagetest), internal/coordinator/**, internal/api/** only if the plan requires it, tests/** (including tests/review/sec022_probe_test.go and tests/docs/citation_allowlist.txt entry removal), docs/security/findings.md (SEC-022 status line only), docs/agents/handoffs/P4-4a.md.
++- Out of scope: any migration (000004 stays reserved for slice 4b), docs/phase4-plan.md and all other design docs, CHANGELOG.md and PROJECT_STATE.md (owner adds at merge).
+ 
+ ## Done
+ 
+ | ID | Title | Merged in |
+ |---|---|---|
++| P4-00 | Phase 4 design close-out | PR #17, merge commit f6c7ec8 |
+[exit=0]
+
+===== [F] CommitAttempt non-RUNNING branches and API mapping (sed -n)
+$ sed -n 585,592p internal/storage/inmemory.go
+	att, exists := r.attempts[attemptID]
+	if !exists {
+		return nil, domain.ErrAttemptNotFound
+	}
+	if att.State != domain.AttemptRunning {
+		return nil, domain.ErrStaleAttempt
+	}
+
+$ sed -n 1020,1026p internal/storage/postgres/repository.go
+		return nil, mapPgError(err)
+	}
+
+	if attStateStr != string(domain.AttemptRunning) {
+		return nil, domain.ErrStaleAttempt
+	}
+
+$ grep -n "ErrStaleAttempt" internal/api/handlers.go
+125:	case errors.Is(err, domain.ErrStaleAttempt):
+$ grep -n "newSpyQueue(" internal/coordinator/service_test.go
+345:func newSpyQueue(inner queue.Queue) *spyQueue {
+392:	spy := newSpyQueue(innerQ)
+465:	spy := newSpyQueue(innerQ)
+581:	spy := newSpyQueue(innerQ)
+677:	spy := newSpyQueue(innerQ)
+727:	spy := newSpyQueue(innerQ)
+775:	spy := newSpyQueue(innerQ)
