@@ -44,7 +44,7 @@ builds the rest. The other agent audits.
   0016, the Phase 4 plan doc and the docs it updates; none on `main` yet) is
   consistent, complete and merged; it becomes the spec for P4 tasks.
 - Owned files: everything changed on docs/phase4-design, AGENTS.md section 4 (context map rows only), docs/agents/TASKS.md (the P4-00 entry and the reserved-numbers table), CHANGELOG.md and docs/PROJECT_STATE.md.
-- Builder fixes; auditor reviews only. Auditor wrote reviews P4-00.md and P4-00-round2.md under docs/agents/reviews/.
+- Builder fixes; auditor reviews only. Auditor wrote reviews docs/agents/reviews/P4-00.md, docs/agents/reviews/P4-00-round2.md, docs/agents/reviews/P4-00-round3.md, and docs/agents/reviews/P4-00-round4.md.
 
 ## Done
 
