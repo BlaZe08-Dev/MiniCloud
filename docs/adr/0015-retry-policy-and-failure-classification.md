@@ -123,14 +123,14 @@ The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSI
 To guarantee seamless testing and environment parity between in-memory and PostgreSQL modes:
 1. **In-Memory Repository and Queue Dispatch Rule**:
    - In both PostgreSQL and in-memory modes, `repo.DispatchNextJob` and `repo.DispatchJob` accept jobs that are either `QUEUED` or in `RETRYING` with `not_before <= now` (where `now` is `clock_timestamp()` in PostgreSQL and the injected `Clock.Now()` in in-memory mode), with zero re-enqueue.
-   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends. Existing coordinator unit tests that construct `NewServiceWithQueue` with a spy queue (`internal/coordinator/service_test.go:353-375`) and assert queue `Ack`/`Release` calls are affected and rewritten to assert observable domain outcomes (job state, attempt, slot), each marked as a candidate for owner approval.
+   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends. Existing coordinator unit tests that construct `NewServiceWithQueue` are affected: six tests using a spy queue (`internal/coordinator/service_test.go:338-381`) and asserting queue `Ack`/`Release` calls are rewritten to assert observable domain outcomes (job state, attempt, slot), while one test (`TestService_Claim_Redelivery_NoDuplicateAttempt`) using a plain queue plus `q.Enqueue` loses its meaning after rewiring and is rewritten or retired, each marked as a candidate for owner approval.
    - In-memory event recording records the actual `from_state` (`QUEUED` or `RETRYING`), and all timestamped mutations evaluate against the injected `Clock`.
 2. **Shared Conformance Suite Assertions**:
    The shared conformance test suite (`internal/storage/storagetest`) asserts identical state machine behavior across both in-memory and PostgreSQL repositories:
    - Transitioning a retryable failure to `RETRYING` persists `not_before` in the future.
    - Transitioning an attempt failure when `attempt_no >= max_attempts` moves the job to `FAILED` with error `"max attempts exhausted"`.
    - Calling `CancelJob` on a job in `RETRYING` state transitions the job directly to `CANCELLED` and clears `not_before`.
-   - Conformance tests assert dispatch timing: `DispatchNextJob` returns `ErrNoJobsAvailable` when `not_before > now`, and claims the job directly to `RUNNING` once `now >= not_before`.
+   - Conformance tests assert dispatch timing: `DispatchNextJob` returns `domain.ErrNoQueuedJobs` (`internal/storage/inmemory.go:494`) when `not_before > now`, and claims the job directly to `RUNNING` once `now >= not_before`.
 
 ### 5. Database Invariant Preservation Under Retries
 1. **Monotonic Attempt Numbering (`uq_attempts_job_attempt_no`)**:

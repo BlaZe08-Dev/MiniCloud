@@ -17,7 +17,7 @@ Accepted by Owner (2026-10-26)
 
 ### Verified Baseline: Existing Cancellation Behavior
 MiniCloud currently implements cancellation atomically in storage via `repo.CancelJob`:
-- Existing code in `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215` behaves identically:
+- Existing code in `internal/storage/inmemory.go:658-700` and `internal/storage/postgres/repository.go:1135-1233` behaves identically:
   1. If job is terminal (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`): returns `domain.ErrJobAlreadyTerminal` (mapped to HTTP 409).
   2. If job is in `QUEUED`: transitions job immediately to `CANCELLED` (audit event `JobEventCancelled`).
   3. If job is in `RUNNING`: transitions job to `CANCEL_REQUESTED` (audit event `JobEventCancelRequested`), leaving the active attempt unmodified in `RUNNING`.
@@ -40,7 +40,7 @@ Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Sectio
 ## Decision
 
 ### 1. Behavior Changes Introduced by Phase 4 Design
-The Phase 4 design introduces three concrete behavioral changes to the existing cancellation implementation:
+The Phase 4 design introduces four concrete behavioral changes to the existing cancellation implementation:
 1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**:
    - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
    - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op performed directly in the repository `CancelJob` method under the job row lock (in PostgreSQL) or mutex (in-memory). It returns the existing job state with HTTP 200 `CANCEL_REQUESTED` (with the same body as the first cancellation request) and does not insert duplicate audit events or invoke FSM transitions. In Slice 4a, `CommitAttempt` on a terminal job closes the attempt and frees the worker capacity slot in the same transaction as the rejection, writing a diagnostic event and returning 409 `JOB_ALREADY_TERMINAL`.
@@ -48,6 +48,8 @@ The Phase 4 design introduces three concrete behavioral changes to the existing 
    - When a job is in `RETRYING` awaiting backoff, `CancelJob` immediately transitions it to `CANCELLED` (terminal), clears `not_before`, and removes it from dispatch eligibility.
 3. **Running Attempt Resolution via Lease / Sweeper Path**:
    - The active attempt is resolved through the lease/renewal path: either the worker receives `cancel_requested: true` on its renewal and reports cooperative cancellation, or the worker commits valid completion, or the coordinator lease sweeper reaps the expired lease and transitions `CANCEL_REQUESTED -> CANCELLED`.
+4. **Failure Commit on CANCEL_REQUESTED Resolves Job to CANCELLED**:
+   - Today `internal/storage/inmemory.go:619-622` moves a job to `FAILED` upon failure commit. Under the new behavior, any commit on a job in `CANCEL_REQUESTED` reporting a failure (non-zero exit code or error string, including retryable failures) transitions the attempt to `FAILED` and the job to `CANCELLED` (cancel wins, never `RETRYING` or `FAILED`). Planned test: `TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob` (planned test).
 
 ### 2. State Differentiation by Lifecycle Phase
 When `POST /v1/jobs/{job_id}/cancel` is invoked:
@@ -110,13 +112,13 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
 - **Scenario**: Client submits cancellation while worker has finished computation and is calling `CommitAttempt`.
 - **Resolution**:
   - `CommitAttempt` locks the `jobs` row `FOR UPDATE`.
-  - In MiniCloud's FSM (`internal/domain/transition.go:19-23`), `CANCEL_REQUESTED` explicitly permits transitions to `SUCCEEDED`, `FAILED`, and `CANCELLED`.
+  - In MiniCloud's FSM (`internal/domain/transition.go:21`), `CANCEL_REQUESTED` explicitly permits transitions to `SUCCEEDED`, `FAILED`, and `CANCELLED`.
   - **Success Outcome**: If the worker successfully produced a valid completion (`outcome.ExitCode == 0 && outcome.Error == ""`):
     - Attempt transitions: `AttemptCompleted` (`"COMPLETED"`).
     - Job transitions: `CANCEL_REQUESTED` -> `SUCCEEDED`.
     - Result is stored in `results`.
     - Event: `JobEventCompleted` (`"JOB_COMPLETED"`).
-    - This preserves today's verified behavior in `internal/storage/inmemory.go:610-622` and `internal/storage/postgres/repository.go:1037-1044`.
+    - This preserves today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049`.
   - **Failure / Cancel Outcome**: Any commit on a job in `CANCEL_REQUESTED` with a failure (non-zero exit code or error string, including retryable failures):
     - Closes the attempt with the outcome reported by the worker (attempt `state = 'FAILED'`).
     - Job transitions: `CANCEL_REQUESTED` -> `CANCELLED` (terminal; cancel wins, never `RETRYING` from `CANCEL_REQUESTED`).
@@ -152,9 +154,9 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
 ## Consequences
 
 ### Positive
-- **Deterministic Bounded Resolution**: Bounded 30s lease sweeps ensure `CANCEL_REQUESTED` always resolves to a terminal state within at most one lease duration (30 seconds) plus sweeper cadence, even if an uncooperative task ignores context cancellation, without requiring a separate reaper timer.
+- **Deterministic Bounded Resolution**: Bounded 30s lease sweeps ensure `CANCEL_REQUESTED` always resolves to a terminal state within at most one lease duration (30 seconds) plus sweeper cadence, plus up to one grace window (30 seconds) if an outage happened, even if an uncooperative task ignores context cancellation, without requiring a separate reaper timer.
 - **Protocol Simplicity**: Eliminating heartbeat cancellation leaves heartbeats focused solely on node health and reduces protocol surface area.
-- **Idempotency**: Clients retrying cancellation requests on network blips receive safe HTTP 200 responses without corrupting attempt state.
+- **Idempotency**: Clients retrying cancellation requests on network blips receive safe HTTP 200 responses when retrying a job in `CANCEL_REQUESTED` without corrupting attempt state (a retried cancellation on an already-cancelled job that was `QUEUED` or `RETRYING` returns HTTP 409 `JOB_ALREADY_TERMINAL`).
 
 ### Negative / Trade-offs
 - Maximum cancellation delivery latency is 10 seconds (one renewal period).
