@@ -44,7 +44,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Planned Test Identifier**: `TestFault_OldWorker_LateCommitAfterReassignment` (planned test)
 - **Target Fault Scenario**: Worker 1 experiences a 40-second network partition or GC pause. Its lease expires at t = 30s. Coordinator sweeps attempt 1 to `LOST` and dispatches attempt 2 to Worker 2. Worker 1 wakes up and attempts to commit result for attempt 1.
 - **Injection Mechanism**: Test harness freezes Worker 1 process (`SIGSTOP`), advances coordinator clock by 35s, triggers lease sweeper, dispatches attempt 2 to Worker 2, unfreezes Worker 1 (`SIGCONT`), and Worker 1 submits `ReportResult`.
-- **Expected Outcome**: Coordinator rejects Worker 1's commit with HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`). Coordinator appends a `diagnostic_late_result` audit event to `job_events`. Worker 2's commit for attempt 2 is accepted with HTTP 200 `COMMITTED`. The final job result strictly records Worker 2's outcome. Expired attempts are never resurrected.
+- **Expected Outcome**: Coordinator rejects Worker 1's commit with HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`). Coordinator appends a `DIAGNOSTIC_LATE_RESULT` audit event to `job_events`. Worker 2's commit for attempt 2 is accepted with HTTP 200 `COMMITTED`. The final job result strictly records Worker 2's outcome. Expired attempts are never resurrected.
 - **Evidence Collected**: HTTP 409 response received by Worker 1; `job_events` record with `event_type = 'DIAGNOSTIC_LATE_RESULT'`; `results.attempt_id` matches attempt 2; attempt 1 remains `LOST`.
 - **Recovery Mode**: Autonomous (self-healing).
 
