@@ -21,7 +21,7 @@ builds the rest. The other agent audits.
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | P0-01 | Two-agent workflow files | Claude Code | Orchestrator review | agent/claude/P0-01 | ready |
-| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | waiting for P0-01 merge |
+| P4-00 | Phase 4 design close-out | Gemini (author) | Claude Code | docs/phase4-design | in progress (Builder addressing audit findings) |
 
 ### P0-01 — Two-agent workflow files
 - Goal: commit the agent rules so both agents read the same file.
