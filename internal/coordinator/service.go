@@ -77,14 +77,6 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 	}
 }
 
-// NewServiceWithQueue is a compatibility wrapper for callers that still pass a dispatch queue.
-// The queue argument is ignored: dispatch goes through repo.DispatchNextJob.
-//
-// Deprecated: use NewService.
-func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, _ any, workerTimeout time.Duration) *Service {
-	return NewService(repo, sched, reg, workerTimeout)
-}
-
 // NewPostgresService constructs a Coordinator Service for the PostgreSQL repository.
 // It is equivalent to NewService and is kept so existing wiring does not change.
 func NewPostgresService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
