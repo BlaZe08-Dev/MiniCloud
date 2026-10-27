@@ -3,9 +3,9 @@
 ## Status
 Accepted by Owner (2026-10-26)
 - **Accepted Owner Decisions**:
-  - Exponential backoff with base 1 s, cap 30 s, full jitter ($[0.5, 1.5]$), default `max_attempts` 3 (range $1..20$).
-  - 3-tier failure classification taxonomy with unknown errors defaulting to retryable (`ClassRetryable`).
-  - Validation-style failures of allowlisted tasks are permanent (`ClassPermanent`).
+  - Exponential backoff with base 1 s, cap 30 s, full jitter ([0.5, 1.5]), default `max_attempts` 3 (range 1..20).
+  - 4 failure classification values (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`) with `UNKNOWN` defaulting to retryable.
+  - Validation-style failures of allowlisted tasks are permanent (`PERMANENT`).
   - Success (exit code 0) is `AttemptCompleted` and not a failure classification.
   - `LOST` attempts consume 1 attempt from the `max_attempts` budget.
   - No separate attempt-level execution timeout in V1.
@@ -17,12 +17,12 @@ Accepted by Owner (2026-10-26)
 ## Context
 MiniCloud jobs are finite computational tasks that may encounter transient errors (network timeouts, node preemption, database connection blips) or permanent errors (bad input syntax, unhandled application exceptions, missing parameters).
 
-Blueprint Section 5 and Section 13 mandate that:
+Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 10 ("Test Strategy and Failure Injection", pages 8–10) mandate that:
 1. Retries must be bounded by an explicit `max_attempts` budget.
 2. The platform must distinguish retryable vs. permanent errors.
 3. The platform provides **at-least-once execution semantics** under retries. It must explicitly disclaim exactly-once execution for arbitrary external side effects.
 4. Retry attempts must maintain monotonic attempt numbering and respect the single-active-attempt database index.
-5. Backoff must incorporate randomized jitter to prevent thundering herds and retry storms against the coordinator and database.
+5. Backoff incorporates randomized jitter (an owner decision; the blueprint itself does not mention jitter) to prevent thundering herds and retry storms against the coordinator and database.
 
 ---
 
@@ -56,29 +56,33 @@ MiniCloud introduces a structured failure classification taxonomy:
 - **Clarification**: Exit code 0 represents a successfully completed attempt (`domain.AttemptCompleted`), transitioning the job to `domain.StateSucceeded`. Success is **not** a failure class; `ErrorClassification` is strictly empty or omitted when an attempt succeeds. (Accepted by owner).
 
 #### Classification Categories for Failed Attempts
+The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSIENT`, `UNKNOWN`, and `LEASE_EXPIRED`.
 1. **`ClassPermanent` (`"PERMANENT"`)**:
    - The failure is deterministic; repeating execution with the same payload and environment will reproduce the exact same failure.
    - **Validation-Style Failures**: All allowlisted in-process tasks (`echo`, `sleep`, `sha256_loop`) classify input validation failures (e.g., negative duration for `sleep`, malformed or missing JSON payload, unparseable round count for `sha256_loop`) as `ClassPermanent`. (Accepted by owner).
    - Action: Job transitions immediately to `FAILED` without retrying, conserving cluster capacity.
-2. **`ClassRetryable` (`"RETRYABLE"`)**:
+2. **`ClassTransient` (`"TRANSIENT"`)**:
    - The failure is transient, environmental, or node-specific; repeating execution on the same or another worker has a high probability of success.
-   - Examples: Lease expired (`LOST`), worker process crash/SIGKILL, transient connection reset, database query timeout.
+   - Examples: Transient network timeout, database lock contention, temporary downstream service unavailability.
    - Action: If `attempt_no < max_attempts`, job transitions to `RETRYING`; if `attempt_no >= max_attempts`, job transitions to `FAILED`.
 3. **`ClassUnknown` (`"UNKNOWN"`)**:
    - The failure cause cannot be definitively determined from the process exit code or error string.
-   - Action: Default policy treats `ClassUnknown` as **`ClassRetryable`** until `max_attempts` is exhausted. (Accepted by owner).
+   - Action: Default policy treats `ClassUnknown` as retryable (`TRANSIENT` behavior) until `max_attempts` is exhausted. (Accepted by owner).
+4. **`ClassLeaseExpired` (`"LEASE_EXPIRED"`)**:
+   - Stamped exclusively by the lease sweeper when an attempt expires without timely renewal and is marked `LOST`.
+   - Action: Consumes 1 attempt; transitions to `RETRYING` if attempts remain, or `FAILED` if exhausted.
 
-#### Three-Tier Classification Authority
-1. **Tier 1 (Task / Executor)**: The task implementation inspects execution. Predefined tasks emit structured exit codes and set `AttemptOutcome.ErrorClassification`.
-2. **Tier 2 (Worker Agent)**: If the executor process terminates abnormally (killed by OS signal, panic recovery, context deadline exceeded), the worker agent classifies the outcome before reporting.
-3. **Tier 3 (Coordinator — Final Arbiter)**: The coordinator validates the report against job policy. If the worker crashed without reporting, the lease expiry sweeper (ADR-0014) classifies the attempt as `ClassRetryable`.
+#### Classification Authority & Allowed Writers
+- **Worker Report**: The worker result report endpoint (`POST /v1/jobs/{id}/attempts/{attempt_id}/result`) accepts only `PERMANENT`, `TRANSIENT`, and `UNKNOWN`.
+- **Coordinator Sweeper**: Only the lease sweeper may assign `LEASE_EXPIRED`.
+- **Job Failure Summary**: The `jobs` table has no `error_class` column; the terminal failure summary and error classification are recorded in `job_events` details upon transition to `FAILED`.
 
 ### 2. Bounded Retries & Backoff with Jitter
-- **Attempt Upper Bound**: `max_attempts` is configured at job submission ($1..20$, default 3; enforced by SQL check constraint `chk_jobs_max_attempts`).
+- **Attempt Upper Bound**: `max_attempts` is configured at job submission (1..20, default 3; enforced by SQL check constraint `chk_jobs_max_attempts`).
 - **`LOST` Attempts Consume `max_attempts`**:
   - Every attempt marked `LOST` by the lease sweeper (due to worker crash, network partition, or lease expiration) **consumes 1 attempt** from the job's `max_attempts` budget. (Accepted by owner).
-  - **Consequence for Prolonged Worker Outages**: If a worker or fleet suffers a persistent outage exceeding $\text{max\_attempts} \times \text{backoff}$, repeated attempt losses consume the entire `max_attempts` budget, causing the job to transition to `FAILED` due to infrastructure loss rather than task computation errors.
-  - **`error_class` Label**: When an attempt is swept to `LOST`, `attempts.error_class` is stamped with `"INFRASTRUCTURE_FAULT"` (or `"LEASE_EXPIRED"`). If a job exhausts `max_attempts` due to sweeper sweeps, the resulting job failure summary and audit event explicitly record `error_class = "INFRASTRUCTURE_FAULT"`. This lets operators and monitoring alerts immediately distinguish infrastructure loss (worker crash, node eviction, host partition) from application task bugs (`"PERMANENT"` or `"TRANSIENT"` task failures).
+  - **Consequence for Prolonged Outages**: Each lost attempt costs approximately lease duration (~30s) + up to one sweeper tick (~5s) + backoff delay. Repeated losses consume the `max_attempts` budget. While coordinator startup and database outage grace windows protect surviving workers during control-plane downtime, grace does not protect against worker-to-coordinator network partitions; prolonged partitions will exhaust `max_attempts` and transition the job to `FAILED`.
+  - **`error_class` Label**: When an attempt is swept to `LOST`, `attempts.error_class` is stamped with `"LEASE_EXPIRED"`. If a job exhausts `max_attempts` due to sweeper sweeps, the resulting `job_events` record logs `error_class: "LEASE_EXPIRED"`. This lets operators and monitoring distinguish lease expirations from application task bugs.
   - **Alternative Considered & Why Rejected**:
     - *Alternative*: Granting infinite or non-budgeted retries for `LOST` attempts (not decrementing `max_attempts` when workers disappear).
     - *Why Rejected*: A "poison job" whose payload triggers host memory exhaustion, kernel panics, or SIGKILL/OOM of the worker process would loop infinitely across the cluster, systematically crashing every worker in the fleet one by one. Bounding all executions to `max_attempts` regardless of failure root cause guarantees cluster survivability and enforces bounded execution.
@@ -86,17 +90,17 @@ MiniCloud introduces a structured failure classification taxonomy:
   A new column `not_before TIMESTAMPTZ` is added to the `jobs` table (nullable).
 - **Exponential Backoff Formula**:
   When an attempt fails with a retryable classification and `attempt_no < max_attempts`:
-  $$\text{backoff} = \min\left(\text{max\_backoff}, \text{base\_backoff} \times 2^{\text{attempt\_no}-1}\right) \times \text{jitter}$$
+  backoff = min(max_backoff, base_backoff * 2^(attempt_no-1)) * jitter
   - `base_backoff`: Default 1.0 second. (Accepted by owner).
   - `max_backoff`: Default 30.0 seconds. (Accepted by owner).
-  - `jitter`: Uniform pseudo-random multiplier between $[0.5, 1.5]$ (full jitter). (Accepted by owner).
+  - `jitter`: Uniform pseudo-random multiplier between [0.5, 1.5] (full jitter). (Accepted by owner).
 - **Database Timestamp Assignment**:
   `jobs.not_before = clock_timestamp() + make_interval(secs => backoff_seconds)`.
 
 ### 3. Transition from `RETRYING` to Dispatch Eligibility: Direct `RETRYING -> RUNNING`
 
-#### Blueprint Citation & Justification for Departure from Conceptual Wording
-- **Blueprint Conceptual Wording**: Blueprint Section 5 ("Job Lifecycle and State Machine", p. 11-12) and Section 13 ("Failure Handling & Edge Cases", p. 28-29) conceptually illustrate that when a retryable attempt fails, the job transitions to `RETRYING`, and when the backoff delay elapses, the job transitions back to `QUEUED` so the scheduler can pick it up again.
+#### Blueprint Citation & Justification for Departure from Conceptual Initial Policy
+- **Blueprint Conceptual Initial Policy**: Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) conceptually lists `RETRYING -> QUEUED, FAILED, CANCELLED` as an initial policy, suggesting that when a retry delay elapses, the job moves back to `QUEUED`.
 - **Architectural Reality & Justification**: In PostgreSQL, implementing an intermediate `RETRYING -> QUEUED` transition would require a background poller or sweeper running constantly just to execute `UPDATE jobs SET state = 'QUEUED' WHERE state = 'RETRYING' AND not_before <= clock_timestamp()`. This introduces unnecessary write amplification, database lock contention, and race conditions for a purely administrative intermediate state flip.
 - **Direct Dispatch Transition (Accepted)**: Instead, `jobs.not_before` acts as a deferred availability gate directly in the single-transaction pull dispatch query (`repo.DispatchNextJob`):
   ```sql
@@ -118,14 +122,15 @@ MiniCloud introduces a structured failure classification taxonomy:
 
 To guarantee seamless testing and environment parity between in-memory and PostgreSQL modes:
 1. **In-Memory Repository and Queue Dispatch Rule**:
-   - In PostgreSQL mode, `not_before` backoff is integrated directly into the database pull dispatch query (`repo.DispatchNextJob`), allowing both `QUEUED` and backoff-eligible `RETRYING` jobs to be claimed without an external queue re-enqueue.
-   - In in-memory mode, `InMemoryRepository` implements domain FSM state transitions and stores `job.State = StateRetrying` and `job.NotBefore`. For dispatch, delayed backoff dispatch is Postgres-mode-only; in-memory mode is explicitly scoped to state-machine semantics testing (validating that `RUNNING -> RETRYING` succeeds when `attempt_no < max_attempts`, sets `not_before`, rejects transitions if `attempt_no >= max_attempts`, and permits immediate `RETRYING -> CANCELLED` on cancel).
+   - In both PostgreSQL and in-memory modes, `repo.DispatchNextJob` and `repo.DispatchJob` accept jobs that are either `QUEUED` or in `RETRYING` with `not_before <= now` (where `now` is `clock_timestamp()` in PostgreSQL and the injected `Clock.Now()` in in-memory mode), with zero re-enqueue.
+   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends.
+   - In-memory event recording records the actual `from_state` (`QUEUED` or `RETRYING`), and all timestamped mutations evaluate against the injected `Clock`.
 2. **Shared Conformance Suite Assertions**:
    The shared conformance test suite (`internal/storage/storagetest`) asserts identical state machine behavior across both in-memory and PostgreSQL repositories:
    - Transitioning a retryable failure to `RETRYING` persists `not_before` in the future.
    - Transitioning an attempt failure when `attempt_no >= max_attempts` moves the job to `FAILED` with error `"max attempts exhausted"`.
-   - Calling `CancelJob` on a job in `RETRYING` state transitions the job directly to `CANCELLED`.
-   - PostgreSQL-specific repository tests (`internal/storage/postgres/repository_test.go`) additionally assert database dispatch timing: `DispatchNextJob` returns `ErrNoJobsAvailable` when `not_before > clock_timestamp()`, and claims the job directly to `RUNNING` once `clock_timestamp() >= not_before`.
+   - Calling `CancelJob` on a job in `RETRYING` state transitions the job directly to `CANCELLED` and clears `not_before`.
+   - Conformance tests assert dispatch timing: `DispatchNextJob` returns `ErrNoJobsAvailable` when `not_before > now`, and claims the job directly to `RUNNING` once `now >= not_before`.
 
 ### 5. Database Invariant Preservation Under Retries
 1. **Monotonic Attempt Numbering (`uq_attempts_job_attempt_no`)**:
@@ -133,7 +138,7 @@ To guarantee seamless testing and environment parity between in-memory and Postg
      ```sql
      SELECT COALESCE(MAX(attempt_no), 0) + 1 FROM attempts WHERE job_id = $1;
      ```
-   - Attempt 1 fails $\rightarrow$ attempt 2 is created with `attempt_no = 2`. Unique constraint `(job_id, attempt_no)` is guaranteed.
+   - Attempt 1 fails -> attempt 2 is created with `attempt_no = 2`. Unique constraint `(job_id, attempt_no)` is guaranteed.
 2. **At Most One Active Attempt (`idx_attempts_active_per_job`)**:
    - Partial unique index: `WHERE state IN ('PENDING', 'RUNNING')`.
    - When attempt 1 fails or expires, its state is updated to `FAILED`, `LOST`, or `TIMED_OUT` **in the same transaction** before the job enters `RETRYING`.
@@ -162,10 +167,11 @@ A "poison job" is a job whose payload causes worker crashes (e.g. fatal segfault
 - **Honest Semantics**: No misleading claims of exactly-once delivery for arbitrary side effects.
 - **Resource Conservation**: Permanent errors and input validation failures fail fast without consuming retry budgets.
 - **Efficiency**: Direct `RETRYING -> RUNNING` pull dispatch eliminates intermediate database state sweeps.
+- **Backend Parity**: Identical retry and dispatch semantics across in-memory and PostgreSQL storage.
 
 ### Negative / Trade-offs
 - Tasks that are not idempotent may experience duplicate execution if a worker crashes post-execution but pre-commit.
-- Extended worker outages cause active jobs to exhaust `max_attempts` and fail after $3 \times 30\text{s}$.
+- Extended worker outages cause active jobs to exhaust `max_attempts` and fail after repeated attempt lease losses.
 
 ### Invariants Protected
 - Invariant 1: Stable Job & Attempt IDs (monotonic attempt numbering)
