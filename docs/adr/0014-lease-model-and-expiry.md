@@ -82,7 +82,7 @@ MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol
   2. Attempt must exist, match `job.current_attempt_id`, and be in `RUNNING` state.
   3. SHA-256 hash of `lease_token` must match `attempts.lease_token_hash` in constant time (`subtle.ConstantTimeCompare`).
   4. Reporting `worker_id` must match `attempts.worker_id`.
-  5. Attempt state must be `RUNNING`. Under the **Symmetric Accept-Until-Swept Rule**, if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals) but the sweeper has not yet transitioned the attempt to `LOST`, renewal is accepted and extended from current database time (`clock_timestamp() + make_interval(secs => lease_duration)`), symmetric with commit. HTTP 409 Conflict (`LEASE_EXPIRED`) is returned only once the attempt has already been swept to `LOST`.
+  5. Attempt state must be `RUNNING`. Under the **Symmetric Accept-Until-Swept Rule**, if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals) but the sweeper has not yet transitioned the attempt to `LOST`, renewal is accepted and extended from current database time (`clock_timestamp() + make_interval(secs => lease_duration)`), symmetric with commit (except on a `CANCEL_REQUESTED` job, where the renewal returns the current expiry unchanged without extending the lease). HTTP 409 Conflict (`LEASE_EXPIRED`) is returned only once the attempt has already been swept to `LOST`.
 - **Response (200 OK)**:
   ```json
   {
@@ -91,7 +91,11 @@ MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol
     "cancel_requested": false
   }
   ```
-- **Single Cancellation Channel**: The renewal response is the single channel for delivering cancellation requests to workers. When `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`), returns `"cancel_requested": true`, and does NOT extend `lease_expires_at` (it returns the current unextended expiry). The worker agent inspects this flag, cancels the task execution context via `context.CancelFunc`, stops further renewals, and still reports its result when execution finishes. If an uncooperative task ignores context cancellation, the lease expires within one lease duration (30s) from the last renewal; the sweeper closes the attempt and the job becomes `CANCELLED` (never `RETRYING`). Worst-case delivery latency is bounded by exactly one renewal interval (10 seconds default). (Accepted by owner).
+- **Single Cancellation Channel & Commit Outcomes on `CANCEL_REQUESTED`**:
+  The renewal response is the single channel for delivering cancellation requests to workers. When `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`), returns `"cancel_requested": true`, and does NOT extend `lease_expires_at` (it returns the current unextended expiry). The worker agent inspects this flag, cancels the task execution context via `context.CancelFunc`, stops further renewals, and still reports its result when execution finishes. If an uncooperative task ignores context cancellation, the lease expires within one lease duration (30s) from the last renewal; the sweeper closes the attempt and the job becomes `CANCELLED` (never `RETRYING`). Worst-case delivery latency is bounded by exactly one renewal interval (10 seconds default). (Accepted by owner).
+  - When committing a result on `CANCEL_REQUESTED`:
+    - A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049` (permitted by `internal/domain/transition.go:21`).
+    - A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING`).
 - **Lease-Lost Handling**: If renewal returns HTTP 409 Conflict (`LEASE_EXPIRED` or `STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), meaning the attempt was swept to `LOST` by the sweeper, the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 - **Renewal Error Handling & Degradation**:
   - **404 Handling**: The worker checks the response body error envelope. If the response contains a recognized JSON error code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, or `WORKER_NOT_FOUND`), the attempt is invalid and the worker aborts immediately. If the 404 response lacks the JSON error envelope (such as a plain text `404 page not found` from an older coordinator missing the `/renew` route), the worker logs once and degrades gracefully, executing to completion without renewals.
@@ -171,14 +175,8 @@ jobs -> workers -> attempts -> results -> job_events
 - **Accepted Recommendation**: A dual grace period mechanism:
   1. **Coordinator Startup Grace Period (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30s)**: On coordinator boot or restart, the sweeper suppresses reaping passes until 30 seconds have elapsed on process/startup time. This gives surviving workers a full lease window to reconnect, auto-re-register, and execute at least 3 renewal attempts (renewal interval 10s) or commit completed results before any attempt can be reaped. The only authoritative grace check is inside the sweeper transaction lock; any earlier pre-check is advisory. (Accepted by owner).
   2. **Database Outage Grace Window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30s)**: When the coordinator detects that the database has recovered from an outage, the sweeper suppresses reaping passes for 30 seconds. (Accepted by owner).
-- **Outage Grace Detection Mechanism & Cooldown**:
-  Because the sweeper can only observe its own database interactions, an outage condition is detected autonomously on database time when either:
-  1. **Failed Tick**: Any sweeper tick fails with database connectivity errors (`net.OpError`, connection refused, connection reset, pool closed). Statement timeouts, lock timeouts, or slow query execution deadlines do NOT trigger grace (`TestPostgresRepository_Sweeper_SlowTick_DoesNotEnterGrace` (planned test)).
-  2. **Database-Time Gap**: The database timestamp difference between the end of the previous successful tick and the start of the current tick exceeds 3x the sweeper interval (gap > 3 * `MINICLOUD_SWEEPER_INTERVAL`, e.g. > 15s for default 5s interval).
-  Upon the **first successful database round trip** following an outage condition, the coordinator activates the outage grace window:
-  `outage_grace_until = clock_timestamp() + MINICLOUD_OUTAGE_GRACE_WINDOW`
-  The only authoritative grace check is the one inside the sweeper transaction lock. Any earlier pre-check is advisory and must be labelled so or removed.
-  **Cooldown definition**: it starts when a grace window ends; during the cooldown a new outage detection does NOT open a new grace window, so reaping proceeds. Maximum continuous suppression of reaping is therefore one window length. While in grace, sweeper reaping passes are completely suppressed.
+- **Outage Grace Detection Mechanism & Cooldown (D-R3-01)**:
+  The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 - **Configuration Names & Validation Rules**:
   - `MINICLOUD_STARTUP_GRACE_PERIOD`: Time to suppress sweeper reaping after coordinator boot (default: `30s`).
   - `MINICLOUD_OUTAGE_GRACE_WINDOW`: Time to suppress sweeper reaping after database recovery (default: `30s`).
@@ -194,8 +192,11 @@ jobs -> workers -> attempts -> results -> job_events
 - **Planned Grace Verification Tests**:
   - `TestPostgresRepository_Sweeper_OutageGraceDetection_SuppressesReap` (planned test).
   - `TestPostgresRepository_Sweeper_StartupGrace_SuppressesReap` (planned test).
-  - `TestPostgresRepository_Sweeper_SlowTick_DoesNotEnterGrace` (planned test).
-  - `TestPostgresRepository_Sweeper_RestartCooldown_CapsGraceWindow` (planned test).
+  - `TestPostgresRepository_Sweeper_FailedTick_EntersGrace` (planned test).
+  - `TestPostgresRepository_Sweeper_InterTickGapExceedsThreshold_EntersGrace` (planned test).
+  - `TestPostgresRepository_Sweeper_InterTickGapBelowThreshold_EntersNoGrace` (planned test).
+  - `TestPostgresRepository_Sweeper_CandidateLockTimeout_EntersNoGrace` (planned test).
+  - `TestPostgresRepository_Sweeper_CooldownPreventsConsecutiveGrace` (planned test).
   - `TestPostgresRepository_DatabaseStopStart_WorkerRenewsSuccessfully` (planned test).
   - `TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected` (planned test).
 
@@ -213,18 +214,22 @@ jobs -> workers -> attempts -> results -> job_events
 **Decision**: MiniCloud adopts **Option 2 (Symmetric Accept-Until-Swept while `RUNNING`)** across both `CommitAttempt` and `RenewAttemptLease` (Accepted by owner).
 - **Symmetric Rule**: A lease represents exclusive write and execution rights until revoked by the coordinator sweeper. While `attempts.state == 'RUNNING'`:
   - `CommitAttempt` accepts the result and transitions the job to `SUCCEEDED` (or `FAILED` / `RETRYING`).
-  - `RenewAttemptLease` accepts the renewal and extends `lease_expires_at` to `clock_timestamp() + make_interval(secs => lease_duration)`.
+  - `RenewAttemptLease` accepts the renewal and extends `lease_expires_at` to `clock_timestamp() + make_interval(secs => lease_duration)` (except on a `CANCEL_REQUESTED` job, where the renewal returns the current expiry unchanged without extending the lease).
   Neither commit nor renewal is rejected merely because `lease_expires_at` has passed on the clock while the sweeper was paused for grace or between ticks.
 - **Cost of Accept-Until-Swept**: A slow, delayed, or temporarily paused worker that remains alive keeps its attempt even if `lease_expires_at` has passed, until the sweeper runs its next pass. This slightly delays reclaiming stalled workers, but prevents catastrophic cascading aborts during coordinator restarts and database outages, preserving in-progress computation and upholding Phase 3 surviving-worker guarantees.
-- **Code-Level Error Definition & 409 Evaluation Order**:
+- **Code-Level Error Definition & 409 Evaluation Order (D-R3-02)**:
   ```go
+  // ErrJobAlreadyTerminal is returned when an attempt commit is requested on an already-terminal job.
+  // Today's code returns this directly (internal/storage/inmemory.go:578-579, internal/storage/postgres/repository.go:983-985).
+  var ErrJobAlreadyTerminal = errors.New("job is already terminal")
+
   // ErrLeaseExpired is returned when a renewal or commit is attempted on an attempt that was already swept to LOST.
   var ErrLeaseExpired = errors.New("attempt lease expired and was marked lost")
   ```
   Evaluation order on `CommitAttempt`:
-  1. Terminal Job -> HTTP 409 `JOB_ALREADY_TERMINAL`, `domain.ErrJobAlreadyTerminal`
-  2. Swept Attempt (`LOST`) -> HTTP 409 `LEASE_EXPIRED`, `domain.ErrLeaseExpired`
-  3. Superseded Attempt / Token Mismatch -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`
+  1. Terminal Job -> HTTP 409 `JOB_ALREADY_TERMINAL`, `domain.ErrJobAlreadyTerminal`. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). The result row from the first commit is the single stored result; the retry is rejected; the worker treats the 409 as final. (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
+  2. Swept Attempt (`LOST`) -> HTTP 409 `LEASE_EXPIRED`, `domain.ErrLeaseExpired`.
+  3. Superseded Attempt / Token Mismatch -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`.
   The worker treats all three 409 codes as terminal and halts retrying.
 - **Hard Boundary (No Resurrection Once Swept)**: Once the sweeper acquires row locks and transitions the attempt to `LOST`, Option 2 ceases. Any subsequent commit or renewal attempt is strictly rejected with HTTP 409 Conflict (`LEASE_EXPIRED`) and `domain.ErrLeaseExpired`. At most one `DIAGNOSTIC_LATE_RESULT` audit event is written per attempt (using `ON CONFLICT DO NOTHING` arbitrated by partial unique index `idx_job_events_unique_diagnostic_late_result` on `(job_id, (details->>'attempt_id')) WHERE event_type = 'DIAGNOSTIC_LATE_RESULT'`) to bound unauthenticated table growth under SEC-004. The result is **never** committed to `results`. Expired attempts are never resurrected. (Accepted by owner).
 - **Planned Verification Tests**:
@@ -232,6 +237,7 @@ jobs -> workers -> attempts -> results -> job_events
   - `TestPostgresRepository_RenewAttemptLease_AfterSweptToLost_RejectedLeaseExpired` (planned test).
   - `TestPostgresRepository_CommitAttempt_ExpiredButUnswept_Accepted` (planned test).
   - `TestPostgresRepository_CommitAttempt_AfterSweptToLost_RejectedLeaseExpired` (planned test).
+  - `TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged` (planned test).
 
 ---
 
