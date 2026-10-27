@@ -13,6 +13,10 @@ const (
 	JobEventFailed          JobEventType = "JOB_FAILED"
 	JobEventCancelled       JobEventType = "JOB_CANCELLED"
 	JobEventCancelRequested JobEventType = "JOB_CANCEL_REQUESTED"
+
+	// JobEventDiagnosticLateResult records a result rejected because its job was already
+	// terminal (state-machine.md event catalogue).
+	JobEventDiagnosticLateResult JobEventType = "DIAGNOSTIC_LATE_RESULT"
 )
 
 // JobEvent represents an immutable, append-only lifecycle event for audit and observability.

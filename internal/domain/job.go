@@ -14,17 +14,19 @@ type Result struct {
 
 // Job represents a unit of computation submitted to MiniCloud.
 type Job struct {
-	ID               string          `json:"id"`
-	TaskType         string          `json:"task_type"`
-	Payload          json.RawMessage `json:"payload"`
-	State            JobState        `json:"state"`
-	Priority         int             `json:"priority"`
-	MaxAttempts      int             `json:"max_attempts"`
-	TimeoutSeconds   int             `json:"timeout_seconds"`
-	CurrentAttemptID string          `json:"current_attempt_id,omitempty"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
-	Result           *Result         `json:"result,omitempty"`
+	ID                string          `json:"id"`
+	TaskType          string          `json:"task_type"`
+	Payload           json.RawMessage `json:"payload"`
+	State             JobState        `json:"state"`
+	Priority          int             `json:"priority"`
+	MaxAttempts       int             `json:"max_attempts"`
+	TimeoutSeconds    int             `json:"timeout_seconds"`
+	CurrentAttemptID  string          `json:"current_attempt_id,omitempty"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	NotBefore         *time.Time      `json:"not_before,omitempty"`
+	CancelRequestedAt *time.Time      `json:"cancel_requested_at,omitempty"`
+	Result            *Result         `json:"result,omitempty"`
 }
 
 // TransitionTo validates and applies a state transition to the job.
