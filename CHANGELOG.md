@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Two-Agent Workflow Infrastructure (P0-01, PR #16, `main` at `a9453fc`):**
+  - **Single Rule File (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`):** `AGENTS.md` is the single rule file for all coding agents; `CLAUDE.md` and `GEMINI.md` point to it.
+  - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Established task board with builder/auditor roles, active/done states, reserved touch points, and handoff and review folders.
+  - **Per-Worktree Test Databases (`minicloud_claude_test`, `minicloud_gemini_test`):** Documented and verified per-worktree test databases in `AGENTS.md` section 9 so concurrent agent test runs avoid data collisions. Added guarded reset script refusing anything other than `minicloud_<agent>_test` and added database preflight check to session start protocol (section 7 step 0 and section 9).
+  - **Citation Checker Scope (`tests/docs/citations_test.go`):** Added `AGENTS.md` to root documentation files scanned by `CollectDocFiles` in `tests/docs/citations_test.go`.
 - **Phase 4 Design Specification Revision 2 (`docs/phase4-design`):**
   - **Symmetric Accept-Until-Swept Rule (ADR-0014, ADR-0016, `docs/protocol.md`, `docs/state-machine.md`, `docs/failure-model.md`, `docs/fault-injection-plan.md`):** Resolved renewal vs grace design contradiction: both `RenewAttemptLease` and `CommitAttempt` succeed while `attempts.state == 'RUNNING'` even if `lease_expires_at` has passed on database time, extending the lease from current database time and returning HTTP 409 `LEASE_EXPIRED` (`domain.ErrLeaseExpired`) only after the sweeper has marked the attempt `LOST`.
   - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry loop with capped jittered backoff ($500\text{ms}$ base to $5.0\text{s}$ cap), ongoing background lease renewals during reporting, explicit terminal rejection stops (403, 404, 409), and 60s total delivery bound ($\text{lease} + \text{grace}$). Updated FS-05 to verify tasks completing during extended 45s coordinator downtime.
