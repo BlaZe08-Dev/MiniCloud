@@ -32,6 +32,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
 | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
 | **SEC-022** | Low | Open (confirmed by code reading, NOT executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED moves job directly to CANCELLED via fallback branch, bypassing worker cooperative context and rejecting later worker commit. | `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) |
+| **SEC-023** | Low | Open (executed plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
 
 ---
 
@@ -341,6 +342,31 @@ For findings of **Medium** severity and above, the full structured report format
   ```
   The HTTP API handler will return HTTP 202 `Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation already requested"`.
 - **Regression Test**: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+
+---
+
+### SEC-023: TestMigrator_PreExistingInvalidRow_ValidationFails Missing _test Database Name Guard
+
+- **Finding**: `TestMigrator_PreExistingInvalidRow_ValidationFails` has no `_test` database-name guard. If `MINICLOUD_TEST_DATABASE_URL` pointed at the dev database, it would create a schema there, run migrations and drop it; every other Postgres test helper refuses such names with `SAFETY VIOLATION`.
+- **Severity**: Low
+- **Category**: Test Safety Guardrails / Database Isolation
+- **Status**: Open (executed plus confirmed by code reading)
+- **Affected Component**: PostgreSQL Migrator Tests (`internal/storage/postgres/migrator_test.go:546-575`)
+- **Preconditions**: `MINICLOUD_TEST_DATABASE_URL` is set pointing to a database whose name does not end in `_test` (such as the development database `minicloud`).
+- **Reproduction Steps**:
+  1. Set `MINICLOUD_TEST_DATABASE_URL` pointing to a database name not ending in `_test` (e.g. `minicloud_noguard_probe`).
+  2. Run `go test -v -race -run TestMigrator_PreExistingInvalidRow_ValidationFails ./internal/storage/postgres`.
+  3. Observe that unlike other Postgres tests which fail immediately with `SAFETY VIOLATION: refusing to run test against database...`, this test attempts to connect directly to the database without validating the `_test` suffix.
+- **Evidence**: Executed plus confirmed by code reading of `internal/storage/postgres/migrator_test.go:546-575`.
+  When pointing tests at a database name not ending in `_test` (`minicloud_noguard_probe`), 23 `SAFETY VIOLATION` stops occurred across the suite, but `TestMigrator_PreExistingInvalidRow_ValidationFails` reached the connection step without a safety check:
+  ```
+  --- FAIL: TestMigrator_PreExistingInvalidRow_ValidationFails (0.01s)
+      migrator_test.go:555: failed to connect to test database: failed to connect to `user=postgres database=minicloud_noguard_probe`: 127.0.0.1:5433 (127.0.0.1): server error: FATAL: database "minicloud_noguard_probe" does not exist (SQLSTATE 3D000)
+  ```
+- **Impact**: If `MINICLOUD_TEST_DATABASE_URL` pointed at the development database `minicloud`, the test would connect, create a `test_migrator_pre_existing_*` schema there, run migrations and drop it. While impact is limited to its own temporary schema, it breaks the invariant guardrail promised in `docs/testing-postgres.md`.
+- **Root Cause**: `TestMigrator_PreExistingInvalidRow_ValidationFails` directly calls `pgx.Connect(ctx, testURL)` after checking `testURL == ""` without extracting the database name or asserting that `strings.HasSuffix(dbName, "_test")`.
+- **Recommended Fix**: Fix is NOT authorized yet; adding the same `_test` suffix check as `TestMigrator_FreshMigrate` and other test helpers is a later small task.
+- **Regression Test**: `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`).
 
 ---
 
