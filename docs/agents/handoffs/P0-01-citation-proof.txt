@@ -1,0 +1,15 @@
+### 1. scratch copy, OLD checker (main), clean AGENTS.md
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.420s
+### 2. scratch copy, NEW checker, clean AGENTS.md
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.262s
+### 3. NEW checker, deliberate bad citations appended to AGENTS.md
+        citations_test.go:713: AGENTS.md:295: [RuleA] cited path "internal/nope/missing.go" does not exist in repository
+        citations_test.go:727: AGENTS.md:295: [RuleC] cited test "TestDoesNotExistAnywhere" does not exist
+        citations_test.go:741: AGENTS.md:295: [RuleE] cited ADR 99 does not exist (expected docs/adr/0099-*.md)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.323s
+FAIL
+### 4. OLD checker, same bad citations (shows the scope change is what catches them)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.204s
+### 5. NEW checker, bad citations removed
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.220s
