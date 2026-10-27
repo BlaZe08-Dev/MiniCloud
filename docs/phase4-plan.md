@@ -75,7 +75,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Rewire in-memory coordinator to call `repo.DispatchNextJob`.
   - Expand shared conformance suite in `internal/storage/storagetest/conformance.go`.
   - Property test: `TestProperty_StateMachine_ModelConformance` (planned test) driving reference model and repository with injectable clock.
-  - Remove the three probe allowlist entries in `tests/docs/citation_allowlist.txt` when moving the audit probe into the normal test tree.
+  - Remove the four probe allowlist entries in `tests/docs/citation_allowlist.txt` when moving the audit probe into the normal test tree.
 - **Exit Criteria**:
   - Domain FSM centrally validates all transitions with typed domain errors.
   - In-memory repository passes expanded shared conformance suite.
