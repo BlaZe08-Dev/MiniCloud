@@ -111,6 +111,11 @@ The following items were identified during static inspection of the codebase. It
     - Worker `SupportedTasks` array length is bounded to $\le 16$ items (empty array permitted), individual task names validated to `^[a-zA-Z0-9_-]+$` with length 1..64 chars, and unknown well-formed tasks accepted for rolling upgrades. Backed by PostgreSQL `chk_workers_supported_tasks_count`.
     - Verified by `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), and `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
+12. **Premature Job Finalization via Duplicate Cancel on CANCEL_REQUESTED (`internal/storage/inmemory.go:658-683`, `internal/storage/postgres/repository.go:1135-1215`)** (SEC-022, Open):
+    - A second cancellation request for a job in `CANCEL_REQUESTED` falls through to the `else` branch and transitions the job directly to `CANCELLED`, terminating the job while the worker is actively running and causing subsequent result commits to be rejected as terminal (`JOB_ALREADY_TERMINAL`).
+    - Remediation: Handle `CANCEL_REQUESTED` explicitly as an idempotent no-op returning HTTP 202 (authorized in Slice 4a).
+    - Verification step: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+
 ---
 
 ## 4. Phase 4 Threat Model Addendum (Leases, Retries, and Cancellation)

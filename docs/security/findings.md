@@ -31,6 +31,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
 | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
+| **SEC-022** | Low | Open (confirmed by code reading, NOT executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED moves job directly to CANCELLED via fallback branch, bypassing worker cooperative context and rejecting later worker commit. | `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) |
 
 ---
 
@@ -290,6 +291,56 @@ For findings of **Medium** severity and above, the full structured report format
 - **Residual Limitation & Operational Policy**:
   A fabricated name that carries its own exemption label in the same clause still passes by design, because a label-based static exemption cannot distinguish a real future test from a fabricated one. The exemption is a documentation convention, not a proof of legitimacy; every "planned", "future", or "proposed" test name must be human-reviewed when a milestone slice claims coverage. The three genuine labeled future tests in use today are `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), and `TestWorker_ExcessiveTimeoutClamped` (future test).
 - **Regression Test**: `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
+
+### SEC-022: Duplicate CancelJob on CANCEL_REQUESTED Prematurely Finalizes Job
+
+- **Finding**: Calling `CancelJob` a second time on a job currently in `CANCEL_REQUESTED` moves it directly to terminal `CANCELLED`. This bypasses the cooperative worker cancellation protocol: the job is marked terminal in storage while the worker process is still executing the task. When the worker finishes and issues `CommitAttempt`, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`), wasting completed work.
+- **Severity**: Low
+- **Category**: State Transition Logic / Concurrency Defect
+- **Status**: Open (confirmed by code reading, NOT executed)
+- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go:658-683`, `internal/storage/postgres/repository.go:1135-1215`)
+- **Preconditions**: A job is in `RUNNING` state; a first `CancelJob` request transitions it to `CANCEL_REQUESTED`; while the worker is cooperatively executing or acknowledging cancellation, a second `CancelJob` request arrives.
+- **Reproduction Steps**: (confirmed by code reading, NOT executed)
+  1. Submit and dispatch a long-running job so it enters `RUNNING`.
+  2. Issue a first cancellation request: `job.State` transitions to `CANCEL_REQUESTED`.
+  3. Issue a second cancellation request for the same job before the worker acknowledges cancellation.
+  4. Observe repository state: `CancelJob` evaluates the `else` fallback branch and transitions the job to `CANCELLED`.
+  5. Worker completes task and issues `CommitAttempt`: rejected with HTTP 409 Conflict (`JOB_ALREADY_TERMINAL`).
+- **Evidence**: Confirmed by code inspection of `internal/storage/inmemory.go:679-682` and `internal/storage/postgres/repository.go:1190-1193`. In both repositories, the cancellation state branching logic is:
+  ```go
+  if job.State == domain.StateQueued {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  } else if job.State == domain.StateRunning {
+      targetState = domain.StateCancelRequested
+      eventType = domain.JobEventCancelRequested
+  } else {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  }
+  ```
+  Neither repository checks for `job.State == domain.StateCancelRequested`. Because `StateCancelRequested` is neither `StateQueued` nor `StateRunning`, execution enters the `else` fallback branch, setting `targetState = domain.StateCancelled`. In `internal/domain/transition.go:21`, the FSM explicitly permits `StateCancelRequested -> StateCancelled`, so the transition succeeds and terminates the job prematurely. (Confirmed by code reading, NOT executed).
+- **Impact**: Premature termination of jobs during cooperative cancellation windows. Discards completed work if the worker produces a valid result before receiving the cancel signal, violating ADR-0016 Section 5 (Race 1: Cancellation vs Completion) and Race 3 (Duplicate Cancellation Requests).
+- **Root Cause**: Fallback `else` branch treats every non-`QUEUED`, non-`RUNNING` active state as cancellable to `CANCELLED`, omitting explicit handling for `CANCEL_REQUESTED`.
+- **Authorized Fix (Scheduled for Slice 4a)**:
+  Update `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go` to explicitly handle `job.State == domain.StateCancelRequested`:
+  ```go
+  if job.State == domain.StateQueued {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  } else if job.State == domain.StateRunning {
+      targetState = domain.StateCancelRequested
+      eventType = domain.JobEventCancelRequested
+  } else if job.State == domain.StateCancelRequested {
+      // Idempotent duplicate cancel: remain in CANCEL_REQUESTED with zero mutation
+      return job, nil
+  } else {
+      targetState = domain.StateCancelled
+      eventType = domain.JobEventCancelled
+  }
+  ```
+  The HTTP API handler will return HTTP 202 `Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation already requested"`.
+- **Regression Test**: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
 
 ---
 
