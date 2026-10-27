@@ -29,6 +29,12 @@ func newPostgresHarness(t *testing.T) storagetest.Harness {
 				t.Fatalf("force job %s to %s failed: %v", jobID, state, err)
 			}
 		},
+		ForceAttemptState: func(t *testing.T, attemptID string, state domain.AttemptState) {
+			t.Helper()
+			if _, err := pool.Exec(context.Background(), `UPDATE attempts SET state = $1 WHERE id = $2`, string(state), attemptID); err != nil {
+				t.Fatalf("force attempt %s to %s failed: %v", attemptID, state, err)
+			}
+		},
 	}
 }
 
@@ -46,4 +52,8 @@ func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
 
 func TestProperty_StateMachine_ModelConformance(t *testing.T) {
 	storagetest.RunStateMachineModelConformance(t, newPostgresHarness, []int64{1, 2, 3}, 120)
+}
+
+func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
+	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newPostgresHarness)
 }

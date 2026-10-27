@@ -613,6 +613,9 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 type Harness struct {
 	Repo          storage.Repository
 	ForceJobState func(t *testing.T, jobID string, state domain.JobState)
+	// ForceAttemptState sets an attempt's state directly (for example LOST, which only the
+	// sweeper of a later slice produces). Nil when a test does not need it.
+	ForceAttemptState func(t *testing.T, attemptID string, state domain.AttemptState)
 }
 
 func conformanceWorker(t *testing.T, repo storage.Repository, id string, slots int) {
@@ -1132,5 +1135,50 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 
 	for _, j := range order {
 		check(steps, "final", j)
+	}
+}
+
+// RunCommitAttemptNonRunningAttemptConformance verifies that a commit naming an attempt that is no
+// longer RUNNING is rejected with ErrStaleAttempt while the job is still non-terminal, and that the
+// rejection changes nothing: job state, attempt, worker slot, events and stored result stay as they
+// were. In slice 4a no public repository path leaves a non-terminal job with a non-RUNNING current
+// attempt, so COMPLETED, FAILED and LOST are all reached through the harness's ForceAttemptState
+// hook. Wrapped by TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt.
+func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptLost} {
+		state := state
+		t.Run(string(state), func(t *testing.T) {
+			h := newHarness(t)
+			repo := h.Repo
+			conformanceWorker(t, repo, "w_stale", 1)
+			att := conformanceRunningJob(t, repo, "j_stale", "w_stale")
+			h.ForceAttemptState(t, att.ID, state)
+
+			beforeJob, _ := repo.GetJob(ctx, "j_stale")
+			beforeAtt, _ := repo.GetAttempt(ctx, att.ID)
+			beforeEvents := len(conformanceEvents(t, repo, "j_stale"))
+			beforeSlots := conformanceSlots(t, repo, "w_stale")
+
+			_, err := repo.CommitAttempt(ctx, "j_stale", att.ID, att.LeaseToken, "w_stale", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+			if !errors.Is(err, domain.ErrStaleAttempt) {
+				t.Fatalf("commit on a %s attempt: expected ErrStaleAttempt, got %v", state, err)
+			}
+
+			job, _ := repo.GetJob(ctx, "j_stale")
+			if job.State != beforeJob.State || job.Result != nil || !job.UpdatedAt.Equal(beforeJob.UpdatedAt) {
+				t.Fatalf("rejected commit changed the job: before=%+v after=%+v", beforeJob, job)
+			}
+			after, _ := repo.GetAttempt(ctx, att.ID)
+			if after.State != state || after.Output != beforeAtt.Output || after.ExitCode != beforeAtt.ExitCode || (after.FinishedAt == nil) != (beforeAtt.FinishedAt == nil) {
+				t.Fatalf("rejected commit changed the attempt: before=%+v after=%+v", beforeAtt, after)
+			}
+			if got := conformanceSlots(t, repo, "w_stale"); got != beforeSlots {
+				t.Fatalf("rejected commit changed the worker slot count: before=%d after=%d", beforeSlots, got)
+			}
+			if got := len(conformanceEvents(t, repo, "j_stale")); got != beforeEvents {
+				t.Fatalf("rejected commit recorded an event: before=%d after=%d", beforeEvents, got)
+			}
+		})
 	}
 }

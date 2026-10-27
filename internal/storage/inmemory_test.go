@@ -631,6 +631,17 @@ func newInMemoryHarness(t *testing.T) storagetest.Harness {
 				t.Fatalf("UpdateJob(%s) failed: %v", jobID, err)
 			}
 		},
+		ForceAttemptState: func(t *testing.T, attemptID string, state domain.AttemptState) {
+			t.Helper()
+			att, err := repo.GetAttempt(context.Background(), attemptID)
+			if err != nil {
+				t.Fatalf("GetAttempt(%s) failed: %v", attemptID, err)
+			}
+			att.State = state
+			if err := repo.UpdateAttempt(context.Background(), att); err != nil {
+				t.Fatalf("UpdateAttempt(%s) failed: %v", attemptID, err)
+			}
+		},
 	}
 }
 
@@ -754,4 +765,8 @@ func TestInMemoryRepository_CancelRequestedAtSetOnce(t *testing.T) {
 
 func TestProperty_StateMachine_ModelConformance(t *testing.T) {
 	storagetest.RunStateMachineModelConformance(t, newInMemoryHarness, []int64{1, 2, 3, 4, 5, 6, 7, 8}, 400)
+}
+
+func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
+	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newInMemoryHarness)
 }
