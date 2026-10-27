@@ -468,19 +468,20 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
 |---|---|---|---|:---:|---|
 | 1 | Target Job is already in a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
 | 2 | Attempt state is `LOST` (swept by coordinator lease sweeper) | 409 Conflict | `LEASE_EXPIRED` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
-| 3 | Attempt state is not `RUNNING`, attempt superseded, or lease token mismatch | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
+| 3 | Attempt state is not `RUNNING` (maps `domain.ErrAttemptNotRunning`), attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
 | 4 | Reporting worker ID does not match assigned worker | 403 Forbidden | `WORKER_MISMATCH` | No | Final: Worker halts execution, does not report result |
-| 5 | Target job or attempt does not exist | 404 Not Found | `JOB_NOT_FOUND` / `ATTEMPT_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
+| 5 | Reporting worker does not exist | 404 Not Found | `WORKER_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
+| 6 | Target job or attempt does not exist | 404 Not Found | `JOB_NOT_FOUND` / `ATTEMPT_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
 
 *Terminal Job Result Rejection Behavior (D-R3-02)*: When a commit (including a retry of a commit that already succeeded) on an already-terminal job is rejected with 409 `JOB_ALREADY_TERMINAL`, the stored result from the initial commit is the single stored result; the retry is rejected; and the worker treats the 409 as final. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). If the attempt was `RUNNING`, it sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise, frees the worker capacity slot, and records a diagnostic event (`DIAGNOSTIC_LATE_RESULT`). (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
 
-*Commit Outcomes on `CANCEL_REQUESTED` (D-R3-06)*:
+*Commit Outcomes on `CANCEL_REQUESTED` (D-R3-06, D-R4-03)*:
 When committing a result on a job in `CANCEL_REQUESTED`:
 - A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049` (permitted by `internal/domain/transition.go:21`).
 - A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING` or `FAILED`).
-- If the lease expires before commit, the sweeper reaps the attempt as `CANCELLED` and job as `CANCELLED`, recording `JOB_CANCELLED` and `LEASE_EXPIRED`.
+- If the lease expires before commit, the sweeper reaps the attempt as `CANCELLED` and job as `CANCELLED`, recording `JOB_CANCELLED`.
 
-The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running). Phase 4 maps `domain.ErrAttemptNotRunning` to HTTP 409 `STALE_ATTEMPT_REJECTED` (an attempt that is no longer `RUNNING` is stale; today it has no HTTP mapping in `internal/api/handlers.go:110-154` and surfaces as HTTP 500 `INTERNAL_ERROR`).
 
 ---
 
