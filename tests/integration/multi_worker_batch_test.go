@@ -18,7 +18,6 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
-	"github.com/BlaZe08-Dev/Minicloud/internal/queue"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
@@ -32,12 +31,11 @@ func TestThreeWorkerBatch_Integration(t *testing.T) {
 	coordAddr := listener.Addr().String()
 	coordURL := "http://" + coordAddr
 
-	// 2. Start in-process Coordinator HTTP Server using NewServiceWithQueue
+	// 2. Start in-process Coordinator HTTP Server using NewService
 	repo := storage.NewInMemoryRepository()
 	sched := scheduler.NewRoundRobinScheduler()
 	reg := executor.NewRegistry()
-	q := queue.NewInMemoryQueue()
-	svc := coordinator.NewServiceWithQueue(repo, sched, reg, q, 10*time.Second)
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
 	apiServer := api.NewServer(coordAddr, svc)
 
 	httpServer := &http.Server{

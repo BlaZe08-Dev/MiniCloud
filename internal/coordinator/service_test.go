@@ -13,7 +13,6 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
-	"github.com/BlaZe08-Dev/Minicloud/internal/queue"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
@@ -335,85 +334,75 @@ func TestService_ReaperHeartbeatRace(t *testing.T) {
 	}
 }
 
-type spyQueue struct {
-	queue.Queue
-	mu           sync.Mutex
-	ackedJobs    []string
-	releasedJobs []string
+// Dispatch is repository-driven (repo.DispatchNextJob) in every mode, so these tests assert
+// observable outcomes (job state, attempts, worker slots) rather than queue calls.
+
+func newDispatchCoordinator(t *testing.T, repo storage.Repository, workerID string, slots int) *coordinator.Service {
+	t.Helper()
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	w := &domain.Worker{ID: workerID, Status: domain.WorkerStatusHealthy, TotalSlots: slots, SupportedTasks: []string{"echo"}}
+	if err := svc.RegisterWorker(context.Background(), w); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+	return svc
 }
 
-func newSpyQueue(inner queue.Queue) *spyQueue {
-	return &spyQueue{
-		Queue:        inner,
-		ackedJobs:    make([]string, 0),
-		releasedJobs: make([]string, 0),
+func submitEcho(t *testing.T, svc *coordinator.Service, msg string) *domain.Job {
+	t.Helper()
+	job, err := svc.SubmitJob(context.Background(), "echo", []byte(`{"message":"`+msg+`"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+	return job
+}
+
+func requireJobState(t *testing.T, repo storage.Repository, jobID string, want domain.JobState) {
+	t.Helper()
+	job, err := repo.GetJob(context.Background(), jobID)
+	if err != nil {
+		t.Fatalf("GetJob(%s) failed: %v", jobID, err)
+	}
+	if job.State != want {
+		t.Fatalf("job %s: expected state %s, got %s", jobID, want, job.State)
 	}
 }
 
-func (s *spyQueue) Ack(ctx context.Context, jobID string) error {
-	s.mu.Lock()
-	s.ackedJobs = append(s.ackedJobs, jobID)
-	s.mu.Unlock()
-	return s.Queue.Ack(ctx, jobID)
+func requireAttempts(t *testing.T, repo storage.Repository, jobID string, want int) []*domain.Attempt {
+	t.Helper()
+	attempts, err := repo.ListAttemptsByJob(context.Background(), jobID)
+	if err != nil {
+		t.Fatalf("ListAttemptsByJob(%s) failed: %v", jobID, err)
+	}
+	if len(attempts) != want {
+		t.Fatalf("job %s: expected %d attempts, got %d", jobID, want, len(attempts))
+	}
+	return attempts
 }
 
-func (s *spyQueue) Release(ctx context.Context, jobID string) error {
-	s.mu.Lock()
-	s.releasedJobs = append(s.releasedJobs, jobID)
-	s.mu.Unlock()
-	return s.Queue.Release(ctx, jobID)
+func requireSlots(t *testing.T, repo storage.Repository, workerID string, want int) {
+	t.Helper()
+	w, err := repo.GetWorker(context.Background(), workerID)
+	if err != nil {
+		t.Fatalf("GetWorker(%s) failed: %v", workerID, err)
+	}
+	if w.AvailableSlots != want {
+		t.Fatalf("worker %s: expected %d available slots, got %d", workerID, want, w.AvailableSlots)
+	}
 }
 
-func (s *spyQueue) getAcked() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	copied := make([]string, len(s.ackedJobs))
-	copy(copied, s.ackedJobs)
-	return copied
-}
-
-func (s *spyQueue) getReleased() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	copied := make([]string, len(s.releasedJobs))
-	copy(copied, s.releasedJobs)
-	return copied
-}
-
-// TestService_Claim_JobNoLongerQueued_Dropped tests Instruction 2:
-// After Claim, the coordinator re-validates that the job is still QUEUED in the repository;
-// if not, it drops the item, acknowledges it, and claims again.
+// TestService_Claim_JobNoLongerQueued_Dropped: a job cancelled before the poll is never
+// dispatched; the poll hands the worker the next queued job instead.
 func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
 	ctx := context.Background()
 	repo := storage.NewInMemoryRepository()
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+	svc := newDispatchCoordinator(t, repo, "worker-1", 1)
 
-	w := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
-	}
-
-	// Submit job 1 and job 2
-	job1, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"one"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob 1 failed: %v", err)
-	}
-	job2, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"two"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob 2 failed: %v", err)
-	}
-
-	// Directly cancel job 1 in repository to simulate cancellation or out-of-band state change
+	job1 := submitEcho(t, svc, "one")
+	job2 := submitEcho(t, svc, "two")
 	if _, err := repo.CancelJob(ctx, job1.ID); err != nil {
 		t.Fatalf("CancelJob failed: %v", err)
 	}
 
-	// Worker polls: coordinator claims job 1, checks repository, sees it's CANCELLED, drops it,
-	// and claims job 2!
 	assignment, err := svc.PollWork(ctx, "worker-1")
 	if err != nil {
 		t.Fatalf("PollWork failed: %v", err)
@@ -421,127 +410,51 @@ func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.T) {
 	if assignment.JobID != job2.ID {
 		t.Fatalf("expected assignment for job 2 (%s), got %s", job2.ID, assignment.JobID)
 	}
-
-	// Verify job 1 was acked/dropped from queue
-	acked := spy.getAcked()
-	foundJob1 := false
-	for _, id := range acked {
-		if id == job1.ID {
-			foundJob1 = true
-		}
-	}
-	if !foundJob1 {
-		t.Fatalf("expected dropped job 1 to be acked from queue, got acked: %v", acked)
-	}
+	requireJobState(t, repo, job1.ID, domain.StateCancelled)
+	requireAttempts(t, repo, job1.ID, 0)
+	requireJobState(t, repo, job2.ID, domain.StateRunning)
+	requireAttempts(t, repo, job2.ID, 1)
+	requireSlots(t, repo, "worker-1", 0)
 }
 
-// workerUnhealthyOnDispatchRepo wraps storage.Repository and simulates a worker becoming UNHEALTHY
-// during the dispatch window, ensuring tests can verify dispatch error precedence.
-type workerUnhealthyOnDispatchRepo struct {
-	storage.Repository
-}
-
-func (r *workerUnhealthyOnDispatchRepo) DispatchJob(ctx context.Context, jobID, workerID string) (*domain.Attempt, error) {
-	// Worker transitions to UNHEALTHY concurrently/during dispatch
-	w, err := r.Repository.GetWorker(ctx, workerID)
-	if err == nil && w != nil {
-		w.Status = domain.WorkerStatusUnhealthy
-		_ = r.Repository.UpsertWorker(ctx, w)
-	}
-	return r.Repository.DispatchJob(ctx, jobID, workerID)
-}
-
-// TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased tests that
-// when a job is no longer QUEUED and the polling worker is concurrently UNHEALTHY,
-// dispatch precedence prioritizes ErrJobNotQueued, ensuring the coordinator Acks and drops
-// the dead job from the queue rather than Releasing it back into the queue.
+// TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased: with a
+// cancelled job and an UNHEALTHY worker, the poll is refused with ErrWorkerUnhealthy and the
+// cancelled job is neither revived nor given an attempt.
 func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased(t *testing.T) {
 	ctx := context.Background()
-	baseRepo := storage.NewInMemoryRepository()
-	repo := &workerUnhealthyOnDispatchRepo{Repository: baseRepo}
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
+	repo := storage.NewInMemoryRepository()
+	svc := newDispatchCoordinator(t, repo, "worker-race", 1)
 
-	w := &domain.Worker{
-		ID:             "worker-race",
-		Status:         domain.WorkerStatusHealthy,
-		TotalSlots:     1,
-		AvailableSlots: 1,
-		SupportedTasks: []string{"echo"},
-	}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
-	}
-
-	// Submit job (queued)
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"msg":"cancel-me"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
-	}
-
-	// Directly cancel the job in storage so its state becomes CANCELLED (not QUEUED)
-	if _, err := baseRepo.CancelJob(ctx, job.ID); err != nil {
+	job := submitEcho(t, svc, "cancel-me")
+	if _, err := repo.CancelJob(ctx, job.ID); err != nil {
 		t.Fatalf("CancelJob failed: %v", err)
 	}
+	w, err := repo.GetWorker(ctx, "worker-race")
+	if err != nil {
+		t.Fatalf("GetWorker failed: %v", err)
+	}
+	w.Status = domain.WorkerStatusUnhealthy
+	if err := repo.UpsertWorker(ctx, w); err != nil {
+		t.Fatalf("UpsertWorker failed: %v", err)
+	}
 
-	// Poll work:
-	// Worker was healthy when PollWork inspected it, but inside DispatchJob,
-	// the job is CANCELLED (not QUEUED) AND the worker is UNHEALTHY.
-	// DispatchJob returns ErrJobNotQueued (precedence: job state checked before worker health).
-	// Coordinator must Ack the queue item, drop it, and find no more work.
 	assignment, err := svc.PollWork(ctx, "worker-race")
-	if assignment != nil {
-		t.Fatalf("expected nil assignment for dead job, got %+v", assignment)
+	if assignment != nil || !errors.Is(err, domain.ErrWorkerUnhealthy) {
+		t.Fatalf("expected ErrWorkerUnhealthy and no assignment, got %v (assignment=%+v)", err, assignment)
 	}
-	if !errors.Is(err, domain.ErrNoQueuedJobs) {
-		t.Fatalf("expected ErrNoQueuedJobs after claim loop dropped dead job, got %v", err)
-	}
-
-	// Verify dead job was Acked and removed
-	acked := spy.getAcked()
-	foundAcked := false
-	for _, id := range acked {
-		if id == job.ID {
-			foundAcked = true
-		}
-	}
-	if !foundAcked {
-		t.Fatalf("expected cancelled job %s to be Acked, got acked: %v", job.ID, acked)
-	}
-
-	// Verify dead job was NEVER Released back to queue
-	released := spy.getReleased()
-	for _, id := range released {
-		if id == job.ID {
-			t.Fatalf("CRITICAL INVARIANT VIOLATION: cancelled job %s was Released back to queue", job.ID)
-		}
-	}
+	requireJobState(t, repo, job.ID, domain.StateCancelled)
+	requireAttempts(t, repo, job.ID, 0)
+	requireSlots(t, repo, "worker-race", 1)
 }
 
-// TestService_Claim_Redelivery_NoDuplicateAttempt tests Instruction 3:
-// Redelivery of an already-dispatched job must not create a second attempt.
+// TestService_Claim_Redelivery_NoDuplicateAttempt: polling again after a job was dispatched
+// finds no work and never creates a second attempt for the running job.
 func TestService_Claim_Redelivery_NoDuplicateAttempt(t *testing.T) {
 	ctx := context.Background()
 	repo := storage.NewInMemoryRepository()
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	q := queue.NewInMemoryQueue()
-	svc := coordinator.NewServiceWithQueue(repo, sched, reg, q, 10*time.Second)
+	svc := newDispatchCoordinator(t, repo, "worker-1", 2)
 
-	w := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 2, AvailableSlots: 2, SupportedTasks: []string{"echo"}}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
-	}
-
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
-	}
-
-	// Initial claim: attempt 1 created, job is now RUNNING
+	job := submitEcho(t, svc, "test")
 	assignment, err := svc.PollWork(ctx, "worker-1")
 	if err != nil {
 		t.Fatalf("PollWork failed: %v", err)
@@ -550,100 +463,75 @@ func TestService_Claim_Redelivery_NoDuplicateAttempt(t *testing.T) {
 		t.Fatalf("expected job %s, got %s", job.ID, assignment.JobID)
 	}
 
-	// Simulate duplicate delivery signal in queue (at-least-once redelivery of already dispatched job)
-	_ = q.Enqueue(ctx, &queue.Item{JobID: job.ID, TaskType: job.TaskType})
-
-	// Worker polls again: coordinator claims duplicate item, re-validates repository,
-	// sees job is already RUNNING (not QUEUED), drops item, and returns ErrNoQueuedJobs.
-	secondAssignment, err := svc.PollWork(ctx, "worker-1")
+	second, err := svc.PollWork(ctx, "worker-1")
 	if !errors.Is(err, domain.ErrNoQueuedJobs) {
-		t.Fatalf("expected ErrNoQueuedJobs for duplicate delivery, got %v (assignment=%v)", err, secondAssignment)
+		t.Fatalf("expected ErrNoQueuedJobs on repeated poll, got %v (assignment=%v)", err, second)
 	}
-
-	// Assert exactly 1 attempt exists for the job
-	attempts, err := svc.ListAttempts(ctx, job.ID)
-	if err != nil {
-		t.Fatalf("ListAttempts failed: %v", err)
-	}
-	if len(attempts) != 1 {
-		t.Fatalf("expected exactly 1 attempt despite redelivery, got %d", len(attempts))
-	}
+	requireAttempts(t, repo, job.ID, 1)
+	requireJobState(t, repo, job.ID, domain.StateRunning)
+	requireSlots(t, repo, "worker-1", 1)
 }
 
-// TestService_CommitResult_AckOnlyOnAccepted tests Instruction 4:
-// Ack only after an ACCEPTED result commit. Stale, mismatched or rejected results must not Ack.
+// TestService_CommitResult_AckOnlyOnAccepted: only an accepted commit settles the job. Rejected
+// commits (wrong worker, wrong lease, wrong attempt) leave the job and attempt RUNNING with the
+// slot held; the valid commit completes both and frees the slot; a replay is rejected.
 func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T) {
 	ctx := context.Background()
 	repo := storage.NewInMemoryRepository()
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(repo, sched, reg, spy, 10*time.Second)
-
-	w1 := &domain.Worker{ID: "worker-1", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
-	w2 := &domain.Worker{ID: "worker-2", Status: domain.WorkerStatusHealthy, TotalSlots: 1, AvailableSlots: 1, SupportedTasks: []string{"echo"}}
-	if err := svc.RegisterWorker(ctx, w1); err != nil {
-		t.Fatalf("RegisterWorker w1 failed: %v", err)
-	}
-	if err := svc.RegisterWorker(ctx, w2); err != nil {
+	svc := newDispatchCoordinator(t, repo, "worker-1", 1)
+	if err := svc.RegisterWorker(ctx, &domain.Worker{ID: "worker-2", TotalSlots: 1, SupportedTasks: []string{"echo"}}); err != nil {
 		t.Fatalf("RegisterWorker w2 failed: %v", err)
 	}
 
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
-	}
-
+	job := submitEcho(t, svc, "test")
 	assignment, err := svc.PollWork(ctx, "worker-1")
 	if err != nil {
 		t.Fatalf("PollWork failed: %v", err)
 	}
 
-	// 1. Worker Mismatch: worker-2 attempts to report result -> rejected with ErrWorkerMismatch
+	requireUnsettled := func(step string) {
+		t.Helper()
+		requireJobState(t, repo, job.ID, domain.StateRunning)
+		if got := requireAttempts(t, repo, job.ID, 1)[0].State; got != domain.AttemptRunning {
+			t.Fatalf("%s: expected attempt RUNNING, got %s", step, got)
+		}
+		requireSlots(t, repo, "worker-1", 0)
+	}
+
 	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "out", "")
 	if !errors.Is(err, domain.ErrWorkerMismatch) {
 		t.Fatalf("expected ErrWorkerMismatch, got %v", err)
 	}
-	if len(spy.getAcked()) != 0 {
-		t.Fatalf("expected no Ack on worker mismatch, got %v", spy.getAcked())
-	}
+	requireUnsettled("worker mismatch")
 
-	// 2. Stale Attempt: wrong lease token -> rejected with ErrStaleAttempt
 	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, "wrong-lease", "worker-1", 0, "out", "")
 	if !errors.Is(err, domain.ErrStaleAttempt) {
 		t.Fatalf("expected ErrStaleAttempt, got %v", err)
 	}
-	if len(spy.getAcked()) != 0 {
-		t.Fatalf("expected no Ack on wrong lease token, got %v", spy.getAcked())
-	}
+	requireUnsettled("wrong lease token")
 
-	// 3. Stale Attempt: wrong attempt ID -> rejected with ErrStaleAttempt
 	_, err = svc.CommitResult(ctx, job.ID, "wrong-att", assignment.LeaseToken, "worker-1", 0, "out", "")
 	if !errors.Is(err, domain.ErrStaleAttempt) {
 		t.Fatalf("expected ErrStaleAttempt, got %v", err)
 	}
-	if len(spy.getAcked()) != 0 {
-		t.Fatalf("expected no Ack on wrong attempt ID, got %v", spy.getAcked())
-	}
+	requireUnsettled("wrong attempt id")
 
-	// 4. Valid Report: ACCEPTED -> Must trigger Ack
-	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "")
-	if err != nil {
+	if _, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", ""); err != nil {
 		t.Fatalf("CommitResult failed on valid report: %v", err)
 	}
-	acked := spy.getAcked()
-	if len(acked) != 1 || acked[0] != job.ID {
-		t.Fatalf("expected exactly 1 Ack for job %s, got: %v", job.ID, acked)
+	requireJobState(t, repo, job.ID, domain.StateSucceeded)
+	if got := requireAttempts(t, repo, job.ID, 1)[0].State; got != domain.AttemptCompleted {
+		t.Fatalf("expected attempt COMPLETED, got %s", got)
 	}
+	requireSlots(t, repo, "worker-1", 1)
 
-	// 5. Duplicate Report on terminal job -> rejected with ErrJobAlreadyTerminal
 	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "")
 	if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
-		t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
+		t.Fatalf("expected ErrJobAlreadyTerminal on replay, got %v", err)
 	}
-	if len(spy.getAcked()) != 1 {
-		t.Fatalf("expected no duplicate Ack on already terminal job, got: %v", spy.getAcked())
+	requireJobState(t, repo, job.ID, domain.StateSucceeded)
+	if got := requireAttempts(t, repo, job.ID, 1)[0].State; got != domain.AttemptCompleted {
+		t.Fatalf("replay must not change the attempt, got %s", got)
 	}
 }
 
@@ -652,156 +540,89 @@ type failingRepoStub struct {
 	dispatchErr error
 }
 
-func (f *failingRepoStub) DispatchJob(ctx context.Context, jobID string, workerID string) (*domain.Attempt, error) {
+func (f *failingRepoStub) DispatchNextJob(ctx context.Context, workerID string) (*domain.Job, *domain.Attempt, error) {
 	if f.dispatchErr != nil {
-		return nil, f.dispatchErr
+		return nil, nil, f.dispatchErr
 	}
-	return f.Repository.DispatchJob(ctx, jobID, workerID)
+	return f.Repository.DispatchNextJob(ctx, workerID)
 }
 
-// TestService_ClaimOutcome_TransientFailure_QueueReleased verifies Scope 6 and Adjustment 4(b):
-// When attempt creation / dispatch fails with a transient error after a queue claim,
-// Queue.Release MUST be called with the job ID so the item is available for redelivery.
+// TestService_ClaimOutcome_TransientFailure_QueueReleased: a transient dispatch failure is
+// returned unchanged, leaves the job QUEUED with no attempt, and the job is claimable once the
+// failure clears.
 func TestService_ClaimOutcome_TransientFailure_QueueReleased(t *testing.T) {
 	ctx := context.Background()
-	innerRepo := storage.NewInMemoryRepository()
 	transientErr := errors.New("transient database connection error")
-	stubRepo := &failingRepoStub{
-		Repository:  innerRepo,
-		dispatchErr: transientErr,
-	}
+	stub := &failingRepoStub{Repository: storage.NewInMemoryRepository(), dispatchErr: transientErr}
+	svc := newDispatchCoordinator(t, stub, "worker-fail-test", 1)
+	job := submitEcho(t, svc, "test")
 
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
-
-	w := &domain.Worker{
-		ID:             "worker-fail-test",
-		Status:         domain.WorkerStatusHealthy,
-		TotalSlots:     1,
-		SupportedTasks: []string{"echo"},
-	}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
-	}
-
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
-	}
-
-	// Worker polls: claim succeeds from queue, but DispatchJob fails with transientErr.
-	// Coordinator must call Queue.Release and return error.
 	assignment, err := svc.PollWork(ctx, "worker-fail-test")
 	if !errors.Is(err, transientErr) {
 		t.Fatalf("expected transientErr, got %v (assignment=%v)", err, assignment)
 	}
+	requireJobState(t, stub, job.ID, domain.StateQueued)
+	requireAttempts(t, stub, job.ID, 0)
+	requireSlots(t, stub, "worker-fail-test", 1)
 
-	// Verify Queue.Release was called for job.ID
-	released := spy.getReleased()
-	if len(released) != 1 || released[0] != job.ID {
-		t.Fatalf("expected job %s to be Released, got released: %v", job.ID, released)
-	}
-	// Verify Queue.Ack was NOT called
-	acked := spy.getAcked()
-	if len(acked) != 0 {
-		t.Fatalf("expected no Ack on transient failure, got acked: %v", acked)
+	stub.dispatchErr = nil
+	assignment, err = svc.PollWork(ctx, "worker-fail-test")
+	if err != nil || assignment.JobID != job.ID {
+		t.Fatalf("expected job %s to be claimable after the failure cleared, got %v (assignment=%v)", job.ID, err, assignment)
 	}
 }
 
-// TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased verifies Adjustment 4(a):
-// When job is no longer QUEUED or not found, coordinator drops and Acks the item (never Releases it).
+// TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased: with only cancelled jobs
+// or nothing at all in the repository, a poll finds no work and creates no attempt; the
+// cancelled job stays CANCELLED.
 func TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased(t *testing.T) {
 	ctx := context.Background()
-	innerRepo := storage.NewInMemoryRepository()
-	stubRepo := &failingRepoStub{
-		Repository:  innerRepo,
-		dispatchErr: domain.ErrJobNotFound,
+	repo := storage.NewInMemoryRepository()
+	svc := newDispatchCoordinator(t, repo, "worker-ack-test", 1)
+
+	if _, err := svc.PollWork(ctx, "worker-ack-test"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs on an empty repository, got %v", err)
 	}
 
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
-
-	w := &domain.Worker{
-		ID:             "worker-ack-test",
-		Status:         domain.WorkerStatusHealthy,
-		TotalSlots:     1,
-		SupportedTasks: []string{"echo"},
+	job := submitEcho(t, svc, "test")
+	if _, err := svc.CancelJob(ctx, job.ID); err != nil {
+		t.Fatalf("CancelJob failed: %v", err)
 	}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
+	if _, err := svc.PollWork(ctx, "worker-ack-test"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("expected ErrNoQueuedJobs for a cancelled job, got %v", err)
 	}
-
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
-	}
-
-	// Worker polls: DispatchJob returns ErrJobNotFound. Coordinator drops and Acks item.
-	assignment, err := svc.PollWork(ctx, "worker-ack-test")
-	if !errors.Is(err, domain.ErrNoQueuedJobs) {
-		t.Fatalf("expected ErrNoQueuedJobs after dropping missing job, got %v (assignment=%v)", err, assignment)
-	}
-
-	// Verify Queue.Ack was called and Queue.Release was NEVER called
-	acked := spy.getAcked()
-	if len(acked) != 1 || acked[0] != job.ID {
-		t.Fatalf("expected job %s to be Acked, got acked: %v", job.ID, acked)
-	}
-	released := spy.getReleased()
-	if len(released) != 0 {
-		t.Fatalf("expected no Release for missing job, got released: %v", released)
-	}
+	requireJobState(t, repo, job.ID, domain.StateCancelled)
+	requireAttempts(t, repo, job.ID, 0)
+	requireSlots(t, repo, "worker-ack-test", 1)
 }
 
-// TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released verifies Adjustment 4(c):
-// When worker lacks capacity or is unhealthy, coordinator Releases the item without creating an attempt.
+// TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released: a worker with no free slot
+// gets ErrNoWorkersAvailable and the second job stays QUEUED with no attempt; it is dispatched
+// once the first attempt commits and frees the slot.
 func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t *testing.T) {
 	ctx := context.Background()
-	innerRepo := storage.NewInMemoryRepository()
-	stubRepo := &failingRepoStub{
-		Repository:  innerRepo,
-		dispatchErr: domain.ErrWorkerNoCapacity,
-	}
+	repo := storage.NewInMemoryRepository()
+	svc := newDispatchCoordinator(t, repo, "worker-cap-test", 1)
 
-	sched := scheduler.NewRoundRobinScheduler()
-	reg := executor.NewRegistry()
-	innerQ := queue.NewInMemoryQueue()
-	spy := newSpyQueue(innerQ)
-	svc := coordinator.NewServiceWithQueue(stubRepo, sched, reg, spy, 10*time.Second)
-
-	w := &domain.Worker{
-		ID:             "worker-cap-test",
-		Status:         domain.WorkerStatusHealthy,
-		TotalSlots:     1,
-		SupportedTasks: []string{"echo"},
-	}
-	if err := svc.RegisterWorker(ctx, w); err != nil {
-		t.Fatalf("RegisterWorker failed: %v", err)
-	}
-
-	job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"test"}`), 30, 3)
-	if err != nil {
-		t.Fatalf("SubmitJob failed: %v", err)
+	job1 := submitEcho(t, svc, "one")
+	job2 := submitEcho(t, svc, "two")
+	first, err := svc.PollWork(ctx, "worker-cap-test")
+	if err != nil || first.JobID != job1.ID {
+		t.Fatalf("expected job 1 first, got %v (assignment=%v)", err, first)
 	}
 
 	assignment, err := svc.PollWork(ctx, "worker-cap-test")
-	if !errors.Is(err, domain.ErrWorkerNoCapacity) {
-		t.Fatalf("expected ErrWorkerNoCapacity, got %v (assignment=%v)", err, assignment)
+	if !errors.Is(err, domain.ErrNoWorkersAvailable) {
+		t.Fatalf("expected ErrNoWorkersAvailable, got %v (assignment=%v)", err, assignment)
 	}
+	requireJobState(t, repo, job2.ID, domain.StateQueued)
+	requireAttempts(t, repo, job2.ID, 0)
 
-	// Verify item was Released (not Acked)
-	released := spy.getReleased()
-	if len(released) != 1 || released[0] != job.ID {
-		t.Fatalf("expected job %s to be Released, got released: %v", job.ID, released)
+	if _, err := svc.CommitResult(ctx, job1.ID, first.AttemptID, first.LeaseToken, "worker-cap-test", 0, "out", ""); err != nil {
+		t.Fatalf("CommitResult failed: %v", err)
 	}
-	acked := spy.getAcked()
-	if len(acked) != 0 {
-		t.Fatalf("expected no Ack on worker no capacity, got acked: %v", acked)
+	second, err := svc.PollWork(ctx, "worker-cap-test")
+	if err != nil || second.JobID != job2.ID {
+		t.Fatalf("expected job 2 after the slot was freed, got %v (assignment=%v)", err, second)
 	}
 }
