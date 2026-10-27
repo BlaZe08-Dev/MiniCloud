@@ -175,10 +175,10 @@ func CollectRealTests(fsys fs.FS) (map[string]bool, error) {
 	return testNames, err
 }
 
-// CollectDocFiles gathers all markdown documents under docs/ (excluding docs/source/) plus README.md, GEMINI.md, and CHANGELOG.md.
+// CollectDocFiles gathers all markdown documents under docs/ (excluding docs/source/) plus README.md, AGENTS.md, GEMINI.md, and CHANGELOG.md.
 func CollectDocFiles(fsys fs.FS) ([]string, error) {
 	var docFiles []string
-	for _, rootFile := range []string{"README.md", "GEMINI.md", "CHANGELOG.md"} {
+	for _, rootFile := range []string{"README.md", "AGENTS.md", "GEMINI.md", "CHANGELOG.md"} {
 		if _, err := fs.Stat(fsys, rootFile); err == nil {
 			docFiles = append(docFiles, rootFile)
 		}
