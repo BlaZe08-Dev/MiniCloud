@@ -29,14 +29,14 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Target Fault Scenario**: Worker claims a job, begins task execution, and crashes (`SIGKILL`) halfway through.
 - **Injection Mechanism**: Task payload executes 10 iterations of `sha256_loop`; test sends `syscall.SIGKILL` to worker PID at iteration 3. Coordinator test clock advances past `lease_expires_at` (30s).
 - **Expected Outcome**: Coordinator lease sweeper scans expired running attempts, re-checks under row lock, marks attempt 1 as `LOST` (consuming 1 attempt of budget), and checks remaining retry budget (`attempt_no < max_attempts`). Coordinator transitions job from `RUNNING` to `RETRYING` with backoff `not_before`. Once `not_before` elapses, attempt 2 dispatches to an alternate worker and completes to `SUCCEEDED`.
-- **Evidence Collected**: Attempt 1 state `LOST` in `attempts` table; `job_events` contains `lease_expired` and `job_retrying`; attempt 2 state `COMPLETED`; final job state `SUCCEEDED`.
+- **Evidence Collected**: Attempt 1 state `LOST` in `attempts` table; `job_events` contains `LEASE_EXPIRED` and `JOB_RETRYING`; attempt 2 state `COMPLETED`; final job state `SUCCEEDED`.
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-03: Worker Finishes but Result is Lost or Delayed
 - **Planned Test Identifier**: `TestFault_ResultReport_NetworkDropOrDelay` (planned test)
 - **Target Fault Scenario**: Worker completes task execution successfully, but the network drops or severely delays the `POST /v1/jobs/{id}/attempts/{attempt_id}/result` request.
 - **Injection Mechanism**: Test HTTP transport proxy intercepts the result report and drops the first 3 attempts with connection reset (`ECONNRESET`).
-- **Expected Outcome**: Worker client exponential backoff retries `ReportResult`. If the commit arrives while the attempt is still in `RUNNING` state (even if `lease_expires_at` passed on database time), it is accepted under the **Symmetric Accept-Until-Swept Rule**, completing the job to `SUCCEEDED` without redundant retries. If the sweeper already swept the attempt to `LOST`, commit is rejected with HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) and recorded as `diagnostic_late_result` with zero resurrection.
+- **Expected Outcome**: Worker client exponential backoff retries `ReportResult`. If the commit arrives while the attempt is still in `RUNNING` state (even if `lease_expires_at` passed on database time), it is accepted under the **Symmetric Accept-Until-Swept Rule**, completing the job to `SUCCEEDED` without redundant retries. If the sweeper already swept the attempt to `LOST`, commit is rejected with HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) and recorded as `DIAGNOSTIC_LATE_RESULT` with zero resurrection.
 - **Evidence Collected**: Worker client logs show transient reporting retries; single result row in `results` table; attempt state `COMPLETED` (or `LOST` if swept).
 - **Recovery Mode**: Autonomous (self-healing).
 
@@ -45,7 +45,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Target Fault Scenario**: Worker 1 experiences a 40-second network partition or GC pause. Its lease expires at t = 30s. Coordinator sweeps attempt 1 to `LOST` and dispatches attempt 2 to Worker 2. Worker 1 wakes up and attempts to commit result for attempt 1.
 - **Injection Mechanism**: Test harness freezes Worker 1 process (`SIGSTOP`), advances coordinator clock by 35s, triggers lease sweeper, dispatches attempt 2 to Worker 2, unfreezes Worker 1 (`SIGCONT`), and Worker 1 submits `ReportResult`.
 - **Expected Outcome**: Coordinator rejects Worker 1's commit with HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`). Coordinator appends a `diagnostic_late_result` audit event to `job_events`. Worker 2's commit for attempt 2 is accepted with HTTP 200 `COMMITTED`. The final job result strictly records Worker 2's outcome. Expired attempts are never resurrected.
-- **Evidence Collected**: HTTP 409 response received by Worker 1; `job_events` record with `event_type = 'diagnostic_late_result'`; `results.attempt_id` matches attempt 2; attempt 1 remains `LOST`.
+- **Evidence Collected**: HTTP 409 response received by Worker 1; `job_events` record with `event_type = 'DIAGNOSTIC_LATE_RESULT'`; `results.attempt_id` matches attempt 2; attempt 1 remains `LOST`.
 - **Recovery Mode**: Autonomous (self-healing).
 
 ### FS-05: Coordinator Crashes After Submission Before Dispatch or During Execution
@@ -68,7 +68,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Injection Mechanism**: Injected database failpoint triggers coordinator termination immediately before or after SQL `COMMIT`.
 - **Expected Outcome**:
   - Sub-case A (crash before commit): Database transaction rolls back cleanly. Worker retries `ReportResult` against restarted coordinator; commit succeeds.
-  - Sub-case B (crash after commit): Database transaction committed. Worker retries `ReportResult` against restarted coordinator; coordinator detects attempt is already `COMPLETED` and job is `SUCCEEDED`, returning idempotent HTTP 200 `COMMITTED` without duplicate result insertion.
+  - Sub-case B (crash after commit): Database transaction committed. Worker retries `ReportResult` against restarted coordinator; job is already terminal (`SUCCEEDED`), returning HTTP 409 `JOB_ALREADY_TERMINAL`. Single stored result row from the initial commit stands; retry is rejected; worker treats 409 as final without modifying attempt state or creating duplicate result rows (D-R3-02).
 - **Evidence Collected**: Exactly 1 row in `results` table; 0 duplicate rows; job state `SUCCEEDED`.
 - **Recovery Mode**: Autonomous (self-healing).
 
