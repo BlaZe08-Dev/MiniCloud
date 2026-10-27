@@ -3,6 +3,8 @@ package storagetest
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -909,4 +911,226 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 			t.Fatalf("unauthenticated junk attempt IDs must not grow job_events, got %d diagnostic events", got)
 		}
 	})
+}
+
+type modelAttempt struct {
+	id     string
+	token  string
+	worker string
+	state  domain.AttemptState
+}
+
+type modelJob struct {
+	id       string
+	state    domain.JobState
+	attempts []*modelAttempt
+}
+
+func (m *modelJob) current() *modelAttempt {
+	if len(m.attempts) == 0 {
+		return nil
+	}
+	return m.attempts[len(m.attempts)-1]
+}
+
+// RunStateMachineModelConformance drives a repository and a small reference model with the same
+// seeded random sequence of submit, poll, commit (valid, wrong token, replay) and cancel
+// operations, and requires identical job states, attempt states, error classes and worker slot
+// counts after every step. It also checks the no-active-attempt-after-terminal invariant
+// (fault-injection-plan.md invariant 4). Wrapped by TestProperty_StateMachine_ModelConformance.
+func RunStateMachineModelConformance(t *testing.T, newHarness func(t *testing.T) Harness, seeds []int64, steps int) {
+	for _, seed := range seeds {
+		seed := seed
+		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
+			runModelSeed(t, newHarness(t).Repo, seed, steps)
+		})
+	}
+}
+
+func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) {
+	ctx := context.Background()
+	rng := rand.New(rand.NewSource(seed))
+	workers := map[string]int{"w_model_a": 2, "w_model_b": 1}
+	workerIDs := []string{"w_model_a", "w_model_b"}
+	for _, id := range workerIDs {
+		conformanceWorker(t, repo, id, workers[id])
+	}
+
+	var order []*modelJob
+	jobs := map[string]*modelJob{}
+	freeSlots := func(workerID string) int {
+		used := 0
+		for _, j := range order {
+			for _, a := range j.attempts {
+				if a.worker == workerID && a.state == domain.AttemptRunning {
+					used++
+				}
+			}
+		}
+		return workers[workerID] - used
+	}
+	pick := func(pred func(*modelJob) bool) *modelJob {
+		var cands []*modelJob
+		for _, j := range order {
+			if pred(j) {
+				cands = append(cands, j)
+			}
+		}
+		if len(cands) == 0 {
+			return nil
+		}
+		return cands[rng.Intn(len(cands))]
+	}
+
+	check := func(step int, op string, j *modelJob) {
+		t.Helper()
+		if j != nil {
+			got, err := repo.GetJob(ctx, j.id)
+			if err != nil {
+				t.Fatalf("seed %d step %d (%s): GetJob(%s): %v", seed, step, op, j.id, err)
+			}
+			if got.State != j.state {
+				t.Fatalf("seed %d step %d (%s): job %s state: repo=%s model=%s", seed, step, op, j.id, got.State, j.state)
+			}
+			atts, err := repo.ListAttemptsByJob(ctx, j.id)
+			if err != nil {
+				t.Fatalf("seed %d step %d (%s): ListAttemptsByJob: %v", seed, step, op, err)
+			}
+			if len(atts) != len(j.attempts) {
+				t.Fatalf("seed %d step %d (%s): job %s attempts: repo=%d model=%d", seed, step, op, j.id, len(atts), len(j.attempts))
+			}
+			for _, a := range atts {
+				var want *modelAttempt
+				for _, m := range j.attempts {
+					if m.id == a.ID {
+						want = m
+					}
+				}
+				if want == nil || want.state != a.State {
+					t.Fatalf("seed %d step %d (%s): job %s attempt %s: repo=%s model=%v", seed, step, op, j.id, a.ID, a.State, want)
+				}
+				if j.state.IsTerminal() && (a.State == domain.AttemptRunning || a.State == domain.AttemptPending) {
+					t.Fatalf("seed %d step %d (%s): INVARIANT: terminal job %s has active attempt %s", seed, step, op, j.id, a.ID)
+				}
+			}
+		}
+		for _, id := range workerIDs {
+			if got := conformanceSlots(t, repo, id); got != freeSlots(id) {
+				t.Fatalf("seed %d step %d (%s): worker %s slots: repo=%d model=%d", seed, step, op, id, got, freeSlots(id))
+			}
+		}
+	}
+
+	wantErr := func(step int, op string, got, want error) {
+		t.Helper()
+		if want == nil {
+			if got != nil {
+				t.Fatalf("seed %d step %d (%s): unexpected error: %v", seed, step, op, got)
+			}
+			return
+		}
+		if !errors.Is(got, want) {
+			t.Fatalf("seed %d step %d (%s): expected %v, got %v", seed, step, op, want, got)
+		}
+	}
+
+	for step := 0; step < steps; step++ {
+		switch roll := rng.Intn(100); {
+		case roll < 22: // submit
+			id := fmt.Sprintf("j_model_%d_%d", seed, len(order))
+			conformanceQueuedJob(t, repo, id)
+			j := &modelJob{id: id, state: domain.StateQueued}
+			order = append(order, j)
+			jobs[id] = j
+			check(step, "submit", j)
+
+		case roll < 50: // poll
+			workerID := workerIDs[rng.Intn(len(workerIDs))]
+			job, att, err := repo.DispatchNextJob(ctx, workerID)
+			var next *modelJob
+			for _, j := range order {
+				if j.state == domain.StateQueued {
+					next = j
+					break
+				}
+			}
+			switch {
+			case freeSlots(workerID) <= 0:
+				wantErr(step, "poll", err, domain.ErrWorkerNoCapacity)
+				check(step, "poll", nil)
+			case next == nil:
+				wantErr(step, "poll", err, domain.ErrNoQueuedJobs)
+				check(step, "poll", nil)
+			default:
+				wantErr(step, "poll", err, nil)
+				if job.ID != next.id {
+					t.Fatalf("seed %d step %d (poll): FIFO violated: repo dispatched %s, model expected %s", seed, step, job.ID, next.id)
+				}
+				next.state = domain.StateRunning
+				next.attempts = append(next.attempts, &modelAttempt{id: att.ID, token: att.LeaseToken, worker: workerID, state: domain.AttemptRunning})
+				check(step, "poll", next)
+			}
+
+		case roll < 70: // valid commit on a job that has a RUNNING attempt (RUNNING or CANCEL_REQUESTED)
+			j := pick(func(j *modelJob) bool { return j.current() != nil && j.current().state == domain.AttemptRunning })
+			if j == nil {
+				continue
+			}
+			a := j.current()
+			outcome := domain.AttemptOutcome{ExitCode: 0, Output: "ok"}
+			wantAttempt, wantJob := domain.AttemptCompleted, domain.StateSucceeded
+			if rng.Intn(3) == 0 {
+				outcome = domain.AttemptOutcome{ExitCode: 1, Error: "boom"}
+				wantAttempt, wantJob = domain.AttemptFailed, domain.StateFailed
+			}
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, outcome)
+			wantErr(step, "commit", err, nil)
+			a.state, j.state = wantAttempt, wantJob
+			check(step, "commit", j)
+
+		case roll < 78: // commit with a wrong lease token is rejected and changes nothing
+			j := pick(func(j *modelJob) bool { return j.current() != nil && j.current().state == domain.AttemptRunning })
+			if j == nil {
+				continue
+			}
+			a := j.current()
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, "wrong-token", a.worker, domain.AttemptOutcome{ExitCode: 0})
+			wantErr(step, "commit-stale", err, domain.ErrStaleAttempt)
+			check(step, "commit-stale", j)
+
+		case roll < 86: // replayed commit on a terminal job
+			j := pick(func(j *modelJob) bool { return j.state.IsTerminal() && j.current() != nil })
+			if j == nil {
+				continue
+			}
+			a := j.current()
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0})
+			wantErr(step, "commit-replay", err, domain.ErrJobAlreadyTerminal)
+			check(step, "commit-replay", j)
+
+		default: // cancel
+			j := pick(func(j *modelJob) bool { return true })
+			if j == nil {
+				continue
+			}
+			_, err := repo.CancelJob(ctx, j.id)
+			switch {
+			case j.state.IsTerminal():
+				wantErr(step, "cancel", err, domain.ErrJobAlreadyTerminal)
+			case j.state == domain.StateQueued:
+				wantErr(step, "cancel", err, nil)
+				j.state = domain.StateCancelled
+			case j.state == domain.StateRunning:
+				wantErr(step, "cancel", err, nil)
+				j.state = domain.StateCancelRequested
+			default: // CANCEL_REQUESTED: idempotent no-op
+				wantErr(step, "cancel", err, nil)
+			}
+			check(step, "cancel", j)
+		}
+	}
+
+	for _, j := range order {
+		check(steps, "final", j)
+	}
 }

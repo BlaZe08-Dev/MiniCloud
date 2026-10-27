@@ -43,3 +43,7 @@ func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
 func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
 	storagetest.RunCommitAttemptTerminalJobConformance(t, newPostgresHarness)
 }
+
+func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+	storagetest.RunStateMachineModelConformance(t, newPostgresHarness, []int64{1, 2, 3}, 120)
+}
