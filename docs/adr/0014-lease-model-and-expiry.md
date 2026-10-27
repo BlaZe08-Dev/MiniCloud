@@ -153,7 +153,18 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
   3. *Option C (Dynamic Lease Extension in DB)*: Shifting `lease_expires_at` forward by measured downtime.
 - **Accepted Recommendation**: A dual grace period mechanism:
   1. **Coordinator Startup Grace Period (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30s)**: On coordinator boot or restart, the sweeper suppresses reaping passes until 30 seconds have elapsed. This gives surviving workers a full lease window to reconnect, auto-re-register, and execute at least 3 renewal attempts (renewal interval 10s) or commit completed results before any attempt can be reaped. (Accepted by owner).
-  2. **Database Outage Grace Window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30s)**: When the coordinator detects that the database has recovered from an outage (e.g., `/readyz` probe recovers from HTTP 503 to 200), the sweeper suppresses reaping passes for 30 seconds. (Accepted by owner).
+  2. **Database Outage Grace Window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30s)**: When the coordinator detects that the database has recovered from an outage, the sweeper suppresses reaping passes for 30 seconds. (Accepted by owner).
+- **Outage Grace Detection Mechanism**:
+  Because the sweeper and coordinator can only observe their own interactions with PostgreSQL, an outage condition is detected autonomously when either:
+  1. **Consecutive Failed Ticks**: $N \ge 2$ consecutive database operations (sweeper ticks or `/readyz` health pings) fail with database connectivity errors (`net.OpError`, connection refused, pool closed, context deadline exceeded).
+  2. **Inter-Tick Wall-Clock Gap**: The wall-clock elapsed time since the last successful database round trip exceeds a configured gap: $\Delta t > 1.5 \times \text{sweeper\_interval}$ (or $> 10\text{s}$). If host sleeping, VM suspension, or container freeze pauses the process, the clock advances without successful database round trips.
+  Upon the **first successful database round trip** following an outage condition, the coordinator activates the outage grace window:
+  $$\text{outage\_grace\_until} = \text{clock\_timestamp}() + \text{MINICLOUD\_OUTAGE\_GRACE\_WINDOW}$$
+  While `clock_timestamp() < outage_grace_until`, sweeper reaping passes are completely suppressed.
+- **Configuration Names & Validation Rules**:
+  - `MINICLOUD_STARTUP_GRACE_PERIOD`: Time to suppress sweeper reaping after coordinator boot (default: `30s`).
+  - `MINICLOUD_OUTAGE_GRACE_WINDOW`: Time to suppress sweeper reaping after database recovery (default: `30s`).
+  - **Validation Rule**: Both `MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW` MUST be greater than or equal to the attempt lease duration (`MINICLOUD_LEASE_DURATION`, default `30s`). If either grace window is configured strictly less than the lease duration (e.g., `10s < 30s`), config validation rejects the startup with `ErrInvalidGraceConfiguration`, because a grace period shorter than the lease duration cannot protect surviving workers whose renewal interval is 10s and lease is 30s.
 - **Interaction with Phase 3 Tests**:
   - In `TestPostgresWiring_CoordinatorRestartRecovery`, Coordinator 1 is killed and Coordinator 2 starts up while a worker executes an 800ms task. With startup grace (30s), Coordinator 2's sweeper does not reap the attempt; the surviving worker commits with HTTP 200 COMMITTED, exactly preserving the Phase 3 contract.
   - In `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`, the database container is stopped for 1.5s. Outage grace protects the attempt while the worker retries its commit upon database restoration.
@@ -162,6 +173,11 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
 - **Impact on Existing Tests & Owner Approval Candidates**:
   - Zero existing test assertions are weakened. Existing integration tests run with restarts/outages of 200ms–1.5s, well within the 30s grace window.
   - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `executeAndReport` from 5 attempts to a 60-second time-bounded loop with capped jittered backoff and ongoing lease renewal is an additive durability improvement submitted for owner approval.
+- **Planned Grace Verification Tests**:
+  - `TestPostgresRepository_Sweeper_OutageGraceDetection_SuppressesReap` (planned test).
+  - `TestPostgresRepository_Sweeper_StartupGrace_SuppressesReap` (planned test).
+  - `TestPostgresRepository_DatabaseStopStart_WorkerRenewsSuccessfully` (planned test).
+  - `TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected` (planned test).
 
 ### 5. Stale Attempt Rejection & Symmetric Accept-Until-Swept Rule
 

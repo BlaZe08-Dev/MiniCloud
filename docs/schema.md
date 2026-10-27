@@ -335,20 +335,53 @@ CREATE INDEX idx_jobs_retrying_dispatch
 
 ### Canonical State Names & Schema Alignment
 - **Canonical Attempt States**: Migration `000001_initial_schema.sql:97` already defines `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. No schema migration is required for attempt states.
-- **Reconciliation**:
-  - `LOST`: Worker lease expired without renewal (replaces legacy domain `EXPIRED`).
-  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
-  - `CANCELLED`: Canonical double-L spelling across both job and attempt states.
+- **State Reconciliation & Mapping**:
+  - `LOST`: Worker lease expired without renewal (replaces legacy domain `EXPIRED`). Written by sweeper transaction.
+  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`. Written by timeout monitor or sweeper.
+  - `CANCELLED`: Canonical double-L spelling across both job and attempt states. Written by worker cancel acknowledgment or sweeper.
 
-### Sweeper Re-Check Under Row Lock
-In accordance with ADR-0014, the sweeper acquires locks in strict canonical order (`jobs -> workers -> attempts`) and executes an explicit re-check under the row lock before state mutation:
-```sql
-SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;
-```
-If `state != 'RUNNING'` or `lease_expires_at >= clock_timestamp()`, a concurrent renewal or commit succeeded under row lock; the transaction rolls back or skips the candidate cleanly with zero mutation.
+### Sweeper Lock Order, Candidate Selection, and Correctness Re-Check
+In accordance with ADR-0014, the sweeper evaluates candidate attempts and executes per-candidate atomic transitions under strict lock ordering:
+
+1. **Candidate Scan (Unlocked Read)**:
+   ```sql
+   SELECT a.id, a.job_id, a.worker_id
+   FROM attempts a
+   WHERE a.state = 'RUNNING'
+     AND a.lease_expires_at < clock_timestamp()
+   ORDER BY a.lease_expires_at ASC
+   LIMIT 50;
+   ```
+   *Why Candidate Scan is Unlocked*: The candidate scan performs an unlocked read against `idx_attempts_lease_expiry` to avoid holding long-lived transaction locks across batch queries.
+
+2. **Per-Candidate Lock Acquisition Order (`jobs -> workers -> attempts`)**:
+   For each candidate, the sweeper begins an isolated transaction and acquires row locks in canonical order using `SKIP LOCKED` / `NOWAIT`:
+   ```sql
+   -- Step 1: Lock parent job row
+   SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED;
+
+   -- Step 2: Lock assigned worker row
+   SELECT id FROM workers WHERE id = $1 FOR UPDATE SKIP LOCKED;
+
+   -- Step 3: Lock attempt row and execute correctness re-check
+   SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE SKIP LOCKED;
+   ```
+
+3. **Lock Failure Handling**:
+   If any row lock cannot be acquired immediately (for example, if a worker is currently executing `CommitAttempt` or `RenewAttemptLease` on the same rows), `SKIP LOCKED` ensures the sweeper does not block or deadlock. The sweeper cleanly skips that candidate without mutating state, rolls back the sub-transaction, and re-evaluates the candidate on the subsequent sweeper tick.
+
+4. **Re-Check Inside the Locks (Correctness Invariants)**:
+   Under exclusive row locks, the sweeper verifies:
+   - `attempts.state == 'RUNNING'`: Ensures the worker has not already committed.
+   - `attempts.lease_expires_at < clock_timestamp()`: Ensures a concurrent renewal has not extended the lease.
+   - **Grace Conditions**: Ensures the coordinator is not within `MINICLOUD_STARTUP_GRACE_PERIOD` (30s after startup) or `MINICLOUD_OUTAGE_GRACE_WINDOW` (30s after database recovery).
+   If any condition is not met, the transaction rolls back cleanly with zero mutation.
+
+5. **Resolving `CANCEL_REQUESTED` Jobs**:
+   If `jobs.state == 'CANCEL_REQUESTED'`, the sweeper transitions the attempt to `LOST` (or `CANCELLED`) and transitions the job directly to `CANCELLED` (terminal), suppressing automated retry redelivery even if `attempt_no < max_attempts`.
 
 ### Startup and Outage Grace Mechanisms
-To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`).
+To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`). Both periods must be $\ge \text{lease duration}$ (default 30s).
 
 ### Operational Invariants & Rollback Policy
 - **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.

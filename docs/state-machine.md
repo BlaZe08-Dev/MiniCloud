@@ -65,16 +65,27 @@ There was an initial naming mismatch between the domain constants and PostgreSQL
 - PostgreSQL schema CHECK constraint `chk_attempts_state` (`000001_initial_schema.sql:97`) defines:
   `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
 
-### Canonical State Names & Migration Plan
+### Canonical State Names, Writing Code Paths & Migration Plan
 MiniCloud establishes the schema values as the canonical state names across the system:
 - **Canonical Attempt States**: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`.
 - **Spelling Alignment**: Uses double-L `CANCELLED` across both job and attempt states (`domain.StateCancelled`, `domain.AttemptCancelled`).
-- **Semantic Distinction**:
-  - `LOST`: Worker lease expired without renewal (worker crashed, partitioned, or uncommunicative). Replaces domain `EXPIRED`.
-  - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
-- **Code & API Mapping Plan**:
-  - In Slice 4a: Update `internal/domain/state.go` to declare:
-    ```go
+
+#### Complete Mapping Table: Domain Constants to Schema Values
+
+| Domain Constant (`internal/domain/state.go`) | Constant Value | Schema Enum (`chk_attempts_state`) | Writing Code Path | State Transition Trigger |
+|---|---|---|---|---|
+| `AttemptPending` | `"PENDING"` | `PENDING` | `repo.AssignJob` (post-Phase 4 Round-Robin) | Pre-assignment window before worker claims slot |
+| `AttemptRunning` | `"RUNNING"` | `RUNNING` | `repo.DispatchNextJob` (`internal/storage/postgres/repository.go:718`) | Worker claims job via pull dispatch |
+| `AttemptCompleted` | `"COMPLETED"` | `COMPLETED` | `repo.CommitAttempt` (`internal/storage/postgres/repository.go:946`) | Worker reports exit code 0 and empty error |
+| `AttemptFailed` | `"FAILED"` | `FAILED` | `repo.CommitAttempt` (`internal/storage/postgres/repository.go:946`) | Worker reports non-zero exit code or task error |
+| `AttemptTimedOut` (new) / `AttemptExpired` | `"TIMED_OUT"` | `TIMED_OUT` | Sweeper / Task Timeout Monitor | Task exceeds cumulative `timeout_seconds` |
+| `AttemptCancelled` (canonical) / `AttemptCanceled` | `"CANCELLED"` | `CANCELLED` | `repo.CommitAttempt` / Sweeper | Worker acknowledges cancel (exit 130) or sweeper reaps `CANCEL_REQUESTED` |
+| `AttemptLost` (new) / `AttemptExpired` | `"LOST"` | `LOST` | Coordinator Sweeper (ADR-0014) | Lease expires without renewal (`lease_expires_at < clock_timestamp()`) |
+
+#### Code & API Mapping Plan
+In Slice 4a, `internal/domain/state.go` will be updated to declare:
+```go
+const (
     AttemptPending   AttemptState = "PENDING"
     AttemptRunning   AttemptState = "RUNNING"
     AttemptCompleted AttemptState = "COMPLETED"
@@ -82,10 +93,34 @@ MiniCloud establishes the schema values as the canonical state names across the 
     AttemptTimedOut  AttemptState = "TIMED_OUT"
     AttemptCancelled AttemptState = "CANCELLED"
     AttemptLost      AttemptState = "LOST"
-    ```
-    (Preserve aliases `AttemptCanceled = AttemptCancelled` and `AttemptExpired = AttemptLost` during transition if needed for compatibility).
-  - Database rows already store canonical strings; migration 000001 already permits all 7 values in `chk_attempts_state`. No schema migration required for state names.
-  - API responses serialize the canonical strings directly.
+)
+
+// Aliases preserved during Phase 4 transition for backwards compatibility:
+const (
+    AttemptCanceled = AttemptCancelled
+    AttemptExpired  = AttemptLost
+)
+```
+
+#### Migration Impact
+Database migration `000001_initial_schema.sql:97` already defined `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. Therefore, zero database schema migrations or data backfills are required.
+
+#### Verification Proof: No Stored Rows or API Output Contain Old Spellings
+A codebase-wide inspection confirms that no stored rows or API outputs ever used `"EXPIRED"` or single-L `"CANCELED"`, as verified by the following grep queries:
+```text
+$ grep -rn '"EXPIRED"' internal/
+internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+
+$ grep -rn '"CANCELED"' internal/
+internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+
+$ grep -rn 'AttemptExpired' internal/
+internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+
+$ grep -rn 'AttemptCanceled' internal/
+internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+```
+Neither constant was ever referenced in repository queries, database inserts, or API serialization routines. All persistence layers write canonical strings exclusively.
 
 ### Attempt Lifecycle Diagram
 

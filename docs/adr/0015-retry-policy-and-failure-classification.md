@@ -77,7 +77,11 @@ MiniCloud introduces a structured failure classification taxonomy:
 - **Attempt Upper Bound**: `max_attempts` is configured at job submission ($1..20$, default 3; enforced by SQL check constraint `chk_jobs_max_attempts`).
 - **`LOST` Attempts Consume `max_attempts`**:
   - Every attempt marked `LOST` by the lease sweeper (due to worker crash, network partition, or lease expiration) **consumes 1 attempt** from the job's `max_attempts` budget. (Accepted by owner).
-  - **Consequence for Worker Outages**: If the entire worker cluster suffers an extended outage or network partition exceeding $3 \times 30\text{s}$, active jobs will sequentially reach `max_attempts` and transition to `FAILED` with error `"max attempts exhausted"`. This bounds execution time, prevents poison jobs from cycling infinitely across workers, and ensures predictable failure bounds during cluster outages.
+  - **Consequence for Prolonged Worker Outages**: If a worker or fleet suffers a persistent outage exceeding $\text{max\_attempts} \times \text{backoff}$, repeated attempt losses consume the entire `max_attempts` budget, causing the job to transition to `FAILED` due to infrastructure loss rather than task computation errors.
+  - **`error_class` Label**: When an attempt is swept to `LOST`, `attempts.error_class` is stamped with `"INFRASTRUCTURE_FAULT"` (or `"LEASE_EXPIRED"`). If a job exhausts `max_attempts` due to sweeper sweeps, the resulting job failure summary and audit event explicitly record `error_class = "INFRASTRUCTURE_FAULT"`. This lets operators and monitoring alerts immediately distinguish infrastructure loss (worker crash, node eviction, host partition) from application task bugs (`"PERMANENT"` or `"TRANSIENT"` task failures).
+  - **Alternative Considered & Why Rejected**:
+    - *Alternative*: Granting infinite or non-budgeted retries for `LOST` attempts (not decrementing `max_attempts` when workers disappear).
+    - *Why Rejected*: A "poison job" whose payload triggers host memory exhaustion, kernel panics, or SIGKILL/OOM of the worker process would loop infinitely across the cluster, systematically crashing every worker in the fleet one by one. Bounding all executions to `max_attempts` regardless of failure root cause guarantees cluster survivability and enforces bounded execution.
 - **Database Column `jobs.not_before`**:
   A new column `not_before TIMESTAMPTZ` is added to the `jobs` table (nullable).
 - **Exponential Backoff Formula**:
@@ -91,9 +95,9 @@ MiniCloud introduces a structured failure classification taxonomy:
 
 ### 3. Transition from `RETRYING` to Dispatch Eligibility: Direct `RETRYING -> RUNNING`
 
-#### Justification for Departure from Blueprint Conceptual Wording
-- **Blueprint Wording**: Blueprint Section 5 conceptual diagrams describe `RETRYING -> QUEUED` when a retry backoff timer elapses.
-- **Architectural Reality & Justification**: In PostgreSQL (and in-memory architecture), implementing an intermediate `RETRYING -> QUEUED` transition would require a background poller or sweeper running constantly just to flip the state string from `'RETRYING'` to `'QUEUED'`, introducing unnecessary write amplification, database lock contention, and race conditions.
+#### Blueprint Citation & Justification for Departure from Conceptual Wording
+- **Blueprint Conceptual Wording**: Blueprint Section 5 ("Job Lifecycle and State Machine", p. 11-12) and Section 13 ("Failure Handling & Edge Cases", p. 28-29) conceptually illustrate that when a retryable attempt fails, the job transitions to `RETRYING`, and when the backoff delay elapses, the job transitions back to `QUEUED` so the scheduler can pick it up again.
+- **Architectural Reality & Justification**: In PostgreSQL, implementing an intermediate `RETRYING -> QUEUED` transition would require a background poller or sweeper running constantly just to execute `UPDATE jobs SET state = 'QUEUED' WHERE state = 'RETRYING' AND not_before <= clock_timestamp()`. This introduces unnecessary write amplification, database lock contention, and race conditions for a purely administrative intermediate state flip.
 - **Direct Dispatch Transition (Accepted)**: Instead, `jobs.not_before` acts as a deferred availability gate directly in the single-transaction pull dispatch query (`repo.DispatchNextJob`):
   ```sql
   SELECT id, task_type, payload, timeout_seconds, max_attempts
@@ -105,27 +109,23 @@ MiniCloud introduces a structured failure classification taxonomy:
   FOR UPDATE SKIP LOCKED;
   ```
   When claimed, the job transitions atomically: `RETRYING -> RUNNING`. (Accepted by owner).
+- **Job State While Waiting for `not_before`**:
+  The job state remains explicitly `RETRYING`. In API responses and client queries, the job presents as `RETRYING`, clearly signaling that an attempt failed and a backoff timer is currently active, until a worker claims it at or after `not_before`.
 - **Audit Consistency**:
   When a job transitions from `RETRYING` to `RUNNING`, an audit event `JobEventDispatched` is recorded in `job_events` with `from_state: 'RETRYING'`, `to_state: 'RUNNING'`. This maintains identical scheduling semantics, eliminates intermediate database writes, and preserves complete state auditability.
 
-### 4. In-Memory Retry Parity & Shared Conformance Suite
+### 4. In-Memory Repository, Queue, and Shared Conformance Suite
 
 To guarantee seamless testing and environment parity between in-memory and PostgreSQL modes:
-1. **`InMemoryRepository` Parity**:
-   - Stores `job.State = StateRetrying` and `job.NotBefore = clock.Now().Add(backoff)`.
-   - `InMemoryRepository.DispatchJob` checks:
-     ```go
-     if job.State == domain.StateRetrying && job.NotBefore.After(r.clock.Now()) {
-         return nil, domain.ErrJobNotQueued
-     }
-     ```
-   - When the test advances `r.clock` past `job.NotBefore`, `DispatchJob` permits dispatch, transitioning `RETRYING -> RUNNING` and incrementing `attempt_no`.
+1. **In-Memory Repository and Queue Dispatch Rule**:
+   - In PostgreSQL mode, `not_before` backoff is integrated directly into the database pull dispatch query (`repo.DispatchNextJob`), allowing both `QUEUED` and backoff-eligible `RETRYING` jobs to be claimed without an external queue re-enqueue.
+   - In in-memory mode, `InMemoryRepository` implements domain FSM state transitions and stores `job.State = StateRetrying` and `job.NotBefore`. For dispatch, delayed backoff dispatch is Postgres-mode-only; in-memory mode is explicitly scoped to state-machine semantics testing (validating that `RUNNING -> RETRYING` succeeds when `attempt_no < max_attempts`, sets `not_before`, rejects transitions if `attempt_no >= max_attempts`, and permits immediate `RETRYING -> CANCELLED` on cancel).
 2. **Shared Conformance Suite Assertions**:
-   The shared conformance test suite (`internal/storage/storagetest`) asserts identical behavior across both in-memory and PostgreSQL repositories:
+   The shared conformance test suite (`internal/storage/storagetest`) asserts identical state machine behavior across both in-memory and PostgreSQL repositories:
    - Transitioning a retryable failure to `RETRYING` persists `not_before` in the future.
-   - Attempting dispatch before `not_before` has elapsed returns `ErrJobNotQueued` or zero matches.
-   - Advancing clock past `not_before` allows successful dispatch to `RUNNING` with `attempt_no = 2`.
-   - Reaching `max_attempts` transitions the job to `FAILED` with `"max attempts exhausted"`.
+   - Transitioning an attempt failure when `attempt_no >= max_attempts` moves the job to `FAILED` with error `"max attempts exhausted"`.
+   - Calling `CancelJob` on a job in `RETRYING` state transitions the job directly to `CANCELLED`.
+   - PostgreSQL-specific repository tests (`internal/storage/postgres/repository_test.go`) additionally assert database dispatch timing: `DispatchNextJob` returns `ErrNoJobsAvailable` when `not_before > clock_timestamp()`, and claims the job directly to `RUNNING` once `clock_timestamp() >= not_before`.
 
 ### 5. Database Invariant Preservation Under Retries
 1. **Monotonic Attempt Numbering (`uq_attempts_job_attempt_no`)**:
