@@ -119,25 +119,26 @@ Requests cancellation of a queued, retrying, or running job.
 {
   "job_id": "job_01j7xyz...",
   "state": "CANCELLED",
-  "message": "job cancelled immediately"
+  "message": "cancellation processed"
 }
 ```
 
-**Response (202 Accepted — Running Job Cancellation Requested):**
+**Response (200 OK — Running Job Cancellation Requested):**
 ```json
 {
   "job_id": "job_01j7xyz...",
   "state": "CANCEL_REQUESTED",
-  "message": "cancellation requested; awaiting worker confirmation"
+  "message": "cancellation processed"
 }
 ```
 
-**Response (202 Accepted — Duplicate Cancellation on Running Job):**
+**Response (200 OK — Duplicate Cancellation on Running Job):**
+A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the exact same response body as the first cancellation request, without modifying job or attempt state:
 ```json
 {
   "job_id": "job_01j7xyz...",
   "state": "CANCEL_REQUESTED",
-  "message": "cancellation already requested"
+  "message": "cancellation processed"
 }
 ```
 
@@ -147,7 +148,7 @@ Requests cancellation of a queued, retrying, or running job.
 - `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in a terminal state: `COMPLETED`, `FAILED`, or `CANCELLED`).
 - `503 Service Unavailable`: `SERVICE_UNAVAILABLE` (database connection failure, lock timeout, or coordinator outage; includes `Retry-After: 1` header).
 
-*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is an owner-approved compatibility exception backed by Blueprint Section 8. When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before`, releasing any reservation, and returning HTTP 200 `OK` with `{"state": "CANCELLED", "message": "job cancelled immediately"}`.
+*Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 4, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returns HTTP 200 `OK` with `{"job_id": "...", "state": "...", "message": "cancellation processed"}` for all valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today: every successful cancel returns HTTP 200 `OK`. There is no HTTP 202 `Accepted`, no ADR-0004 compatibility exception, and no `duplicate` response field.
 
 ---
 

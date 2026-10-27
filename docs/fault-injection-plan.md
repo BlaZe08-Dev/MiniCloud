@@ -102,8 +102,8 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 - **Injection Mechanism**: 50 concurrent goroutine pairs execute simultaneous cancel, duplicate cancel, and commit requests synchronized with a `sync.WaitGroup` start barrier.
 - **Expected Outcome**: PostgreSQL row locks on `jobs` serialize execution order.
   - If commit locks first: job transitions `RUNNING` -> `SUCCEEDED`; subsequent cancel receives HTTP 409 `JOB_ALREADY_TERMINAL`.
-  - If cancel locks first: job transitions `RUNNING` -> `CANCEL_REQUESTED` (HTTP 202); worker commit evaluates `CANCEL_REQUESTED`, accepts completed work, and transitions job to `SUCCEEDED` (or confirms cancel to `CANCELLED`).
-  - If cancel is duplicated on `CANCEL_REQUESTED`: returns idempotent HTTP 202 `CANCEL_REQUESTED` with zero duplicate audit events.
+  - If cancel locks first: job transitions `RUNNING` -> `CANCEL_REQUESTED` (HTTP 200); worker commit evaluates `CANCEL_REQUESTED`, accepts completed work, and transitions job to `SUCCEEDED` (or confirms cancel to `CANCELLED`).
+  - If cancel is duplicated on `CANCEL_REQUESTED`: returns idempotent HTTP 200 `CANCEL_REQUESTED` with zero duplicate audit events.
   - Cancellation delivered exclusively via renewal response (`cancel_requested: true`).
   - Zero deadlocks, zero unhandled errors, exactly one consistent terminal state.
 - **Evidence Collected**: Terminal state is either `SUCCEEDED` or `CANCELLED`; `job_events` contains sequential audit entries; race detector clean (`-race`).

@@ -5,7 +5,7 @@ Accepted by Owner (2026-10-26)
 - **Accepted Owner Decisions**:
   - Single cancellation delivery channel via lease renewal response (`cancel_requested: true`). Heartbeat response does not carry cancellations.
   - Worst-case cancellation delivery latency bounded by one renewal interval (10 s).
-  - Idempotent duplicate cancellation on `CANCEL_REQUESTED` returning HTTP 202 `CANCEL_REQUESTED`.
+  - Idempotent duplicate cancellation on `CANCEL_REQUESTED` returning HTTP 200 with state `CANCEL_REQUESTED` (no status code change).
   - Cancellation during `RETRYING` transitions immediately to `CANCELLED` and aborts scheduled retries.
   - Running attempts resolved exclusively via lease/renewal path: sweeper or commit path resolves `CANCEL_REQUESTED` jobs.
   - No separate `CANCEL_REQUESTED` deadline (the 30 s lease bounds it).
@@ -43,7 +43,7 @@ Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Sectio
 The Phase 4 design introduces three concrete behavioral changes to the existing cancellation implementation:
 1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**:
    - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
-   - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op. It returns the existing job state with HTTP 202 `CANCEL_REQUESTED` and does not insert duplicate audit events. In Slice 4a, `CommitAttempt` on a terminal job closes the attempt and frees the worker capacity slot in the same transaction as the rejection, writing a diagnostic event and returning 409 `JOB_ALREADY_TERMINAL`.
+   - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op. It returns the existing job state with HTTP 200 `CANCEL_REQUESTED` (with the same body as the first cancellation request) and does not insert duplicate audit events. In Slice 4a, `CommitAttempt` on a terminal job closes the attempt and frees the worker capacity slot in the same transaction as the rejection, writing a diagnostic event and returning 409 `JOB_ALREADY_TERMINAL`.
 2. **Cancellation During `RETRYING`**:
    - When a job is in `RETRYING` awaiting backoff, `CancelJob` immediately transitions it to `CANCELLED` (terminal), clears `not_before`, and removes it from dispatch eligibility.
 3. **Running Attempt Resolution via Lease / Sweeper Path**:
@@ -54,23 +54,23 @@ When `POST /v1/jobs/{job_id}/cancel` is invoked:
 1. **If Job is in `QUEUED`**:
    - Transition: `QUEUED` -> `CANCELLED` immediately.
    - Dispatch transport / in-memory queue: message is dropped and acknowledged (`queue.Ack`).
-   - API Response: `200 OK` with `state: "CANCELLED"`, `message: "job cancelled immediately"`.
+   - API Response: `200 OK` with `state: "CANCELLED"`, `message: "cancellation processed"`.
 2. **If Job is in `RETRYING`**:
    - Transition: `RETRYING` -> `CANCELLED` immediately (`internal/domain/transition.go:27`).
    - Scheduled retry aborted; `not_before` cleared.
-   - API Response: `200 OK` with `state: "CANCELLED"`, `message: "pending retry cancelled immediately"`.
+   - API Response: `200 OK` with `state: "CANCELLED"`, `message: "cancellation processed"`.
 3. **If Job is in `RUNNING`**:
    - Transition: `RUNNING` -> `CANCEL_REQUESTED`.
    - Audit Event: Insert `job_events` record with `event_type: 'job_cancel_requested'`.
-   - API Response: `202 Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation requested; awaiting worker confirmation"`.
+   - API Response: `200 OK` with `state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`.
 4. **If Job is in `CANCEL_REQUESTED` (Duplicate Cancel)**:
    - State unchanged: remains in `CANCEL_REQUESTED`.
-   - API Response: `202 Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation already requested"`. (Accepted by owner).
-   - `CancelJob` returns an indicator (such as previous state or duplicate flag) allowing the HTTP handler to distinguish initial request from duplicate.
+   - API Response: `200 OK` with `state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`. (Accepted by owner).
+   - Duplicate cancellation returns HTTP 200 with the identical response body as the initial request, changes nothing, and adds no duplicate audit events. There is no `duplicate` response field.
 5. **If Job is in Terminal State (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`)**:
    - Return HTTP `409 Conflict` with error code `JOB_ALREADY_TERMINAL`.
 
-*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is an owner-approved compatibility exception, backed by Blueprint section 8 ("response distinguishes requested from completed"), rather than an additive change. Other HTTP status codes returned by `/cancel` include 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
+*Note on Cancel Status Codes (Unchanged from Today):* The cancellation handler (`internal/api/handlers.go:267`) returns HTTP 200 `OK` for all valid cancellation requests (whether the job was `QUEUED`, `RETRYING`, `RUNNING`, or already `CANCEL_REQUESTED`). Cancel status codes are completely unchanged from today. There is no HTTP 202 Accepted, no ADR-0004 compatibility exception, and no `duplicate` response field. Other HTTP status codes returned by `/cancel` remain unchanged: 400 (`INVALID_REQUEST`), 404 (`JOB_NOT_FOUND`), 409 (`JOB_ALREADY_TERMINAL`), and 503 (`SERVICE_UNAVAILABLE`).
 
 ### 3. Single Downstream Delivery Channel: Lease Renewal (`/renew`)
 MiniCloud adopts a single, dedicated delivery channel for cancellation signals:
@@ -137,10 +137,10 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
 - **Resolution**:
   - First request transitions job to `CANCELLED` (from `QUEUED` / `RETRYING`) or `CANCEL_REQUESTED` (from `RUNNING`).
   - Subsequent requests:
-    - If job is in `CANCEL_REQUESTED`: Idempotently return HTTP `202 Accepted` with `state: "CANCEL_REQUESTED"`, `message: "cancellation already requested"`.
+    - If job is in `CANCEL_REQUESTED`: Idempotently return HTTP 200 `OK` with `state: "CANCEL_REQUESTED"`, `message: "cancellation processed"` (same body as initial request, no state change, no duplicate event).
     - If job is in terminal `CANCELLED` (or `SUCCEEDED`/`FAILED`): Return HTTP `409 Conflict` with `code: "JOB_ALREADY_TERMINAL"`.
 - **Existing Test Impact**:
-  - Existing tests `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go:559` test duplicate cancel on terminal `QUEUED -> CANCELLED`, asserting `ErrJobAlreadyTerminal`. Neither test asserts duplicate cancel on `CANCEL_REQUESTED`.
+  - Existing tests `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` (specifically line 335) and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go:559` (specifically line 607) test duplicate cancel on terminal `QUEUED -> CANCELLED`, asserting `ErrJobAlreadyTerminal`. Neither test asserts duplicate cancel on `CANCEL_REQUESTED`.
   - Conformance plan adds `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) to verify in-memory and PostgreSQL parity for duplicate cancel on `CANCEL_REQUESTED`.
 
 ---
@@ -150,7 +150,7 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
 ### Positive
 - **Deterministic Bounded Resolution**: Bounded 30s lease sweeps ensure `CANCEL_REQUESTED` always resolves to a terminal state within 30 seconds without requiring a separate reaper timer.
 - **Protocol Simplicity**: Eliminating heartbeat cancellation leaves heartbeats focused solely on node health and reduces protocol surface area.
-- **Idempotency**: Clients retrying cancellation requests on network blips receive safe 202 responses without corrupting attempt state.
+- **Idempotency**: Clients retrying cancellation requests on network blips receive safe HTTP 200 responses without corrupting attempt state.
 
 ### Negative / Trade-offs
 - Maximum cancellation delivery latency is 10 seconds (one renewal period).

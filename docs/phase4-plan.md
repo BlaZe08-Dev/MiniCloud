@@ -11,7 +11,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 3. **Late-Commit Semantics**: Option 2 (accept-until-swept while attempt is `RUNNING` in database, even if database timestamp slightly exceeds `lease_expires_at`). Once swept to `LOST`, late commits are strictly rejected with HTTP 409 `LEASE_EXPIRED` or `STALE_ATTEMPT_REJECTED` and zero attempt resurrection.
 4. **Sweeper Correctness Under Lock**: Sweeper executes canonical row-locked re-check (`SELECT id, state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`, with `jobs FOR UPDATE SKIP LOCKED` and `workers / attempts FOR UPDATE` under `lock_timeout`), skipping mutation if a renewal landed concurrently.
 5. **Bounded Retries with Backoff**: Structured failure classification (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`), exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 max attempts, `jobs.not_before` scheduling, and direct `RETRYING -> RUNNING` dispatch ([ADR 0015](adr/0015-retry-policy-and-failure-classification.md)). Validation failures of allowlisted tasks are permanent; success is `AttemptCompleted` (not a failure class); `LOST` attempts consume 1 attempt.
-6. **Single-Channel Cooperative Cancellation**: Renewal response (`cancel_requested: true`) is the sole cancellation delivery channel ([ADR 0016](adr/0016-cancellation-semantics.md)); removed `cancelled_job_ids` from heartbeat response. Worst-case latency is bounded to 10s (one renewal period). Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 202 `CANCEL_REQUESTED`.
+6. **Single-Channel Cooperative Cancellation**: Renewal response (`cancel_requested: true`) is the sole cancellation delivery channel ([ADR 0016](adr/0016-cancellation-semantics.md)); removed `cancelled_job_ids` from heartbeat response. Worst-case latency is bounded to 10s (one renewal period). Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED` (identical response body as the first cancel).
 7. **Synchronized Deployment Rule**: V1 coordinator and workers deploy together; non-renewing legacy workers are unsupported for tasks longer than 30s.
 8. **Hard Gate Foundation**: Serves as the direct foundation for post-Phase 4 Assignment-Based Round-Robin ([ADR 0011](adr/0011-postgres-dispatch-and-recovery.md)).
 
@@ -31,22 +31,25 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
      - *Current Behavior*: Today, `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215` behave identically: terminal job -> `ErrJobAlreadyTerminal`; `QUEUED` -> `CANCELLED`; `RUNNING` -> `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); and any subsequent non-terminal state (including `CANCEL_REQUESTED` and `RETRYING`) transitions to `CANCELLED` via fallback `else` branch.
      - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
-       - (a) A duplicate cancel on a `CANCEL_REQUESTED` job becomes an idempotent 202 no-op returning `CANCEL_REQUESTED`, preventing the job from prematurely terminating while the worker is actively running and preventing subsequent result commits from being rejected as terminal.
+       - (a) A duplicate cancel on a `CANCEL_REQUESTED` job becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED` (same response body as the first cancellation request), preventing the job from prematurely terminating while the worker is actively running and preventing subsequent result commits from being rejected as terminal.
        - (b) `CommitAttempt` on a terminal job must close the attempt and free the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and still return HTTP 409 `JOB_ALREADY_TERMINAL`.
        - (c) The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
        - (d) Enforce Invariant 4 (`worker_capacity` accounting) in `TestPostgresRepository_Concurrency_MixedOperationsStress` (`docs/fault-injection-plan.md:141`).
-     - *Existing Test Inspection*: The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` tests cancelling a `QUEUED` job (transitions to `CANCELLED`), asserts that a second cancel on that terminal job fails with `ErrJobAlreadyTerminal` (line 335), and tests cancelling a `RUNNING` job (transitions to `CANCEL_REQUESTED`, line 356-362). It does not test a duplicate cancel on `CANCEL_REQUESTED`.
-     - *Impact*: Zero existing tests are broken by making duplicate cancel on `CANCEL_REQUESTED` an idempotent no-op.
-     - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) will be added to `storagetest/conformance.go`.
+     - *Existing Test Inspection & Impact*:
+       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` (specifically line 335) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+       - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go:559` (specifically line 607) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+       - Slice 4a changes duplicate-cancel behavior on non-terminal `CANCEL_REQUESTED` jobs (the job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes (HTTP 200 continues to be returned for all valid cancellation requests). No existing test in the test suite asserts a second-cancel response on `CANCEL_REQUESTED`.
+       - *Impact*: Zero existing tests are broken by making duplicate cancel on `CANCEL_REQUESTED` an idempotent no-op returning HTTP 200.
+       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) will be added to `storagetest/conformance.go`.
   2. *FSM Transition Matrix Updates (`TestJobTransitionMatrix_AllPairs` in `internal/domain/transition_test.go`)*:
      - Three matrix cells change validity (marked "candidate for owner approval"):
        - `RETRYING -> QUEUED`: was valid in initial matrix, becomes invalid (candidate for owner approval; jobs in `RETRYING` do not transition back to `QUEUED`, they dispatch directly `RETRYING -> RUNNING` via `DispatchNextJob`).
        - `RETRYING -> RUNNING`: was invalid in initial matrix, becomes valid (candidate for owner approval; direct dispatch).
-       - `CANCEL_REQUESTED -> CANCEL_REQUESTED`: self-transition remains invalid in the domain FSM transition table (diagonal is "-" across all states in domain FSM), but handled at the service/handler layer as an idempotent 202 no-op (candidate for owner approval).
+       - `CANCEL_REQUESTED -> CANCEL_REQUESTED`: self-transition remains invalid in the domain FSM transition table (diagonal is "-" across all states in domain FSM), but handled at the service/handler layer as an idempotent HTTP 200 no-op (candidate for owner approval).
      - *Impact*: `TestJobTransitionMatrix_AllPairs` cell assertions are updated in Slice 4a.
-  3. *HTTP API Cancel Status Code Parity*:
-     - Returning HTTP 202 `Accepted` on `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is an owner-approved compatibility exception backed by Blueprint Section 8. `QUEUED` and `RETRYING` jobs return HTTP 200 `OK` (`CANCELLED`).
-     - Planned test: `TestAPI_CancelJob_RunningReturns202` (planned test).
+  3. *HTTP API Cancel Status Code Parity (Unchanged from Today)*:
+     - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
+     - Planned test: `TestAPI_CancelJob_SuccessReturns200` (planned test).
   4. *In-Memory Retry Dispatch & Coordinator Rewiring (R-05)*:
      - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`internal/coordinator/service.go:401-409`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
      - *Integration Tests using Memory Driver*:
@@ -72,6 +75,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Rewire in-memory coordinator to call `repo.DispatchNextJob`.
   - Expand shared conformance suite in `internal/storage/storagetest/conformance.go`.
   - Property test: `TestProperty_StateMachine_ModelConformance` (planned test) driving reference model and repository with injectable clock.
+  - Remove the three probe allowlist entries in `tests/docs/citation_allowlist.txt` when moving the audit probe into the normal test tree.
 - **Exit Criteria**:
   - Domain FSM centrally validates all transitions with typed domain errors.
   - In-memory repository passes expanded shared conformance suite.
@@ -84,7 +88,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - `TestJobTransitionMatrix_AllPairs` (updated with 3 approved cell changes)
   - `TestConformance_CancelJob_IdempotentCancelRequested` (planned test)
   - `TestConformance_CancelJob_RetryingImmediatelyCancelled` (planned test)
-  - `TestAPI_CancelJob_RunningReturns202` (planned test)
+  - `TestAPI_CancelJob_SuccessReturns200` (planned test)
   - `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test)
   - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
   - `TestInMemoryRepository_RetryBackoff` (planned test)

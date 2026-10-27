@@ -379,7 +379,7 @@ FAIL
   1. `CancelJob` omits explicit branch for `CANCEL_REQUESTED`, falling into the `else` branch and prematurely cancelling the job.
   2. `CommitAttempt` on a terminal job returns early without closing the attempt and freeing the worker slot.
 - **Authorized Fix (Scheduled for Slice 4a)**:
-  1. Handle duplicate cancel on `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 202 `Accepted` with `state: "CANCEL_REQUESTED"` and message `"cancellation already requested"`.
+  1. Handle duplicate cancel on `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"` (same body as initial cancel, no status code change).
   2. In `CommitAttempt` on a terminal job, close the attempt (set attempt state to `CANCELLED` if job is `CANCELLED`, or `LOST` otherwise) and release the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and still return HTTP 409 `JOB_ALREADY_TERMINAL`.
   3. The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
 - **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe test, planned for slice 4a), and `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).

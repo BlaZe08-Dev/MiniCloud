@@ -37,7 +37,7 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 | **`CANCELLED`** | NO | NO | NO | NO | NO | NO | NO | — | NO |
 | **`REJECTED`** | NO | NO | NO | NO | NO | NO | NO | NO | — |
 
-*Note: In the domain FSM (`internal/domain/transition.go:27`), the diagonal is strictly `—` (no self-transitions). A duplicate cancel on `CANCEL_REQUESTED` is handled at the coordinator service and HTTP API layer as an idempotent HTTP 202 `Accepted` no-op without invoking an FSM state transition. Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
+*Note: In the domain FSM (`internal/domain/transition.go:27`), the diagonal is strictly `—` (no self-transitions). A duplicate cancel on `CANCEL_REQUESTED` is handled at the coordinator service and HTTP API layer as an idempotent HTTP 200 no-op without invoking an FSM state transition. Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
 
 ### Current Code Behavior vs Phase 4 Behavior Changes
 - **Verified Current Cancellation Behavior**:
@@ -49,7 +49,7 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
   5. Workers learn nothing today (heartbeats carry static `{"status":"ACK"}`).
 - **Correction of Prior Misdescription**: Prior design drafts incorrectly claimed that cancelling a `RUNNING` job moved it directly to `CANCELLED` and marked the attempt `FAILED`. That description was false. The code already sets `CANCEL_REQUESTED` on first call for `RUNNING` jobs and leaves the attempt in `RUNNING`.
 - **Phase 4 Behavior Changes Introduced**:
-  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, duplicate cancel is an idempotent no-op returning HTTP 202 `CANCEL_REQUESTED`.
+  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, duplicate cancel is an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED` (identical response body as the first cancel).
   2. **Cancellation during `RETRYING`**: Cancelling a job in `RETRYING` stays an immediate transition to `CANCELLED`, clearing `not_before` and aborting scheduled retries.
   3. **Running Attempt Resolution via Lease Path**: The running attempt is handled via the lease/renewal path: the sweeper or commit path resolves `CANCEL_REQUESTED` jobs.
   4. **Direct `RETRYING -> RUNNING` via Pull Dispatch**: Blueprint conceptual diagrams describe `RETRYING -> QUEUED` when a retry backoff timer elapses. In MiniCloud's implementation, transitioning `RETRYING -> RUNNING` directly via `repo.DispatchNextJob` (`SELECT ... FOR UPDATE SKIP LOCKED` where `(state = 'QUEUED' OR (state = 'RETRYING' AND not_before <= clock_timestamp()))`) eliminates unnecessary intermediate database writes and polling loops while preserving full auditability via `JobEventDispatched` (`from_state: 'RETRYING'`, `to_state: 'RUNNING'`). (Accepted by owner).

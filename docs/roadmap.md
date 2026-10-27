@@ -63,7 +63,7 @@ MiniCloud development is structured into three major releases. Each version buil
    - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s with startup grace suppression (30s).
 4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
    - Implement 3-tier failure classification (`PERMANENT` vs `RETRYABLE`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
-   - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 202).
+   - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 200).
 5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
    - Execute all 10 blueprint fault scenarios (FS-01 through FS-10) in `tests/integration/` per [docs/fault-injection-plan.md](fault-injection-plan.md).
    - Execute property-based test harness ($\ge 1,000$ iterations) and certify Phase 4 security review gate.
