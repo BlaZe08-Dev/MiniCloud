@@ -405,9 +405,8 @@ Invoked periodically by the executing worker (default: every 10 seconds) to exte
   }
 }
 ```
-*Note on Symmetric Accept-Until-Swept Rule:* While `attempts.state == 'RUNNING'`, renewals (`POST /renew`) and commits (`POST /result`) are accepted even if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals). Renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED` / `JOB_ALREADY_TERMINAL`) is returned only once the attempt has already been swept to `LOST` by the coordinator lease sweeper or the job has reached a terminal state.
-The only authoritative grace check is the one inside the sweeper transaction lock; any earlier pre-check is advisory and must be labelled so or removed.
-**Cooldown definition**: it starts when a grace window ends; during the cooldown a new outage detection does NOT open a new grace window, so reaping proceeds. Maximum continuous suppression of reaping is therefore one window length. Outage detection counts connection-class errors, not slow ticks or query timeouts.
+*Note on Symmetric Accept-Until-Swept Rule:* While `attempts.state == 'RUNNING'`, renewals (`POST /renew`) and commits (`POST /result`) are accepted even if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals). Renewal extends the lease from current database time (`clock_timestamp() + lease_duration`), except on a `CANCEL_REQUESTED` job, where the renewal returns the current expiry unchanged without extending the lease. HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED` / `JOB_ALREADY_TERMINAL`) is returned only once the attempt has already been swept to `LOST` by the coordinator lease sweeper or the job has reached a terminal state.
+The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 
 *Worker Renewal Response Handling:*
 - **200 OK (`cancel_requested: true`)**: The worker initiates cooperative task cancellation via `context.Context`, stops renewing the lease, and reports the finished outcome via `POST /result`.
@@ -458,7 +457,7 @@ The report result payload accepts an optional `error_classification` field when 
   "error_classification": "PERMANENT"
 }
 ```
-*Allowed `error_classification` values:* `"PERMANENT"`, `"TRANSIENT"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure). Omitted on successful runs (exit code 0). Note that `"LEASE_EXPIRED"` is an internal failure class assigned exclusively by the coordinator sweeper upon lease expiration and is not accepted in worker result submissions.
+*Allowed `error_classification` values:* `"PERMANENT"`, `"TRANSIENT"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure). Omitted on successful runs (exit code 0). Note that `"LEASE_EXPIRED"` is an internal failure class assigned exclusively by the coordinator sweeper upon lease expiration and is not accepted in worker result submissions (rejected with HTTP 400 `INVALID_REQUEST`).
 
 ---
 
@@ -473,7 +472,13 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
 | 4 | Reporting worker ID does not match assigned worker | 403 Forbidden | `WORKER_MISMATCH` | No | Final: Worker halts execution, does not report result |
 | 5 | Target job or attempt does not exist | 404 Not Found | `JOB_NOT_FOUND` / `ATTEMPT_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
 
-*Terminal Job Result Rejection Behavior*: When a commit on an already-terminal job is rejected with 409 `JOB_ALREADY_TERMINAL`, the repository closes the active attempt in the same transaction: sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise, frees the worker capacity slot, and records a diagnostic event (`DIAGNOSTIC_LATE_RESULT`).
+*Terminal Job Result Rejection Behavior (D-R3-02)*: When a commit (including a retry of a commit that already succeeded) on an already-terminal job is rejected with 409 `JOB_ALREADY_TERMINAL`, the stored result from the initial commit is the single stored result; the retry is rejected; and the worker treats the 409 as final. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). If the attempt was `RUNNING`, it sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise, frees the worker capacity slot, and records a diagnostic event (`DIAGNOSTIC_LATE_RESULT`). (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
+
+*Commit Outcomes on `CANCEL_REQUESTED` (D-R3-06)*:
+When committing a result on a job in `CANCEL_REQUESTED`:
+- A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049` (permitted by `internal/domain/transition.go:21`).
+- A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING` or `FAILED`).
+- If the lease expires before commit, the sweeper reaps the attempt as `CANCELLED` and job as `CANCELLED`, recording `JOB_CANCELLED` and `LEASE_EXPIRED`.
 
 The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
 
