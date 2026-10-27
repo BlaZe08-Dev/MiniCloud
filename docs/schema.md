@@ -335,6 +335,11 @@ CREATE INDEX idx_attempts_lease_expiry
 CREATE INDEX idx_jobs_retrying_dispatch 
     ON jobs (not_before ASC, created_at ASC) 
     WHERE state = 'RETRYING';
+
+-- Step 6: Partial unique index to arbitrate ON CONFLICT DO NOTHING for diagnostic late results (SEC-004 bound)
+CREATE UNIQUE INDEX idx_job_events_unique_diagnostic_late_result 
+    ON job_events (job_id, (details->>'attempt_id')) 
+    WHERE event_type = 'DIAGNOSTIC_LATE_RESULT';
 ```
 
 ### Canonical State Names & Schema Alignment
@@ -356,7 +361,7 @@ In accordance with ADR-0014, the sweeper evaluates candidate attempts and execut
    ORDER BY a.lease_expires_at ASC
    LIMIT 50;
    ```
-   *Why Candidate Scan is Unlocked*: The candidate scan performs an unlocked read against `idx_attempts_lease_expiry` to avoid holding long-lived transaction locks across batch queries.
+   *Why Candidate Scan is Unlocked*: The candidate scan performs an unlocked read against `idx_attempts_lease_expiry` to avoid holding long-lived transaction locks across batch queries. An advisory pre-check before scanning may skip the pass if grace is known to be active, but the authoritative check occurs inside the locks.
 
 2. **Per-Candidate Lock Acquisition Order (`jobs -> workers -> attempts`)**:
    For each candidate, the sweeper begins an isolated transaction and acquires row locks in canonical order using `SKIP LOCKED` on jobs and plain `FOR UPDATE` under `lock_timeout` on workers and attempts:
@@ -376,21 +381,23 @@ In accordance with ADR-0014, the sweeper evaluates candidate attempts and execut
    - On Steps 2 and 3: Worker and attempt rows are locked with plain `FOR UPDATE` under PostgreSQL `lock_timeout` (default 5s). If a timeout occurs, the transaction rolls back cleanly on timeout error and retries next tick. `SKIP LOCKED` and `NOWAIT` are never combined.
 
 4. **Re-Check Inside the Locks (Correctness Invariants)**:
-   Under exclusive row locks, the sweeper performs a single correctness re-check:
+   Under exclusive row locks, the sweeper performs the single authoritative correctness re-check:
    - `attempts.state == 'RUNNING'`: Ensures the worker has not already committed.
    - `attempts.lease_expires_at < clock_timestamp()`: Ensures a concurrent renewal has not extended the lease.
-   - **Grace Conditions**: Ensures the coordinator is not within `MINICLOUD_STARTUP_GRACE_PERIOD` (30s after startup) or `MINICLOUD_OUTAGE_GRACE_WINDOW` (30s after database recovery).
+   - **Grace Conditions**: Ensures the coordinator is not within `MINICLOUD_STARTUP_GRACE_PERIOD` (30s after startup) or `MINICLOUD_OUTAGE_GRACE_WINDOW` (30s after database recovery). The only authoritative grace check is this one inside the transaction lock; any earlier check is advisory.
    If any condition is not met, the transaction rolls back cleanly with zero mutation.
 
 5. **Sweeper State Resolution Rules**:
-   - **Terminal Job (`COMPLETED`, `FAILED`, `CANCELLED`)**: If the parent job is already terminal (for example, if a race occurred or a job was cancelled while the worker was running), the sweeper closes the `RUNNING` attempt without modifying the job state: sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise. The job state remains strictly unchanged, worker capacity is freed, and a diagnostic job event is recorded.
-   - **`CANCEL_REQUESTED` Job**: The sweeper closes the attempt as `CANCELLED`, transitions the job to `CANCELLED` (terminal), frees the worker slot, and records a `job.cancelled` event.
+   - **Terminal Job (`SUCCEEDED`, `FAILED`, `CANCELLED`)**: If the parent job is already terminal (for example, if a race occurred or a job was cancelled while the worker was running), the sweeper closes the `RUNNING` attempt without modifying the job state: sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise. The job state remains strictly unchanged, worker capacity is freed, and a diagnostic job event is recorded (`event_type: 'LEASE_EXPIRED'`).
+   - **`CANCEL_REQUESTED` Job**: The sweeper closes the attempt as `CANCELLED`, transitions the job to `CANCELLED` (terminal), frees the worker slot, and records a `JOB_CANCELLED` event.
    - **`RUNNING` Job**:
-     - If `attempt_no < max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, sets `jobs.not_before` for exponential backoff with jitter, transitions the job to `RETRYING`, frees the worker slot, and records `attempt.lost` and `job.retrying` events.
-     - If `attempt_no >= max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, transitions the job to `FAILED` (terminal), frees the worker slot, and records `attempt.lost` and `job.failed` events.
+     - If `attempt_no < max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, sets `jobs.not_before` for exponential backoff with jitter, transitions the job to `RETRYING`, frees the worker slot, and records `LEASE_EXPIRED` and `JOB_RETRYING` events.
+     - If `attempt_no >= max_attempts`: Sets attempt `state = 'LOST'`, `error_class = 'LEASE_EXPIRED'`, transitions the job to `FAILED` (terminal), frees the worker slot, and records `LEASE_EXPIRED` and `JOB_FAILED` events.
 
 ### Startup and Outage Grace Mechanisms
 To protect Phase 3 surviving-worker commit guarantees across coordinator restarts and database outages (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), the coordinator sweeper suppresses reaping passes for 30 seconds following startup (`MINICLOUD_STARTUP_GRACE_PERIOD`) or database outage restoration (`MINICLOUD_OUTAGE_GRACE_WINDOW`). Both periods must be >= lease duration (default 30s).
+The only authoritative grace check is the one inside the sweeper transaction lock. Any earlier pre-check is advisory and must be labelled so or removed.
+**Cooldown definition**: it starts when a grace window ends; during the cooldown a new outage detection does NOT open a new grace window, so reaping proceeds. Maximum continuous suppression of reaping is therefore one window length. Outage detection counts connection-class errors, not slow ticks or query timeouts.
 
 ### Operational Invariants & Rollback Policy
 - **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
