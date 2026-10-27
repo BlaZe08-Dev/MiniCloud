@@ -142,10 +142,12 @@ Requests cancellation of a queued, retrying, or running job.
 ```
 
 **Errors:**
+- `400 Bad Request`: `INVALID_REQUEST` (invalid job ID format or length).
 - `404 Not Found`: `JOB_NOT_FOUND`.
-- `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`).
+- `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in a terminal state: `COMPLETED`, `FAILED`, or `CANCELLED`).
+- `503 Service Unavailable`: `SERVICE_UNAVAILABLE` (database connection failure, lock timeout, or coordinator outage; includes `Retry-After: 1` header).
 
-*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is a deliberate additive change to the HTTP API contract in Phase 4.
+*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is an owner-approved compatibility exception backed by Blueprint Section 8. When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before`, releasing any reservation, and returning HTTP 200 `OK` with `{"state": "CANCELLED", "message": "job cancelled immediately"}`.
 
 ---
 
@@ -402,7 +404,16 @@ Invoked periodically by the executing worker (default: every 10 seconds) to exte
   }
 }
 ```
-*Note on Symmetric Accept-Until-Swept Rule:* While `attempts.state == 'RUNNING'`, renewals (`POST /renew`) and commits (`POST /result`) are accepted even if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals). Renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED`) is returned only once the attempt has already been swept to `LOST` by the coordinator lease sweeper. If a renewal request returns HTTP 409 Conflict or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
+*Note on Symmetric Accept-Until-Swept Rule:* While `attempts.state == 'RUNNING'`, renewals (`POST /renew`) and commits (`POST /result`) are accepted even if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals). Renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED` / `JOB_ALREADY_TERMINAL`) is returned only once the attempt has already been swept to `LOST` by the coordinator lease sweeper or the job has reached a terminal state.
+
+*Worker Renewal Response Handling:*
+- **200 OK (`cancel_requested: true`)**: The worker initiates cooperative task cancellation via `context.Context` and reports the cancellation outcome via `POST /result`.
+- **403 Forbidden (`WORKER_MISMATCH`) or 409 Conflict (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`)**: Terminal rejection. The worker immediately halts task execution, aborts context, frees its execution slot, and **does not report a result** to the coordinator.
+- **404 Not Found**: The worker inspects the response body error code:
+  - *Recognized code* (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`): Terminal rejection. The worker halts execution, aborts context, and does not report a result.
+  - *Unrecognized code or missing envelope* (e.g. HTTP 404 from older coordinator lacking the renew route): Treated as endpoint missing. The worker logs a warning once, disables further renewals for that attempt, keeps running the task to completion, and reports the result normally via `POST /result`.
+- **400 Bad Request (`INVALID_REQUEST`, `WORKER_TASK_UNSUPPORTED`)**: The worker logs an error, disables further renewals for that attempt, keeps running the task to completion, and reports the result normally.
+- **5xx / Transport / Connection Error**: Transient failure. The worker logs the error, continues task execution, and retries lease renewal on the next interval until the lease expires.
 
 ---
 
@@ -444,15 +455,20 @@ The report result payload accepts an optional `error_classification` field when 
   "error_classification": "PERMANENT"
 }
 ```
-*Allowed `error_classification` values:* `"PERMANENT"`, `"RETRYABLE"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure). Omitted on successful runs (exit code 0).
+*Allowed `error_classification` values:* `"PERMANENT"`, `"TRANSIENT"`, `"UNKNOWN"` (defaults to `"UNKNOWN"` if omitted on failure). Omitted on successful runs (exit code 0). Note that `"LEASE_EXPIRED"` is an internal failure class assigned exclusively by the coordinator sweeper upon lease expiration and is not accepted in worker result submissions.
 
 ---
 
-### 6.3 Standardized Error Code Additions
-Phase 4 introduces explicit error codes in the standard JSON envelope:
-- `LEASE_EXPIRED` (HTTP 409 Conflict): The attempt was swept to `LOST` by the coordinator lease sweeper before completion or renewal was committed.
-- `ATTEMPT_NOT_RUNNING` (HTTP 409 Conflict): Attempt is in a terminal or non-running state.
-- `JOB_CANCELLED` (HTTP 409 Conflict): The target job was cancelled.
+### 6.3 Standardized Error Code Additions & HTTP 409 Conflict Evaluation Order
+When processing attempt results (`POST /result`) and lease renewals (`POST /renew`), conflicting states are evaluated in strict priority order:
+
+| Priority | Condition | HTTP Status | Error Code | Worker Action |
+|---|---|---|---|---|
+| 1 | Target Job is already in a terminal state (`COMPLETED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Final: Worker halts execution, frees capacity slot, does not report result |
+| 2 | Attempt state is `LOST` (swept by coordinator lease sweeper) | 409 Conflict | `LEASE_EXPIRED` | Final: Worker halts execution, frees capacity slot, does not report result |
+| 3 | Attempt state is not `RUNNING`, attempt superseded, or lease token mismatch | 409 Conflict | `STALE_ATTEMPT_REJECTED` | Final: Worker halts execution, frees capacity slot, does not report result |
+
+The worker treats all three 409 Conflict codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
 
 ---
 
@@ -463,5 +479,5 @@ MiniCloud V1 coordinator and worker binaries **deploy together as a synchronized
 
 | Client / Worker Combination | Behavior & Compatibility Guarantee |
 |---|---|
-| **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Unsupported for tasks longer than lease duration (30 s)**: Old workers do not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running $>30$s expire, are marked `LOST` by the sweeper, and receive HTTP 409 `STALE_ATTEMPT_REJECTED` on late commit. Coordinator and workers must deploy together in V1. |
-| **New Worker (Phase 4) vs Old Coordinator (Phase 1–3)** | **Graceful Degradation**: New worker attempts `POST /renew`, which returns HTTP 404/405 on old coordinator. New worker logs a single compatibility warning, disables periodic renewal for that attempt, and falls back to Phase 3 run-to-completion behavior. New worker handles static `{"status": "ACK"}` heartbeat response without errors. |
+| **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Unsupported for tasks longer than lease duration (30 s)**: Old workers do not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running > 30s expire, are marked `LOST` by the sweeper, and receive HTTP 409 `LEASE_EXPIRED` or `STALE_ATTEMPT_REJECTED` on late commit. Furthermore, because `/renew` is the single cancellation delivery channel, old workers never receive cooperative cancellation requests; cancelled jobs resolve only through sweeper expiry or worker commit. Coordinator and workers must deploy together in V1. |
+| **New Worker (Phase 4) vs Old Coordinator (Phase 1–3)** | **Graceful Degradation**: New worker attempts `POST /renew`. On an old coordinator lacking the endpoint, a 404 response without a recognized error envelope is returned. The new worker logs a single compatibility warning, disables periodic renewal for that attempt, and falls back to Phase 3 run-to-completion behavior, reporting the outcome via `POST /result`. New worker handles static `{"status": "ACK"}` heartbeat response without errors. |
