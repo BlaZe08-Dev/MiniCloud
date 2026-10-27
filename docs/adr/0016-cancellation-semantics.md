@@ -68,18 +68,20 @@ When `POST /v1/jobs/{job_id}/cancel` is invoked:
 5. **If Job is in Terminal State (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`)**:
    - Return HTTP `409 Conflict` with error code `JOB_ALREADY_TERMINAL`.
 
+*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is a deliberate additive change to the HTTP API contract in Phase 4.
+
 ### 3. Single Downstream Delivery Channel: Lease Renewal (`/renew`)
 MiniCloud adopts a single, dedicated delivery channel for cancellation signals:
 - **Sole Delivery Channel**: `POST /v1/jobs/{id}/attempts/{attempt_id}/renew`.
-  - While running a task, the worker issues renewal requests every 10 seconds (ADR-0014).
-  - If `job.state == 'CANCEL_REQUESTED'`, the renewal response returns:
-    ```json
-    {
-      "status": "RENEWED",
-      "lease_expires_at": "2026-10-26T20:20:00Z",
-      "cancel_requested": true
-    }
-    ```
+   - While running a task, the worker issues renewal requests every 10 seconds (ADR-0014).
+   - If `job.state == 'CANCEL_REQUESTED'`, the renewal response returns:
+     ```json
+     {
+       "status": "RENEWED",
+       "lease_expires_at": "2026-10-26T20:20:00Z",
+       "cancel_requested": true
+     }
+     ```
 - **Heartbeat Excluded**: Heartbeats (`POST /v1/workers/{id}/heartbeat`) remain strictly dedicated to node liveness and do not carry `cancelled_job_ids`. (Accepted by owner).
 - **Latency Bound**: The worst-case delivery latency from client cancellation to worker receipt is bounded by **one renewal interval (10 seconds default)**. (Accepted by owner).
 
@@ -94,9 +96,10 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
   2. The task executor receives `taskCtx.Done()`.
   3. Predefined tasks (`sleep`, `sha256_loop`, `echo`) observe context cancellation between loop iterations or select blocks, terminate immediately, and return `context.Canceled`.
   4. The worker reports the outcome to `POST /v1/jobs/{id}/attempts/{attempt_id}/result` with `error = "task cancelled by user request"`, `exit_code = 130` (or `domain.ErrTaskCancelled`).
-- **When Lease-Lost is received on renewal (HTTP 409 or 403)**:
+- **When Lease-Lost is received on renewal (HTTP 409 LEASE_EXPIRED or 403 WORKER_MISMATCH)**:
+  Under the symmetric accept-until-swept rule, renewal is accepted while `attempts.state == 'RUNNING'`. HTTP 409 `LEASE_EXPIRED` indicates the coordinator lease sweeper has already swept the attempt to `LOST`.
   1. The worker agent invokes `cancelFn()`.
-  2. The worker **must not report a result** to the coordinator (the attempt is lost/stale). (Accepted by owner).
+  2. The worker **must not report a result** to the coordinator (the attempt was swept to `LOST` by the sweeper). (Accepted by owner).
 
 ### 5. Resolution of Distributed Races
 

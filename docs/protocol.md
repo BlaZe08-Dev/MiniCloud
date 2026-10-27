@@ -145,6 +145,8 @@ Requests cancellation of a queued, retrying, or running job.
 - `404 Not Found`: `JOB_NOT_FOUND`.
 - `409 Conflict`: `JOB_ALREADY_TERMINAL` (job is already in `SUCCEEDED`, `FAILED`, `CANCELLED`, or `REJECTED`).
 
+*Note on API Contract Change:* In Milestone 1–3, the cancellation handler (`internal/api/handlers.go:267`) unconditionally returned HTTP 200 `OK` with `{"message": "cancellation processed"}` for all valid jobs, including `RUNNING` jobs. Returning HTTP 202 `Accepted` for `RUNNING` jobs (`CANCEL_REQUESTED`) and duplicate cancels on `CANCEL_REQUESTED` is a deliberate additive change to the HTTP API contract in Phase 4.
+
 ---
 
 ### 3.5 `GET /v1/workers` — List Workers
@@ -394,13 +396,13 @@ Invoked periodically by the executing worker (default: every 10 seconds) to exte
 ```json
 {
   "error": {
-    "code": "STALE_ATTEMPT_REJECTED",
-    "message": "attempt lease has already expired or attempt is no longer active",
+    "code": "LEASE_EXPIRED",
+    "message": "attempt lease expired and was marked lost by sweeper",
     "details": null
   }
 }
 ```
-*Note on Lease-Lost Handling:* If a renewal request returns HTTP 409 Conflict (`STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
+*Note on Symmetric Accept-Until-Swept Rule:* While `attempts.state == 'RUNNING'`, renewals (`POST /renew`) and commits (`POST /result`) are accepted even if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals). Renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED`) is returned only once the attempt has already been swept to `LOST` by the coordinator lease sweeper. If a renewal request returns HTTP 409 Conflict or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 
 ---
 
@@ -448,7 +450,7 @@ The report result payload accepts an optional `error_classification` field when 
 
 ### 6.3 Standardized Error Code Additions
 Phase 4 introduces explicit error codes in the standard JSON envelope:
-- `LEASE_EXPIRED` (HTTP 409 Conflict): The attempt lease expired before completion or renewal.
+- `LEASE_EXPIRED` (HTTP 409 Conflict): The attempt was swept to `LOST` by the coordinator lease sweeper before completion or renewal was committed.
 - `ATTEMPT_NOT_RUNNING` (HTTP 409 Conflict): Attempt is in a terminal or non-running state.
 - `JOB_CANCELLED` (HTTP 409 Conflict): The target job was cancelled.
 

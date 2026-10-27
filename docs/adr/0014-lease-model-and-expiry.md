@@ -82,7 +82,7 @@ MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol
   2. Attempt must exist, match `job.current_attempt_id`, and be in `RUNNING` state.
   3. SHA-256 hash of `lease_token` must match `attempts.lease_token_hash` in constant time (`subtle.ConstantTimeCompare`).
   4. Reporting `worker_id` must match `attempts.worker_id`.
-  5. Current database time must be strictly before `lease_expires_at` (`clock_timestamp() < lease_expires_at`).
+  5. Attempt state must be `RUNNING`. Under the **Symmetric Accept-Until-Swept Rule**, if `lease_expires_at` has elapsed on database time (for example during sweeper grace periods or ticker intervals) but the sweeper has not yet transitioned the attempt to `LOST`, renewal is accepted and extended from current database time (`clock_timestamp() + make_interval(secs => lease_duration)`), symmetric with commit. HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED`) is returned only once the attempt has already been swept to `LOST`.
 - **Response (200 OK)**:
   ```json
   {
@@ -92,7 +92,7 @@ MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol
   }
   ```
 - **Single Cancellation Channel**: The renewal response is the single channel for delivering cancellation requests to workers. When `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`) and returns `"cancel_requested": true`. The worker agent inspects this flag and triggers cooperative task cancellation via `context.CancelFunc`. Worst-case delivery latency is bounded by exactly one renewal interval (10 seconds default). (Accepted by owner).
-- **Lease-Lost Handling**: If renewal returns HTTP 409 Conflict (`STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
+- **Lease-Lost Handling**: If renewal returns HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), meaning the attempt was swept to `LOST` by the sweeper, the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 
 ### 4. Deadlock-Free Coordinator Lease Sweeper, Re-Check Under Lock, and Grace Periods
 
@@ -161,20 +161,34 @@ $$\text{jobs} \longrightarrow \text{workers} \longrightarrow \text{attempts} \lo
   - Zero existing test assertions are weakened. Existing integration tests run with restarts/outages of 200ms–1.5s, well within the 30s grace window.
   - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse.
 
-### 5. Stale Attempt Rejection & Late Commit Analysis
+### 5. Stale Attempt Rejection & Symmetric Accept-Until-Swept Rule
 
-#### Late Commit Before Sweeper Runs: Option Analysis & Decision
+#### Renewal and Commit Before Sweeper Runs: Option Analysis & Decision
 
-| Dimension | Option 1: Strict Lease Rejection at Commit Time | Option 2: Optimistic Accept-Until-Reaped (Accepted) |
+| Dimension | Option 1: Strict Lease Rejection at Clock Time | Option 2: Symmetric Accept-Until-Swept (Accepted) |
 |---|---|---|
-| **Rule** | `CommitAttempt` rejects if `clock_timestamp() > lease_expires_at`, even if `attempts.state == 'RUNNING'`. | `CommitAttempt` accepts if `attempts.state == 'RUNNING'`, even if `clock_timestamp() > lease_expires_at`, provided sweeper has not reaped it. |
-| **Costs** | Discards valid computational work completed by a slightly slow or delayed worker. | Allows a commit landing in the 0–5s sweeper tick window after lease expiration to finalize the job. |
-| **Effect on Retries** | Sweeper will subsequently reap attempt to `LOST` and trigger an automated retry. | Avoids redundant retry; job completes directly to `SUCCEEDED`. |
-| **Duplicate Execution** | **Increases duplicate execution**: another worker executes the exact same job even though the first worker finished successfully. | **Minimizes duplicate execution**: avoids re-running already completed tasks when no replacement worker has been dispatched. |
+| **Rule** | `CommitAttempt` and `RenewAttemptLease` reject if `clock_timestamp() > lease_expires_at`, even if `attempts.state == 'RUNNING'`. | `CommitAttempt` and `RenewAttemptLease` succeed if `attempts.state == 'RUNNING'`, even if `clock_timestamp() > lease_expires_at`, provided the sweeper has not swept the attempt to `LOST`. |
+| **Costs** | Discards valid computational work completed by a slightly slow or delayed worker, and aborts surviving workers renewing during coordinator restart or outage grace periods. | A slow or lagging worker that is still alive retains its attempt until the sweeper executes its reaping pass, delaying reclamation of a stalled worker until the sweeper runs. |
+| **Effect on Retries** | Sweeper subsequently reaps attempt to `LOST` and triggers an automated retry. | Avoids redundant retry; job completes directly to `SUCCEEDED` or renewal extends lease from database time. |
+| **Duplicate Execution** | **Increases duplicate execution**: another worker executes the exact same job even though the first worker is alive and actively computing or renewing. | **Minimizes duplicate execution**: avoids re-running already active or completed tasks when no replacement worker has been dispatched. |
 
-**Decision**: MiniCloud adopts **Option 2 (Optimistic Accept-Until-Reaped while `RUNNING`)** (Accepted by owner).
-- **Rationale**: The lease grants exclusive write rights until revoked. If the sweeper has not yet acquired the row lock and marked the attempt `LOST`, no other worker has been assigned to the job. Accepting the successful completion saves cluster resources and prevents unnecessary duplicate execution.
-- **Hard Boundary (No Resurrection)**: Once the sweeper acquires the row lock and transitions the attempt to `LOST` (or `TIMED_OUT`), Option 2 ceases. Any subsequent commit attempt is strictly rejected with HTTP 409 `STALE_ATTEMPT_REJECTED`. The late result is recorded strictly as a `diagnostic_late_result` in `job_events` and is **never** committed to `results`. Expired attempts are never resurrected. (Accepted by owner).
+**Decision**: MiniCloud adopts **Option 2 (Symmetric Accept-Until-Swept while `RUNNING`)** across both `CommitAttempt` and `RenewAttemptLease` (Accepted by owner).
+- **Symmetric Rule**: A lease represents exclusive write and execution rights until revoked by the coordinator sweeper. While `attempts.state == 'RUNNING'`:
+  - `CommitAttempt` accepts the result and transitions the job to `SUCCEEDED` (or `FAILED` / `RETRYING`).
+  - `RenewAttemptLease` accepts the renewal and extends `lease_expires_at` to `clock_timestamp() + make_interval(secs => lease_duration)`.
+  Neither commit nor renewal is rejected merely because `lease_expires_at` has passed on the clock while the sweeper was paused for grace or between ticks.
+- **Cost of Accept-Until-Swept**: A slow, delayed, or temporarily paused worker that remains alive keeps its attempt even if `lease_expires_at` has passed, until the sweeper runs its next pass. This slightly delays reclaiming stalled workers, but prevents catastrophic cascading aborts during coordinator restarts and database outages, preserving in-progress computation and upholding Phase 3 surviving-worker guarantees.
+- **Code-Level Error Definition**:
+  ```go
+  // ErrLeaseExpired is returned when a renewal or commit is attempted on an attempt that was already swept to LOST.
+  var ErrLeaseExpired = errors.New("attempt lease expired and was marked lost")
+  ```
+- **Hard Boundary (No Resurrection Once Swept)**: Once the sweeper acquires row locks and transitions the attempt to `LOST` (or `TIMED_OUT`), Option 2 ceases. Any subsequent commit or renewal attempt is strictly rejected with HTTP 409 Conflict (`LEASE_EXPIRED` / `STALE_ATTEMPT_REJECTED`) and `domain.ErrLeaseExpired`. The late result is recorded strictly as a `diagnostic_late_result` in `job_events` and is **never** committed to `results`. Expired attempts are never resurrected. (Accepted by owner).
+- **Planned Verification Tests**:
+  - `TestPostgresRepository_RenewAttemptLease_ExpiredButUnswept_RenewedFromDBTime` (planned test).
+  - `TestPostgresRepository_RenewAttemptLease_AfterSweptToLost_RejectedLeaseExpired` (planned test).
+  - `TestPostgresRepository_CommitAttempt_ExpiredButUnswept_Accepted` (planned test).
+  - `TestPostgresRepository_CommitAttempt_AfterSweptToLost_RejectedLeaseExpired` (planned test).
 
 ---
 

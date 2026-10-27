@@ -111,12 +111,12 @@ MiniCloud establishes the schema values as the canonical state names across the 
 ```
 
 - `PENDING`: Staged for post-Phase 4 Assignment-Based Round-Robin slice (Candidate A pre-assignment window).
-- `RUNNING`: Initial state upon pull dispatch. Holds an active lease (`lease_expires_at`).
+- `RUNNING`: Initial state upon pull dispatch. Holds an active lease (`lease_expires_at`). Under the **Symmetric Accept-Until-Swept Rule**, renewals (`POST /renew`) and commits (`POST /result`) are accepted while `state == 'RUNNING'` even if `lease_expires_at` has passed on database time; renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) is returned only after the attempt has been swept to `LOST` by the coordinator sweeper.
 - `COMPLETED`: Terminal attempt success (exit code 0, empty error).
 - `FAILED`: Terminal attempt execution failure (non-zero exit code or application error).
 - `TIMED_OUT`: Attempt exceeded cumulative `timeout_seconds`.
 - `CANCELLED`: Worker cooperatively halted task in response to `cancel_requested: true`.
-- `LOST`: Worker lease expired without renewal. Consumes 1 attempt of `max_attempts`.
+- `LOST`: Worker lease expired without renewal and swept by the coordinator sweeper. Consumes 1 attempt of `max_attempts`. Any subsequent commit or renewal attempt is rejected with HTTP 409 Conflict (`LEASE_EXPIRED`) and `domain.ErrLeaseExpired`.
 
 ---
 
