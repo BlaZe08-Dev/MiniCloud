@@ -300,7 +300,7 @@ For findings of **Medium** severity and above, the full structured report format
 - **Severity**: Medium
 - **Category**: State Transition Logic / Concurrency Defect / Resource Exhaustion
 - **Status**: Open (executed)
-- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go:658-683`, `internal/storage/postgres/repository.go:1135-1215`)
+- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go:658-700`, `internal/storage/postgres/repository.go:1135-1233`)
 - **Preconditions**: A job is dispatched and actively executing on a worker (`RUNNING`); a first `CancelJob` transitions the job to `CANCEL_REQUESTED`; a second `CancelJob` request arrives before the worker completes or acknowledges cancellation.
 - **Reproduction Steps**:
   1. Register a 1-slot worker; submit and dispatch an `echo` job so attempt 1 enters `RUNNING`.
@@ -380,9 +380,9 @@ FAIL
   2. `CommitAttempt` on a terminal job returns early without closing the attempt and freeing the worker slot.
 - **Authorized Fix (Scheduled for Slice 4a)**:
   1. Handle duplicate cancel on `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"` (same body as initial cancel, no status code change).
-  2. In `CommitAttempt` on a terminal job, close the attempt (set attempt state to `CANCELLED` if job is `CANCELLED`, or `LOST` otherwise) and release the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and still return HTTP 409 `JOB_ALREADY_TERMINAL`.
-  3. The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
-- **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe test, planned for slice 4a), and `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+  2. In `CommitAttempt` on a terminal job, close the attempt strictly if still in `RUNNING` (set attempt state to `CANCELLED` if job is `CANCELLED`, or `LOST` otherwise) and release the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and return HTTP 409 `JOB_ALREADY_TERMINAL` (the single stored result stands, an attempt already terminal is never overwritten, and the worker treats HTTP 409 as final without retry).
+  3. The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
+- **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
 
 ---
 
