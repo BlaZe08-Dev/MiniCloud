@@ -26,14 +26,14 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - This directly violates the Phase 3 recovery invariant verified in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`), where surviving workers holding valid tasks successfully commit after the control plane recovers.
   - *Mechanism*: The sweeper enforces two grace conditions before sweeping:
     1. *Startup Grace Period*: Sweeper pauses reclamation for `MINICLOUD_STARTUP_GRACE_PERIOD` (30s) after coordinator boot, allowing surviving workers to issue renewals.
-    2. *Database Outage Grace Window*: If inter-tick database gaps or failed ticks detect database unavailability (connection-class errors only; not slow queries or health checks), the sweeper grants an outage grace window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, 30s) upon recovery before sweeping expired leases. The only authoritative grace check is the one inside the sweeper transaction lock; any earlier pre-check is advisory. Cooldown starts when a grace window ends; during the cooldown a new outage detection does NOT open a new grace window, so reaping proceeds. Maximum continuous suppression of reaping is therefore one window length (30s).
+    2. *Database Outage Grace Window*: The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 - **Existing-Test Impact List**:
   1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
      - *Current Behavior*: Today, `internal/storage/inmemory.go:658-700` and `internal/storage/postgres/repository.go:1135-1233` behave identically: terminal job -> `ErrJobAlreadyTerminal`; `QUEUED` -> `CANCELLED`; `RUNNING` -> `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); and any subsequent non-terminal state (including `CANCEL_REQUESTED` and `RETRYING`) transitions to `CANCELLED` via fallback `else` branch.
      - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
        - (a) A duplicate cancel on a `CANCEL_REQUESTED` job becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED` (same response body as the first cancellation request), preventing the job from prematurely terminating while the worker is actively running and preventing subsequent result commits from being rejected as terminal.
        - (b) `CommitAttempt` on a terminal job must close the attempt and free the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and still return HTTP 409 `JOB_ALREADY_TERMINAL`.
-       - (c) The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
+       - (c) The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
        - (d) Enforce Invariant 4 ("No Active Attempt After Terminal State") in `TestPostgresRepository_Concurrency_MixedOperationsStress` (`docs/fault-injection-plan.md:141`).
      - *Existing Test Inspection & Impact*:
        - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` (specifically line 335) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
@@ -45,25 +45,30 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
      - Exactly two matrix cells change validity (marked "candidate for owner approval"):
        - `RETRYING -> QUEUED`: was valid in initial matrix (`true`), becomes invalid (`false`) (candidate for owner approval; jobs in `RETRYING` do not transition back to `QUEUED`, they dispatch directly `RETRYING -> RUNNING` via `DispatchNextJob`).
        - `RETRYING -> RUNNING`: was invalid in initial matrix (`false`), becomes valid (`true`) (candidate for owner approval; direct dispatch).
-     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go:6-36`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
+     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go:4-33`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
      - *Impact*: `TestJobTransitionMatrix_AllPairs` cell assertions for the two flipped cells are updated in Slice 4a.
   3. *HTTP API Cancel Status Code Parity (Unchanged from Today)*:
      - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
      - Planned test: `TestAPI_CancelJob_SuccessReturns200` (planned test).
-  4. *In-Memory Retry Dispatch & Coordinator Rewiring (R-05 & D-R2-01)*:
+  4. *In-Memory Retry Dispatch & Coordinator Rewiring (R-05, D-R2-01 & R3-09)*:
      - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`internal/coordinator/service.go:401-409`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
+     - *Coordinator Queue Operations & Constructor Fate*:
+       - When DB dispatch replaces queue operations in Slice 4a, `SubmitJob`'s `s.queue.Enqueue` (`internal/coordinator/service.go:194-195`) and `CommitResult`'s `s.queue.Ack` (`internal/coordinator/service.go:512-513`) are removed.
+       - `NewServiceWithQueue` (`internal/coordinator/service.go:71-72`) and its queue parameter (still passed in `tests/integration/multi_worker_batch_test.go:39-40`) are candidates for owner approval (propose deprecation/retirement or compatibility wrapper).
+       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go:47`, `:274`, `internal/api/api_test.go:58`, `:588`, `tests/integration/coordinator_restart_test.go:67`, `:181`, `tests/integration/worker_liveness_test.go:43`.
      - *Integration Tests using Memory Driver*:
        - `tests/integration/local_core_test.go:25` and `tests/integration/multi_worker_batch_test.go:26`: use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
        - `internal/api/api_test.go:27`: uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
      - *Existing-Test Impact on Coordinator Service Tests*:
-       - Moving memory dispatch to `repo.DispatchNextJob` directly impacts coordinator tests in `internal/coordinator/service_test.go` that assert `spyQueue` Ack/Release behavior (where `spyQueue` is at `internal/coordinator/service_test.go:353-375`). The following 7 tests must be rewritten to assert observable outcomes (job state, attempt state, worker slot capacity) instead of queue `Ack`/`Release` calls, each marked "candidate for owner approval":
-         1. `TestService_Claim_JobNoLongerQueued_Dropped` (`internal/coordinator/service_test.go:386`) (candidate for owner approval)
-         2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`) (candidate for owner approval)
-         3. `TestService_Claim_Redelivery_NoDuplicateAttempt` (`internal/coordinator/service_test.go:526`) (candidate for owner approval)
-         4. `TestService_CommitResult_AckOnlyOnAccepted` (`internal/coordinator/service_test.go:575`) (candidate for owner approval)
-         5. `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:665`) (candidate for owner approval)
-         6. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:716`) (candidate for owner approval)
-         7. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:764`) (candidate for owner approval)
+       - Moving memory dispatch to `repo.DispatchNextJob` directly impacts coordinator tests in `internal/coordinator/service_test.go`:
+         - Six tests use `spyQueue` (`internal/coordinator/service_test.go:338-381`) and assert queue `Ack`/`Release` calls; they are rewritten to assert observable domain outcomes (job state, attempt state, worker slot capacity) instead of queue method calls (each a candidate for owner approval):
+           1. `TestService_Claim_JobNoLongerQueued_Dropped` (`internal/coordinator/service_test.go:386`) (candidate for owner approval)
+           2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`) (candidate for owner approval)
+           3. `TestService_CommitResult_AckOnlyOnAccepted` (`internal/coordinator/service_test.go:575`) (candidate for owner approval)
+           4. `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:665`) (candidate for owner approval)
+           5. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:716`) (candidate for owner approval)
+           6. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:764`) (candidate for owner approval)
+         - One test (`TestService_Claim_Redelivery_NoDuplicateAttempt` at `internal/coordinator/service_test.go:526`) uses a plain queue plus `q.Enqueue` and loses its meaning upon rewiring, rewritten or retired (candidate for owner approval).
   5. *Restart & Outage Recovery Tests*:
      - `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`) assert that surviving workers can commit results after restarts and outages.
      - With the 30s startup and outage grace windows, surviving workers commit within the grace window, keeping test assertions valid without weakening any existing test assertion.
@@ -97,7 +102,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - `TestConformance_CancelJob_IdempotentCancelRequested` (planned test)
   - `TestConformance_CancelJob_RetryingImmediatelyCancelled` (planned test)
   - `TestAPI_CancelJob_SuccessReturns200` (planned test)
-  - `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test)
+  - `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a)
   - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
   - `TestInMemoryRepository_RetryBackoff` (planned test)
   - `TestProperty_StateMachine_ModelConformance` (planned test)
@@ -119,13 +124,13 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
       1. Candidate scan (unlocked read against index `idx_attempts_lease_expiry`).
       2. Per-candidate lock order `jobs -> workers -> attempts`: `SELECT id, state, max_attempts FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED` (0 rows = skip and retry next tick), then workers and attempts rows with plain `FOR UPDATE` under PostgreSQL `lock_timeout` (default 5s). One grace check inside locks. `SKIP LOCKED` and `NOWAIT` are never combined.
       3. Sweeper state resolution rules (R-02):
-         - If parent job is already terminal (`SUCCEEDED`, `FAILED`, `CANCELLED`): close attempt as `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise), leave job state unchanged, free worker slot, and record `DIAGNOSTIC_LATE_RESULT` event.
+         - If parent job is already terminal (`SUCCEEDED`, `FAILED`, `CANCELLED`): close attempt as `CANCELLED` (if job is `CANCELLED`) or `LOST` (otherwise), leave job state unchanged, free worker slot, and record `LEASE_EXPIRED` event.
          - If `CANCEL_REQUESTED`: close attempt as `CANCELLED`, transition job to `CANCELLED`, free worker slot, record `JOB_CANCELLED` event.
          - If `RUNNING` and `attempt_no < max_attempts`: close attempt as `LOST` (`error_class = 'LEASE_EXPIRED'`), set exponential backoff `not_before`, transition job to `RETRYING`, free worker slot, record `LEASE_EXPIRED` and `JOB_RETRYING` events.
          - If `RUNNING` and `attempt_no >= max_attempts`: close attempt as `LOST` (`error_class = 'LEASE_EXPIRED'`), transition job to `FAILED`, free worker slot, record `LEASE_EXPIRED` and `JOB_FAILED` events.
     - Update `DispatchNextJob`: query evaluates `WHERE (state = 'QUEUED' OR (state = 'RETRYING' AND not_before <= clock_timestamp()))` with direct transition to `RUNNING`.
     - Update `CommitAttempt`: enforce 409 evaluation order:
-      1. Terminal job -> close attempt, free worker slot, record diagnostic event, and return 409 `JOB_ALREADY_TERMINAL`.
+      1. Terminal job -> close attempt (strictly if still in `RUNNING`), free worker slot, record diagnostic event, and return 409 `JOB_ALREADY_TERMINAL` (the single stored result stands; an attempt already terminal is never overwritten). On `CANCEL_REQUESTED`, success moves attempt `COMPLETED` and job `SUCCEEDED` (`internal/storage/inmemory.go:615-618`, `internal/storage/postgres/repository.go:1046-1049`, `internal/domain/transition.go:21`); failure moves attempt `FAILED` and job `CANCELLED`.
       2. Attempt swept to `LOST` -> return 409 `LEASE_EXPIRED`.
       3. Superseded attempt or token mismatch -> return 409 `STALE_ATTEMPT_REJECTED`.
     - Update `CancelJob`: idempotent no-op on `CANCEL_REQUESTED`, immediate `CANCELLED` on `RETRYING`.
@@ -133,17 +138,17 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 - **Exit Criteria**:
   - Forward-only migration 000004 applies cleanly to fresh and migrated databases.
   - PostgreSQL repository passes all shared conformance tests under `-race`.
-  - Zero deadlocks under concurrent mixed operations stress test (`-race -count=20`), with Invariant 4 (`worker_capacity` accounting) strictly verified.
+  - Zero deadlocks under concurrent mixed operations stress test (`-race -count=20`), with Invariant 4 (No Active Attempt After Terminal State, [fault-injection-plan.md](fault-injection-plan.md#L141)) strictly verified.
   - **Mutation Proofs (Mandatory)**:
     - Bypassing row lock or re-check in `SweepExpiredLeases` must fail `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test).
     - Removing startup grace check in sweeper must cause `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test) to fail.
-    - Mutating terminal job attempt closing in `CommitAttempt` must cause `TestPostgresRepository_Sweeper_TerminalJobClosesAttempt` (planned test) to fail.
+    - Mutating terminal job attempt closing in `CommitAttempt` must cause `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test) to fail.
 - **Gating Tests**:
   - `TestMigrator_FreshMigrate`
   - `TestPostgresRepository_Conformance` (expanded with Phase 4 tests)
   - `TestPostgresRepository_Sweeper_CanonicalLockOrder` (planned test)
   - `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test)
-  - `TestPostgresRepository_Sweeper_TerminalJobClosesAttempt` (planned test)
+  - `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test)
   - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
   - `TestPostgresRepository_Concurrency_MixedOperationsStress` (expanded with leases, cancels, and Invariant 4 check)
 - **Risks & Mitigations**:
@@ -155,23 +160,23 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 - **Scope**:
   - HTTP API (`internal/api`):
     - Dedicated `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint.
-    - Return `{"status": "ACK", "lease_expires_at": "...", "cancel_requested": false}` on active job.
-    - Single cancellation channel: renewal response returns `{"status": "ACK", "cancel_requested": true, "lease_expires_at": "<current_expiry>"}` when job is in `CANCEL_REQUESTED`, without extending `lease_expires_at`.
+    - Return `{"status": "RENEWED", "lease_expires_at": "...", "cancel_requested": false}` on active job.
+    - Single cancellation channel: renewal response returns `{"status": "RENEWED", "cancel_requested": true, "lease_expires_at": "<current_expiry>"}` when job is in `CANCEL_REQUESTED`, without extending `lease_expires_at`.
     - **Heartbeat Cleanup**: Remove `cancelled_job_ids` from worker heartbeat response. Heartbeats remain purely for worker liveness (`{"status": "ACK"}`).
     - Expand `POST /v1/workers/{id}/poll` assignment response with `lease_expires_at` and `lease_duration_seconds`.
-    - Rate Limiting Defense Documentation: renewal flooding is formally recorded as designed, not yet implemented (R-23); in-place defenses are fast state short-circuit, indexed lookup on primary key, and statement timeout; accepted risk under SEC-004.
+    - Rate Limiting Defense Documentation: renewal flooding is formally recorded as designed, not yet implemented (R-23); planned endpoint defenses are fast state short-circuit, indexed lookup on primary key, and statement timeout; accepted risk under SEC-004.
   - Worker Agent (`internal/worker`):
     - Dedicated background renewal goroutine per running attempt ticking every 10s (1/3 lease duration; `MINICLOUD_LEASE_DURATION / 3`).
     - Renewal response error handling (R-10):
       - 200 with `cancel_requested: true`: worker cancels task context, ceases renewals, and still reports its result. If task ignores cancellation, lease expires within 30s and sweeper reaps attempt as `CANCELLED` and job to `CANCELLED` (never `RETRYING`).
-      - 403 `WORKER_MISMATCH` or 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`): terminal rejection. Immediately abort task, cancel context, and do not report result.
+      - 403 `WORKER_MISMATCH` or 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`): terminal rejection. Immediately abort task, cancel context, and do not report result.
       - 404: inspect body. If recognized not-found code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`), terminal rejection: abort task and do not report result. If missing or unrecognized error envelope (old coordinator), log warning once, disable renewals for this attempt, keep running task to completion, and report result via `POST /result`.
-      - 400 (`INVALID_REQUEST`, `ATTEMPT_NOT_RUNNING`, `WORKER_TASK_UNSUPPORTED`): log error, stop renewing, keep running task to completion, report result via `POST /result`.
+      - 400 (`INVALID_REQUEST`, `WORKER_TASK_UNSUPPORTED`): log error, stop renewing, keep running task to completion, report result via `POST /result`.
       - 5xx / transport error: transient failure. Keep running task, retry renewal next interval until lease expiry.
     - Worker result delivery (R-11): 60-second bounded retry loop with exponential backoff on transport errors and ongoing concurrent lease renewals; immediate exit on 4xx terminal rejections (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `WORKER_MISMATCH`, deterministic 400 `INVALID_REQUEST`, 404).
   - Coordinator Service (`internal/coordinator`):
     - Implement `StartLeaseSweeper(ctx, interval)` ticking every 5s (`MINICLOUD_SWEEPER_INTERVAL`).
-    - Outage detection (R-09): any failed tick (connection-class errors only), or database-time gap > 3x sweep interval between successful ticks, activates 30s grace window (`MINICLOUD_OUTAGE_GRACE_WINDOW`) at first successful tick; 30s cooldown caps re-entry.
+    - Outage detection (R-09): The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 - **Exit Criteria**:
   - Long-running jobs (> 30s) maintain continuous lease renewals and commit successfully.
   - Cancellation delivered exclusively via renewal response within 10s.
@@ -188,8 +193,11 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - `TestAgent_PeriodicLeaseRenewal_Success` (planned test)
   - `TestAgent_LeaseRenewal_ReceivesCancelRequested` (planned test)
   - `TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt` (planned test)
-  - `TestCoordinator_LeaseSweeper_SlowTickOutageGrace` (planned test)
-  - `TestCoordinator_LeaseSweeper_CooldownCap` (planned test)
+  - `TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace` (planned test)
+  - `TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace` (planned test)
+  - `TestCoordinator_LeaseSweeper_FailedTick_EntersGrace` (planned test)
+  - `TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace` (planned test)
+  - `TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace` (planned test)
   - `TestWorker_Client_RenewOldCoordinatorGracefulDegradation` (planned test)
   - `TestWorker_Client_Renew400KeepsRunning` (planned test)
   - `TestWorker_Client_ResultDeliveryLoop_BoundedRetry` (planned test)
@@ -214,7 +222,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - Cooperative cancellation:
     - Worker agent attaches `context.WithCancel` to executor context.
     - Preempted executor returns `context.Canceled`.
-    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code in `internal/storage/inmemory.go:610-622` and `internal/storage/postgres/repository.go:1037-1044`, permitted by `internal/domain/transition.go:22`; failure moves `CANCEL_REQUESTED -> CANCELLED`, cancel wins, never `RETRYING`). The coordinator requires no special cancel acknowledgement wire signal.
+    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049`, permitted by `internal/domain/transition.go:21`; failure moves `CANCEL_REQUESTED -> CANCELLED`, cancel wins, never `RETRYING`). The coordinator requires no special cancel acknowledgement wire signal.
   - Resolve cancellation races (cancel vs completion, cancel vs lease expiry, duplicate cancels).
 - **Exit Criteria**:
   - Transient failures retry up to `max_attempts` with verified backoff delay.
