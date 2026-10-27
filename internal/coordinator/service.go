@@ -14,7 +14,6 @@ import (
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
-	"github.com/BlaZe08-Dev/Minicloud/internal/queue"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
@@ -53,56 +52,43 @@ type WorkAssignment struct {
 
 // Service orchestrates jobs, worker coordination, scheduling, and attempt lifecycle.
 type Service struct {
-	mu              sync.Mutex
-	repo            storage.Repository
-	scheduler       scheduler.Scheduler
-	executorReg     *executor.Registry
-	queue           queue.Queue
-	clock           Clock
-	workerTimeout   time.Duration
-	dispatchViaRepo bool
+	mu            sync.Mutex
+	repo          storage.Repository
+	scheduler     scheduler.Scheduler
+	executorReg   *executor.Registry
+	clock         Clock
+	workerTimeout time.Duration
 }
 
-// NewService constructs a new Coordinator Service with the default in-memory queue.
+// NewService constructs a new Coordinator Service. Dispatch flows through repo.DispatchNextJob
+// (ADR-0011 Option A, policy fifo_pull) for every repository implementation, so the in-memory
+// and PostgreSQL modes share the same dispatch, retry and cancellation behavior and no
+// in-process queue can grow without bound (SEC-010).
 func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
-	return NewServiceWithQueue(repo, sched, reg, queue.NewInMemoryQueue(), workerTimeout)
-}
-
-// NewServiceWithQueue constructs a new Coordinator Service with a specified dispatch Queue.
-func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, q queue.Queue, workerTimeout time.Duration) *Service {
 	if workerTimeout <= 0 {
 		workerTimeout = 10 * time.Second
 	}
-	if q == nil {
-		q = queue.NewInMemoryQueue()
-	}
 	return &Service{
-		repo:            repo,
-		scheduler:       sched,
-		executorReg:     reg,
-		queue:           q,
-		clock:           realClock{},
-		workerTimeout:   workerTimeout,
-		dispatchViaRepo: false,
+		repo:          repo,
+		scheduler:     sched,
+		executorReg:   reg,
+		clock:         realClock{},
+		workerTimeout: workerTimeout,
 	}
 }
 
-// NewPostgresService constructs a new Coordinator Service wired directly to PostgreSQL repository dispatch (ADR-0011 Option A).
-// In this mode, no in-memory queue is used, preventing unbounded memory growth (SEC-010), and all dispatches flow
-// through repo.DispatchNextJob.
+// NewServiceWithQueue is a compatibility wrapper for callers that still pass a dispatch queue.
+// The queue argument is ignored: dispatch goes through repo.DispatchNextJob.
+//
+// Deprecated: use NewService.
+func NewServiceWithQueue(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, _ any, workerTimeout time.Duration) *Service {
+	return NewService(repo, sched, reg, workerTimeout)
+}
+
+// NewPostgresService constructs a Coordinator Service for the PostgreSQL repository.
+// It is equivalent to NewService and is kept so existing wiring does not change.
 func NewPostgresService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
-	if workerTimeout <= 0 {
-		workerTimeout = 10 * time.Second
-	}
-	return &Service{
-		repo:            repo,
-		scheduler:       sched,
-		executorReg:     reg,
-		queue:           nil,
-		clock:           realClock{},
-		workerTimeout:   workerTimeout,
-		dispatchViaRepo: true,
-	}
+	return NewService(repo, sched, reg, workerTimeout)
 }
 
 // Ping checks repository reachability for readiness probes.
@@ -189,17 +175,6 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		return nil, err
 	}
 
-	// In memory mode: Enqueue lightweight delivery signal in dispatch transport.
-	// In postgres mode: Nothing is enqueued into in-memory queue, preventing unbounded queue growth (SEC-010).
-	if !s.dispatchViaRepo && s.queue != nil {
-		if err := s.queue.Enqueue(ctx, &queue.Item{
-			JobID:    job.ID,
-			TaskType: job.TaskType,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
 	slog.Info("job submitted and queued",
 		"job_id", job.ID,
 		"task_type", job.TaskType,
@@ -232,10 +207,6 @@ func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error)
 	job, err := s.repo.CancelJob(ctx, id)
 	if err != nil {
 		return nil, err
-	}
-
-	if job.State == domain.StateCancelled && !s.dispatchViaRepo && s.queue != nil {
-		_ = s.queue.Ack(ctx, job.ID)
 	}
 
 	slog.Info("job cancellation requested",
@@ -353,107 +324,35 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.dispatchViaRepo {
-		// Postgres / Repo-direct dispatch path (ADR-0011 Option A, policy fifo_pull)
-		job, attempt, err := s.repo.DispatchNextJob(ctx, workerID)
-		if err != nil {
-			if errors.Is(err, domain.ErrWorkerNoCapacity) {
-				return nil, domain.ErrNoWorkersAvailable
-			}
-			return nil, err
-		}
-
-		slog.Info("job dispatched to worker",
-			"job_id", attempt.JobID,
-			"attempt_id", attempt.ID,
-			"attempt_no", attempt.AttemptNo,
-			"worker_id", workerID,
-			"policy", "fifo_pull",
-			"reason", "claimed by polling worker with capacity",
-		)
-
-		return &WorkAssignment{
-			JobID:          job.ID,
-			AttemptID:      attempt.ID,
-			AttemptNo:      attempt.AttemptNo,
-			LeaseToken:     attempt.LeaseToken,
-			TaskType:       job.TaskType,
-			Payload:        job.Payload,
-			TimeoutSeconds: job.TimeoutSeconds,
-		}, nil
-	}
-
-	worker, err := s.repo.GetWorker(ctx, workerID)
+	job, attempt, err := s.repo.DispatchNextJob(ctx, workerID)
 	if err != nil {
+		if errors.Is(err, domain.ErrWorkerNoCapacity) {
+			return nil, domain.ErrNoWorkersAvailable
+		}
 		return nil, err
 	}
 
-	// Poll from an UNHEALTHY worker returns ErrWorkerUnhealthy
-	if worker.Status != domain.WorkerStatusHealthy {
-		return nil, domain.ErrWorkerUnhealthy
-	}
+	// Dispatch logging per ADR-0011 (fifo_pull): do NOT call scheduler.SelectWorker anywhere in the
+	// dispatch path and do NOT emit "scheduler decision" logs from dispatch. internal/scheduler stays
+	// unused in production code on purpose.
+	slog.Info("job dispatched to worker",
+		"job_id", attempt.JobID,
+		"attempt_id", attempt.ID,
+		"attempt_no", attempt.AttemptNo,
+		"worker_id", workerID,
+		"policy", "fifo_pull",
+		"reason", "claimed by polling worker with capacity",
+	)
 
-	if !worker.HasCapacity() {
-		return nil, domain.ErrNoWorkersAvailable
-	}
-
-	for {
-		item, err := s.queue.Claim(ctx, worker)
-		if err != nil {
-			if errors.Is(err, queue.ErrNoWork) {
-				return nil, domain.ErrNoQueuedJobs
-			}
-			return nil, err
-		}
-
-		attempt, err := s.repo.DispatchJob(ctx, item.JobID, worker.ID)
-		if err != nil {
-			// Handling of claim outcomes (Adjustment 4):
-			// (a) Job no longer QUEUED or not found -> drop and Ack the queue item (never Release), then continue claim loop
-			if errors.Is(err, domain.ErrJobNotFound) || errors.Is(err, domain.ErrJobNotQueued) {
-				_ = s.queue.Ack(ctx, item.JobID)
-				continue
-			}
-
-			// (c) Worker lacks capacity or is unhealthy -> Release without creating an attempt, and return error
-			if errors.Is(err, domain.ErrWorkerUnhealthy) || errors.Is(err, domain.ErrWorkerNoCapacity) {
-				_ = s.queue.Release(ctx, item.JobID)
-				return nil, err
-			}
-
-			// (b) Transient failure -> Release and return error
-			_ = s.queue.Release(ctx, item.JobID)
-			return nil, err
-		}
-
-		// Dispatch logging per ADR-0011 (fifo_pull):
-		// the "job dispatched to worker" log gains policy="fifo_pull" and reason="claimed by polling worker with capacity".
-		// Do NOT call scheduler.SelectWorker anywhere in the dispatch path and do NOT emit "scheduler decision" logs from dispatch.
-		// internal/scheduler stays unused in production code on purpose.
-		slog.Info("job dispatched to worker",
-			"job_id", attempt.JobID,
-			"attempt_id", attempt.ID,
-			"attempt_no", attempt.AttemptNo,
-			"worker_id", worker.ID,
-			"policy", "fifo_pull",
-			"reason", "claimed by polling worker with capacity",
-		)
-
-		selectedJob, err := s.repo.GetJob(ctx, attempt.JobID)
-		if err != nil {
-			return nil, err
-		}
-
-		return &WorkAssignment{
-			JobID:          selectedJob.ID,
-			AttemptID:      attempt.ID,
-			AttemptNo:      attempt.AttemptNo,
-			LeaseToken:     attempt.LeaseToken,
-			TaskType:       selectedJob.TaskType,
-			Payload:        selectedJob.Payload,
-			TimeoutSeconds: selectedJob.TimeoutSeconds,
-		}, nil
-	}
+	return &WorkAssignment{
+		JobID:          job.ID,
+		AttemptID:      attempt.ID,
+		AttemptNo:      attempt.AttemptNo,
+		LeaseToken:     attempt.LeaseToken,
+		TaskType:       job.TaskType,
+		Payload:        job.Payload,
+		TimeoutSeconds: job.TimeoutSeconds,
+	}, nil
 }
 
 // CommitResult commits an execution outcome reported by a worker atomically.
@@ -506,11 +405,6 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 			return nil, domain.ErrWorkerMismatch
 		}
 		return nil, err
-	}
-
-	// Settle delivery in dispatch transport ONLY after an accepted commit (in memory mode)
-	if !s.dispatchViaRepo && s.queue != nil {
-		_ = s.queue.Ack(ctx, job.ID)
 	}
 
 	slog.Info("job result committed",

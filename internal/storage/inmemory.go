@@ -79,6 +79,19 @@ func (r *InMemoryRepository) computeAvailableSlotsLocked(workerID string, totalS
 	return avail
 }
 
+// isDispatchableLocked reports whether a job may be claimed now: QUEUED, or RETRYING once its
+// not_before backoff time has been reached on the repository clock (nil means immediately).
+func (r *InMemoryRepository) isDispatchableLocked(j *domain.Job) bool {
+	switch j.State {
+	case domain.StateQueued:
+		return true
+	case domain.StateRetrying:
+		return j.NotBefore == nil || !j.NotBefore.After(r.clock.Now())
+	default:
+		return false
+	}
+}
+
 // recordEventLocked appends an immutable lifecycle event to the event log.
 // Must be called with mu.Lock held.
 func (r *InMemoryRepository) recordEventLocked(event *domain.JobEvent) {
@@ -149,7 +162,8 @@ func (r *InMemoryRepository) UpdateJob(ctx context.Context, job *domain.Job) err
 	return nil
 }
 
-// ListQueuedJobs returns all jobs currently in StateQueued in FIFO order.
+// ListQueuedJobs returns all dispatchable jobs in FIFO order: jobs in StateQueued, plus
+// StateRetrying jobs whose not_before time has been reached.
 func (r *InMemoryRepository) ListQueuedJobs(ctx context.Context) ([]*domain.Job, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -157,7 +171,7 @@ func (r *InMemoryRepository) ListQueuedJobs(ctx context.Context) ([]*domain.Job,
 	var queued []*domain.Job
 	for _, id := range r.jobOrder {
 		j := r.jobs[id]
-		if j != nil && j.State == domain.StateQueued {
+		if j != nil && r.isDispatchableLocked(j) {
 			copied := *j
 			queued = append(queued, &copied)
 		}
@@ -371,7 +385,7 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	if !exists {
 		return nil, domain.ErrJobNotFound
 	}
-	if job.State != domain.StateQueued {
+	if !r.isDispatchableLocked(job) {
 		return nil, domain.ErrJobNotQueued
 	}
 
@@ -399,9 +413,11 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	}
 
 	now := time.Now().UTC()
+	fromState := job.State
 	if err := job.TransitionTo(domain.StateRunning); err != nil {
 		return nil, err
 	}
+	job.NotBefore = nil
 
 	// Calculate monotonic attempt number
 	attemptNo := 1
@@ -434,7 +450,6 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	job.CurrentAttemptID = attemptID
 	job.UpdatedAt = now
 
-	fromState := domain.StateQueued
 	toState := domain.StateRunning
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     jobID,
@@ -485,7 +500,7 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	var selectedJob *domain.Job
 	for _, id := range r.jobOrder {
 		j := r.jobs[id]
-		if j != nil && j.State == domain.StateQueued && worker.SupportsTask(j.TaskType) {
+		if j != nil && r.isDispatchableLocked(j) && worker.SupportsTask(j.TaskType) {
 			selectedJob = j
 			break
 		}
@@ -502,9 +517,11 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	}
 
 	now := r.clock.Now()
+	fromState := selectedJob.State
 	if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
 		return nil, nil, err
 	}
+	selectedJob.NotBefore = nil
 
 	// Calculate monotonic attempt number derived from max existing attempt_no + 1
 	attemptNo := 0
@@ -536,7 +553,6 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	selectedJob.CurrentAttemptID = attemptID
 	selectedJob.UpdatedAt = now
 
-	fromState := domain.StateQueued
 	toState := domain.StateRunning
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     selectedJob.ID,
