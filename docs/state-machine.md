@@ -37,21 +37,21 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 | **`CANCELLED`** | NO | NO | NO | NO | NO | NO | NO | — | NO |
 | **`REJECTED`** | NO | NO | NO | NO | NO | NO | NO | NO | — |
 
-*Note: In the domain FSM (`internal/domain/transition.go:6-36`), the diagonal is strictly `—` (no self-transitions). A duplicate cancel on `CANCEL_REQUESTED` is handled in the repository `CancelJob` under row lock as an idempotent no-op (a second cancel on `CANCEL_REQUESTED` returns the job unchanged without invoking an FSM state transition). Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
+*Note: In the domain FSM (`internal/domain/transition.go:4-33`), the diagonal is strictly `—` (no self-transitions). A duplicate cancel on `CANCEL_REQUESTED` is handled in the repository `CancelJob` under row lock as an idempotent no-op (a second cancel on `CANCEL_REQUESTED` returns the job unchanged without invoking an FSM state transition). Terminal states (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) are strictly immutable. No transition away from a terminal state is permitted under any circumstances.*
 
 ### Current Code Behavior vs Phase 4 Behavior Changes
 - **Verified Current Cancellation Behavior**:
   Cancellation today behaves identically in `internal/storage/inmemory.go:658-700` and `internal/storage/postgres/repository.go:1135-1233`:
   1. Terminal job -> `domain.ErrJobAlreadyTerminal`.
-  2. `QUEUED` -> `CANCELLED` (event `cancelled`).
-  3. `RUNNING` -> `CANCEL_REQUESTED` (event `cancel_requested`), with the active attempt untouched.
-  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) -> falls through to `CANCELLED` (event `cancelled`).
+  2. `QUEUED` -> `CANCELLED` (event `JOB_CANCELLED`).
+  3. `RUNNING` -> `CANCEL_REQUESTED` (event `JOB_CANCEL_REQUESTED`), with the active attempt untouched.
+  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) -> falls through to `CANCELLED` (event `JOB_CANCELLED`).
   5. Workers learn nothing today (heartbeats carry static `{"status":"ACK"}`).
 - **Correction of Prior Misdescription**: Prior design drafts incorrectly claimed that cancelling a `RUNNING` job moved it directly to `CANCELLED` and marked the attempt `FAILED`. That description was false. The code already sets `CANCEL_REQUESTED` on first call for `RUNNING` jobs and leaves the attempt in `RUNNING`.
 - **Phase 4 Behavior Changes Introduced**:
   1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, the repository performs an idempotent duplicate-cancel no-op under row lock returning the job in `CANCEL_REQUESTED` unchanged (API returns HTTP 200 with state `CANCEL_REQUESTED`, identical response body as the first cancel). The domain transition matrix is unchanged by this (`CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the FSM).
   2. **Cancellation during `RETRYING`**: Cancelling a job in `RETRYING` stays an immediate transition to `CANCELLED`, clearing `not_before` and aborting scheduled retries.
-  3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the renewal response (`cancel_requested: true`, unextended `lease_expires_at`). The worker cancels the task context, ceases renewals, and still reports its result. If the task ignores cancellation, the lease expires within one lease duration (30 s); the sweeper closes the attempt as `CANCELLED` and the job becomes `CANCELLED` (never `RETRYING`). Any commit on `CANCEL_REQUESTED` closes the attempt with the reported outcome (`COMPLETED` on success, `FAILED` on error/cancel) and moves the job: success moves `CANCEL_REQUESTED -> SUCCEEDED` (today's behavior in `internal/storage/inmemory.go:610-622` and `internal/storage/postgres/repository.go:1037-1044`, permitted by `internal/domain/transition.go:22`); failure moves `CANCEL_REQUESTED -> CANCELLED` (cancel wins, never `RETRYING`). The coordinator requires no special cancel acknowledgement wire signal.
+  3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the renewal response (`cancel_requested: true`, unextended `lease_expires_at`). The worker cancels the task context, ceases renewals, and still reports its result. If the task ignores cancellation, the lease expires within one lease duration (30 s); the sweeper closes the attempt as `CANCELLED` and the job becomes `CANCELLED` (never `RETRYING`). Any commit on `CANCEL_REQUESTED` closes the attempt with the reported outcome (`COMPLETED` on success, `FAILED` on error/cancel) and moves the job: success moves `CANCEL_REQUESTED -> SUCCEEDED` (today's behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049`, permitted by `internal/domain/transition.go:21`); failure moves `CANCEL_REQUESTED -> CANCELLED` (cancel wins, never `RETRYING`). The coordinator requires no special cancel acknowledgement wire signal.
   4. **Direct `RETRYING -> RUNNING` via Pull Dispatch**: Blueprint conceptual diagrams describe `RETRYING -> QUEUED` when a retry backoff timer elapses. In MiniCloud's implementation, transitioning `RETRYING -> RUNNING` directly via `repo.DispatchNextJob` (`SELECT ... FOR UPDATE SKIP LOCKED` where `(state = 'QUEUED' OR (state = 'RETRYING' AND not_before <= clock_timestamp()))`) eliminates unnecessary intermediate database writes and polling loops while preserving full auditability via `JobEventDispatched` (`from_state: 'RETRYING'`, `to_state: 'RUNNING'`). (Accepted by owner).
 
 ---
@@ -79,7 +79,7 @@ MiniCloud establishes the schema values as the canonical state names across the 
 | `AttemptCompleted` | `"COMPLETED"` | `COMPLETED` | `repo.CommitAttempt` (`internal/storage/postgres/repository.go:946`) | Worker reports exit code 0 and empty error |
 | `AttemptFailed` | `"FAILED"` | `FAILED` | `repo.CommitAttempt` (`internal/storage/postgres/repository.go:946`) | Worker reports non-zero exit code or task error |
 | `AttemptTimedOut` (reserved) | `"TIMED_OUT"` | `TIMED_OUT` | Reserved state in schema; not written in V1 | Reserved; worker executor timeout reports `FAILED` with execution timeout |
-| `AttemptCancelled` (canonical) / `AttemptCanceled` | `"CANCELLED"` | `CANCELLED` | `repo.CommitAttempt` / Sweeper | Worker acknowledges cancel or sweeper reaps attempt on cancelled job |
+| `AttemptCancelled` (canonical) / `AttemptCanceled` | `"CANCELLED"` | `CANCELLED` | Coordinator Sweeper / `repo.CommitAttempt` | Sweeper reaps attempt on CANCEL_REQUESTED job, or commit on terminal CANCELLED job closes running attempt |
 | `AttemptLost` (canonical) / `AttemptExpired` (alias) | `"LOST"` | `LOST` | Coordinator Sweeper (ADR-0014) | Lease expires without renewal (`lease_expires_at < clock_timestamp()`) |
 
 #### Code & API Mapping Plan
@@ -140,18 +140,18 @@ Neither constant was ever referenced in repository queries, database inserts, or
                                 │
           ┌─────────────────────┴─────────────────────┐
           ▼                                           ▼
-   [Task Failure]                             [Task Cancelled / Worker Reports Exit]
+   [Task Failure / Worker Cancelled]           [Lease Expired on Cancelled Job]
           │                                           │
           ▼                                           ▼
        (FAILED)                                  (CANCELLED)
 ```
 
 - `PENDING`: Staged for post-Phase 4 Assignment-Based Round-Robin slice (Candidate A pre-assignment window).
-- `RUNNING`: Initial state upon pull dispatch. Holds an active lease (`lease_expires_at`). Under the **Symmetric Accept-Until-Swept Rule**, renewals (`POST /renew`) and commits (`POST /result`) are accepted while `state == 'RUNNING'` even if `lease_expires_at` has passed on database time; renewal extends the lease from current database time (`clock_timestamp() + lease_duration`). HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) is returned only after the attempt has been swept to `LOST` by the coordinator sweeper.
+- `RUNNING`: Initial state upon pull dispatch. Holds an active lease (`lease_expires_at`). Under the **Symmetric Accept-Until-Swept Rule**, renewals (`POST /renew`) and commits (`POST /result`) are accepted while `state == 'RUNNING'` even if `lease_expires_at` has passed on database time; renewal extends the lease from current database time (`clock_timestamp() + lease_duration`) (except on a CANCEL_REQUESTED job, where the renewal returns the current expiry unchanged without extending the lease). HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) is returned only after the attempt has been swept to `LOST` by the coordinator sweeper.
 - `COMPLETED`: Terminal attempt success (exit code 0, empty error).
 - `FAILED`: Terminal attempt execution failure (non-zero exit code or application error).
 - `TIMED_OUT`: Reserved for future phase; not written in V1 (worker executor timeout reports `FAILED` with execution timeout error).
-- `CANCELLED`: Attempt closed when job cancelled; worker reports task execution outcome or sweeper reaps attempt on cancelled job.
+- `CANCELLED`: Attempt closed by the coordinator sweeper when lease expires on a CANCEL_REQUESTED job, or by CommitAttempt on an already-terminal CANCELLED job closing a RUNNING attempt.
 - `LOST`: Worker lease expired without renewal and swept by the coordinator sweeper. Consumes 1 attempt of `max_attempts`. Any subsequent commit or renewal attempt is rejected with HTTP 409 Conflict (`LEASE_EXPIRED`) and `domain.ErrLeaseExpired`.
 
 ---
@@ -169,7 +169,7 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 | `LEASE_EXPIRED` | Sweeper | Coordinator swept expired attempt. | `{"attempt_id": "...", "worker_id": "...", "expired_at": "..."}` |
 | `JOB_RETRYING` | Coordinator | Retryable failure scheduled for backoff. | `{"attempt_no": 1, "not_before": "...", "backoff_seconds": 2.5}` |
 | `JOB_CANCEL_REQUESTED` | Client / API | Client requested cancellation for running job. | `{"requested_at": "..."}` |
-| `JOB_CANCELLED` | Worker / Sweeper | Cancellation confirmed or resolved. | `{"resolved_by": "worker_ack|lease_sweeper"}` |
+| `JOB_CANCELLED` | Worker / Sweeper | Cancellation confirmed or resolved. | `{"resolved_by": "worker_exit|lease_sweeper"}` |
 | `JOB_COMPLETED` | Worker | Worker committed successful result. | `{"worker_id": "...", "exit_code": 0}` |
 | `JOB_FAILED` | Worker / Sweeper | Worker committed permanent error or budget exhausted. | `{"worker_id": "...", "exit_code": 1, "error": "..."}` |
 | `DIAGNOSTIC_LATE_RESULT` | Worker | Expired worker attempted commit after lease lapse. | `{"reporting_worker": "...", "attempt_id": "...", "rejected": true}` |
