@@ -6,16 +6,33 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/config"
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+)
+
+const (
+	// DefaultRenewalInterval is the renewal interval when the assignment carries no lease duration
+	// (one third of the default 30 s lease, ADR-0014).
+	DefaultRenewalInterval = 10 * time.Second
+	// MinRenewalInterval floors the interval derived from a very short advertised lease so a
+	// misconfigured coordinator cannot make the worker hammer the renew endpoint.
+	MinRenewalInterval = time.Second
+	// ResultDeliveryBudget bounds how long a finished result is retried (protocol 6.1, R-11).
+	ResultDeliveryBudget = 60 * time.Second
+
+	renewBackoffBase    = time.Second
+	deliveryBackoffBase = 200 * time.Millisecond
+	deliveryBackoffMax  = 5 * time.Second
 )
 
 // ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).
@@ -334,7 +351,157 @@ func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken s
 	return resp.StatusCode, fmt.Errorf("report failed with status %d", resp.StatusCode)
 }
 
-// ExecuteAndReport runs one claimed assignment and delivers its outcome.
+// renewalInterval is one third of the lease duration the coordinator advertised in the poll
+// assignment (protocol 6.2), or the default when it did not (old coordinator, sub-second lease).
+func renewalInterval(a *coordinator.WorkAssignment) time.Duration {
+	if a.LeaseDurationSeconds <= 0 {
+		return DefaultRenewalInterval
+	}
+	return max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval)
+}
+
+type renewVerdict int
+
+const (
+	renewOK        renewVerdict = iota // lease extended, keep going
+	renewCancel                        // 200 with cancel_requested: cancel the task, stop renewing, report
+	renewLost                          // coordinator declared the attempt lost: abort, report nothing
+	renewDisable                       // endpoint missing or request rejected as malformed: stop renewing, keep running
+	renewTransient                     // transport error, 5xx or anything unexpected: keep running, retry
+)
+
+// recognizedNotFound are the 404 codes of protocol 6.3 that mean the attempt is gone.
+var recognizedNotFound = map[string]bool{"JOB_NOT_FOUND": true, "ATTEMPT_NOT_FOUND": true, "WORKER_NOT_FOUND": true}
+
+// renewOnce sends one renewal and classifies the answer (protocol 6.1 "Worker Renewal Response
+// Handling"). It never reads the lease token into a log line.
+func (a *Agent) renewOnce(ctx context.Context, asg *coordinator.WorkAssignment, timeout time.Duration) renewVerdict {
+	body, _ := json.Marshal(map[string]string{"worker_id": a.cfg.WorkerID, "lease_token": asg.LeaseToken})
+	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", a.cfg.CoordinatorURL, asg.JobID, asg.AttemptID)
+	rctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(rctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return renewTransient
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		slog.Warn("lease renewal transport error", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "err", err)
+		return renewTransient
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		var ok struct {
+			CancelRequested bool `json:"cancel_requested"`
+		}
+		if err := json.Unmarshal(raw, &ok); err != nil {
+			slog.Warn("lease renewal answered 200 with an unreadable body", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+			return renewTransient
+		}
+		if ok.CancelRequested {
+			return renewCancel
+		}
+		return renewOK
+	case resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusForbidden:
+		return renewLost
+	case resp.StatusCode == http.StatusNotFound:
+		if recognizedNotFound[errorCode(raw)] {
+			return renewLost
+		}
+		slog.Warn("coordinator has no renew endpoint (404 without a recognised error code); running to completion without renewals",
+			"job_id", asg.JobID, "attempt_id", asg.AttemptID)
+		return renewDisable
+	case resp.StatusCode == http.StatusBadRequest:
+		slog.Error("coordinator rejected the lease renewal as malformed; running to completion without renewals",
+			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "code", errorCode(raw))
+		return renewDisable
+	default:
+		slog.Warn("lease renewal failed, will retry", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", resp.StatusCode)
+		return renewTransient
+	}
+}
+
+// errorCode extracts error.code from a protocol error envelope, or "" when there is none.
+func errorCode(raw []byte) string {
+	var env struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(raw, &env) != nil {
+		return ""
+	}
+	return env.Error.Code
+}
+
+// attemptRun is the shared state of one executing attempt.
+type attemptRun struct {
+	lost     chan struct{}
+	lostOnce sync.Once
+}
+
+func (r *attemptRun) markLost() { r.lostOnce.Do(func() { close(r.lost) }) }
+
+func (r *attemptRun) isLost() bool {
+	select {
+	case <-r.lost:
+		return true
+	default:
+		return false
+	}
+}
+
+// renewLoop renews the lease until ctx ends or the coordinator's answer ends renewal. Transient
+// failures retry with bounded exponential backoff (never longer than the interval) and never
+// abort the attempt on their own.
+func (a *Agent) renewLoop(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, interval time.Duration, cancelTask context.CancelFunc) {
+	failures := 0
+	wait := interval
+	for {
+		t := a.clock.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return
+		case <-t.C():
+		}
+		switch a.renewOnce(ctx, asg, interval) {
+		case renewOK:
+			failures, wait = 0, interval
+		case renewCancel:
+			slog.Info("cancellation requested by coordinator; cancelling task", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+			cancelTask()
+			return
+		case renewLost:
+			slog.Warn("coordinator declared the attempt lost; aborting task and suppressing the result", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+			run.markLost()
+			cancelTask()
+			return
+		case renewDisable:
+			return
+		case renewTransient:
+			if ctx.Err() != nil {
+				return
+			}
+			failures++
+			wait = min(ComputeBackoffWithJitter(failures, renewBackoffBase, interval), interval)
+		}
+	}
+}
+
+// isTerminalDelivery reports a rejection the coordinator will never answer differently: the 409
+// family, 403, 404 and a deterministic 400 (protocol 6.3, R-11).
+func isTerminalDelivery(status int) bool {
+	return IsNonRetryableReportError(status) || status == http.StatusBadRequest
+}
+
+// ExecuteAndReport runs one claimed assignment and delivers its outcome. A renewal goroutine keeps
+// the lease alive from the start of execution until delivery ends; it ends unconditionally with
+// this call.
 func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
 	slog.Info("executing job assignment",
 		"job_id", assignment.JobID,
@@ -343,52 +510,92 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 		"timeout_seconds", assignment.TimeoutSeconds,
 	)
 
+	run := &attemptRun{lost: make(chan struct{})}
+	taskCtx, cancelTask := context.WithCancel(ctx)
+	defer cancelTask()
+	renewCtx, stopRenew := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)
+	}()
+	defer func() {
+		stopRenew()
+		wg.Wait()
+	}()
+
 	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
-	output, exitCode, err := a.registry.Execute(ctx, assignment.TaskType, assignment.Payload, timeout)
+	output, exitCode, err := a.registry.Execute(taskCtx, assignment.TaskType, assignment.Payload, timeout)
 
 	errSummary := ""
 	if err != nil {
 		errSummary = err.Error()
 	}
+	if run.isLost() {
+		slog.Warn("not reporting a result for a lost attempt", "job_id", assignment.JobID, "attempt_id", assignment.AttemptID)
+		return
+	}
+	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary)
+}
+
+// deliverResult retries ReportResult with bounded backoff for at most ResultDeliveryBudget. It
+// stops at the first success, a terminal rejection, a lost lease, shutdown or the budget.
+func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, exitCode int, output, errSummary string) {
+	budget := a.clock.NewTimer(ResultDeliveryBudget)
+	defer budget.Stop()
+	dctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var expired atomic.Bool
+	go func() {
+		select {
+		case <-budget.C():
+			expired.Store(true)
+			cancel()
+		case <-dctx.Done():
+		}
+	}()
 
 	var status int
 	var reportErr error
-	for attempt := 0; attempt < 5; attempt++ {
-		status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
-		if reportErr == nil {
-			slog.Info("result successfully committed",
-				"job_id", assignment.JobID,
-				"attempt_id", assignment.AttemptID,
-				"exit_code", exitCode,
-			)
+	for n := 1; ; n++ {
+		if run.isLost() {
+			slog.Warn("lease lost while delivering; dropping the result", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
 			return
 		}
-		if IsNonRetryableReportError(status) {
-			slog.Warn("coordinator permanently rejected result (non-retryable)",
-				"job_id", assignment.JobID,
-				"attempt_id", assignment.AttemptID,
-				"status", status,
-				"err", reportErr,
-			)
+		status, reportErr = a.ReportResult(dctx, asg.JobID, asg.AttemptID, asg.LeaseToken, exitCode, output, errSummary)
+		if reportErr == nil {
+			slog.Info("result successfully committed", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "exit_code", exitCode)
 			return
+		}
+		if isTerminalDelivery(status) {
+			slog.Warn("coordinator permanently rejected result (non-retryable)",
+				"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "err", reportErr)
+			return
+		}
+		if dctx.Err() != nil {
+			break
 		}
 		slog.Warn("transient error reporting result to coordinator, retrying",
-			"job_id", assignment.JobID,
-			"attempt_id", assignment.AttemptID,
-			"status", status,
-			"err", reportErr,
-			"attempt", attempt+1,
-		)
+			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "err", reportErr, "attempt", n)
+		t := a.clock.NewTimer(ComputeBackoffWithJitter(n, deliveryBackoffBase, deliveryBackoffMax))
 		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(time.Duration(100*(1<<attempt)) * time.Millisecond):
+		case <-dctx.Done():
+			t.Stop()
+		case <-run.lost:
+			t.Stop()
+		case <-t.C():
+			continue
 		}
+		if run.isLost() {
+			continue
+		}
+		break
 	}
-	slog.Error("failed to report result after retries",
-		"job_id", assignment.JobID,
-		"attempt_id", assignment.AttemptID,
-		"status", status,
-		"err", reportErr,
-	)
+	if expired.Load() {
+		slog.Error("gave up delivering result after the delivery budget; the lease will expire and the job be reclaimed",
+			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "budget", ResultDeliveryBudget, "status", status, "err", reportErr)
+		return
+	}
+	slog.Warn("result delivery interrupted by shutdown", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
 }
