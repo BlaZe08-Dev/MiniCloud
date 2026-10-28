@@ -29,15 +29,15 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     2. *Database Outage Grace Window*: The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s) at the first successful tick after either (a) any failed sweeper tick, or (b) a database-time gap over 3x the sweep interval between consecutive successful ticks. A lock timeout or SKIP LOCKED skip on a single candidate is not a failed tick. After a window ends, a cooldown of the same length (30 s) begins, during which no new window opens and reaping proceeds, so suppression of reaping never exceeds one window length. The only authoritative grace check is the one inside the sweeper transaction lock.
 - **Existing-Test Impact List**:
   1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
-     - *Current Behavior*: In `CancelJob` (`internal/storage/inmemory.go:718-765` and `internal/storage/postgres/repository.go:1201-1300`), terminal jobs return `ErrJobAlreadyTerminal`; `QUEUED` transitions to `CANCELLED`; `RUNNING` transitions to `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); duplicate cancel on `CANCEL_REQUESTED` is an idempotent no-op; and `RETRYING` transitions immediately to `CANCELLED`.
+     - *Current Behavior*: In `CancelJob` (`internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob`), terminal jobs return `ErrJobAlreadyTerminal`; `QUEUED` transitions to `CANCELLED`; `RUNNING` transitions to `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); duplicate cancel on `CANCEL_REQUESTED` is an idempotent no-op; and `RETRYING` transitions immediately to `CANCELLED`.
      - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
        - (a) A duplicate cancel on a `CANCEL_REQUESTED` job becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED` (same response body as the first cancellation request), preventing the job from prematurely terminating while the worker is actively running and preventing subsequent result commits from being rejected as terminal.
        - (b) `CommitAttempt` on a terminal job must close the attempt (only if the attempt is still `RUNNING`) and free the worker capacity slot in the same transaction as the rejection, record a diagnostic event, and still return HTTP 409 `JOB_ALREADY_TERMINAL`.
        - (c) The regression test is the audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), to be cherry-picked from branch `agent/claude/P4-00-review` in slice 4a and moved into the normal test tree.
        - (d) Enforce Invariant 4 ("No Active Attempt After Terminal State") in `TestPostgresRepository_Concurrency_MixedOperationsStress` (`docs/fault-injection-plan.md:141`).
      - *Existing Test Inspection & Impact*:
-       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:301-365` (specifically line 337) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
-       - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go:559` (specifically line 607) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` (in `RunRepositoryConformanceTests`) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+       - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
        - Slice 4a changes duplicate-cancel behavior on non-terminal `CANCEL_REQUESTED` jobs (the job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes (HTTP 200 continues to be returned for all valid cancellation requests). No existing test in the test suite asserts a second-cancel response on `CANCEL_REQUESTED`.
        - *Impact*: Zero existing tests are broken by making duplicate cancel on `CANCEL_REQUESTED` an idempotent no-op returning HTTP 200.
        - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
@@ -45,30 +45,30 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
      - Exactly two matrix cells change validity (marked "candidate for owner approval"):
        - `RETRYING -> QUEUED`: was valid in initial matrix (`true`), becomes invalid (`false`) (candidate for owner approval; jobs in `RETRYING` do not transition back to `QUEUED`, they dispatch directly `RETRYING -> RUNNING` via `DispatchNextJob`).
        - `RETRYING -> RUNNING`: was invalid in initial matrix (`false`), becomes valid (`true`) (candidate for owner approval; direct dispatch).
-     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go:4-33`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
+     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go` table `allowedTransitions`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
      - *Impact*: `TestJobTransitionMatrix_AllPairs` cell assertions for the two flipped cells are updated in Slice 4a.
   3. *HTTP API Cancel Status Code Parity (Unchanged from Today)*:
      - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
      - Planned test: `TestAPI_CancelJob_SuccessReturns200`.
   4. *In-Memory Retry Dispatch & Coordinator Rewiring (R-05, D-R2-01 & R3-09)*:
-     - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`PollWork` in `internal/coordinator/service.go:315-348`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
+     - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`PollWork` in `internal/coordinator/service.go` func `PollWork`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
      - *Coordinator Queue Operations & Constructor Fate*:
        - When DB dispatch replaces queue operations in Slice 4a, queue operations (`s.queue.Enqueue`, `s.queue.Ack`) are completely removed from `SubmitJob`, `CommitResult`, and `CancelJob` in `internal/coordinator/service.go` with the memory-dispatch rewire.
-       - `NewServiceWithQueue` in `internal/coordinator/service.go` and its queue parameter are retired (deleted per D3; `tests/integration/multi_worker_batch_test.go:37` constructs via `NewService`).
-       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go:48`, `:274`, `internal/api/api_test.go:58`, `:588`, `tests/integration/coordinator_restart_test.go:67`, `:181`, `tests/integration/worker_liveness_test.go:43`.
+       - `NewServiceWithQueue` in `internal/coordinator/service.go` and its queue parameter are retired (deleted per D3; `tests/integration/multi_worker_batch_test.go` func `TestThreeWorkerBatch_Integration` constructs via `NewService`).
+       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `newTestService`), `internal/api/api_test.go` (helper `newTestServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
      - *Integration Tests using Memory Driver*:
-       - `tests/integration/local_core_test.go:25` and `tests/integration/multi_worker_batch_test.go:26`: use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
-       - `internal/api/api_test.go:27`: uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
+       - `tests/integration/local_core_test.go` (`TestLocalCore_MultiProcessIntegration`) and `tests/integration/multi_worker_batch_test.go` (`TestThreeWorkerBatch_Integration`): use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
+       - `internal/api/api_test.go` (helper `setupTestServer`): uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
      - *Existing-Test Impact on Coordinator Service Tests*:
        - Moving memory dispatch to `repo.DispatchNextJob` directly impacts coordinator tests in `internal/coordinator/service_test.go`:
          - The historical `spyQueue` helper was eliminated, and seven tests were rewritten to assert observable domain outcomes (job state, attempt state, worker slot capacity) instead of queue method calls:
-           1. `TestService_Claim_JobNoLongerQueued_Dropped` (`internal/coordinator/service_test.go:395`)
-           2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:423`)
-           3. `TestService_Claim_Redelivery_NoDuplicateAttempt` (`internal/coordinator/service_test.go:452`)
-           4. `TestService_CommitResult_AckOnlyOnAccepted` (`internal/coordinator/service_test.go:478`)
-           5. `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:553`)
-           6. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:578`)
-           7. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:602`)
+           1. `TestService_Claim_JobNoLongerQueued_Dropped` in `internal/coordinator/service_test.go`
+           2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` in `internal/coordinator/service_test.go`
+           3. `TestService_Claim_Redelivery_NoDuplicateAttempt` in `internal/coordinator/service_test.go`
+           4. `TestService_CommitResult_AckOnlyOnAccepted` in `internal/coordinator/service_test.go`
+           5. `TestService_ClaimOutcome_TransientFailure_QueueReleased` in `internal/coordinator/service_test.go`
+           6. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` in `internal/coordinator/service_test.go`
+           7. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go`
   5. *Restart & Outage Recovery Tests*:
      - `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`) assert that surviving workers can commit results after restarts and outages.
      - With the 30s startup and outage grace windows, surviving workers commit within the grace window, keeping test assertions valid without weakening any existing test assertion.
@@ -76,7 +76,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
      - When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before` and recording a `JOB_CANCELLED` event.
      - Planned test: `TestConformance_CancelJob_RetryingImmediatelyCancelled`.
 - **Scope**:
-  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql:97`. Map/rename domain constants `AttemptState` in `internal/domain/state.go:22-31` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
   - Update `internal/domain`:
     - Add `AttemptOutcome.ErrorClassification` (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`). Exit code 0 is `AttemptCompleted` without error class. Validation failures of allowlisted tasks are `ClassPermanent`.
     - Add `Attempt.LeaseExpiresAt`, `Job.NotBefore`, `Job.CancelRequestedAt`.
@@ -137,7 +137,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
       1. Terminal job -> close attempt (strictly if still in `RUNNING`), free worker slot, record diagnostic event, and return 409 `JOB_ALREADY_TERMINAL` (the single stored result stands; an attempt already terminal is never overwritten).
       2. Attempt swept to `LOST` -> return 409 `LEASE_EXPIRED` (`domain.ErrLeaseExpired`).
       3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`) -> return 409 `STALE_ATTEMPT_REJECTED` (already returned by `CommitAttempt` in `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go`, and mapped by `mapDomainErrorToHTTP` in `internal/api/handlers.go`).
-    - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`CommitAttempt` in `internal/storage/inmemory.go:633-636`, `internal/storage/postgres/repository.go:1054-1058`, `internal/domain/transition.go:21`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4).
+    - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`, `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4).
     - Update `CancelJob`: idempotent no-op on `CANCEL_REQUESTED`, immediate `CANCELLED` on `RETRYING`.
   - Run shared conformance test suite against live PostgreSQL container.
 - **Exit Criteria**:
@@ -233,7 +233,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - Cooperative cancellation:
     - Worker agent attaches `context.WithCancel` to executor context.
     - Preempted executor returns `context.Canceled`.
-    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go:633-636` and `internal/storage/postgres/repository.go:1054-1058`, permitted by `internal/domain/transition.go:21`); failure moves attempt `FAILED` and `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go:637-640` and `internal/storage/postgres/repository.go:1059-1062` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). No existing test in the test suite asserts the old outcome (`StateCancelRequested` is tested only in `internal/domain/transition_test.go:27-33` and `internal/storage/storagetest/conformance.go:358-364`). The coordinator requires no special cancel acknowledgement wire signal.
+    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt`, permitted by `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). No existing test in the test suite asserts the old outcome (`StateCancelRequested` is tested in `internal/domain/transition_test.go` and `internal/storage/storagetest/conformance.go`). The coordinator requires no special cancel acknowledgement wire signal.
   - Resolve cancellation races (cancel vs completion, cancel vs lease expiry, duplicate cancels).
 - **Exit Criteria**:
   - Transient failures retry up to `max_attempts` with verified backoff delay.
