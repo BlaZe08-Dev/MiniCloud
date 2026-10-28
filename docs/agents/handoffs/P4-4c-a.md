@@ -43,7 +43,7 @@ Branch / last commit: `agent/claude/P4-4c-a`, based on `origin/main` at `7e58d4a
 | `TestCoordinator_LeaseSweeper_FailedTick_EntersGrace` | executed (sweep error and database-time read error) |
 | `TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace` | executed |
 | `TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace` | executed |
-| Worker-side tests (`TestAgent_*`, `TestWorker_*`) | not mine (Gemini) |
+| The worker-side tests of the plan's 4c list (agent renewal and result delivery) | not mine (Gemini) |
 
 Tests I added beyond the plan list are in the next section.
 
@@ -193,7 +193,7 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.529s
 - **Q4 (docs)** ADR-0014 lists `MINICLOUD_SWEEPER_BATCH_SIZE`; the plan's 4c does not. Not added. Say if wanted.
 - **Q5 (protocol) lease token bounds.** field-limits.md has no limit for the request `lease_token`; I mirrored the result endpoint (1 MiB body cap only, empty accepted and rejected as stale). A cheap bound (for example 256 bytes, 400 `INVALID_REQUEST`) would be a design change and a worker-visible one (400 makes the worker stop renewing and keep running), so I left it.
 - **Q6 (docs) protocol 6.3 row 5.** The table lists a 404 `WORKER_NOT_FOUND` for a reporting worker that does not exist. Both repositories compare the worker id with the attempt's and return `WORKER_MISMATCH` (403) for any other id, existing or not (4b D5). Row 5 is unreachable for renewals and commits. Worker-side code that handles `WORKER_NOT_FOUND` as terminal is harmless.
-- **Q7 (docs pass).** (a) ADR-0014 "Planned Grace Verification Tests" names `TestPostgresRepository_Sweeper_*` for the outage/cooldown tests; the implemented tests are `TestCoordinator_LeaseSweeper_*` because the state machine lives in the coordinator. (b) Plan item R-23 (renewal flooding documented as designed, not implemented) is a docs item; no code. (c) `make test-docs` reported nothing stale or unlabeled after my changes, so I edited no doc and no allowlist.
+- **Q7 (docs pass).** (a) ADR-0014 "Planned Grace Verification Tests" names `TestPostgresRepository_Sweeper_*` for the outage/cooldown tests; the implemented tests are the lease sweeper tests in the coordinator package (names starting with the coordinator and lease sweeper prefix) because the state machine lives in the coordinator. (b) Plan item R-23 (renewal flooding documented as designed, not implemented) is a docs item; no code. (c) `make test-docs` reported nothing stale or unlabeled after my changes, so I edited no doc and no allowlist.
 - **Q8 (worker side).** The worker should read `lease_duration_seconds` from the poll assignment (renewal interval = one third) and treat a missing field (old coordinator, or a sub-second test lease) as "use the default 30 s". The renew request body is exactly `{"worker_id","lease_token"}`. A 200 with `cancel_requested: true` carries the unextended expiry.
 - **Q9 (4d).** Nothing of 4d was built: no cancel-wins commit outcome, no SEC-012 clamp, no classification.
 
