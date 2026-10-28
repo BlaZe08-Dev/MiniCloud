@@ -55,7 +55,7 @@ builds the rest. The other agent audits.
 ### P4-02 — Phase 4 slice 4a doc updates and follow-up (minors)
 - Goal: repair line citations and drift, update Phase 4 plan with 4a/4b/4c scope split, register SEC-024, resolve P4-01 audit minors, update task board and changelog.
 - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-02`. Status: in progress.
-- Owned files: `docs/phase4-plan.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/adr/**`, `docs/security/**`, `docs/agents/**`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `tests/docs/citation_allowlist.txt`.
+- Owned files: `docs/phase4-plan.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/adr/**`, `docs/security/**`, `docs/agents/**`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `tests/docs/citation_allowlist.txt`, `docs/roadmap.md`.
 - Out of scope: any code under `internal/`, `cmd/`, `tests/` (except `tests/docs/citation_allowlist.txt`), any database migrations.
 
 ### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
