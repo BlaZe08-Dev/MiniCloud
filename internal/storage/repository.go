@@ -50,6 +50,11 @@ type Repository interface {
 	// failed tick.
 	SweepExpiredLeases(ctx context.Context, params domain.SweepParams) (*domain.SweepResult, error)
 
+	// Now returns the repository clock: database time in PostgreSQL, the injected Clock in
+	// memory. The lease sweeper derives every grace instant from it so that grace state and the
+	// in-lock grace check share one clock domain (owner decision Q-1).
+	Now(ctx context.Context) (time.Time, error)
+
 	// Event operations
 	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
 

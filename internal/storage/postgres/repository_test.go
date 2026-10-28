@@ -104,3 +104,7 @@ func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *test
 func TestConformance_RetryingJob_DispatchAndCancelParity(t *testing.T) {
 	storagetest.RunRetryingJobParityConformance(t, newPostgresHarness)
 }
+
+func TestConformance_Now_IsRepositoryClock(t *testing.T) {
+	storagetest.RunNowConformance(t, newPostgresHarness)
+}

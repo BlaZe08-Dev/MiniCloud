@@ -1061,3 +1061,8 @@ func (r *InMemoryRepository) ListEventsByJob(ctx context.Context, jobID string) 
 func (r *InMemoryRepository) Ping(ctx context.Context) error {
 	return nil
 }
+
+// Now returns the repository clock (the injected Clock, UTC in production).
+func (r *InMemoryRepository) Now(ctx context.Context) (time.Time, error) {
+	return r.clock.Now(), nil
+}
