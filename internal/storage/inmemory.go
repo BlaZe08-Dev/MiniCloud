@@ -260,6 +260,8 @@ func (r *InMemoryRepository) ListAttemptsByJob(ctx context.Context, jobID string
 			list = append(list, &copied)
 		}
 	}
+	// Map iteration is unordered; PostgreSQL returns attempts ORDER BY attempt_no.
+	sort.Slice(list, func(i, j int) bool { return list[i].AttemptNo < list[j].AttemptNo })
 	return list, nil
 }
 

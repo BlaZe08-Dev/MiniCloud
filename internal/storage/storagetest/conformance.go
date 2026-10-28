@@ -2426,6 +2426,11 @@ func RunCommitAttemptFailureRetryOrFailConformance(t *testing.T, newHarness func
 		if err != nil || len(attempts) != 3 {
 			t.Fatalf("expected 3 attempts, got %d (%v)", len(attempts), err)
 		}
+		for i, a := range attempts {
+			if a.AttemptNo != i+1 {
+				t.Fatalf("ListAttemptsByJob must return attempts ordered by attempt_no: position %d has attempt_no %d", i, a.AttemptNo)
+			}
+		}
 		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_f"); !errors.Is(err, domain.ErrNoQueuedJobs) {
 			t.Fatalf("a FAILED job must not dispatch, got %v", err)
 		}
