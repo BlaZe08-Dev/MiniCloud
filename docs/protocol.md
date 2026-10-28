@@ -476,7 +476,7 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
 *Note on Diagnostic Events and Renewal Rejections*: Renewal rejections (`POST /renew`) write no event to `job_events` under any circumstance; diagnostic events (`DIAGNOSTIC_LATE_RESULT`) are written exclusively on result commits (`POST /result`). An unknown attempt ID on renew returns 409 `STALE_ATTEMPT_REJECTED`, exactly as for commit (authorised by the orchestrator in the planning session).
 
 *Worker Action on Renewal Responses*:
-- **403 Forbidden (`WORKER_MISMATCH`) and Recognised 404 (`JOB_NOT_FOUND`, `WORKER_NOT_FOUND`)**: Treated as lease-lost for the worker. The worker halts execution immediately, cancels context, frees its capacity slot, and does not report a result.
+- **403 Forbidden (`WORKER_MISMATCH`) and Recognised 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`)**: Treated as lease-lost for the worker. The worker halts execution immediately, cancels context, frees its capacity slot, and does not report a result.
 - **Unrecognised or Empty 404 Body**: Indicates an older coordinator lacking the `/renew` route. The worker logs a warning once, disables renewals for that attempt, and keeps running to completion without renewals, reporting the outcome via `POST /result`.
 - **409 Conflict (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`)**: Final rejection; the worker halts execution, frees slot, and does not report result.
 
