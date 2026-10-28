@@ -124,8 +124,8 @@ The most serious are these:
   - `TestService_Claim_Redelivery_NoDuplicateAttempt` (`internal/coordinator/service_test.go:526`).
   - `TestService_CommitResult_AckOnlyOnAccepted` (`internal/coordinator/service_test.go:575`).
   - `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:665`).
-  - `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:716`).
-  - `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:764`).
+  - `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go (line 716 at the audited commit)`).
+  - `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go (line 764 at the audited commit)`).
 
   The two tests that cancel through the repository bypass `Service.CancelJob`'s own `Ack`
   (`internal/coordinator/service.go:237`). After the rewiring, PollWork never touches the queue, so

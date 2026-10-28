@@ -379,7 +379,7 @@ to `:426`, G-R21). Rows R-01 to R-18 and R-20 to R-24 describe the right finding
 ### R3-09 (minor) Residual of R2-01: the slice 4a impact list is accurate on breakage, but imprecise and silent on the constructor
 - Location: `docs/phase4-plan.md:54-66`, `docs/adr/0015-retry-policy-and-failure-classification.md:126`.
 - Evidence label: **executed** (`go test -list`, grep: G3d-spyqueue, G3d-callers, G3d-integration,
-  G3d-restart) plus **confirmed by code reading** (`internal/coordinator/service.go:352-464`,
+  G3d-restart) plus **confirmed by code reading** (`internal/coordinator/service.go (lines 352-464 at the audited commit)`,
   `internal/storage/inmemory.go:467-495`).
 - Evidence:
   - The count and names are right: all seven tests construct `NewServiceWithQueue`
@@ -392,7 +392,7 @@ to `:426`, G-R21). Rows R-01 to R-18 and R-20 to R-24 describe the right finding
     - the `NewServiceWithQueue` constructor and its queue parameter, which is still passed by
       `tests/integration/multi_worker_batch_test.go:39-40`;
     - `SubmitJob`'s `Enqueue` (`internal/coordinator/service.go:194-195`);
-    - `CommitResult`'s `Ack` (`internal/coordinator/service.go:512-513`).
+    - `CommitResult`'s `Ack` (`internal/coordinator/service.go (lines 512-513 at the audited commit)`).
   - Other memory-mode callers are not listed: `internal/coordinator/service_test.go:47` and
     `:274`, `internal/api/api_test.go:58` and `:588`,
     `tests/integration/coordinator_restart_test.go:67` and `:181`,
