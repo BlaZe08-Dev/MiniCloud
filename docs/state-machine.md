@@ -41,17 +41,17 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 
 ### Current Code Behavior vs Phase 4 Behavior Changes
 - **Verified Current Cancellation Behavior**:
-  Cancellation today behaves identically in `internal/storage/inmemory.go:658-700` and `internal/storage/postgres/repository.go:1135-1233`:
+  Before slice 4a (baseline at f6c7ec8), cancellation behaved identically in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob`:
   1. Terminal job -> `domain.ErrJobAlreadyTerminal`.
   2. `QUEUED` -> `CANCELLED` (event `JOB_CANCELLED`).
   3. `RUNNING` -> `CANCEL_REQUESTED` (event `JOB_CANCEL_REQUESTED`), with the active attempt untouched.
-  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) -> falls through to `CANCELLED` (event `JOB_CANCELLED`).
+  4. Any other non-terminal state (including `CANCEL_REQUESTED`, and `RETRYING` once it existed) fell through to `CANCELLED` (event `JOB_CANCELLED`). Slice 4a replaced this branch: duplicate cancel on `CANCEL_REQUESTED` is an idempotent no-op and `RETRYING` cancels immediately.
   5. Workers learn nothing today (heartbeats carry static `{"status":"ACK"}`).
 - **Correction of Prior Misdescription**: Prior design drafts incorrectly claimed that cancelling a `RUNNING` job moved it directly to `CANCELLED` and marked the attempt `FAILED`. That description was false. The code already sets `CANCEL_REQUESTED` on first call for `RUNNING` jobs and leaves the attempt in `RUNNING`.
 - **Phase 4 Behavior Changes Introduced**:
-  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, the repository performs an idempotent duplicate-cancel no-op under row lock returning the job in `CANCEL_REQUESTED` unchanged (API returns HTTP 200 with state `CANCEL_REQUESTED`, identical response body as the first cancel). The domain transition matrix is unchanged by this (`CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the FSM).
+  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Before slice 4a, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, the repository performs an idempotent duplicate-cancel no-op under row lock returning the job in `CANCEL_REQUESTED` unchanged (API returns HTTP 200 with state `CANCEL_REQUESTED`, identical response body as the first cancel). The domain transition matrix is unchanged by this (`CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the FSM).
   2. **Cancellation during `RETRYING`**: Cancelling a job in `RETRYING` stays an immediate transition to `CANCELLED`, clearing `not_before` and aborting scheduled retries.
-  3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the renewal response (`cancel_requested: true`, unextended `lease_expires_at`). The worker cancels the task context, ceases renewals, and still reports its result. If the task ignores cancellation, the lease expires within one lease duration (30 s); the sweeper closes the attempt as `CANCELLED` and the job becomes `CANCELLED` (never `RETRYING`). Any commit on `CANCEL_REQUESTED` closes the attempt with the reported outcome (`COMPLETED` on success, `FAILED` on error/cancel) and moves the job: success moves `CANCEL_REQUESTED -> SUCCEEDED` (today's behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049`, permitted by `internal/domain/transition.go:21`); failure moves `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go:619-622` and `internal/storage/postgres/repository.go:1050-1054` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). The coordinator requires no special cancel acknowledgement wire signal.
+  3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the renewal response (`cancel_requested: true`, unextended `lease_expires_at`). The worker cancels the task context, ceases renewals, and still reports its result. If the task ignores cancellation, the lease expires within one lease duration (30 s); the sweeper closes the attempt as `CANCELLED` and the job becomes `CANCELLED` (never `RETRYING`). Any commit on `CANCEL_REQUESTED` closes the attempt with the reported outcome (`COMPLETED` on success, `FAILED` on error/cancel) and moves the job: success moves `CANCEL_REQUESTED -> SUCCEEDED` (today's behavior in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt`, permitted by `internal/domain/transition.go:21`); failure moves `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). The coordinator requires no special cancel acknowledgement wire signal.
   4. **Direct `RETRYING -> RUNNING` via Pull Dispatch**: Blueprint conceptual diagrams describe `RETRYING -> QUEUED` when a retry backoff timer elapses. In MiniCloud's implementation, transitioning `RETRYING -> RUNNING` directly via `repo.DispatchNextJob` (`SELECT ... FOR UPDATE SKIP LOCKED` where `(state = 'QUEUED' OR (state = 'RETRYING' AND not_before <= clock_timestamp()))`) eliminates unnecessary intermediate database writes and polling loops while preserving full auditability via `JobEventDispatched` (`from_state: 'RETRYING'`, `to_state: 'RUNNING'`). (Accepted by owner).
 
 ---
@@ -60,7 +60,7 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
 
 ### Reconciling Domain Constants and Database Schema Values
 There was an initial naming mismatch between the domain constants and PostgreSQL schema constraints:
-- `internal/domain/state.go:22-27` defined:
+- Historically, `internal/domain/state.go` defined:
   `AttemptPending = "PENDING"`, `AttemptRunning = "RUNNING"`, `AttemptCompleted = "COMPLETED"`, `AttemptFailed = "FAILED"`, `AttemptExpired = "EXPIRED"`, `AttemptCanceled = "CANCELED"`.
 - PostgreSQL schema CHECK constraint `chk_attempts_state` (`000001_initial_schema.sql:97`) defines:
   `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
@@ -83,7 +83,7 @@ MiniCloud establishes the schema values as the canonical state names across the 
 | `AttemptLost` (canonical) / `AttemptExpired` (alias) | `"LOST"` | `LOST` | Coordinator Sweeper (ADR-0014) | Lease expires without renewal (`lease_expires_at < clock_timestamp()`) |
 
 #### Code & API Mapping Plan
-In Slice 4a, `internal/domain/state.go` will be updated to declare:
+Slice 4a updated `internal/domain/state.go` to declare:
 ```go
 const (
     AttemptPending   AttemptState = "PENDING"
@@ -101,27 +101,27 @@ const (
     AttemptExpired  = AttemptLost
 )
 ```
-In-memory attempt state validation: In Slice 4a, the in-memory repository will validate attempt states against canonical attempt states (preventing typos like `"CANCELED"` from being stored in memory tests).
+In-memory attempt state validation: In Slice 4a, the in-memory repository validated attempt states against canonical attempt states (preventing typos like `"CANCELED"` from being stored in memory tests).
 
 #### Migration Impact
 Database migration `000001_initial_schema.sql:97` already defined `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. Therefore, zero database schema migrations or data backfills are required.
 
 #### Verification Proof: No Stored Rows or API Output Contain Old Spellings
-A codebase-wide inspection confirms that no stored rows or API outputs ever used `"EXPIRED"` or single-L `"CANCELED"`, as verified by the following grep queries:
+A codebase-wide inspection confirms that no stored rows or API outputs ever used `"EXPIRED"` or single-L `"CANCELED"`, as verified by the following historical grep queries prior to reconciliation in slice 4a:
 ```text
 $ grep -rn '"EXPIRED"' internal/
-internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+internal/domain/state.go (line 26 at initial audit):	AttemptExpired   AttemptState = "EXPIRED"
 
 $ grep -rn '"CANCELED"' internal/
-internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+internal/domain/state.go (line 27 at initial audit):	AttemptCanceled  AttemptState = "CANCELED"
 
 $ grep -rn 'AttemptExpired' internal/
-internal/domain/state.go:26:	AttemptExpired   AttemptState = "EXPIRED"
+internal/domain/state.go (line 26 at initial audit):	AttemptExpired   AttemptState = "EXPIRED"
 
 $ grep -rn 'AttemptCanceled' internal/
-internal/domain/state.go:27:	AttemptCanceled  AttemptState = "CANCELED"
+internal/domain/state.go (line 27 at initial audit):	AttemptCanceled  AttemptState = "CANCELED"
 ```
-Neither constant was ever referenced in repository queries, database inserts, or API serialization routines. All persistence layers write canonical strings exclusively.
+Reconciliation in slice 4a removed both unused constants. Neither constant was ever referenced in repository queries, database inserts, or API serialization routines. All persistence layers write canonical strings exclusively.
 
 ### Attempt Lifecycle Diagram
 

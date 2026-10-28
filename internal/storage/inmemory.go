@@ -79,6 +79,19 @@ func (r *InMemoryRepository) computeAvailableSlotsLocked(workerID string, totalS
 	return avail
 }
 
+// isDispatchableLocked reports whether a job may be claimed now: QUEUED, or RETRYING once its
+// not_before backoff time has been reached on the repository clock (nil means immediately).
+func (r *InMemoryRepository) isDispatchableLocked(j *domain.Job) bool {
+	switch j.State {
+	case domain.StateQueued:
+		return true
+	case domain.StateRetrying:
+		return j.NotBefore == nil || !j.NotBefore.After(r.clock.Now())
+	default:
+		return false
+	}
+}
+
 // recordEventLocked appends an immutable lifecycle event to the event log.
 // Must be called with mu.Lock held.
 func (r *InMemoryRepository) recordEventLocked(event *domain.JobEvent) {
@@ -149,7 +162,8 @@ func (r *InMemoryRepository) UpdateJob(ctx context.Context, job *domain.Job) err
 	return nil
 }
 
-// ListQueuedJobs returns all jobs currently in StateQueued in FIFO order.
+// ListQueuedJobs returns all dispatchable jobs in FIFO order: jobs in StateQueued, plus
+// StateRetrying jobs whose not_before time has been reached.
 func (r *InMemoryRepository) ListQueuedJobs(ctx context.Context) ([]*domain.Job, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -157,7 +171,7 @@ func (r *InMemoryRepository) ListQueuedJobs(ctx context.Context) ([]*domain.Job,
 	var queued []*domain.Job
 	for _, id := range r.jobOrder {
 		j := r.jobs[id]
-		if j != nil && j.State == domain.StateQueued {
+		if j != nil && r.isDispatchableLocked(j) {
 			copied := *j
 			queued = append(queued, &copied)
 		}
@@ -371,7 +385,7 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	if !exists {
 		return nil, domain.ErrJobNotFound
 	}
-	if job.State != domain.StateQueued {
+	if !r.isDispatchableLocked(job) {
 		return nil, domain.ErrJobNotQueued
 	}
 
@@ -399,9 +413,11 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	}
 
 	now := time.Now().UTC()
+	fromState := job.State
 	if err := job.TransitionTo(domain.StateRunning); err != nil {
 		return nil, err
 	}
+	job.NotBefore = nil
 
 	// Calculate monotonic attempt number
 	attemptNo := 1
@@ -434,7 +450,6 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 	job.CurrentAttemptID = attemptID
 	job.UpdatedAt = now
 
-	fromState := domain.StateQueued
 	toState := domain.StateRunning
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     jobID,
@@ -485,7 +500,7 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	var selectedJob *domain.Job
 	for _, id := range r.jobOrder {
 		j := r.jobs[id]
-		if j != nil && j.State == domain.StateQueued && worker.SupportsTask(j.TaskType) {
+		if j != nil && r.isDispatchableLocked(j) && worker.SupportsTask(j.TaskType) {
 			selectedJob = j
 			break
 		}
@@ -502,9 +517,11 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	}
 
 	now := r.clock.Now()
+	fromState := selectedJob.State
 	if err := selectedJob.TransitionTo(domain.StateRunning); err != nil {
 		return nil, nil, err
 	}
+	selectedJob.NotBefore = nil
 
 	// Calculate monotonic attempt number derived from max existing attempt_no + 1
 	attemptNo := 0
@@ -536,7 +553,6 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 	selectedJob.CurrentAttemptID = attemptID
 	selectedJob.UpdatedAt = now
 
-	fromState := domain.StateQueued
 	toState := domain.StateRunning
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     selectedJob.ID,
@@ -576,6 +592,7 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 		return nil, domain.ErrJobNotFound
 	}
 	if job.State.IsTerminal() {
+		r.rejectTerminalCommitLocked(job, attemptID, workerID)
 		return nil, domain.ErrJobAlreadyTerminal
 	}
 	if job.CurrentAttemptID != attemptID {
@@ -654,7 +671,50 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 	return &copied, nil
 }
 
-// CancelJob atomically cancels a queued or running job and records an audit event.
+// rejectTerminalCommitLocked is the SEC-022 cleanup for a commit that hits an already-terminal
+// job. It closes the named attempt only while that attempt is still RUNNING and is the job's
+// current attempt (CANCELLED if the job is CANCELLED, otherwise LOST), which frees the worker
+// slot, and records at most one DIAGNOSTIC_LATE_RESULT event per attempt of this job. An attempt
+// that is already COMPLETED, FAILED, CANCELLED or LOST is never modified, and an attempt ID that
+// does not belong to the job records nothing. Must be called with mu.Lock held.
+func (r *InMemoryRepository) rejectTerminalCommitLocked(job *domain.Job, attemptID, reportingWorker string) {
+	att, exists := r.attempts[attemptID]
+	if !exists || att.JobID != job.ID {
+		return
+	}
+	now := r.clock.Now()
+
+	if att.State == domain.AttemptRunning && job.CurrentAttemptID == attemptID {
+		if job.State == domain.StateCancelled {
+			att.State = domain.AttemptCancelled
+		} else {
+			att.State = domain.AttemptLost
+		}
+		att.FinishedAt = &now
+	}
+
+	for _, ev := range r.events {
+		if ev.JobID == job.ID && ev.EventType == domain.JobEventDiagnosticLateResult &&
+			ev.AttemptID != nil && *ev.AttemptID == attemptID {
+			return
+		}
+	}
+	r.recordEventLocked(&domain.JobEvent{
+		JobID:     job.ID,
+		AttemptID: &attemptID,
+		EventType: domain.JobEventDiagnosticLateResult,
+		CreatedAt: now,
+		Details: map[string]any{
+			"attempt_id":       attemptID,
+			"reporting_worker": reportingWorker,
+			"rejected":         true,
+		},
+	})
+}
+
+// CancelJob atomically cancels a queued, retrying or running job and records an audit event.
+// A duplicate cancel on a CANCEL_REQUESTED job is an idempotent no-op (SEC-022): the job is
+// returned unchanged, with no state transition and no audit event.
 func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -667,16 +727,19 @@ func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*doma
 		return nil, domain.ErrJobAlreadyTerminal
 	}
 
+	if job.State == domain.StateCancelRequested {
+		copied := *job
+		return &copied, nil
+	}
+
 	fromState := job.State
 	var targetState domain.JobState
 	var eventType domain.JobEventType
-	if job.State == domain.StateQueued {
-		targetState = domain.StateCancelled
-		eventType = domain.JobEventCancelled
-	} else if job.State == domain.StateRunning {
+	if job.State == domain.StateRunning {
 		targetState = domain.StateCancelRequested
 		eventType = domain.JobEventCancelRequested
 	} else {
+		// QUEUED and RETRYING cancel immediately.
 		targetState = domain.StateCancelled
 		eventType = domain.JobEventCancelled
 	}
@@ -684,8 +747,13 @@ func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*doma
 	if err := job.TransitionTo(targetState); err != nil {
 		return nil, err
 	}
-	now := time.Now().UTC()
+	now := r.clock.Now()
 	job.UpdatedAt = now
+	if targetState == domain.StateCancelRequested {
+		job.CancelRequestedAt = &now
+	} else {
+		job.NotBefore = nil
+	}
 
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     jobID,

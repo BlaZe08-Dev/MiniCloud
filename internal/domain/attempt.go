@@ -15,6 +15,7 @@ type Attempt struct {
 	State          AttemptState `json:"state"`
 	StartedAt      time.Time    `json:"started_at"`
 	FinishedAt     *time.Time   `json:"finished_at,omitempty"`
+	LeaseExpiresAt *time.Time   `json:"lease_expires_at,omitempty"`
 	ExitCode       int          `json:"exit_code"`
 	Output         string       `json:"output"`
 	Error          string       `json:"error,omitempty"`
@@ -25,5 +26,17 @@ type AttemptOutcome struct {
 	ExitCode            int
 	Output              string
 	Error               string
-	ErrorClassification string // placeholder for future classification
+	ErrorClassification ErrorClass
 }
+
+// ErrorClass classifies a failed attempt for the retry policy (ADR-0015). Success carries
+// no class. The values match the chk_attempts_error_class constraint planned for
+// migration 000004.
+type ErrorClass string
+
+const (
+	ClassPermanent    ErrorClass = "PERMANENT"
+	ClassTransient    ErrorClass = "TRANSIENT"
+	ClassUnknown      ErrorClass = "UNKNOWN"
+	ClassLeaseExpired ErrorClass = "LEASE_EXPIRED"
+)

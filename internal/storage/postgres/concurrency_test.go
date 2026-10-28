@@ -510,6 +510,26 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 		_ = slotRows.Scan(&wID, &slots)
 		t.Fatalf("INVARIANT VIOLATION: worker %s has negative available_slots: %d", wID, slots)
 	}
+
+	// Invariant 4 (fault-injection-plan.md section 3.2): no active attempt after a terminal job
+	// state. Guards SEC-022 (duplicate cancel / rejected commit leaking a RUNNING attempt).
+	checkTerminalActive := fmt.Sprintf(`
+		SELECT j.id, a.id, j.state, a.state
+		FROM %[1]s.jobs j
+		JOIN %[1]s.attempts a ON a.job_id = j.id
+		WHERE j.state IN ('SUCCEEDED', 'FAILED', 'CANCELLED', 'REJECTED')
+		  AND a.state IN ('PENDING', 'RUNNING');
+	`, schemaName)
+	termRows, err := pool.Query(ctx, checkTerminalActive)
+	if err != nil {
+		t.Fatalf("failed to query active attempts on terminal jobs: %v", err)
+	}
+	defer termRows.Close()
+	if termRows.Next() {
+		var jID, aID, jState, aState string
+		_ = termRows.Scan(&jID, &aID, &jState, &aState)
+		t.Fatalf("INVARIANT VIOLATION: job %s is %s but attempt %s is still %s", jID, jState, aID, aState)
+	}
 }
 
 // TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier tests 10 concurrent workers

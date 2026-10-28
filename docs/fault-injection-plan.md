@@ -113,7 +113,7 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
 
 ## 3. Model-Based & Property-Based Test Plan
 
-To discover unexpected corner cases, race conditions, and sequence anomalies across arbitrary failure combinations, MiniCloud introduces a model-based testing harness (`TestProperty_StateMachine_ModelConformance` (planned test)).
+To discover unexpected corner cases, race conditions, and sequence anomalies across arbitrary failure combinations, MiniCloud introduces a model-based testing harness (`TestProperty_StateMachine_ModelConformance` (executed in slice 4a)).
 
 ### 3.1 Architecture of the Property Harness
 1. **Pure Reference Model (`SimpleJobModel`)**:

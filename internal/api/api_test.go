@@ -1131,3 +1131,64 @@ func TestAPI_RegisterWorker_SupportedTasksAllowlist(t *testing.T) {
 		})
 	}
 }
+
+// TestAPI_CancelJob_SuccessReturns200 pins the cancel status codes: every valid cancellation,
+// including a duplicate cancel on a CANCEL_REQUESTED job, returns HTTP 200 with the same body
+// shape, and the duplicate returns exactly the body of the first request (SEC-022).
+func TestAPI_CancelJob_SuccessReturns200(t *testing.T) {
+	ts, svc := setupTestServer()
+	defer ts.Close()
+	ctx := context.Background()
+
+	cancel := func(jobID string) (int, string) {
+		t.Helper()
+		resp, err := http.Post(ts.URL+"/v1/jobs/"+jobID+"/cancel", "application/json", bytes.NewReader([]byte(`{}`)))
+		if err != nil {
+			t.Fatalf("POST cancel failed: %v", err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	// QUEUED -> CANCELLED
+	queued, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"q"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+	status, body := cancel(queued.ID)
+	if status != http.StatusOK || !strings.Contains(body, `"state":"CANCELLED"`) {
+		t.Fatalf("cancel of QUEUED job: expected 200 CANCELLED, got %d %s", status, body)
+	}
+	if status, body = cancel(queued.ID); status != http.StatusConflict || !strings.Contains(body, "JOB_ALREADY_TERMINAL") {
+		t.Fatalf("cancel of CANCELLED job: expected 409 JOB_ALREADY_TERMINAL, got %d %s", status, body)
+	}
+
+	// RUNNING -> CANCEL_REQUESTED, duplicates are 200 with an identical body
+	if err := svc.RegisterWorker(ctx, &domain.Worker{ID: "w_cancel_api", TotalSlots: 1, SupportedTasks: []string{"echo"}}); err != nil {
+		t.Fatalf("RegisterWorker failed: %v", err)
+	}
+	running, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"r"}`), 30, 3)
+	if err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+	assignment, err := svc.PollWork(ctx, "w_cancel_api")
+	if err != nil || assignment.JobID != running.ID {
+		t.Fatalf("PollWork: %v (assignment=%+v)", err, assignment)
+	}
+	firstStatus, firstBody := cancel(running.ID)
+	if firstStatus != http.StatusOK || !strings.Contains(firstBody, `"state":"CANCEL_REQUESTED"`) {
+		t.Fatalf("first cancel of RUNNING job: expected 200 CANCEL_REQUESTED, got %d %s", firstStatus, firstBody)
+	}
+	for i := 0; i < 2; i++ {
+		dupStatus, dupBody := cancel(running.ID)
+		if dupStatus != http.StatusOK || dupBody != firstBody {
+			t.Fatalf("duplicate cancel: expected 200 with body %q, got %d %q", firstBody, dupStatus, dupBody)
+		}
+	}
+
+	// The worker can still commit: the duplicates did not finalise the job.
+	if _, err := svc.CommitResult(ctx, running.ID, assignment.AttemptID, assignment.LeaseToken, "w_cancel_api", 0, "ok", ""); err != nil {
+		t.Fatalf("commit after duplicate cancels must be accepted, got %v", err)
+	}
+}

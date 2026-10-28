@@ -15,7 +15,8 @@ const (
 	StateRejected        JobState = "REJECTED"
 )
 
-// AttemptState represents the execution lifecycle of a single attempt.
+// AttemptState represents the execution lifecycle of a single attempt. The values match
+// the chk_attempts_state constraint in migration 000001_initial_schema.sql.
 type AttemptState string
 
 const (
@@ -23,8 +24,9 @@ const (
 	AttemptRunning   AttemptState = "RUNNING"
 	AttemptCompleted AttemptState = "COMPLETED"
 	AttemptFailed    AttemptState = "FAILED"
-	AttemptExpired   AttemptState = "EXPIRED"
-	AttemptCanceled  AttemptState = "CANCELED"
+	AttemptTimedOut  AttemptState = "TIMED_OUT"
+	AttemptCancelled AttemptState = "CANCELLED"
+	AttemptLost      AttemptState = "LOST"
 )
 
 // WorkerStatus represents the health and readiness of a worker.

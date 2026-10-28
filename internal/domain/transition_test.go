@@ -32,7 +32,7 @@ func TestJobTransitionMatrix_AllPairs(t *testing.T) {
 			domain.StateFailed:    true,
 		},
 		domain.StateRetrying: {
-			domain.StateQueued:    true,
+			domain.StateRunning:   true,
 			domain.StateFailed:    true,
 			domain.StateCancelled: true,
 		},

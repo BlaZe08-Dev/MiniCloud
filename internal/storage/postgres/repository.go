@@ -981,6 +981,14 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 	}
 	job.State = domain.JobState(jobStateStr)
 	if job.State.IsTerminal() {
+		// SEC-022: the rejection must still close a RUNNING attempt and free its slot, so the
+		// cleanup is committed in this transaction before the error is returned.
+		if err := rejectTerminalCommit(ctx, tx, &job, currentAttemptID, attemptID, workerID); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, mapPgError(err)
+		}
 		return nil, domain.ErrJobAlreadyTerminal
 	}
 	if currentAttemptID == nil || *currentAttemptID != attemptID {
@@ -1132,7 +1140,64 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 	return &job, nil
 }
 
-// CancelJob atomically cancels a queued or running job and logs the corresponding audit event.
+// rejectTerminalCommit performs the SEC-022 cleanup for a commit that hit an already-terminal
+// job, inside the caller's transaction (job row already locked FOR UPDATE). It closes the named
+// attempt only while that attempt is still RUNNING and is the job's current attempt (CANCELLED
+// if the job is CANCELLED, otherwise LOST), which frees the worker slot in worker_capacity, and
+// records at most one DIAGNOSTIC_LATE_RESULT event per attempt. An attempt that is already
+// COMPLETED, FAILED, CANCELLED or LOST is never modified, and an attempt ID that does not belong
+// to the job records nothing. Lock order is jobs, then attempts, then job_events.
+func rejectTerminalCommit(ctx context.Context, tx pgx.Tx, job *domain.Job, currentAttemptID *string, attemptID, reportingWorker string) error {
+	var attJobID, attState string
+	err := tx.QueryRow(ctx, `SELECT job_id, state FROM attempts WHERE id = $1 FOR UPDATE;`, attemptID).Scan(&attJobID, &attState)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return mapPgError(err)
+	}
+	if attJobID != job.ID {
+		return nil
+	}
+
+	if attState == string(domain.AttemptRunning) && currentAttemptID != nil && *currentAttemptID == attemptID {
+		closedState := domain.AttemptLost
+		if job.State == domain.StateCancelled {
+			closedState = domain.AttemptCancelled
+		}
+		_, err = tx.Exec(ctx, `UPDATE attempts SET state = $1, finished_at = CURRENT_TIMESTAMP WHERE id = $2;`, string(closedState), attemptID)
+		if err != nil {
+			return mapPgError(err)
+		}
+	}
+
+	details, err := json.Marshal(map[string]any{
+		"attempt_id":       attemptID,
+		"reporting_worker": reportingWorker,
+		"rejected":         true,
+	})
+	if err != nil {
+		return err
+	}
+	// The job row lock serialises concurrent rejections, so NOT EXISTS bounds the event to one per attempt.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO job_events (job_id, attempt_id, event_type, details, created_at)
+		SELECT $1::text, $2::text, $3::text, $4::jsonb, clock_timestamp()
+		WHERE NOT EXISTS (
+			SELECT 1 FROM job_events
+			WHERE job_id = $1::text AND attempt_id = $2::text AND event_type = $3::text
+		);`,
+		job.ID, attemptID, string(domain.JobEventDiagnosticLateResult), string(details),
+	)
+	if err != nil {
+		return mapPgError(err)
+	}
+	return nil
+}
+
+// CancelJob atomically cancels a queued, retrying or running job and logs the corresponding audit
+// event. A duplicate cancel on a CANCEL_REQUESTED job is an idempotent no-op (SEC-022): the job is
+// returned unchanged under the row lock, with no state transition and no audit event.
 func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -1176,18 +1241,19 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 	if job.State.IsTerminal() {
 		return nil, domain.ErrJobAlreadyTerminal
 	}
+	if job.State == domain.StateCancelRequested {
+		return &job, nil
+	}
 
 	fromState := job.State
 	var targetState domain.JobState
 	var eventType domain.JobEventType
 
-	if job.State == domain.StateQueued {
-		targetState = domain.StateCancelled
-		eventType = domain.JobEventCancelled
-	} else if job.State == domain.StateRunning {
+	if job.State == domain.StateRunning {
 		targetState = domain.StateCancelRequested
 		eventType = domain.JobEventCancelRequested
 	} else {
+		// QUEUED and RETRYING cancel immediately.
 		targetState = domain.StateCancelled
 		eventType = domain.JobEventCancelled
 	}

@@ -477,7 +477,7 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
 
 *Commit Outcomes on `CANCEL_REQUESTED` (D-R3-06, D-R4-03)*:
 When committing a result on a job in `CANCEL_REQUESTED`:
-- A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049` (permitted by `internal/domain/transition.go:21`).
+- A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` (permitted by `internal/domain/transition.go` table `allowedTransitions`).
 - A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING` or `FAILED`).
 - If the lease expires before commit, the sweeper reaps the attempt as `CANCELLED` and job as `CANCELLED`, recording `JOB_CANCELLED`.
 

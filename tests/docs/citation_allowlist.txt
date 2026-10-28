@@ -16,7 +16,13 @@ test|TestMigrator_AppliesAllMigrations|Invented historical test name cited in SE
 test|TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce|Invented historical test name cited in SEC-018 disclosure
 
 # Audit probe tests on agent/claude/P4-00-review branch cited in P4-00 review
-path|tests/review/sec022_probe_test.go|Audit probe test on agent/claude/P4-00-review branch
-test|TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot|Audit probe test on agent/claude/P4-00-review branch
 test|TestReviewP400_SEC022|Audit probe test flag cited in SEC-022 verbatim evidence
 test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/claude/P4-00-review branch
+
+# Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
+test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+test|TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)

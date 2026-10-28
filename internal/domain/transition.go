@@ -22,7 +22,7 @@ var allowedTransitions = map[JobState]map[JobState]bool{
 		StateFailed:    true,
 	},
 	StateRetrying: {
-		StateQueued:    true,
+		StateRunning:   true,
 		StateFailed:    true,
 		StateCancelled: true,
 	},

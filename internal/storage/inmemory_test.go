@@ -615,3 +615,158 @@ func TestInMemoryRepository_Conformance(t *testing.T) {
 		return storage.NewInMemoryRepository()
 	})
 }
+
+func newInMemoryHarness(t *testing.T) storagetest.Harness {
+	repo := storage.NewInMemoryRepository()
+	return storagetest.Harness{
+		Repo: repo,
+		ForceJobState: func(t *testing.T, jobID string, state domain.JobState) {
+			t.Helper()
+			job, err := repo.GetJob(context.Background(), jobID)
+			if err != nil {
+				t.Fatalf("GetJob(%s) failed: %v", jobID, err)
+			}
+			job.State = state
+			if err := repo.UpdateJob(context.Background(), job); err != nil {
+				t.Fatalf("UpdateJob(%s) failed: %v", jobID, err)
+			}
+		},
+		ForceAttemptState: func(t *testing.T, attemptID string, state domain.AttemptState) {
+			t.Helper()
+			att, err := repo.GetAttempt(context.Background(), attemptID)
+			if err != nil {
+				t.Fatalf("GetAttempt(%s) failed: %v", attemptID, err)
+			}
+			att.State = state
+			if err := repo.UpdateAttempt(context.Background(), att); err != nil {
+				t.Fatalf("UpdateAttempt(%s) failed: %v", attemptID, err)
+			}
+		},
+	}
+}
+
+func TestConformance_CancelJob_IdempotentCancelRequested(t *testing.T) {
+	storagetest.RunCancelIdempotentCancelRequestedConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
+	storagetest.RunCancelRetryingImmediatelyCancelledConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
+	storagetest.RunCommitAttemptTerminalJobConformance(t, newInMemoryHarness)
+}
+
+type retryTestClock struct{ now time.Time }
+
+func (c *retryTestClock) Now() time.Time { return c.now }
+
+// TestInMemoryRepository_RetryBackoff verifies that a RETRYING job is dispatched only once its
+// not_before time has been reached on the repository clock, goes straight RETRYING -> RUNNING
+// with a new attempt number, and is cancellable while it waits.
+func TestInMemoryRepository_RetryBackoff(t *testing.T) {
+	ctx := context.Background()
+	start := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	clk := &retryTestClock{now: start}
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+
+	if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w_retry", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
+		t.Fatalf("UpsertWorker failed: %v", err)
+	}
+	if err := repo.SubmitJob(ctx, &domain.Job{ID: "j_retry", TaskType: "echo", Payload: []byte(`{"message":"x"}`), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30}); err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+	first, err := repo.DispatchJob(ctx, "j_retry", "w_retry")
+	if err != nil {
+		t.Fatalf("DispatchJob failed: %v", err)
+	}
+
+	// Attempt 1 is lost and the job waits for its backoff (stands in for the sweeper of slice 4b).
+	att, _ := repo.GetAttempt(ctx, first.ID)
+	att.State = domain.AttemptLost
+	if err := repo.UpdateAttempt(ctx, att); err != nil {
+		t.Fatalf("UpdateAttempt failed: %v", err)
+	}
+	notBefore := start.Add(5 * time.Second)
+	job, _ := repo.GetJob(ctx, "j_retry")
+	job.State = domain.StateRetrying
+	job.NotBefore = &notBefore
+	if err := repo.UpdateJob(ctx, job); err != nil {
+		t.Fatalf("UpdateJob failed: %v", err)
+	}
+
+	assertNotDispatchable := func(step string) {
+		t.Helper()
+		queued, _ := repo.ListQueuedJobs(ctx)
+		if len(queued) != 0 {
+			t.Fatalf("%s: ListQueuedJobs must not list a RETRYING job before not_before, got %d", step, len(queued))
+		}
+		if _, _, err := repo.DispatchNextJob(ctx, "w_retry"); err != domain.ErrNoQueuedJobs {
+			t.Fatalf("%s: DispatchNextJob must find no work before not_before, got %v", step, err)
+		}
+		if _, err := repo.DispatchJob(ctx, "j_retry", "w_retry"); err != domain.ErrJobNotQueued {
+			t.Fatalf("%s: DispatchJob must reject a RETRYING job before not_before, got %v", step, err)
+		}
+	}
+	assertNotDispatchable("t+0s")
+	clk.now = start.Add(4*time.Second + 999*time.Millisecond)
+	assertNotDispatchable("t+4.999s")
+
+	clk.now = notBefore // boundary: not_before <= now is eligible
+	queued, _ := repo.ListQueuedJobs(ctx)
+	if len(queued) != 1 || queued[0].ID != "j_retry" {
+		t.Fatalf("ListQueuedJobs must list the due RETRYING job, got %d jobs", len(queued))
+	}
+	dispatched, second, err := repo.DispatchNextJob(ctx, "w_retry")
+	if err != nil {
+		t.Fatalf("DispatchNextJob on a due RETRYING job failed: %v", err)
+	}
+	if dispatched.State != domain.StateRunning || dispatched.NotBefore != nil {
+		t.Fatalf("expected RUNNING with not_before cleared, got %s / %v", dispatched.State, dispatched.NotBefore)
+	}
+	if second.AttemptNo != 2 || second.ID == first.ID {
+		t.Fatalf("expected a new attempt number 2, got no=%d id=%s", second.AttemptNo, second.ID)
+	}
+	events, _ := repo.ListEventsByJob(ctx, "j_retry")
+	last := events[len(events)-1]
+	if last.EventType != domain.JobEventDispatched || last.FromState == nil || *last.FromState != domain.StateRetrying {
+		t.Fatalf("expected JOB_DISPATCHED from RETRYING, got %+v", last)
+	}
+}
+
+// TestInMemoryRepository_CancelRequestedAtSetOnce verifies the cancel timestamp is recorded on
+// the first cancel only; a duplicate cancel on CANCEL_REQUESTED leaves it untouched.
+func TestInMemoryRepository_CancelRequestedAtSetOnce(t *testing.T) {
+	ctx := context.Background()
+	start := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	clk := &retryTestClock{now: start}
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w_c", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
+		t.Fatalf("UpsertWorker failed: %v", err)
+	}
+	if err := repo.SubmitJob(ctx, &domain.Job{ID: "j_c", TaskType: "echo", Payload: []byte(`{"message":"x"}`), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30}); err != nil {
+		t.Fatalf("SubmitJob failed: %v", err)
+	}
+	if _, err := repo.DispatchJob(ctx, "j_c", "w_c"); err != nil {
+		t.Fatalf("DispatchJob failed: %v", err)
+	}
+
+	clk.now = start.Add(time.Second)
+	first, err := repo.CancelJob(ctx, "j_c")
+	if err != nil || first.CancelRequestedAt == nil || !first.CancelRequestedAt.Equal(clk.now) {
+		t.Fatalf("first cancel must record cancel_requested_at=%v, got %v (err=%v)", clk.now, first.CancelRequestedAt, err)
+	}
+	clk.now = start.Add(9 * time.Second)
+	dup, err := repo.CancelJob(ctx, "j_c")
+	if err != nil || dup.CancelRequestedAt == nil || !dup.CancelRequestedAt.Equal(*first.CancelRequestedAt) {
+		t.Fatalf("duplicate cancel must keep cancel_requested_at=%v, got %v (err=%v)", first.CancelRequestedAt, dup.CancelRequestedAt, err)
+	}
+}
+
+func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+	storagetest.RunStateMachineModelConformance(t, newInMemoryHarness, []int64{1, 2, 3, 4, 5, 6, 7, 8}, 400)
+}
+
+func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
+	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newInMemoryHarness)
+}

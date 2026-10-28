@@ -75,10 +75,10 @@ We evaluate two architectural approaches for dispatching work from PostgreSQL to
 
 ### 2.1 Codebase Investigation: Confirmation of Unused Scheduler
 An inspection of the active codebase confirms that **`scheduler.Scheduler` is currently unused in the production dispatch loop**:
-- In [internal/coordinator/service.go:58](../../internal/coordinator/service.go#L58), `scheduler scheduler.Scheduler` is stored on `Service` and injected via `NewService` / `NewServiceWithQueue` ([service.go:66-80](../../internal/coordinator/service.go#L66-L80)).
-- In `PollWork` ([service.go:290-386](../../internal/coordinator/service.go#L290-L386)), `s.scheduler` is **never called**.
+- In [internal/coordinator/service.go](../../internal/coordinator/service.go) (`Service` struct), `scheduler scheduler.Scheduler` is stored on `Service` and injected via `NewService`.
+- In `PollWork` ([internal/coordinator/service.go](../../internal/coordinator/service.go) func `PollWork`), `s.scheduler` is **never called**.
 - In the active dispatch loop, when a worker polls, the coordinator claims the next FIFO item from the queue matching the worker's tasks and immediately assigns it to the caller.
-- **Result:** Dispatch is currently strictly **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go:32](../../internal/scheduler/round_robin_test.go#L32)).
+- **Result:** Dispatch is currently strictly **first-poller-wins**. Integration test logs confirm `"job dispatched to worker"` appears, but `"scheduler decision"` is never logged in production flows. `scheduler.SelectWorker` is only exercised in isolated unit tests ([internal/scheduler/round_robin_test.go](../../internal/scheduler/round_robin_test.go)).
 
 ### 2.2 Blueprint Architecture & Data Flow Alignment
 The MiniCloud project blueprint specifies worker coordination across two primary sections:
