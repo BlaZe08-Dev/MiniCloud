@@ -10,8 +10,8 @@ For findings of **Medium** severity and above, the full structured report format
 
 | ID | Severity | Status | Affected Component | Summary | Regression Test / Verification Step |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **SEC-001** | Medium | Confirmed, Fixed | Coordinator Logging | Worker mismatch log misattributed assigned worker ID to the reporting worker. | `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go:210`), `TestAPI_StaleAttemptRejection` (`internal/api/api_test.go:104`) |
-| **SEC-002** | Low | Confirmed, Fixed | Dispatch Precedence | In-memory repository checked worker health before job state, causing dead jobs to be released back to queue. | `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`), Conformance Suite (`internal/storage/storagetest/conformance.go:64`) |
+| **SEC-001** | Medium | Confirmed, Fixed | Coordinator Logging | Worker mismatch log misattributed assigned worker ID to the reporting worker. | `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go`), `TestAPI_StaleAttemptRejection` (`internal/api/api_test.go:104`) |
+| **SEC-002** | Low | Confirmed, Fixed | Dispatch Precedence | In-memory repository checked worker health before job state, causing dead jobs to be released back to queue. | `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go`), Conformance Suite (`internal/storage/storagetest/conformance.go`) |
 | **SEC-003** | Informational | Confirmed, Fixed (Slice 3d) | Docker Compose | Compose `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}` lacked fail-fast syntax `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`), causing empty password warning. Confirmed by execution. | Fixed via fail-fast `${POSTGRES_PASSWORD:?...}` and `--env-file .env` in Makefile and integration test helpers. |
 | **SEC-004** | Medium | Accepted Risk (V1) | HTTP API & Workers | HTTP API and worker endpoints lack authentication and authorization; open to local network. | Deferred to V3 (ADR-0004, ADR-0012); mitigated by `127.0.0.1` bind default. Verification step: future V3 mTLS/auth suite. |
 | **SEC-005** | Low | Confirmed, Fixed | AST SQL Checker | Initial AST check scanned only `repository.go` and accepted identifier variables; coverage was overstated. | `TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation` (`internal/storage/postgres/security_test.go:569`) |
@@ -22,11 +22,11 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-010** | Low | Open (inferred from code review, unconfirmed) | In-Memory Collections | Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) lack size caps and eviction (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). | Verification step: `TestInMemoryRepository_MemoryExhaustion_Cap` (future test submitting high volume of jobs asserting memory ceiling or backpressure). |
 | **SEC-011** | Informational | Fixed (Slice 3d) | Migration CLI | Migration CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` flag emits deprecation warning about process table exposure (`cmd/migrate/main.go:16-33`). | `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`) |
 | **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
-| **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go:26`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
-| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go:119-125`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go:1080-1085`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
-| **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded to `[1, 1024]` at domain boundary and backed by database constraint `chk_workers_total_slots_range` (`internal/coordinator/service.go:127,256`, migration 000003). | `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
-| **SEC-016** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `version` string length capped at 64 chars at domain boundary and backed by database constraint `chk_workers_version_length` (`internal/coordinator/service.go:129,259`, migration 000003). Empty version allowed. | `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
-| **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go:130,262`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go` func `generateID`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
+| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go` func `IsValidIdentifier`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CommitAttempt`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
+| **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded to `[1, 1024]` at domain boundary and backed by database constraint `chk_workers_total_slots_range` (`internal/coordinator/service.go` func `RegisterWorker`, migration 000003). | `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-016** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `version` string length capped at 64 chars at domain boundary and backed by database constraint `chk_workers_version_length` (`internal/coordinator/service.go` func `RegisterWorker`, migration 000003). Empty version allowed. | `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
+| **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bounded to $\le 16$ unique items (duplicates deduplicated), individual task names bounded to 64 chars `^[a-z0-9_]{1,64}$`, backed by `chk_workers_supported_tasks_count` (`internal/coordinator/service.go` func `RegisterWorker`, migration 000003). | `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
 | **SEC-018** | Informational | Confirmed, Remediated (Slice 3d) | Process / Reporting Integrity | Slice 3d follow-up report contained reconstructed test output, nonexistent test names, nonexistent ADR citation, and wrong supported_tasks limit (1..32 vs 16); remedied by mandatory file redirection (`> /tmp/<name>.log 2>&1`) and raw grep evidence. | Disclosed in SEC-018 detailed section below; all citations verified against `go test -list '.*' ./...` |
 | **SEC-019** | Informational | Confirmed by mutation, Fixed (Slice 3d) | Test Quality / Pool Saturation Verification | `TestSecurity_PartD_PoolExhaustion` relied on a weak latency control (`waitedNearHold >= 10`) that passed even when the lock hold was removed. Replaced with primary admin `pg_stat_activity` Lock wait sampling (`>= pool_size - 2`) and secondary relative max latency margin over 3-run unlocked baseline median (`>= 0.25 * holdDuration`), verified by mutation. | `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.go:45`) |
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
@@ -42,7 +42,7 @@ For findings of **Medium** severity and above, the full structured report format
 
 - **Finding**: When a worker attempted to commit results for an attempt assigned to a different worker, the coordinator logged the reporting worker's ID as `assigned_worker`.
 - **Severity**: Medium
-- **Affected Component**: Coordinator Service (`internal/coordinator/service.go:230-245`)
+- **Affected Component**: Coordinator Service (`internal/coordinator/service.go` func `CommitResult`)
 - **Preconditions**: A rogue or misconfigured worker attempts to commit results for an attempt currently leased by another active worker.
 - **Reproduction Steps**:
   1. Dispatch attempt for job $J$ to worker $W_1$.
@@ -52,7 +52,7 @@ For findings of **Medium** severity and above, the full structured report format
 - **Impact**: Audit logs were misleading during incident response, masking the identity of the legitimate worker that held the lease and misdiagnosing concurrency conflicts.
 - **Root Cause**: `internal/coordinator/service.go` passed the incoming request's `workerID` to both `assigned_worker` and `reporting_worker` log fields when handling `ErrWorkerMismatch`.
 - **Recommended Fix**: Return a typed `domain.WorkerMismatchError` carrying the actual assigned worker ID from repository storage to the service, and log the true assigned worker while keeping the HTTP API response generic to avoid leaking worker IDs to callers.
-- **Regression Test**: `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go:210`), `TestAPI_StaleAttemptRejection` (`internal/api/api_test.go:104`).
+- **Regression Test**: `TestService_WorkerMismatch_Rejected` (`internal/coordinator/service_test.go`), `TestAPI_StaleAttemptRejection` (`internal/api/api_test.go:104`).
 - **Status**: Confirmed, Fixed (Slice 3c).
 
 ---
@@ -100,7 +100,7 @@ For findings of **Medium** severity and above, the full structured report format
 
 - **Finding**: `POST /v1/jobs` accepted `max_attempts = -5` and `timeout_seconds = -1` and returned `201 Created` in memory mode (observed by curl probe against live coordinator).
 - **Severity**: Medium/Low
-- **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go:119-125`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go:1080-1085`)
+- **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go` func `IsValidIdentifier`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CommitAttempt`)
 - **Preconditions**: Unauthenticated HTTP caller submits job creation payload with negative, zero, or out-of-bounds numeric fields.
 - **Reproduction Steps**:
   1. Start coordinator in memory mode.
@@ -131,7 +131,7 @@ For findings of **Medium** severity and above, the full structured report format
 ### SEC-002: Dispatch Precedence Discrepancy (In-Memory vs. Postgres)
 - **Status**: Confirmed, Fixed (Slice 3c).
 - **Detail**: In-memory repository checked worker health prior to checking job queue state during claim. If a worker became unhealthy while a dead/stale job was dequeued, the in-memory engine returned an error that caused the coordinator to release the dead job back to the queue instead of dropping and acknowledging it. Fixed in slice 3c to align in-memory precedence with PostgreSQL.
-- **Regression Test**: `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`), plus shared repository conformance tests (`internal/storage/storagetest/conformance.go:64`).
+- **Regression Test**: `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go`), plus shared repository conformance tests (`internal/storage/storagetest/conformance.go`).
 
 ### SEC-003: Compose POSTGRES_PASSWORD Missing Fail-Fast Expansion
 - **Status**: Informational, Confirmed, Fixed (Slice 3d).
@@ -180,22 +180,22 @@ For findings of **Medium** severity and above, the full structured report format
 
 ### SEC-013: Monotonic Sequence Counter Exposed in Job and Attempt IDs
 - **Status**: Informational, Open (inferred from code review, unconfirmed).
-- **Detail**: `internal/coordinator/service.go:24-30` constructs IDs using `fmt.Sprintf("%s_%d_%s", prefix, seq, hex.EncodeToString(b))`. While the 48 bits of randomness prevent brute-force guessing, the sequence counter leaks total job submission volume since coordinator boot.
+- **Detail**: `internal/coordinator/service.go` func `generateID` constructs IDs using `fmt.Sprintf("%s_%d_%s", prefix, seq, hex.EncodeToString(b))`. While the 48 bits of randomness prevent brute-force guessing, the sequence counter leaks total job submission volume since coordinator boot.
 - **Verification Step**: `TestCoordinator_IDLeakage` (future test asserting whether sequential counters are exposed or replaced with opaque cryptographically random identifiers).
 
 ### SEC-015: Unbounded total_slots Upper Bound in Worker Registration
 - **Status**: Low, Confirmed, Fixed (Slice 3d).
-- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:253-255`), `worker.TotalSlots` is validated to ensure it falls within `[1, 1024]`. Requests with `total_slots < 1` or `total_slots > 1024` return HTTP 400 `INVALID_REQUEST`. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_total_slots_range CHECK (total_slots >= 1 AND total_slots <= 1024)`.
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go` func `RegisterWorker`), `worker.TotalSlots` is validated to ensure it falls within `[1, 1024]`. Requests with `total_slots < 1` or `total_slots > 1024` return HTTP 400 `INVALID_REQUEST`. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_total_slots_range CHECK (total_slots >= 1 AND total_slots <= 1024)`.
 - **Regression Test**: `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go:811`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSlotsRange_RejectedByCheckConstraints` (`internal/storage/postgres/migrator_test.go:481`).
 
 ### SEC-016: Unbounded version String Length in Worker Registration
 - **Status**: Low, Confirmed, Fixed (Slice 3d).
-- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:256-258`), `worker.Version` length is bounded to at most 64 characters (`len(worker.Version) <= 64`). Empty version strings (`""`) are explicitly allowed (defaulting to unversioned worker). As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_version_length CHECK (length(version) <= 64)` and SQLSTATE `22001` (string truncation) is mapped to HTTP 400 `INVALID_REQUEST`.
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go` func `RegisterWorker`), `worker.Version` length is bounded to at most 64 characters (`len(worker.Version) <= 64`). Empty version strings (`""`) are explicitly allowed (defaulting to unversioned worker). As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_version_length CHECK (length(version) <= 64)` and SQLSTATE `22001` (string truncation) is mapped to HTTP 400 `INVALID_REQUEST`.
 - **Regression Test**: `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go:866`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerVersionLength_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:507`).
 
 ### SEC-017: Unbounded Slice and Unvalidated Task Types in supported_tasks
 - **Status**: Low, Confirmed, Fixed (Slice 3d).
-- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go:259-267`), `worker.SupportedTasks` array length is bounded to at most 16 unique tasks (duplicates are deduplicated). Individual task names are validated to ensure they are 1..64 characters in length and match `^[a-z0-9_]{1,64}$`. Empty slices are allowed (worker registers with 0 tasks). Unknown-but-well-formed task names are accepted upon registration to support rolling worker fleet upgrades. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_supported_tasks_count CHECK (coalesce(cardinality(supported_tasks), 0) <= 16)`.
+- **Detail**: In `POST /v1/workers/register` (`internal/coordinator/service.go` func `RegisterWorker`), `worker.SupportedTasks` array length is bounded to at most 16 unique tasks (duplicates are deduplicated). Individual task names are validated to ensure they are 1..64 characters in length and match `^[a-z0-9_]{1,64}$`. Empty slices are allowed (worker registers with 0 tasks). Unknown-but-well-formed task names are accepted upon registration to support rolling worker fleet upgrades. As defense-in-depth, PostgreSQL migration 000003 enforces `chk_workers_supported_tasks_count CHECK (coalesce(cardinality(supported_tasks), 0) <= 16)`.
 - **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go:921`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`), `TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint` (`internal/storage/postgres/migrator_test.go:522`).
 
 ### SEC-018: Inaccuracies and Reconstructed Test Output in Slice 3d Progress Report
@@ -210,7 +210,7 @@ For findings of **Medium** severity and above, the full structured report format
      - `TestAPI_JobLifecycle` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
      - `TestAPI_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
      - `TestJob_Transitions` (does not exist (invented in an earlier report); actual real tests asserting transition matrix: `TestJob_TransitionTo` in `internal/domain/transition_test.go:79`, `TestJobTransitionMatrix_AllPairs` in `internal/domain/transition_test.go:10`)
-     - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `TestService_WorkerLiveness_ReaperAndRecovery` in `internal/coordinator/service_test.go:54`, `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go:764`)
+     - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `TestService_WorkerLiveness_ReaperAndRecovery` in `internal/coordinator/service_test.go`, `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go`)
      - `TestService_SubmitJob_Success` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
      - `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report); actual real integration/agent tests: `TestLocalCore_MultiProcessIntegration` in `tests/integration/local_core_test.go:25`, `TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating` in `internal/worker/client_test.go:114`)
      - `TestWorkerAgent_SingleJobSuccess` (does not exist (invented in an earlier report); initial remediation falsely listed as real name)
@@ -300,7 +300,7 @@ For findings of **Medium** severity and above, the full structured report format
 - **Severity**: Medium
 - **Category**: State Transition Logic / Concurrency Defect / Resource Exhaustion
 - **Status**: Fixed in slice 4a (executed): `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` failed on main for memory and PostgreSQL and passes after the fix; mutation proofs in `docs/agents/handoffs/P4-4a.md`
-- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go:658-700`, `internal/storage/postgres/repository.go:1135-1233`)
+- **Affected Component**: In-Memory and PostgreSQL Repositories (`internal/storage/inmemory.go` func `CancelJob`, `internal/storage/postgres/repository.go` func `CancelJob`)
 - **Preconditions**: A job is dispatched and actively executing on a worker (`RUNNING`); a first `CancelJob` transitions the job to `CANCEL_REQUESTED`; a second `CancelJob` request arrives before the worker completes or acknowledges cancellation.
 - **Reproduction Steps**:
   1. Register a 1-slot worker; submit and dispatch an `echo` job so attempt 1 enters `RUNNING`.
@@ -359,7 +359,7 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/tests/review	0.646s
 FAIL
   ```
   Code reading confirms:
-  In `internal/storage/inmemory.go:679-682` and `internal/storage/postgres/repository.go:1190-1193`, cancellation evaluates:
+  In the pre-fix implementation of `CancelJob` in `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go`, cancellation evaluates:
   ```go
   if job.State == domain.StateQueued {
       targetState = domain.StateCancelled
@@ -373,7 +373,7 @@ FAIL
   }
   ```
   Neither repository checks for `job.State == domain.StateCancelRequested`. Fallback `else` transitions the job to `StateCancelled`, which `internal/domain/transition.go:20` permits (`StateCancelRequested -> StateCancelled`).
-  When worker completes, `CommitAttempt` returns `ErrJobAlreadyTerminal` (`internal/storage/postgres/repository.go:983-984` and `internal/storage/inmemory.go:577-579`) before modifying attempt state, rolling back the transaction. The attempt remains `RUNNING`, holding `available_slots = 0` in `worker_capacity` indefinitely.
+  When worker completes, `CommitAttempt` returns `ErrJobAlreadyTerminal` (`internal/storage/postgres/repository.go` and `internal/storage/inmemory.go` func `CommitAttempt`) before modifying attempt state, rolling back the transaction. The attempt remains `RUNNING`, holding `available_slots = 0` in `worker_capacity` indefinitely.
 - **Impact**: Fleet-wide worker slot exhaustion (Denial of Service). Any client reaching the unauthenticated API (SEC-004) can issue two cancellation requests per running job to permanently strand worker capacity. In PostgreSQL mode, this slot leak is durable across coordinator restarts.
 - **Root Cause**:
   1. `CancelJob` omits explicit branch for `CANCEL_REQUESTED`, falling into the `else` branch and prematurely cancelling the job.
