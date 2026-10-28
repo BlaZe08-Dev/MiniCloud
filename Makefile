@@ -1,4 +1,4 @@
-.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db
+.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage
 
 BIN_DIR := bin
 
@@ -58,13 +58,39 @@ db-reset-test:
 		psql -U "$$POSTGRES_USER" -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE minicloud_test TO \"$$POSTGRES_USER\";"'
 	@echo "Test database minicloud_test reset successfully."
 
+# Anchored integration test run by test-db. The -list check below fails the target when
+# the pattern matches anything but exactly one test: go test -run exits 0 with
+# "no tests to run" if the test is renamed, which would otherwise pass silently.
+GRACE_TEST := ^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$
+GRACE_TEST_COUNT := 1
+
 test-db:
 	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
 	@set -e; \
 	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
 	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	N=$$(env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(GRACE_TEST)' ./tests/integration/ | grep -c '^Test' || true); \
+	if [ "$$N" != "$(GRACE_TEST_COUNT)" ]; then echo "FALSE-GREEN GUARD: pattern '$(GRACE_TEST)' lists $$N tests in ./tests/integration/, expected $(GRACE_TEST_COUNT); was the test renamed?" >&2; exit 1; fi; \
 	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
-	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '$(GRACE_TEST)' ./tests/integration/
+
+# DANGEROUS: runs the tests that stop and start the SHARED minicloud-postgres container.
+# Never part of test-db or any default target. Requires CONFIRM=minicloud-postgres.
+OUTAGE_TESTS := ^(TestPostgresWiring_DatabaseOutageAndRecovery|TestSecurity_PartD_Outage_MidDispatchAndMidCommit|TestSecurity_PartD_LeakScan)$$
+OUTAGE_TEST_COUNT := 3
+
+test-outage:
+	@printf '\033[1m\033[31mWARNING: test-outage STOPS AND STARTS THE SHARED minicloud-postgres CONTAINER.\033[0m\n' >&2
+	@printf '\033[1mEvery agent and worktree using 127.0.0.1:5433 loses its database during the run.\033[0m\n' >&2
+	@if [ "$(CONFIRM)" != "minicloud-postgres" ]; then echo "REFUSED: re-run as: make test-outage CONFIRM=minicloud-postgres" >&2; exit 1; fi
+	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+	@set -e; \
+	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	N=$$(env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(OUTAGE_TESTS)' ./tests/integration/ | grep -c '^Test' || true); \
+	if [ "$$N" != "$(OUTAGE_TEST_COUNT)" ]; then echo "FALSE-GREEN GUARD: outage pattern lists $$N tests, expected $(OUTAGE_TEST_COUNT)" >&2; exit 1; fi; \
+	MINICLOUD_TEST_DATABASE_URL="$$URL" MINICLOUD_ALLOW_CONTAINER_RESTART=1 MINICLOUD_CONFIRM_CONTAINER=minicloud-postgres \
+		go test -v -race -count=1 -run '$(OUTAGE_TESTS)' ./tests/integration/
 
 clean:
 	rm -rf $(BIN_DIR)

@@ -549,6 +549,14 @@ func TestMigrator_PreExistingInvalidRow_ValidationFails(t *testing.T) {
 		t.Skip("skipping postgres test: MINICLOUD_TEST_DATABASE_URL is not set")
 	}
 
+	cfg, err := pgx.ParseConfig(testURL)
+	if err != nil {
+		t.Fatalf("failed to parse MINICLOUD_TEST_DATABASE_URL: %v", err)
+	}
+	if !isTestDatabaseName(cfg.Database) {
+		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.Database)
+	}
+
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, testURL)
 	if err != nil {
