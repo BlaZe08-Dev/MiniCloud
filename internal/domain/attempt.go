@@ -16,9 +16,11 @@ type Attempt struct {
 	StartedAt      time.Time    `json:"started_at"`
 	FinishedAt     *time.Time   `json:"finished_at,omitempty"`
 	LeaseExpiresAt *time.Time   `json:"lease_expires_at,omitempty"`
-	ExitCode       int          `json:"exit_code"`
-	Output         string       `json:"output"`
-	Error          string       `json:"error,omitempty"`
+	// ErrorClass is set only by the lease sweeper in slice 4b (LEASE_EXPIRED on a LOST attempt).
+	ErrorClass ErrorClass `json:"error_class,omitempty"`
+	ExitCode   int        `json:"exit_code"`
+	Output     string     `json:"output"`
+	Error      string     `json:"error,omitempty"`
 }
 
 // AttemptOutcome captures the structured result of an attempt execution.

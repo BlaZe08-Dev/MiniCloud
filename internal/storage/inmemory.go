@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -26,6 +27,8 @@ type InMemoryRepository struct {
 	idSeq      int64
 	eventIDSeq int64
 	clock      Clock
+
+	leaseDuration time.Duration
 }
 
 // InMemoryOption allows configuring an InMemoryRepository.
@@ -40,6 +43,16 @@ func WithClock(c Clock) InMemoryOption {
 	}
 }
 
+// WithLeaseDuration sets the attempt lease length stamped at dispatch and applied on renewal
+// (default domain.DefaultLeaseDuration, 30 s). Non-positive values are ignored.
+func WithLeaseDuration(d time.Duration) InMemoryOption {
+	return func(r *InMemoryRepository) {
+		if d > 0 {
+			r.leaseDuration = d
+		}
+	}
+}
+
 // NewInMemoryRepository constructs an initialized InMemoryRepository.
 func NewInMemoryRepository(opts ...InMemoryOption) *InMemoryRepository {
 	r := &InMemoryRepository{
@@ -49,6 +62,8 @@ func NewInMemoryRepository(opts ...InMemoryOption) *InMemoryRepository {
 		events:   make([]*domain.JobEvent, 0),
 		jobOrder: make([]string, 0),
 		clock:    realClock{},
+
+		leaseDuration: domain.DefaultLeaseDuration,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -90,6 +105,12 @@ func (r *InMemoryRepository) isDispatchableLocked(j *domain.Job) bool {
 	default:
 		return false
 	}
+}
+
+// newLeaseExpiryLocked returns repository-now plus the lease duration.
+func (r *InMemoryRepository) newLeaseExpiryLocked() *time.Time {
+	expiry := r.clock.Now().Add(r.leaseDuration)
+	return &expiry
 }
 
 // recordEventLocked appends an immutable lifecycle event to the event log.
@@ -445,6 +466,7 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 		LeaseTokenHash: tokenHashHex,
 		State:          domain.AttemptRunning,
 		StartedAt:      now,
+		LeaseExpiresAt: r.newLeaseExpiryLocked(),
 	}
 	r.attempts[attemptID] = storedAttempt
 	job.CurrentAttemptID = attemptID
@@ -548,6 +570,7 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 		LeaseTokenHash: tokenHash,
 		State:          domain.AttemptRunning,
 		StartedAt:      now,
+		LeaseExpiresAt: r.newLeaseExpiryLocked(),
 	}
 	r.attempts[attemptID] = storedAttempt
 	selectedJob.CurrentAttemptID = attemptID
@@ -576,13 +599,17 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 // CommitAttempt atomically validates the commit invariants, updates the attempt, transitions the job
 // to terminal state, stores the result, and records an audit event.
 //
-// Invariants enforced atomically:
+// Invariants enforced atomically, in this order:
 // 1. Job exists (ErrJobNotFound)
 // 2. Job is not already terminal (ErrJobAlreadyTerminal)
-// 3. Attempt matches job's active current attempt (ErrStaleAttempt)
-// 4. Attempt exists and is RUNNING (ErrStaleAttempt)
-// 5. SHA-256 hash of provided lease token matches stored hash in constant time (ErrStaleAttempt)
-// 6. Reporting worker matches assigned worker (ErrWorkerMismatch)
+// 3. Attempt was not swept to LOST (ErrLeaseExpired; records one bounded diagnostic event)
+// 4. Attempt matches job's active current attempt (ErrStaleAttempt)
+// 5. Attempt exists and is RUNNING (ErrStaleAttempt)
+// 6. SHA-256 hash of provided lease token matches stored hash in constant time (ErrStaleAttempt)
+// 7. Reporting worker matches assigned worker (ErrWorkerMismatch)
+//
+// An attempt whose lease has passed but which the sweeper has not yet swept is still accepted
+// (symmetric accept-until-swept rule).
 func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -594,6 +621,12 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 	if job.State.IsTerminal() {
 		r.rejectTerminalCommitLocked(job, attemptID, workerID)
 		return nil, domain.ErrJobAlreadyTerminal
+	}
+	// ADR-0014 / protocol 6.3 evaluation order: a swept (LOST) attempt of this job is
+	// LEASE_EXPIRED, even when it was also superseded or the token is wrong.
+	if lost, ok := r.attempts[attemptID]; ok && lost.JobID == job.ID && lost.State == domain.AttemptLost {
+		r.recordLateResultLocked(job.ID, attemptID, workerID)
+		return nil, domain.ErrLeaseExpired
 	}
 	if job.CurrentAttemptID != attemptID {
 		return nil, domain.ErrStaleAttempt
@@ -693,17 +726,25 @@ func (r *InMemoryRepository) rejectTerminalCommitLocked(job *domain.Job, attempt
 		att.FinishedAt = &now
 	}
 
+	r.recordLateResultLocked(job.ID, attemptID, reportingWorker)
+}
+
+// recordLateResultLocked records at most one DIAGNOSTIC_LATE_RESULT event per (job, attempt),
+// the in-memory counterpart of the unique index idx_job_events_unique_diagnostic_late_result.
+// The caller has already established that the attempt belongs to the job. Must be called with
+// mu.Lock held.
+func (r *InMemoryRepository) recordLateResultLocked(jobID, attemptID, reportingWorker string) {
 	for _, ev := range r.events {
-		if ev.JobID == job.ID && ev.EventType == domain.JobEventDiagnosticLateResult &&
+		if ev.JobID == jobID && ev.EventType == domain.JobEventDiagnosticLateResult &&
 			ev.AttemptID != nil && *ev.AttemptID == attemptID {
 			return
 		}
 	}
 	r.recordEventLocked(&domain.JobEvent{
-		JobID:     job.ID,
+		JobID:     jobID,
 		AttemptID: &attemptID,
 		EventType: domain.JobEventDiagnosticLateResult,
-		CreatedAt: now,
+		CreatedAt: r.clock.Now(),
 		Details: map[string]any{
 			"attempt_id":       attemptID,
 			"reporting_worker": reportingWorker,
@@ -765,6 +806,240 @@ func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*doma
 
 	copied := *job
 	return &copied, nil
+}
+
+// RenewLease extends the lease of a RUNNING attempt to repository-now plus the lease duration.
+//
+// Evaluation order (ADR-0014, protocol 6.3), mirroring CommitAttempt:
+//  1. Job exists (ErrJobNotFound)
+//  2. Job is not terminal (ErrJobAlreadyTerminal)
+//  3. Attempt of this job was swept to LOST (ErrLeaseExpired)
+//  4. Attempt is the job's current attempt, is RUNNING and the token matches in constant time
+//     (ErrStaleAttempt), and the job is RUNNING or CANCEL_REQUESTED
+//  5. Reporting worker matches (ErrWorkerMismatch)
+//
+// A lease that has passed but was not swept is still renewed (accept-until-swept). On a
+// CANCEL_REQUESTED job the call reports cancel_requested and returns the current expiry without
+// extending it. A renewal records no event and never modifies a rejected attempt.
+func (r *InMemoryRepository) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	job, exists := r.jobs[jobID]
+	if !exists {
+		return nil, domain.ErrJobNotFound
+	}
+	if job.State.IsTerminal() {
+		return nil, domain.ErrJobAlreadyTerminal
+	}
+	att, attExists := r.attempts[attemptID]
+	if attExists && att.JobID == job.ID && att.State == domain.AttemptLost {
+		return nil, domain.ErrLeaseExpired
+	}
+	if job.CurrentAttemptID != attemptID {
+		return nil, domain.ErrStaleAttempt
+	}
+	if !attExists {
+		return nil, domain.ErrAttemptNotFound
+	}
+	if att.State != domain.AttemptRunning {
+		return nil, domain.ErrStaleAttempt
+	}
+	providedHashHex := domain.HashLeaseToken(leaseToken)
+	if subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {
+		return nil, domain.ErrStaleAttempt
+	}
+	if att.WorkerID != workerID {
+		return nil, &domain.WorkerMismatchError{AssignedWorker: att.WorkerID, ReportingWorker: workerID}
+	}
+
+	switch job.State {
+	case domain.StateCancelRequested:
+		renewal := &domain.LeaseRenewal{CancelRequested: true}
+		if att.LeaseExpiresAt != nil {
+			renewal.LeaseExpiresAt = *att.LeaseExpiresAt
+		}
+		return renewal, nil
+	case domain.StateRunning:
+		att.LeaseExpiresAt = r.newLeaseExpiryLocked()
+		return &domain.LeaseRenewal{LeaseExpiresAt: *att.LeaseExpiresAt}, nil
+	default:
+		return nil, domain.ErrStaleAttempt
+	}
+}
+
+// SweepExpiredLeases closes RUNNING attempts whose lease has passed on the repository clock,
+// oldest lease first, at most params.Limit per call, and resolves their jobs:
+//   - job already terminal: attempt CANCELLED (job CANCELLED) or LOST, job untouched, LEASE_EXPIRED
+//   - job CANCEL_REQUESTED: attempt CANCELLED, job CANCELLED, only a JOB_CANCELLED event
+//   - job RUNNING and attempt_no < max_attempts: attempt LOST (LEASE_EXPIRED), job RETRYING with
+//     not_before = now + params.Backoff(attempt_no); LEASE_EXPIRED and JOB_RETRYING events
+//   - job RUNNING and attempt_no >= max_attempts: attempt LOST, job FAILED; LEASE_EXPIRED and
+//     JOB_FAILED events
+//
+// The grace check (params.Grace) is applied per candidate after the re-check that the attempt is
+// still RUNNING and expired; the repository neither owns nor advances the grace state. The single
+// mutex stands in for the PostgreSQL row locks, so SkippedLocked is always zero here.
+func (r *InMemoryRepository) SweepExpiredLeases(ctx context.Context, params domain.SweepParams) (*domain.SweepResult, error) {
+	if params.Backoff == nil {
+		return nil, domain.ErrInvalidRequest
+	}
+	limit := params.Limit
+	if limit <= 0 {
+		limit = domain.DefaultSweepBatchSize
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := r.clock.Now()
+	var candidates []*domain.Attempt
+	for _, a := range r.attempts {
+		if a.State == domain.AttemptRunning && a.LeaseExpiresAt != nil && a.LeaseExpiresAt.Before(now) {
+			candidates = append(candidates, a)
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if !candidates[i].LeaseExpiresAt.Equal(*candidates[j].LeaseExpiresAt) {
+			return candidates[i].LeaseExpiresAt.Before(*candidates[j].LeaseExpiresAt)
+		}
+		return candidates[i].ID < candidates[j].ID
+	})
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+
+	res := &domain.SweepResult{Candidates: len(candidates)}
+	for _, att := range candidates {
+		job, exists := r.jobs[att.JobID]
+		if !exists {
+			res.SkippedChanged++
+			continue
+		}
+		// Re-check, then the authoritative grace check.
+		if att.State != domain.AttemptRunning || att.LeaseExpiresAt == nil || !att.LeaseExpiresAt.Before(now) {
+			res.SkippedChanged++
+			continue
+		}
+		if params.Grace.Suppresses(now) {
+			res.SuppressedByGrace++
+			continue
+		}
+		outcome, err := r.sweepAttemptLocked(job, att, now, params.Backoff)
+		if err != nil {
+			return res, err
+		}
+		if outcome == nil {
+			res.SkippedChanged++
+			continue
+		}
+		res.Swept = append(res.Swept, *outcome)
+	}
+	return res, nil
+}
+
+// sweepAttemptLocked resolves one expired attempt. It returns nil when the job is in a state the
+// sweeper has no rule for (a RUNNING attempt under a QUEUED, SUBMITTED or RETRYING job cannot be
+// produced through the public API); nothing is mutated then. Must be called with mu.Lock held.
+func (r *InMemoryRepository) sweepAttemptLocked(job *domain.Job, att *domain.Attempt, now time.Time, backoff domain.BackoffFunc) (*domain.SweepOutcome, error) {
+	expiredAt := att.LeaseExpiresAt.UTC().Format(time.RFC3339Nano)
+	leaseExpiredEvent := func() {
+		attID := att.ID
+		r.recordEventLocked(&domain.JobEvent{
+			JobID:     job.ID,
+			AttemptID: &attID,
+			EventType: domain.JobEventLeaseExpired,
+			CreatedAt: now,
+			Details: map[string]any{
+				"attempt_id": att.ID,
+				"worker_id":  att.WorkerID,
+				"expired_at": expiredAt,
+			},
+		})
+	}
+	markLost := func() {
+		att.State = domain.AttemptLost
+		att.ErrorClass = domain.ClassLeaseExpired
+		att.Error = "lease expired: worker failed to renew"
+		att.FinishedAt = &now
+	}
+	jobEvent := func(typ domain.JobEventType, from, to domain.JobState, details map[string]any) {
+		attID := att.ID
+		r.recordEventLocked(&domain.JobEvent{
+			JobID:     job.ID,
+			AttemptID: &attID,
+			EventType: typ,
+			FromState: &from,
+			ToState:   &to,
+			CreatedAt: now,
+			Details:   details,
+		})
+	}
+
+	switch {
+	case job.State.IsTerminal():
+		if job.State == domain.StateCancelled {
+			att.State = domain.AttemptCancelled
+			att.FinishedAt = &now
+		} else {
+			markLost()
+		}
+		leaseExpiredEvent()
+
+	case job.State == domain.StateCancelRequested:
+		from := job.State
+		if err := job.TransitionTo(domain.StateCancelled); err != nil {
+			return nil, err
+		}
+		job.UpdatedAt = now
+		job.NotBefore = nil
+		att.State = domain.AttemptCancelled
+		att.FinishedAt = &now
+		jobEvent(domain.JobEventCancelled, from, domain.StateCancelled, map[string]any{
+			"resolved_by": "lease_sweeper",
+			"reason":      "worker unresponsive",
+		})
+
+	case job.State == domain.StateRunning && att.AttemptNo < job.MaxAttempts:
+		delay := backoff(att.AttemptNo)
+		if delay < 0 {
+			delay = 0
+		}
+		from := job.State
+		if err := job.TransitionTo(domain.StateRetrying); err != nil {
+			return nil, err
+		}
+		notBefore := now.Add(delay)
+		job.UpdatedAt = now
+		job.NotBefore = &notBefore
+		markLost()
+		leaseExpiredEvent()
+		jobEvent(domain.JobEventRetrying, from, domain.StateRetrying, map[string]any{
+			"attempt_no":      att.AttemptNo,
+			"not_before":      notBefore.UTC().Format(time.RFC3339Nano),
+			"backoff_seconds": delay.Seconds(),
+		})
+
+	case job.State == domain.StateRunning:
+		from := job.State
+		if err := job.TransitionTo(domain.StateFailed); err != nil {
+			return nil, err
+		}
+		job.UpdatedAt = now
+		job.NotBefore = nil
+		markLost()
+		leaseExpiredEvent()
+		jobEvent(domain.JobEventFailed, from, domain.StateFailed, map[string]any{
+			"attempt_no":  att.AttemptNo,
+			"error":       "max attempts exhausted",
+			"error_class": string(domain.ClassLeaseExpired),
+		})
+
+	default:
+		return nil, nil
+	}
+
+	return &domain.SweepOutcome{JobID: job.ID, AttemptID: att.ID, AttemptState: att.State, JobState: job.State}, nil
 }
 
 // ListEventsByJob retrieves all recorded lifecycle events for a specific job in order.

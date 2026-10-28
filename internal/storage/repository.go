@@ -33,6 +33,23 @@ type Repository interface {
 	CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error)
 	CancelJob(ctx context.Context, jobID string) (*domain.Job, error)
 
+	// Lease operations (Phase 4, ADR-0014). Time is read from the repository clock: database
+	// time in PostgreSQL, the injected Clock in memory.
+	//
+	// RenewLease extends the lease of a RUNNING attempt to now + the configured lease duration,
+	// under the symmetric accept-until-swept rule: a lease that has passed but not yet been swept
+	// is still renewed. On a CANCEL_REQUESTED job it returns CancelRequested without extending the
+	// lease. Errors follow the 409 evaluation order: ErrJobAlreadyTerminal, ErrLeaseExpired (the
+	// attempt was swept to LOST), then ErrStaleAttempt (superseded, not RUNNING, wrong token),
+	// then ErrWorkerMismatch. A renewal records no event.
+	RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error)
+	// SweepExpiredLeases closes RUNNING attempts whose lease has passed and resolves their jobs
+	// (retry with backoff, fail, or cancel). It receives the caller-owned grace state and performs
+	// the only authoritative grace check inside the row locks. A lock timeout or SKIP LOCKED skip
+	// on one candidate is reported in the result, not as an error; only a returned error is a
+	// failed tick.
+	SweepExpiredLeases(ctx context.Context, params domain.SweepParams) (*domain.SweepResult, error)
+
 	// Event operations
 	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
 

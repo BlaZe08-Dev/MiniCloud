@@ -1298,6 +1298,16 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 	return &job, nil
 }
 
+// RenewLease is implemented in a later step of slice 4b.
+func (r *Repository) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+	return nil, errors.New("RenewLease: not implemented")
+}
+
+// SweepExpiredLeases is implemented in a later step of slice 4b.
+func (r *Repository) SweepExpiredLeases(ctx context.Context, params domain.SweepParams) (*domain.SweepResult, error) {
+	return nil, errors.New("SweepExpiredLeases: not implemented")
+}
+
 // ListEventsByJob retrieves all audit events for a job in chronological order.
 func (r *Repository) ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error) {
 	query := `
