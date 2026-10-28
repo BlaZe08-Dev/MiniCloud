@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03; registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR-0015, state-machine.md, protocol.md, and phase4-plan.md; updated PROJECT_STATE, TASKS, and CHANGELOG true on main.
+- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, and P4-03 (P0-03 round 2 and 3 records deferred pending citation checker scoping; see TASKS.md follow-ups); registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR-0015, state-machine.md, protocol.md, and phase4-plan.md; updated PROJECT_STATE, TASKS, and CHANGELOG true on main.
 - **P0-03 (README refresh, PR #24):** Refreshed repository `README.md` with verified quickstart instructions, environment variable configuration reference, architecture diagram, security posture, and CLI workflows.
 - **Phase 4, Slice 4c-b — Worker Lease Renewal Loop & Result Delivery Budget (P4-4c-b, PR #23):**
   - Periodic background lease renewal loop in worker client computed as `lease_duration_seconds / 3` clamped to `[1s, 10s]` (default 10s).
-  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
+  - Immediate context cancellation and task abort on lease loss or renewal rejection with the exact recognised set: 403 WORKER_MISMATCH, 409 LEASE_EXPIRED and STALE_ATTEMPT_REJECTED, and recognised 404 codes (JOB_NOT_FOUND, ATTEMPT_NOT_FOUND, WORKER_NOT_FOUND).
   - Single-channel cooperative cancellation delivery: cancels worker execution when renewal response returns `cancel_requested: true`.
-  - 60-second time-bounded result delivery budget (`executeAndReport`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
+  - 60-second time-bounded result delivery budget (`deliverResult`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
 - **P4-03 (docs, PR #22):** Repaired 78 pre-existing test line citations across live docs to stable function/symbol references, synchronized task board and handoff records, imported P4-02 round 1 and round 2 audit records.
 - **Phase 4, Slice 4c-a — Coordinator Lease Sweeper Wiring & Renewal Route (P4-4c-a, PR #21):**
   - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` returning renewal status and cooperative cancel flag.

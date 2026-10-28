@@ -92,7 +92,7 @@ The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSI
   When an attempt fails with a retryable classification and `attempt_no < max_attempts`:
   backoff = min(max_backoff, base_backoff * 2^(attempt_no-1)) * jitter
   - `base_backoff`: Default 1.0 second. (Accepted by owner).
-  - `max_backoff`: Default 30.0 seconds cap applied BEFORE the jitter factor in [0.5, 1.5]; thus the effective maximum backoff delay is 45 s. (Authorised by the orchestrator in the planning session; accepted).
+  - `max_backoff`: Default 30.0 seconds cap applied BEFORE the jitter factor in [0.5, 1.5]; thus the effective maximum backoff delay is 45 s. (orchestrator-authorised deviation).
   - `jitter`: Uniform pseudo-random multiplier between [0.5, 1.5] (full jitter). (Accepted by owner).
 - **Database Timestamp Assignment**:
   `jobs.not_before = clock_timestamp() + make_interval(secs => backoff_seconds)`.

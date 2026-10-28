@@ -173,8 +173,7 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 | `JOB_FAILED` | Worker / Sweeper | Worker committed permanent error or budget exhausted. | `{"worker_id": "...", "exit_code": 1, "error": "..."}` |
 | `DIAGNOSTIC_LATE_RESULT` | Worker | Expired worker attempted commit after lease lapse. | `{"reporting_worker": "...", "attempt_id": "...", "rejected": true}` |
 
-*Note on Lease Renewals*: A renewal records no event in `job_events`, and rejected renewals write nothing (preventing unbounded audit table growth; authorised by the orchestrator in the planning session).
-
+*Note on Lease Renewals*: A renewal records no event in `job_events`, and rejected renewals write nothing (preventing unbounded audit table growth; orchestrator-authorised deviation).
 
 ---
 
