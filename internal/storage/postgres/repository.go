@@ -33,11 +33,50 @@ var _ storage.Repository = (*Repository)(nil)
 // Never acquire locks in reverse or mixed order (e.g., workers before jobs).
 type Repository struct {
 	pool *pgxpool.Pool
+
+	leaseDuration    time.Duration
+	sweepLockTimeout time.Duration
+}
+
+// DefaultSweepLockTimeout bounds how long the sweeper waits for a workers or attempts row lock
+// (ADR-0014: PostgreSQL lock_timeout, default 5 s).
+const DefaultSweepLockTimeout = 5 * time.Second
+
+// Option configures a Repository.
+type Option func(*Repository)
+
+// WithLeaseDuration sets the attempt lease length stamped at dispatch and applied on renewal
+// (default domain.DefaultLeaseDuration, 30 s). Non-positive values are ignored.
+func WithLeaseDuration(d time.Duration) Option {
+	return func(r *Repository) {
+		if d > 0 {
+			r.leaseDuration = d
+		}
+	}
+}
+
+// WithSweepLockTimeout sets the lock_timeout the sweeper applies while waiting for the workers
+// and attempts row locks of one candidate (default DefaultSweepLockTimeout). Values below one
+// millisecond are ignored.
+func WithSweepLockTimeout(d time.Duration) Option {
+	return func(r *Repository) {
+		if d >= time.Millisecond {
+			r.sweepLockTimeout = d
+		}
+	}
 }
 
 // NewRepository constructs a PostgreSQL repository wrapping a connection pool.
-func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{pool: pool}
+func NewRepository(pool *pgxpool.Pool, opts ...Option) *Repository {
+	r := &Repository{
+		pool:             pool,
+		leaseDuration:    domain.DefaultLeaseDuration,
+		sweepLockTimeout: DefaultSweepLockTimeout,
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+	return r
 }
 
 // Ping verifies database pool reachability.
@@ -82,7 +121,8 @@ func (r *Repository) CreateJob(ctx context.Context, job *domain.Job) error {
 // GetJob retrieves a job by ID, including its associated terminal result if one exists.
 func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error) {
 	query := `
-		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at
+		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at,
+		       not_before, cancel_requested_at
 		FROM jobs
 		WHERE id = $1;
 	`
@@ -101,6 +141,8 @@ func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error)
 		&currentAttemptID,
 		&job.CreatedAt,
 		&job.UpdatedAt,
+		&job.NotBefore,
+		&job.CancelRequestedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -141,9 +183,11 @@ func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error)
 // ListQueuedJobs returns all jobs currently in StateQueued in FIFO order by creation time.
 func (r *Repository) ListQueuedJobs(ctx context.Context) ([]*domain.Job, error) {
 	query := `
-		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at
+		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at,
+		       not_before, cancel_requested_at
 		FROM jobs
 		WHERE state = 'QUEUED'
+		   OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp()))
 		ORDER BY created_at ASC;
 	`
 	rows, err := r.pool.Query(ctx, query)
@@ -169,6 +213,8 @@ func (r *Repository) ListQueuedJobs(ctx context.Context) ([]*domain.Job, error) 
 			&currentAttemptID,
 			&job.CreatedAt,
 			&job.UpdatedAt,
+			&job.NotBefore,
+			&job.CancelRequestedAt,
 		)
 		if err != nil {
 			return nil, mapPgError(err)
@@ -188,7 +234,8 @@ func (r *Repository) ListQueuedJobs(ctx context.Context) ([]*domain.Job, error) 
 // GetAttempt retrieves an attempt by ID with the stored hash (raw token is empty).
 func (r *Repository) GetAttempt(ctx context.Context, id string) (*domain.Attempt, error) {
 	query := `
-		SELECT id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, finished_at, exit_code, output, error
+		SELECT id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, finished_at, exit_code, output, error,
+		       lease_expires_at, error_class
 		FROM attempts
 		WHERE id = $1;
 	`
@@ -199,6 +246,7 @@ func (r *Repository) GetAttempt(ctx context.Context, id string) (*domain.Attempt
 		exitCode   *int
 		output     *string
 		errSummary *string
+		errorClass *string
 	)
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&att.ID,
@@ -212,6 +260,8 @@ func (r *Repository) GetAttempt(ctx context.Context, id string) (*domain.Attempt
 		&exitCode,
 		&output,
 		&errSummary,
+		&att.LeaseExpiresAt,
+		&errorClass,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -231,13 +281,17 @@ func (r *Repository) GetAttempt(ctx context.Context, id string) (*domain.Attempt
 	if errSummary != nil {
 		att.Error = *errSummary
 	}
+	if errorClass != nil {
+		att.ErrorClass = domain.ErrorClass(*errorClass)
+	}
 	return &att, nil
 }
 
 // ListAttemptsByJob returns all attempts for a job ordered monotonically by attempt number.
 func (r *Repository) ListAttemptsByJob(ctx context.Context, jobID string) ([]*domain.Attempt, error) {
 	query := `
-		SELECT id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, finished_at, exit_code, output, error
+		SELECT id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, finished_at, exit_code, output, error,
+		       lease_expires_at, error_class
 		FROM attempts
 		WHERE job_id = $1
 		ORDER BY attempt_no ASC;
@@ -257,6 +311,7 @@ func (r *Repository) ListAttemptsByJob(ctx context.Context, jobID string) ([]*do
 			exitCode   *int
 			output     *string
 			errSummary *string
+			errorClass *string
 		)
 		err := rows.Scan(
 			&att.ID,
@@ -270,6 +325,8 @@ func (r *Repository) ListAttemptsByJob(ctx context.Context, jobID string) ([]*do
 			&exitCode,
 			&output,
 			&errSummary,
+			&att.LeaseExpiresAt,
+			&errorClass,
 		)
 		if err != nil {
 			return nil, mapPgError(err)
@@ -284,6 +341,9 @@ func (r *Repository) ListAttemptsByJob(ctx context.Context, jobID string) ([]*do
 		}
 		if errSummary != nil {
 			att.Error = *errSummary
+		}
+		if errorClass != nil {
+			att.ErrorClass = domain.ErrorClass(*errorClass)
 		}
 		attempts = append(attempts, &att)
 	}
@@ -528,22 +588,27 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
 
 	// Step 1: Lock Job row FOR UPDATE
 	jobLockQuery := `
-		SELECT task_type, state
+		SELECT task_type, state, (not_before IS NULL OR not_before <= clock_timestamp())
 		FROM jobs
 		WHERE id = $1
 		FOR UPDATE;
 	`
 	var taskType string
 	var jobState string
-	err = tx.QueryRow(ctx, jobLockQuery, jobID).Scan(&taskType, &jobState)
+	var notBeforeReached bool
+	err = tx.QueryRow(ctx, jobLockQuery, jobID).Scan(&taskType, &jobState, &notBeforeReached)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrJobNotFound
 		}
 		return nil, mapPgError(err)
 	}
-	if jobState != string(domain.StateQueued) {
+	// Dispatchable: QUEUED, or RETRYING once its not_before backoff time has been reached.
+	if jobState != string(domain.StateQueued) && !(jobState == string(domain.StateRetrying) && notBeforeReached) {
 		return nil, domain.ErrJobNotQueued
+	}
+	if err := domain.ValidateJobTransition(domain.JobState(jobState), domain.StateRunning); err != nil {
+		return nil, err
 	}
 
 	// Step 2: Lock Worker row FOR UPDATE
@@ -630,26 +695,28 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
 
 	// Step 8: Insert attempt row
 	insertAttemptQuery := `
-		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at)
-		VALUES ($1, $2, $3, $4, $5, 'RUNNING', CURRENT_TIMESTAMP)
-		RETURNING started_at;
+		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, lease_expires_at)
+		VALUES ($1, $2, $3, $4, $5, 'RUNNING', CURRENT_TIMESTAMP,
+		        clock_timestamp() + make_interval(secs => $6::double precision))
+		RETURNING started_at, lease_expires_at;
 	`
-	var startedAt time.Time
+	var startedAt, leaseExpiresAt time.Time
 	err = tx.QueryRow(ctx, insertAttemptQuery,
 		attemptID,
 		jobID,
 		nextAttemptNo,
 		workerID,
 		tokenHash,
-	).Scan(&startedAt)
+		r.leaseDuration.Seconds(),
+	).Scan(&startedAt, &leaseExpiresAt)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
 
-	// Step 9: Transition job to RUNNING
+	// Step 9: Transition job to RUNNING (a RETRYING job leaves its backoff gate)
 	updateJobQuery := `
 		UPDATE jobs
-		SET state = 'RUNNING', current_attempt_id = $2, updated_at = CURRENT_TIMESTAMP
+		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1;
 	`
 	if _, err := tx.Exec(ctx, updateJobQuery, jobID, attemptID); err != nil {
@@ -663,7 +730,7 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
 		"policy":     "fifo_pull",
 		"reason":     "claimed by polling worker with capacity",
 	})
-	fromState := "QUEUED"
+	fromState := jobState
 	toState := "RUNNING"
 	insertEventQuery := `
 		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, details, created_at)
@@ -695,6 +762,7 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
 		LeaseTokenHash: tokenHash,
 		State:          domain.AttemptRunning,
 		StartedAt:      startedAt,
+		LeaseExpiresAt: &leaseExpiresAt,
 	}
 	return &retAttempt, nil
 }
@@ -757,7 +825,8 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 	const selectJobQuery = `
 		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at
 		FROM jobs
-		WHERE state = 'QUEUED'
+		WHERE (state = 'QUEUED'
+		       OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp())))
 		  AND task_type = ANY($1::text[])
 		ORDER BY created_at ASC, id ASC
 		LIMIT 1
@@ -784,6 +853,10 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 		return nil, nil, mapPgError(err)
 	}
 	job.State = domain.JobState(jobState)
+	fromJobState := jobState
+	if err := domain.ValidateJobTransition(job.State, domain.StateRunning); err != nil {
+		return nil, nil, err
+	}
 
 	// Step 4: Lock Worker row FOR UPDATE (jobs is already locked)
 	const workerLockQuery = `
@@ -869,26 +942,28 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 
 	// Step 9: Insert attempt row
 	const insertAttemptQuery = `
-		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at)
-		VALUES ($1, $2, $3, $4, $5, 'RUNNING', clock_timestamp())
-		RETURNING started_at;
+		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, started_at, lease_expires_at)
+		VALUES ($1, $2, $3, $4, $5, 'RUNNING', clock_timestamp(),
+		        clock_timestamp() + make_interval(secs => $6::double precision))
+		RETURNING started_at, lease_expires_at;
 	`
-	var startedAt time.Time
+	var startedAt, leaseExpiresAt time.Time
 	err = tx.QueryRow(ctx, insertAttemptQuery,
 		attemptID,
 		job.ID,
 		nextAttemptNo,
 		workerID,
 		tokenHash,
-	).Scan(&startedAt)
+		r.leaseDuration.Seconds(),
+	).Scan(&startedAt, &leaseExpiresAt)
 	if err != nil {
 		return nil, nil, mapPgError(err)
 	}
 
-	// Step 10: Transition job to RUNNING
+	// Step 10: Transition job to RUNNING (a RETRYING job leaves its backoff gate)
 	const updateJobQuery = `
 		UPDATE jobs
-		SET state = 'RUNNING', current_attempt_id = $2, updated_at = clock_timestamp()
+		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = clock_timestamp()
 		WHERE id = $1;
 	`
 	if _, err := tx.Exec(ctx, updateJobQuery, job.ID, attemptID); err != nil {
@@ -902,7 +977,7 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 		"policy":     "fifo_pull",
 		"reason":     "claimed by polling worker with capacity",
 	})
-	fromState := "QUEUED"
+	fromState := fromJobState
 	toState := "RUNNING"
 	const insertEventQuery = `
 		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, details, created_at)
@@ -937,12 +1012,18 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 		LeaseTokenHash: tokenHash,
 		State:          domain.AttemptRunning,
 		StartedAt:      startedAt,
+		LeaseExpiresAt: &leaseExpiresAt,
 	}
 	return &job, &attempt, nil
 }
 
 // CommitAttempt validates the commit, updates the attempt, sets the job terminal state,
 // inserts the terminal result, and logs the audit events, all in a single transaction.
+//
+// Rejections are evaluated in the order of ADR-0014 / protocol 6.3: terminal job
+// (ErrJobAlreadyTerminal), swept attempt (ErrLeaseExpired), then superseded attempt, non-RUNNING
+// attempt or wrong token (ErrStaleAttempt), then wrong worker (ErrWorkerMismatch). An attempt
+// whose lease has passed but which is still RUNNING is accepted (accept-until-swept).
 func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -991,6 +1072,27 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 		}
 		return nil, domain.ErrJobAlreadyTerminal
 	}
+
+	// ADR-0014 / protocol 6.3 evaluation order: after the terminal-job check, an attempt of this
+	// job that the sweeper marked LOST is LEASE_EXPIRED, even when it was also superseded or the
+	// token is wrong. Only an attempt of this job is examined (and locked), so a foreign attempt
+	// ID discloses and records nothing. As with the terminal-job rejection, the diagnostic event
+	// is committed before the error is returned.
+	var namedAttemptState string
+	err = tx.QueryRow(ctx, `SELECT state FROM attempts WHERE id = $1 AND job_id = $2 FOR UPDATE;`, attemptID, jobID).Scan(&namedAttemptState)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, mapPgError(err)
+	}
+	if err == nil && namedAttemptState == string(domain.AttemptLost) {
+		if err := recordLateResult(ctx, tx, jobID, attemptID, workerID); err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, mapPgError(err)
+		}
+		return nil, domain.ErrLeaseExpired
+	}
+
 	if currentAttemptID == nil || *currentAttemptID != attemptID {
 		return nil, domain.ErrStaleAttempt
 	}
@@ -1144,7 +1246,7 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 // job, inside the caller's transaction (job row already locked FOR UPDATE). It closes the named
 // attempt only while that attempt is still RUNNING and is the job's current attempt (CANCELLED
 // if the job is CANCELLED, otherwise LOST), which frees the worker slot in worker_capacity, and
-// records at most one DIAGNOSTIC_LATE_RESULT event per attempt. An attempt that is already
+// records at most one DIAGNOSTIC_LATE_RESULT event per attempt (bounded by the unique index). An attempt that is already
 // COMPLETED, FAILED, CANCELLED or LOST is never modified, and an attempt ID that does not belong
 // to the job records nothing. Lock order is jobs, then attempts, then job_events.
 func rejectTerminalCommit(ctx context.Context, tx pgx.Tx, job *domain.Job, currentAttemptID *string, attemptID, reportingWorker string) error {
@@ -1171,6 +1273,15 @@ func rejectTerminalCommit(ctx context.Context, tx pgx.Tx, job *domain.Job, curre
 		}
 	}
 
+	return recordLateResult(ctx, tx, job.ID, attemptID, reportingWorker)
+}
+
+// recordLateResult records a DIAGNOSTIC_LATE_RESULT event for a commit that was rejected. The
+// partial unique index idx_job_events_unique_diagnostic_late_result bounds it to one event per
+// (job, attempt); ON CONFLICT DO NOTHING makes every further rejection a no-op, so unauthenticated
+// callers cannot grow job_events (SEC-004). The caller has established that the attempt belongs
+// to the job.
+func recordLateResult(ctx context.Context, tx pgx.Tx, jobID, attemptID, reportingWorker string) error {
 	details, err := json.Marshal(map[string]any{
 		"attempt_id":       attemptID,
 		"reporting_worker": reportingWorker,
@@ -1179,15 +1290,11 @@ func rejectTerminalCommit(ctx context.Context, tx pgx.Tx, job *domain.Job, curre
 	if err != nil {
 		return err
 	}
-	// The job row lock serialises concurrent rejections, so NOT EXISTS bounds the event to one per attempt.
 	_, err = tx.Exec(ctx, `
 		INSERT INTO job_events (job_id, attempt_id, event_type, details, created_at)
-		SELECT $1::text, $2::text, $3::text, $4::jsonb, clock_timestamp()
-		WHERE NOT EXISTS (
-			SELECT 1 FROM job_events
-			WHERE job_id = $1::text AND attempt_id = $2::text AND event_type = $3::text
-		);`,
-		job.ID, attemptID, string(domain.JobEventDiagnosticLateResult), string(details),
+		VALUES ($1, $2, 'DIAGNOSTIC_LATE_RESULT', $3::jsonb, clock_timestamp())
+		ON CONFLICT (job_id, (details->>'attempt_id')) WHERE event_type = 'DIAGNOSTIC_LATE_RESULT' DO NOTHING;`,
+		jobID, attemptID, string(details),
 	)
 	if err != nil {
 		return mapPgError(err)
@@ -1206,7 +1313,8 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 	defer tx.Rollback(ctx)
 
 	jobQuery := `
-		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at
+		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at,
+		       not_before, cancel_requested_at
 		FROM jobs
 		WHERE id = $1
 		FOR UPDATE;
@@ -1226,6 +1334,8 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 		&currentAttemptID,
 		&job.CreatedAt,
 		&job.UpdatedAt,
+		&job.NotBefore,
+		&job.CancelRequestedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1258,12 +1368,22 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 		eventType = domain.JobEventCancelled
 	}
 
+	// A first cancel of a RUNNING job stamps cancel_requested_at; an immediate cancel of a
+	// QUEUED or RETRYING job clears the retry gate (not_before).
 	updateJobQuery := `
 		UPDATE jobs
-		SET state = $1, updated_at = CURRENT_TIMESTAMP
+		SET state = $1, updated_at = CURRENT_TIMESTAMP, not_before = NULL
 		WHERE id = $2
 		RETURNING updated_at;
 	`
+	if targetState == domain.StateCancelRequested {
+		updateJobQuery = `
+		UPDATE jobs
+		SET state = $1, updated_at = CURRENT_TIMESTAMP, cancel_requested_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+		RETURNING updated_at;
+	`
+	}
 	var updatedAt time.Time
 	err = tx.QueryRow(ctx, updateJobQuery, string(targetState), jobID).Scan(&updatedAt)
 	if err != nil {
@@ -1271,6 +1391,10 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 	}
 	job.State = targetState
 	job.UpdatedAt = updatedAt
+	job.NotBefore = nil
+	if targetState == domain.StateCancelRequested {
+		job.CancelRequestedAt = &updatedAt
+	}
 
 	insertEventQuery := `
 		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, created_at)
@@ -1296,16 +1420,6 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job, 
 	}
 
 	return &job, nil
-}
-
-// RenewLease is implemented in a later step of slice 4b.
-func (r *Repository) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
-	return nil, errors.New("RenewLease: not implemented")
-}
-
-// SweepExpiredLeases is implemented in a later step of slice 4b.
-func (r *Repository) SweepExpiredLeases(ctx context.Context, params domain.SweepParams) (*domain.SweepResult, error) {
-	return nil, errors.New("SweepExpiredLeases: not implemented")
 }
 
 // ListEventsByJob retrieves all audit events for a job in chronological order.

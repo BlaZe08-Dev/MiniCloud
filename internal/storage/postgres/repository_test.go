@@ -2,8 +2,10 @@ package postgres_test
 
 import (
 	"context"
-	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
@@ -35,7 +37,48 @@ func newPostgresHarness(t *testing.T) storagetest.Harness {
 				t.Fatalf("force attempt %s to %s failed: %v", attemptID, state, err)
 			}
 		},
+		LeaseDuration: domain.DefaultLeaseDuration,
+		Now: func(t *testing.T) time.Time {
+			t.Helper()
+			var now time.Time
+			if err := pool.QueryRow(context.Background(), `SELECT clock_timestamp()`).Scan(&now); err != nil {
+				t.Fatalf("reading database time failed: %v", err)
+			}
+			return now
+		},
+		SetLeaseExpiry: func(t *testing.T, attemptID string, offset time.Duration) {
+			t.Helper()
+			if _, err := pool.Exec(context.Background(),
+				`UPDATE attempts SET lease_expires_at = clock_timestamp() + make_interval(secs => $1::double precision) WHERE id = $2`,
+				offset.Seconds(), attemptID); err != nil {
+				t.Fatalf("set lease expiry of %s failed: %v", attemptID, err)
+			}
+		},
 	}
+}
+
+func TestConformance_Dispatch_StampsLease(t *testing.T) {
+	storagetest.RunDispatchLeaseConformance(t, newPostgresHarness)
+}
+
+func TestConformance_RenewLease_AcceptUntilSwept(t *testing.T) {
+	storagetest.RunRenewLeaseAcceptUntilSweptConformance(t, newPostgresHarness)
+}
+
+func TestConformance_RenewLease_RejectedAfterLost(t *testing.T) {
+	storagetest.RunRenewLeaseRejectedAfterLostConformance(t, newPostgresHarness)
+}
+
+func TestConformance_SweepExpiredLeases_RetryOrFail(t *testing.T) {
+	storagetest.RunSweepRetryOrFailConformance(t, newPostgresHarness)
+}
+
+func TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping(t *testing.T) {
+	storagetest.RunSweepGraceInputConformance(t, newPostgresHarness)
+}
+
+func TestConformance_CommitAttempt_ConflictEvaluationOrder(t *testing.T) {
+	storagetest.RunCommitAttemptConflictOrderConformance(t, newPostgresHarness)
 }
 
 func TestConformance_CancelJob_IdempotentCancelRequested(t *testing.T) {
