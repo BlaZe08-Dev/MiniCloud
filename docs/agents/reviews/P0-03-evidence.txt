@@ -1,0 +1,1981 @@
+P0-03 audit evidence (verbatim command output; auditor branch agent/claude/P0-03-review)
+Builder commit reviewed: 521be8658a92ad6c56603b6e49eed9d8c2fed602
+Full go test -v -race log (large) not inlined; its summary is section 19. Raw files lived in ~/mc-readme-audit-evidence/.
+
+=================== 00-clone.txt ===================
+Cloning into '/home/blazeee/mc-readme-audit'...
+git@github.com: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+Cloning into '/home/blazeee/mc-readme-audit'...
+
+=================== 01-setup.txt ===================
+HEAD(builder)=521be8658a92ad6c56603b6e49eed9d8c2fed602
+521be86 docs(agents): create P0-03 handoff record
+567c731 docs: refresh README with accurate architecture, quickstart, and configuration
+---
+README.md
+docs/agents/handoffs/P0-03.md
+
+=================== 02-base.txt ===================
+e7403a99233a767f6a72ab9a7e8dad2e6cbae08c
+e7403a99233a767f6a72ab9a7e8dad2e6cbae08c
+e7403a9 Merge pull request #19 from BlaZe08-Dev/agent/gemini/P4-02
+d441c3e docs(agents): apply R7-12, R7-16 to P4-02 handoff
+a3590bd docs(agents): apply R7-14 to P4-01 handoff
+78686e8 test(docs): apply R7-13 to citation allowlist backoff test reason
+07d00e4 docs(agents): apply R7-06, R7-17 to P4-00 handoff
+6448078 docs(tasks): apply R7-10 to P4-4b task specification
+## agent/claude/P0-03-review
+go version go1.22.2 linux/amd64
+
+ README.md                     | 408 +++++++++++++++++++++++++++++++++++-------
+ docs/agents/handoffs/P0-03.md |  58 ++++++
+ 2 files changed, 397 insertions(+), 69 deletions(-)
+
+=================== qs.sh ===================
+#!/bin/bash
+# Literal README Quick Start, cwd = clone. Terminals 1/2 backgrounded with timeout.
+cd ~/mc-readme-audit
+E=~/mc-readme-audit-evidence
+echo "### make build"; make build; echo "rc=$?"
+echo "### T1 coordinator"
+MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:8080 timeout 60 ./bin/coordinator > $E/qs-coordinator.log 2>&1 &
+sleep 1.5
+echo "### T2 worker"
+MINICLOUD_COORDINATOR_URL=http://127.0.0.1:8080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 timeout 60 ./bin/worker > $E/qs-worker.log 2>&1 &
+sleep 2
+echo "### ./bin/mc workers"; ./bin/mc workers; echo "rc=$?"
+echo "### submit"; ./bin/mc submit --task echo --payload '{"message":"hello minicloud"}' | tee $E/qs-submit.out; echo "rc=${PIPESTATUS[0]}"
+JOB=$(grep 'ID:' $E/qs-submit.out | awk '{print $2}')
+echo "JOB=$JOB"
+sleep 2
+echo "### get (README literal id job_1_9fb43b921313)"; ./bin/mc get job_1_9fb43b921313; echo "rc=$?"
+echo "### get (real id)"; ./bin/mc get $JOB; echo "rc=$?"
+echo "### attempts (README literal id)"; ./bin/mc attempts job_1_9fb43b921313; echo "rc=$?"
+echo "### attempts (real id)"; ./bin/mc attempts $JOB; echo "rc=$?"
+
+=================== 03-quickstart.txt ===================
+### make build
+go build -o bin/coordinator ./cmd/coordinator
+go build -o bin/worker ./cmd/worker
+go build -o bin/mc ./cmd/mc
+go build -o bin/migrate ./cmd/migrate
+Build complete. Executables located in bin/
+rc=0
+### T1 coordinator
+### T2 worker
+### ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               12:04:21         [echo sleep sha256_loop]
+rc=0
+### submit
+Job Submitted Successfully!
+  ID:           job_1_ea776f9a0bbd
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+rc=0
+JOB=job_1_ea776f9a0bbd
+### get (README literal id job_1_9fb43b921313)
+Query failed (HTTP 404): {"error":{"code":"JOB_NOT_FOUND","message":"job not found"}}
+
+rc=1
+### get (real id)
+Job Details:
+  ID:           job_1_ea776f9a0bbd
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_fb1db99a9e9e
+  Created At:   2026-10-28T12:04:23Z
+  Updated At:   2026-10-28T12:04:23Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello minicloud"}}
+rc=0
+### attempts (README literal id)
+Query failed (HTTP 404): {"error":{"code":"JOB_NOT_FOUND","message":"job not found"}}
+
+rc=1
+### attempts (real id)
+Attempts for Job job_1_ea776f9a0bbd (1 total):
+NO   ATTEMPT ID           WORKER     STATE       EXIT   STARTED
+1    att_1_fb1db99a9e9e   worker-1   COMPLETED   0      12:04:23
+rc=0
+
+=================== 04-cleanup.txt ===================
+## cleanup check
+177330 /bin/bash -c source /home/blazeee/.claude/shell-snapshots/snapshot-bash-1793189004697-l8j4ye.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'E=~/mc-readme-audit-evidence; { echo "## cleanup check"; pgrep -af '"'"'mc-readme-audit|bin/(coordinator|worker)'"'"'; echo "pgrep rc=$?"; ss -tulpn | grep -E '"'"':8080\b'"'"'; echo "ss 8080 rc=$? (1 = free)"; } 2>&1 | tee $E/04-cleanup.txt' < /dev/null && pwd -P >| /tmp/claude-c126-cwd
+177331 /bin/bash -c source /home/blazeee/.claude/shell-snapshots/snapshot-bash-1793189004697-l8j4ye.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'E=~/mc-readme-audit-evidence; { echo "## cleanup check"; pgrep -af '"'"'mc-readme-audit|bin/(coordinator|worker)'"'"'; echo "pgrep rc=$?"; ss -tulpn | grep -E '"'"':8080\b'"'"'; echo "ss 8080 rc=$? (1 = free)"; } 2>&1 | tee $E/04-cleanup.txt' < /dev/null && pwd -P >| /tmp/claude-c126-cwd
+177332 tee /home/blazeee/mc-readme-audit-evidence/04-cleanup.txt
+pgrep rc=0
+ss 8080 rc=1 (1 = free)
+
+=================== 05-mistakes-help.txt ===================
+### coordinator log head
+{"time":"2026-10-28T17:34:20.03317386+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-10-28T17:34:20.03334515+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-10-28T17:34:20.035040118+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8080"}
+{"time":"2026-10-28T17:34:21.537558087+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-1","version":"v0.1.0","slots":2,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-10-28T17:34:23.545808648+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_ea776f9a0bbd","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-10-28T17:34:23.555217609+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_ea776f9a0bbd","attempt_id":"att_1_fb1db99a9e9e","attempt_no":1,"worker_id":"worker-1","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-10-28T17:34:23.557133413+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_ea776f9a0bbd","attempt_id":"att_1_fb1db99a9e9e","final_state":"SUCCEEDED","exit_code":0}
+{"time":"2026-10-28T17:34:32.373027063+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+### worker log head
+{"time":"2026-10-28T17:34:21.534977878+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-1"}
+{"time":"2026-10-28T17:34:21.535309866+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-1","coordinator_url":"http://127.0.0.1:8080","slots":2}
+{"time":"2026-10-28T17:34:21.538054489+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-1"}
+{"time":"2026-10-28T17:34:23.556551569+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_ea776f9a0bbd","attempt_id":"att_1_fb1db99a9e9e","task_type":"echo","timeout_seconds":60}
+{"time":"2026-10-28T17:34:23.557432372+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_ea776f9a0bbd","attempt_id":"att_1_fb1db99a9e9e","exit_code":0}
+
+### MISTAKE A: ./bin/mc workers with no coordinator running (cwd clone)
+Error querying workers: Get "http://127.0.0.1:8080/v1/workers": dial tcp 127.0.0.1:8080: connect: connection refused
+rc=1
+### MISTAKE B: wrong directory: cd ~ && ./bin/coordinator
+timeout: failed to run command ‘./bin/coordinator’: No such file or directory
+rc=127
+### MISTAKE B2: make build from home
+make: *** No rule to make target 'build'.  Stop.
+rc=2
+### MISTAKE C: port busy (python listener on 8080), then coordinator
+{"time":"2026-10-28T17:34:46.912185197+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-10-28T17:34:46.9123038+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-10-28T17:34:46.912644964+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8080"}
+{"time":"2026-10-28T17:34:46.912913576+05:30","level":"ERROR","msg":"http server failed","err":"listen tcp 127.0.0.1:8080: bind: address already in use"}
+rc=1
+### MISTAKE D: run worker without MINICLOUD_WORKER_ID (default id)
+{"time":"2026-10-28T17:34:46.919745923+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker_Neelesh-Laptop_177485"}
+{"time":"2026-10-28T17:34:46.920037868+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker_Neelesh-Laptop_177485","coordinator_url":"http://127.0.0.1:8080","slots":4}
+{"time":"2026-10-28T17:34:46.920507826+05:30","level":"ERROR","msg":"worker agent terminated with error","err":"failed to register worker: Post \"http://127.0.0.1:8080/v1/workers/register\": dial tcp 127.0.0.1:8080: connect: connection refused"}
+rc=1
+### MISTAKE E: coordinator default driver
+{"time":"2026-10-28T17:34:46.928125154+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-10-28T17:34:46.92825221+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-10-28T17:34:46.928620601+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8080"}
+{"time":"2026-10-28T17:34:49.924546613+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-10-28T17:34:49.924849454+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+rc=124
+### --help
+-- mc --help
+MiniCloud CLI (mc)
+
+Usage:
+  mc submit --task <type> --payload <json> [--timeout <sec>] [--max-attempts <num>]
+  mc get <job_id>
+  mc attempts <job_id>
+  mc workers
+
+Environment Variables:
+  MINICLOUD_COORDINATOR_URL   Coordinator HTTP API base URL (default: http://127.0.0.1:8080)
+rc=0
+-- mc (no args)
+MiniCloud CLI (mc)
+
+Usage:
+  mc submit --task <type> --payload <json> [--timeout <sec>] [--max-attempts <num>]
+  mc get <job_id>
+  mc attempts <job_id>
+  mc workers
+
+Environment Variables:
+  MINICLOUD_COORDINATOR_URL   Coordinator HTTP API base URL (default: http://127.0.0.1:8080)
+rc=1
+-- coordinator --help (timeout 3)
+{"time":"2026-10-28T17:34:49.940427145+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-10-28T17:34:49.940580715+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-10-28T17:34:49.940763613+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8080"}
+{"time":"2026-10-28T17:34:52.937301407+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-10-28T17:34:52.937512597+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+rc=124
+-- worker --help (timeout 3)
+{"time":"2026-10-28T17:34:52.94261164+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker_Neelesh-Laptop_177594"}
+{"time":"2026-10-28T17:34:52.942869338+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker_Neelesh-Laptop_177594","coordinator_url":"http://127.0.0.1:8080","slots":4}
+{"time":"2026-10-28T17:34:52.943274802+05:30","level":"ERROR","msg":"worker agent terminated with error","err":"failed to register worker: Post \"http://127.0.0.1:8080/v1/workers/register\": dial tcp 127.0.0.1:8080: connect: connection refused"}
+rc=1
+-- migrate --help (timeout 3, DB URL unset)
+Usage of ./bin/migrate:
+  -database-url string
+    	[DEPRECATED] PostgreSQL database connection URL (use MINICLOUD_DATABASE_URL environment variable)
+rc=0
+
+=================== 06-env-code.txt ===================
+### all MINICLOUD_/POSTGRES env names in non-test Go code
+internal/config/config.go:38:	hbInterval := getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
+internal/config/config.go:39:	workerTimeout := getDurationEnv("MINICLOUD_WORKER_TIMEOUT", 10*time.Second)
+internal/config/config.go:46:	reaperInterval := getDurationEnv("MINICLOUD_REAPER_INTERVAL", defaultReaperInterval)
+internal/config/config.go:48:	storageDriver := strings.ToLower(getEnv("MINICLOUD_STORAGE_DRIVER", "memory"))
+internal/config/config.go:52:	dbURL := getEnv("MINICLOUD_DATABASE_URL", "")
+internal/config/config.go:53:	dbMaxConns := getIntEnv("MINICLOUD_DB_MAX_CONNS", 20)
+internal/config/config.go:54:	dbMinConns := getIntEnv("MINICLOUD_DB_MIN_CONNS", 2)
+internal/config/config.go:55:	dbQueryTimeout := getDurationEnv("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
+internal/config/config.go:58:		HTTPAddr:           getEnv("MINICLOUD_HTTP_ADDR", "127.0.0.1:8080"),
+internal/config/config.go:62:		DefaultMaxAttempts: getIntEnv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
+internal/config/config.go:63:		MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+internal/config/config.go:64:		LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
+internal/config/config.go:121:		WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
+internal/config/config.go:122:		CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
+internal/config/config.go:123:		TotalSlots:        getIntEnv("MINICLOUD_WORKER_SLOTS", 4),
+internal/config/config.go:124:		HeartbeatInterval: getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second),
+internal/config/config.go:125:		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+internal/config/config.go:142:	if val, exists := os.LookupEnv(key); exists {
+internal/config/config.go:149:	valStr := os.Getenv(key)
+internal/config/config.go:161:	valStr := os.Getenv(key)
+cmd/mc/main.go:18:	if url := os.Getenv("MINICLOUD_COORDINATOR_URL"); url != "" {
+cmd/migrate/main.go:20:	envURL := getenv("MINICLOUD_DATABASE_URL")
+cmd/migrate/main.go:40:	dbURL, err := ResolveDatabaseURL(flagDBURL, os.Getenv, func(msg string, args ...any) {
+
+### config.go
+     1	package config
+     2	
+     3	import (
+     4		"fmt"
+     5		"os"
+     6		"strconv"
+     7		"strings"
+     8		"time"
+     9	)
+    10	
+    11	// CoordinatorConfig defines startup configuration for the coordinator service.
+    12	type CoordinatorConfig struct {
+    13		HTTPAddr           string
+    14		HeartbeatInterval  time.Duration
+    15		WorkerTimeout      time.Duration
+    16		ReaperInterval     time.Duration
+    17		DefaultMaxAttempts int
+    18		MaxJobRuntime      time.Duration
+    19		LogLevel           string
+    20		StorageDriver      string
+    21		DatabaseURL        string
+    22		DBMaxConns         int
+    23		DBMinConns         int
+    24		DBQueryTimeout     time.Duration
+    25	}
+    26	
+    27	// WorkerConfig defines startup configuration for the worker agent.
+    28	type WorkerConfig struct {
+    29		WorkerID          string
+    30		CoordinatorURL    string
+    31		TotalSlots        int
+    32		HeartbeatInterval time.Duration
+    33		LogLevel          string
+    34	}
+    35	
+    36	// LoadCoordinatorConfig loads and validates configuration from environment variables.
+    37	func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
+    38		hbInterval := getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
+    39		workerTimeout := getDurationEnv("MINICLOUD_WORKER_TIMEOUT", 10*time.Second)
+    40	
+    41		// Default reaper interval is at most half the worker timeout
+    42		defaultReaperInterval := workerTimeout / 2
+    43		if defaultReaperInterval <= 0 {
+    44			defaultReaperInterval = 1 * time.Second
+    45		}
+    46		reaperInterval := getDurationEnv("MINICLOUD_REAPER_INTERVAL", defaultReaperInterval)
+    47	
+    48		storageDriver := strings.ToLower(getEnv("MINICLOUD_STORAGE_DRIVER", "memory"))
+    49		if storageDriver == "" {
+    50			storageDriver = "memory"
+    51		}
+    52		dbURL := getEnv("MINICLOUD_DATABASE_URL", "")
+    53		dbMaxConns := getIntEnv("MINICLOUD_DB_MAX_CONNS", 20)
+    54		dbMinConns := getIntEnv("MINICLOUD_DB_MIN_CONNS", 2)
+    55		dbQueryTimeout := getDurationEnv("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
+    56	
+    57		cfg := &CoordinatorConfig{
+    58			HTTPAddr:           getEnv("MINICLOUD_HTTP_ADDR", "127.0.0.1:8080"),
+    59			HeartbeatInterval:  hbInterval,
+    60			WorkerTimeout:      workerTimeout,
+    61			ReaperInterval:     reaperInterval,
+    62			DefaultMaxAttempts: getIntEnv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
+    63			MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+    64			LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
+    65			StorageDriver:      storageDriver,
+    66			DatabaseURL:        dbURL,
+    67			DBMaxConns:         dbMaxConns,
+    68			DBMinConns:         dbMinConns,
+    69			DBQueryTimeout:     dbQueryTimeout,
+    70		}
+    71	
+    72		if cfg.HTTPAddr == "" {
+    73			return nil, fmt.Errorf("MINICLOUD_HTTP_ADDR cannot be empty")
+    74		}
+    75		if cfg.HeartbeatInterval <= 0 {
+    76			return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
+    77		}
+    78		if cfg.WorkerTimeout <= 0 {
+    79			return nil, fmt.Errorf("MINICLOUD_WORKER_TIMEOUT must be positive")
+    80		}
+    81		if cfg.WorkerTimeout < 3*cfg.HeartbeatInterval {
+    82			return nil, fmt.Errorf("MINICLOUD_WORKER_TIMEOUT (%v) must be at least 3x MINICLOUD_HEARTBEAT_INTERVAL (%v)", cfg.WorkerTimeout, cfg.HeartbeatInterval)
+    83		}
+    84		if cfg.ReaperInterval <= 0 {
+    85			return nil, fmt.Errorf("MINICLOUD_REAPER_INTERVAL must be positive")
+    86		}
+    87		if cfg.ReaperInterval > cfg.WorkerTimeout {
+    88			return nil, fmt.Errorf("MINICLOUD_REAPER_INTERVAL (%v) must not exceed MINICLOUD_WORKER_TIMEOUT (%v)", cfg.ReaperInterval, cfg.WorkerTimeout)
+    89		}
+    90		if cfg.DefaultMaxAttempts <= 0 {
+    91			return nil, fmt.Errorf("MINICLOUD_DEFAULT_MAX_ATTEMPTS must be positive")
+    92		}
+    93		if cfg.MaxJobRuntime <= 0 {
+    94			return nil, fmt.Errorf("MINICLOUD_MAX_JOB_RUNTIME must be positive")
+    95		}
+    96		if cfg.StorageDriver != "memory" && cfg.StorageDriver != "postgres" {
+    97			return nil, fmt.Errorf("MINICLOUD_STORAGE_DRIVER must be either 'memory' or 'postgres' (got %q)", cfg.StorageDriver)
+    98		}
+    99		if cfg.StorageDriver == "postgres" && cfg.DatabaseURL == "" {
+   100			return nil, fmt.Errorf("MINICLOUD_DATABASE_URL cannot be empty when storage driver is 'postgres'")
+   101		}
+   102		if cfg.DBMaxConns <= 0 {
+   103			return nil, fmt.Errorf("MINICLOUD_DB_MAX_CONNS must be positive")
+   104		}
+   105		if cfg.DBMinConns < 0 {
+   106			return nil, fmt.Errorf("MINICLOUD_DB_MIN_CONNS cannot be negative")
+   107		}
+   108		if cfg.DBMinConns > cfg.DBMaxConns {
+   109			return nil, fmt.Errorf("MINICLOUD_DB_MIN_CONNS (%d) must not exceed MINICLOUD_DB_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBMaxConns)
+   110		}
+   111		if cfg.DBQueryTimeout <= 0 {
+   112			return nil, fmt.Errorf("MINICLOUD_DB_QUERY_TIMEOUT must be positive")
+   113		}
+   114	
+   115		return cfg, nil
+   116	}
+   117	
+   118	// LoadWorkerConfig loads and validates worker configuration from environment variables.
+   119	func LoadWorkerConfig() (*WorkerConfig, error) {
+   120		cfg := &WorkerConfig{
+   121			WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
+   122			CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
+   123			TotalSlots:        getIntEnv("MINICLOUD_WORKER_SLOTS", 4),
+   124			HeartbeatInterval: getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second),
+   125			LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+   126		}
+   127	
+   128		if cfg.CoordinatorURL == "" {
+   129			return nil, fmt.Errorf("MINICLOUD_COORDINATOR_URL cannot be empty")
+   130		}
+   131		if cfg.TotalSlots <= 0 {
+   132			return nil, fmt.Errorf("MINICLOUD_WORKER_SLOTS must be positive, got %d", cfg.TotalSlots)
+   133		}
+   134		if cfg.HeartbeatInterval <= 0 {
+   135			return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
+   136		}
+   137	
+   138		return cfg, nil
+   139	}
+   140	
+   141	func getEnv(key, defaultVal string) string {
+   142		if val, exists := os.LookupEnv(key); exists {
+   143			return val
+   144		}
+   145		return defaultVal
+   146	}
+   147	
+   148	func getIntEnv(key string, defaultVal int) int {
+   149		valStr := os.Getenv(key)
+   150		if valStr == "" {
+   151			return defaultVal
+   152		}
+   153		val, err := strconv.Atoi(valStr)
+   154		if err != nil {
+   155			return defaultVal
+   156		}
+   157		return val
+   158	}
+   159	
+   160	func getDurationEnv(key string, defaultVal time.Duration) time.Duration {
+   161		valStr := os.Getenv(key)
+   162		if valStr == "" {
+   163			return defaultVal
+   164		}
+   165		val, err := time.ParseDuration(valStr)
+   166		if err != nil {
+   167			return defaultVal
+   168		}
+   169		return val
+   170	}
+
+=================== 07-cfg-usage.txt ===================
+### cfg field usage (non-test)
+-- HTTPAddr
+cmd/coordinator/main.go:108:	server := api.NewServer(cfg.HTTPAddr, svc)
+cmd/coordinator/main.go:117:		slog.Info("coordinator listening for requests", "addr", cfg.HTTPAddr)
+-- HeartbeatInterval
+internal/worker/client.go:74:	heartbeatTicker := time.NewTicker(a.cfg.HeartbeatInterval)
+-- WorkerTimeout
+cmd/coordinator/main.go:101:		svc = coordinator.NewPostgresService(repo, sched, reg, cfg.WorkerTimeout)
+cmd/coordinator/main.go:105:		svc = coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
+-- ReaperInterval
+cmd/coordinator/main.go:113:	go svc.StartReaper(reaperCtx, cfg.ReaperInterval)
+-- DefaultMaxAttempts
+internal/api/handlers.go:188:	maxAttempts := coordinator.DefaultMaxAttempts
+-- MaxJobRuntime
+-- LogLevel
+-- StorageDriver
+cmd/coordinator/main.go:50:	if cfg.StorageDriver == "postgres" {
+-- DatabaseURL
+cmd/coordinator/main.go:54:		poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+-- DBMaxConns
+cmd/coordinator/main.go:59:		poolCfg.MaxConns = int32(cfg.DBMaxConns)
+cmd/coordinator/main.go:99:		slog.Info("connected to postgres storage", "schema_version", currentVer, "max_conns", cfg.DBMaxConns)
+-- DBMinConns
+cmd/coordinator/main.go:60:		poolCfg.MinConns = int32(cfg.DBMinConns)
+-- DBQueryTimeout
+cmd/coordinator/main.go:51:		bootCtx, bootCancel := context.WithTimeout(context.Background(), cfg.DBQueryTimeout)
+cmd/coordinator/main.go:61:		if cfg.DBQueryTimeout > 0 {
+cmd/coordinator/main.go:65:			ms := strconv.Itoa(int(cfg.DBQueryTimeout.Milliseconds()))
+-- TotalSlots
+cmd/mc/main.go:237:			worker.TotalSlots,
+internal/coordinator/service.go:227:	if worker.TotalSlots < MinWorkerSlots || worker.TotalSlots > MaxWorkerSlots {
+internal/coordinator/service.go:263:		"slots", worker.TotalSlots,
+internal/worker/client.go:65:		"slots", a.cfg.TotalSlots,
+internal/worker/client.go:143:		"total_slots":     a.cfg.TotalSlots,
+internal/worker/client.go:144:		"available_slots": a.cfg.TotalSlots,
+-- CoordinatorURL
+internal/worker/client.go:64:		"coordinator_url", a.cfg.CoordinatorURL,
+internal/worker/client.go:151:	url := fmt.Sprintf("%s/v1/workers/register", a.cfg.CoordinatorURL)
+internal/worker/client.go:177:	url := fmt.Sprintf("%s/v1/workers/%s/heartbeat", a.cfg.CoordinatorURL, a.cfg.WorkerID)
+internal/worker/client.go:209:	url := fmt.Sprintf("%s/v1/workers/%s/poll", a.cfg.CoordinatorURL, a.cfg.WorkerID)
+internal/worker/client.go:282:	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
+
+### cmd/coordinator/main.go
+     1	package main
+     2	
+     3	import (
+     4		"context"
+     5		"errors"
+     6		"log/slog"
+     7		"net/http"
+     8		"os"
+     9		"os/signal"
+    10		"strconv"
+    11		"syscall"
+    12		"time"
+    13	
+    14		"github.com/BlaZe08-Dev/Minicloud/internal/api"
+    15		"github.com/BlaZe08-Dev/Minicloud/internal/config"
+    16		"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+    17		"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+    18		"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+    19		"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+    20		"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+    21		"github.com/jackc/pgx/v5/pgxpool"
+    22	)
+    23	
+    24	func main() {
+    25		// 1. Structured logging setup
+    26		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    27			Level: slog.LevelInfo,
+    28		}))
+    29		slog.SetDefault(logger)
+    30	
+    31		slog.Info("starting MiniCloud coordinator...")
+    32	
+    33		// 2. Load and validate configuration
+    34		cfg, err := config.LoadCoordinatorConfig()
+    35		if err != nil {
+    36			slog.Error("configuration validation failed", "err", err)
+    37			os.Exit(1)
+    38		}
+    39	
+    40		// 3. Initialize storage and core components
+    41		var (
+    42			repo storage.Repository
+    43			pool *pgxpool.Pool
+    44		)
+    45	
+    46		sched := scheduler.NewRoundRobinScheduler()
+    47		reg := executor.NewRegistry()
+    48		var svc *coordinator.Service
+    49	
+    50		if cfg.StorageDriver == "postgres" {
+    51			bootCtx, bootCancel := context.WithTimeout(context.Background(), cfg.DBQueryTimeout)
+    52			defer bootCancel()
+    53	
+    54			poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+    55			if err != nil {
+    56				slog.Error("failed to parse database configuration", "err", err)
+    57				os.Exit(1)
+    58			}
+    59			poolCfg.MaxConns = int32(cfg.DBMaxConns)
+    60			poolCfg.MinConns = int32(cfg.DBMinConns)
+    61			if cfg.DBQueryTimeout > 0 {
+    62				if poolCfg.ConnConfig.RuntimeParams == nil {
+    63					poolCfg.ConnConfig.RuntimeParams = make(map[string]string)
+    64				}
+    65				ms := strconv.Itoa(int(cfg.DBQueryTimeout.Milliseconds()))
+    66				poolCfg.ConnConfig.RuntimeParams["statement_timeout"] = ms
+    67				poolCfg.ConnConfig.RuntimeParams["lock_timeout"] = ms
+    68			}
+    69	
+    70			pool, err = pgxpool.NewWithConfig(bootCtx, poolCfg)
+    71			if err != nil {
+    72				slog.Error("failed to connect to postgres pool", "err", err)
+    73				os.Exit(1)
+    74			}
+    75	
+    76			if err := pool.Ping(bootCtx); err != nil {
+    77				slog.Error("failed to ping postgres database", "err", err)
+    78				os.Exit(1)
+    79			}
+    80	
+    81			// Enforce schema version check on boot
+    82			mig := postgres.NewMigrator()
+    83			requiredVer, err := mig.LatestEmbeddedVersion()
+    84			if err != nil {
+    85				slog.Error("failed to inspect embedded migrations", "err", err)
+    86				os.Exit(1)
+    87			}
+    88	
+    89			currentVer, err := postgres.CurrentSchemaVersion(bootCtx, pool)
+    90			if err != nil {
+    91				slog.Error("failed to query database schema version", "err", err)
+    92				os.Exit(1)
+    93			}
+    94			if currentVer < requiredVer {
+    95				slog.Error("database schema is behind required version", "current", currentVer, "required", requiredVer)
+    96				os.Exit(1)
+    97			}
+    98	
+    99			slog.Info("connected to postgres storage", "schema_version", currentVer, "max_conns", cfg.DBMaxConns)
+   100			repo = postgres.NewRepository(pool)
+   101			svc = coordinator.NewPostgresService(repo, sched, reg, cfg.WorkerTimeout)
+   102		} else {
+   103			slog.Info("using in-memory storage driver")
+   104			repo = storage.NewInMemoryRepository()
+   105			svc = coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
+   106		}
+   107	
+   108		server := api.NewServer(cfg.HTTPAddr, svc)
+   109	
+   110		// Start reaper loop
+   111		reaperCtx, reaperCancel := context.WithCancel(context.Background())
+   112		defer reaperCancel()
+   113		go svc.StartReaper(reaperCtx, cfg.ReaperInterval)
+   114	
+   115		// 4. Start HTTP Server in background goroutine
+   116		go func() {
+   117			slog.Info("coordinator listening for requests", "addr", cfg.HTTPAddr)
+   118			if err := server.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+   119				slog.Error("http server failed", "err", err)
+   120				os.Exit(1)
+   121			}
+   122		}()
+   123	
+   124		// 5. Wait for shutdown signal
+   125		sigCh := make(chan os.Signal, 1)
+   126		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+   127		sig := <-sigCh
+   128		slog.Info("received termination signal, initiating graceful shutdown", "signal", sig.String())
+   129	
+   130		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+   131		defer cancel()
+   132	
+   133		if err := server.Shutdown(shutdownCtx); err != nil {
+   134			slog.Error("error during server shutdown", "err", err)
+   135			os.Exit(1)
+   136		}
+   137	
+   138		if pool != nil {
+   139			pool.Close()
+   140		}
+   141	
+   142		slog.Info("coordinator stopped cleanly")
+   143	}
+
+### cmd/worker/main.go
+     1	package main
+     2	
+     3	import (
+     4		"context"
+     5		"fmt"
+     6		"log/slog"
+     7		"os"
+     8		"os/signal"
+     9		"syscall"
+    10	
+    11		"github.com/BlaZe08-Dev/Minicloud/internal/config"
+    12		"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+    13		"github.com/BlaZe08-Dev/Minicloud/internal/worker"
+    14	)
+    15	
+    16	func main() {
+    17		// 1. Structured logging setup
+    18		logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    19			Level: slog.LevelInfo,
+    20		}))
+    21		slog.SetDefault(logger)
+    22	
+    23		// 2. Load and validate configuration
+    24		cfg, err := config.LoadWorkerConfig()
+    25		if err != nil {
+    26			slog.Error("worker configuration validation failed", "err", err)
+    27			os.Exit(1)
+    28		}
+    29	
+    30		if cfg.WorkerID == "" {
+    31			hostname, _ := os.Hostname()
+    32			cfg.WorkerID = fmt.Sprintf("worker_%s_%d", hostname, os.Getpid())
+    33		}
+    34	
+    35		slog.Info("starting MiniCloud worker process...", "worker_id", cfg.WorkerID)
+    36	
+    37		// 3. Initialize allowlisted task registry
+    38		registry := executor.NewRegistry()
+    39	
+    40		// 4. Create and run worker agent with signal cancellation
+    41		agent := worker.NewAgent(cfg, registry)
+    42	
+    43		ctx, cancel := context.WithCancel(context.Background())
+    44		defer cancel()
+    45	
+    46		sigCh := make(chan os.Signal, 1)
+    47		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+    48	
+    49		go func() {
+    50			sig := <-sigCh
+    51			slog.Info("received termination signal, stopping worker agent", "signal", sig.String())
+    52			cancel()
+    53		}()
+    54	
+    55		if err := agent.Run(ctx); err != nil {
+    56			slog.Error("worker agent terminated with error", "err", err)
+    57			os.Exit(1)
+    58		}
+    59	
+    60		slog.Info("worker process exited cleanly")
+    61	}
+
+=================== 08-more-env.txt ===================
+### MaxJobRuntime anywhere
+internal/config/config.go:18:	MaxJobRuntime      time.Duration
+internal/config/config.go:63:		MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+internal/config/config.go:93:	if cfg.MaxJobRuntime <= 0 {
+internal/config/config.go:94:		return nil, fmt.Errorf("MINICLOUD_MAX_JOB_RUNTIME must be positive")
+internal/config/config_test.go:18:	os.Unsetenv("MINICLOUD_MAX_JOB_RUNTIME")
+
+### LogLevel / LOG_LEVEL anywhere
+internal/config/config_test.go:19:	os.Unsetenv("MINICLOUD_LOG_LEVEL")
+internal/config/config.go:19:	LogLevel           string
+internal/config/config.go:33:	LogLevel          string
+internal/config/config.go:64:		LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
+internal/config/config.go:125:		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+
+### DefaultMaxAttempts
+internal/config/config.go:17:	DefaultMaxAttempts int
+internal/config/config.go:62:		DefaultMaxAttempts: getIntEnv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
+internal/config/config.go:90:	if cfg.DefaultMaxAttempts <= 0 {
+internal/config/config.go:91:		return nil, fmt.Errorf("MINICLOUD_DEFAULT_MAX_ATTEMPTS must be positive")
+internal/api/handlers.go:188:	maxAttempts := coordinator.DefaultMaxAttempts
+internal/coordinator/service.go:99:	DefaultMaxAttempts    = 3
+
+### api/handlers.go 170-230
+	TaskType       string          `json:"task_type"`
+	Payload        json.RawMessage `json:"payload"`
+	TimeoutSeconds *int            `json:"timeout_seconds"`
+	MaxAttempts    *int            `json:"max_attempts"`
+}
+
+func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
+	var req SubmitJobRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
+		return
+	}
+
+	if req.TaskType == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "task_type is required")
+		return
+	}
+
+	maxAttempts := coordinator.DefaultMaxAttempts
+	if req.MaxAttempts != nil {
+		if *req.MaxAttempts < coordinator.MinMaxAttempts || *req.MaxAttempts > coordinator.MaxMaxAttempts {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("max_attempts must be between %d and %d", coordinator.MinMaxAttempts, coordinator.MaxMaxAttempts))
+			return
+		}
+		maxAttempts = *req.MaxAttempts
+	}
+
+	timeoutSec := coordinator.DefaultTimeoutSeconds
+	if req.TimeoutSeconds != nil {
+		if *req.TimeoutSeconds < coordinator.MinTimeoutSeconds || *req.TimeoutSeconds > coordinator.MaxTimeoutSeconds {
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("timeout_seconds must be between %d and %d", coordinator.MinTimeoutSeconds, coordinator.MaxTimeoutSeconds))
+			return
+		}
+		timeoutSec = *req.TimeoutSeconds
+	}
+
+	job, err := h.coord.SubmitJob(r.Context(), req.TaskType, req.Payload, timeoutSec, maxAttempts)
+	if err != nil {
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, job)
+}
+
+func (h *Handler) HandleGetJob(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
+		return
+	}
+
+	job, err := h.coord.GetJob(r.Context(), jobID)
+	if err != nil {
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, job)
+}
+
+func (h *Handler) HandleListAttempts(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+	if !isValidIdentifier(jobID) {
+
+### service constants
+internal/coordinator/service.go:99:	DefaultMaxAttempts    = 3
+internal/coordinator/service.go:100:	MinMaxAttempts        = 1
+internal/coordinator/service.go:101:	MaxMaxAttempts        = 20
+internal/coordinator/service.go:106:	MinWorkerSlots          = 1
+internal/coordinator/service.go:107:	MaxWorkerSlots          = 1024
+internal/coordinator/service.go:142:	if maxAttempts < MinMaxAttempts || maxAttempts > MaxMaxAttempts {
+internal/coordinator/service.go:143:		return nil, fmt.Errorf("%w: max_attempts must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinMaxAttempts, MaxMaxAttempts, maxAttempts)
+internal/coordinator/service.go:155:		MaxAttempts:    maxAttempts,
+internal/coordinator/service.go:174:		"max_attempts", job.MaxAttempts,
+internal/coordinator/service.go:227:	if worker.TotalSlots < MinWorkerSlots || worker.TotalSlots > MaxWorkerSlots {
+
+### .env.example
+# PostgreSQL Database Provisioning & Credentials Example
+# Copy this file to .env and configure local development credentials.
+# The real .env is gitignored and must never be committed.
+
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=replace_with_strong_password
+POSTGRES_DB=minicloud
+POSTGRES_PORT=5433
+
+# Database Connection URLs (Host is 127.0.0.1:5433)
+MINICLOUD_DATABASE_URL=postgres://postgres:replace_with_strong_password@127.0.0.1:5433/minicloud?sslmode=disable
+MINICLOUD_TEST_DATABASE_URL=postgres://postgres:replace_with_strong_password@127.0.0.1:5433/minicloud_test?sslmode=disable
+
+### migrate main
+     1	package main
+     2	
+     3	import (
+     4		"context"
+     5		"flag"
+     6		"fmt"
+     7		"log/slog"
+     8		"os"
+     9		"time"
+    10	
+    11		"github.com/jackc/pgx/v5"
+    12	
+    13		"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+    14	)
+    15	
+    16	// ResolveDatabaseURL resolves the database URL primarily from the MINICLOUD_DATABASE_URL
+    17	// environment variable. If the deprecated -database-url flag is provided, a deprecation warning
+    18	// is emitted stating that command-line flags expose credentials in the system process table.
+    19	func ResolveDatabaseURL(flagURL string, getenv func(string) string, warnLogger func(string, ...any)) (string, error) {
+    20		envURL := getenv("MINICLOUD_DATABASE_URL")
+    21		if flagURL != "" {
+    22			warnLogger("DEPRECATION WARNING: passing database URL via -database-url exposes credentials in the system process table; use MINICLOUD_DATABASE_URL environment variable instead")
+    23		}
+    24	
+    25		url := envURL
+    26		if url == "" {
+    27			url = flagURL
+    28		}
+    29		if url == "" {
+    30			return "", fmt.Errorf("database URL must be provided via MINICLOUD_DATABASE_URL environment variable")
+    31		}
+    32		return url, nil
+    33	}
+    34	
+    35	func main() {
+    36		var flagDBURL string
+    37		flag.StringVar(&flagDBURL, "database-url", "", "[DEPRECATED] PostgreSQL database connection URL (use MINICLOUD_DATABASE_URL environment variable)")
+    38		flag.Parse()
+    39	
+    40		dbURL, err := ResolveDatabaseURL(flagDBURL, os.Getenv, func(msg string, args ...any) {
+    41			slog.Warn(msg, args...)
+    42		})
+    43		if err != nil {
+    44			slog.Error("configuration error", "err", err)
+    45			os.Exit(1)
+    46		}
+    47	
+    48		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+    49		defer cancel()
+    50	
+    51		conn, err := pgx.Connect(ctx, dbURL)
+    52		if err != nil {
+    53			slog.Error("failed to connect to postgres", "err", err)
+    54			os.Exit(1)
+    55		}
+    56		defer conn.Close(ctx)
+    57	
+    58		migrator := postgres.NewMigrator()
+    59		applied, err := migrator.Migrate(ctx, conn)
+    60		if err != nil {
+    61			slog.Error("migration failed", "err", err)
+    62			os.Exit(1)
+    63		}
+    64	
+    65		if applied == 0 {
+    66			fmt.Println("Database is already up to date. 0 migrations applied.")
+    67		} else {
+    68			fmt.Printf("Successfully applied %d migration(s).\n", applied)
+    69		}
+    70	}
+
+=================== dead-env.sh ===================
+cd ~/mc-readme-audit; E=~/mc-readme-audit-evidence
+echo "### DEFAULT_MAX_ATTEMPTS=7 LOG_LEVEL=error MAX_JOB_RUNTIME=1s; submit sleep 3000ms with --timeout 30"
+MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_DEFAULT_MAX_ATTEMPTS=7 MINICLOUD_LOG_LEVEL=error MINICLOUD_MAX_JOB_RUNTIME=1s timeout 20 ./bin/coordinator > $E/dead-coord.log 2>&1 & CP=$!
+sleep 1
+MINICLOUD_WORKER_ID=w-dead MINICLOUD_LOG_LEVEL=error timeout 20 ./bin/worker > $E/dead-worker.log 2>&1 & WP=$!
+sleep 2
+./bin/mc submit --task echo --payload '{"message":"x"}'; echo "rc=$?"
+J=$(./bin/mc submit --task sleep --payload '{"duration_ms":3000}' --timeout 30 | awk '/ID:/{print $2}')
+sleep 5
+./bin/mc get $J; echo "rc=$?"
+kill $CP $WP; wait $CP $WP 2>/dev/null
+echo "### coordinator log lines at level INFO despite LOG_LEVEL=error:"; grep -c '"level":"INFO"' $E/dead-coord.log; grep -c '"level":"INFO"' $E/dead-worker.log
+
+=================== 09-dead-env.txt ===================
+### DEFAULT_MAX_ATTEMPTS=7 LOG_LEVEL=error MAX_JOB_RUNTIME=1s; submit sleep 3000ms with --timeout 30
+Job Submitted Successfully!
+  ID:           job_1_fc6067b2022c
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+rc=0
+Job Details:
+  ID:           job_2_c07da2a664e2
+  Task:         sleep
+  State:        SUCCEEDED
+  Attempt ID:   att_2_413638972397
+  Created At:   2026-10-28T12:05:41Z
+  Updated At:   2026-10-28T12:05:44Z
+  Result:
+    Exit Code:  0
+    Output:     {"slept_ms":3000}
+rc=0
+### coordinator log lines at level INFO despite LOG_LEVEL=error:
+12
+10
+
+=================== 10-migrate-step3.txt ===================
+### migrate with .env not sourced, URL unset (README PG step 3 literally)
+2026/10/28 17:35:46 ERROR configuration error err="database URL must be provided via MINICLOUD_DATABASE_URL environment variable"
+rc=1
+
+=================== 11-api.txt ===================
+### routes
+internal/api/server.go:57:	s.mux.HandleFunc("GET /healthz", s.handler.HandleHealthz)
+internal/api/server.go:58:	s.mux.HandleFunc("GET /readyz", s.handler.HandleReadyz)
+internal/api/server.go:61:	s.mux.HandleFunc("POST /v1/jobs", s.handler.HandleSubmitJob)
+internal/api/server.go:62:	s.mux.HandleFunc("GET /v1/jobs/{id}", s.handler.HandleGetJob)
+internal/api/server.go:63:	s.mux.HandleFunc("GET /v1/jobs/{id}/attempts", s.handler.HandleListAttempts)
+internal/api/server.go:64:	s.mux.HandleFunc("POST /v1/jobs/{id}/cancel", s.handler.HandleCancelJob)
+internal/api/server.go:65:	s.mux.HandleFunc("GET /v1/workers", s.handler.HandleListWorkers)
+internal/api/server.go:68:	s.mux.HandleFunc("POST /v1/workers/register", s.handler.HandleRegisterWorker)
+internal/api/server.go:69:	s.mux.HandleFunc("POST /v1/workers/{id}/heartbeat", s.handler.HandleWorkerHeartbeat)
+internal/api/server.go:70:	s.mux.HandleFunc("POST /v1/workers/{id}/poll", s.handler.HandlePollWork)
+internal/api/server.go:71:	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/result", s.handler.HandleReportResult)
+
+### protocol.md endpoint headings
+33:### 3.1 `POST /v1/jobs` — Submit Job
+64:### 3.2 `GET /v1/jobs/{job_id}` — Get Job Details
+90:### 3.3 `GET /v1/jobs/{job_id}/attempts` — List Job Attempts
+114:### 3.4 `POST /v1/jobs/{job_id}/cancel` — Cancel Job
+155:### 3.5 `GET /v1/workers` — List Workers
+177:### 3.6 `GET /healthz` & `GET /readyz` — Health Probes
+185:### 4.1 `POST /v1/workers/register` — Worker Registration
+208:### 4.2 `POST /v1/workers/{worker_id}/heartbeat` — Heartbeat
+229:### 4.3 `POST /v1/workers/{worker_id}/poll` — Claim / Poll Work
+267:### 4.4 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` — Report Outcome
+357:### 6.1 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` — Attempt Lease Renewal
+424:#### `POST /v1/workers/{worker_id}/heartbeat` Response
+427:#### `POST /v1/workers/{worker_id}/poll` Assignment Expansion
+448:#### `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` Request Expansion
+33:### 3.1 `POST /v1/jobs` — Submit Job
+64:### 3.2 `GET /v1/jobs/{job_id}` — Get Job Details
+90:### 3.3 `GET /v1/jobs/{job_id}/attempts` — List Job Attempts
+114:### 3.4 `POST /v1/jobs/{job_id}/cancel` — Cancel Job
+155:### 3.5 `GET /v1/workers` — List Workers
+177:### 3.6 `GET /healthz` & `GET /readyz` — Health Probes
+178:- `GET /healthz`: Process liveness (returns `{"status":"ok"}`).
+179:- `GET /readyz`: Coordinator readiness (returns `{"status":"ready"}`).
+185:### 4.1 `POST /v1/workers/register` — Worker Registration
+208:### 4.2 `POST /v1/workers/{worker_id}/heartbeat` — Heartbeat
+229:### 4.3 `POST /v1/workers/{worker_id}/poll` — Claim / Poll Work
+267:### 4.4 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` — Report Outcome
+357:### 6.1 `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` — Attempt Lease Renewal
+424:#### `POST /v1/workers/{worker_id}/heartbeat` Response
+427:#### `POST /v1/workers/{worker_id}/poll` Assignment Expansion
+448:#### `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` Request Expansion
+
+### validation consts
+internal/api/handlers.go:67:func isValidIdentifier(id string) bool {
+internal/api/handlers.go:218:	if !isValidIdentifier(jobID) {
+internal/api/handlers.go:235:	if !isValidIdentifier(jobID) {
+internal/api/handlers.go:67:func isValidIdentifier(id string) bool {
+internal/api/handlers.go-68-	if len(id) == 0 || len(id) > maxIdentifierLength {
+internal/api/handlers.go-69-		return false
+internal/api/handlers.go-70-	}
+internal/api/handlers.go-71-	for i := 0; i < len(id); i++ {
+internal/api/handlers.go-72-		b := id[i]
+internal/api/handlers.go-73-		if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_' || b == '-' {
+internal/api/handlers.go-74-			continue
+internal/api/handlers.go-75-		}
+102:	DefaultTimeoutSeconds = 60
+103:	MinTimeoutSeconds     = 1
+104:	MaxTimeoutSeconds     = 86400
+145:	if timeoutSec < MinTimeoutSeconds || timeoutSec > MaxTimeoutSeconds {
+146:		return nil, fmt.Errorf("%w: timeout_seconds must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinTimeoutSeconds, MaxTimeoutSeconds, timeoutSec)
+
+### readyz / healthz
+internal/api/handlers.go:99:	if status == http.StatusServiceUnavailable && code == "SERVICE_UNAVAILABLE" {
+internal/api/handlers.go:113:		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable"
+internal/api/handlers.go:418:	if err := h.coord.Ping(r.Context()); err != nil {
+internal/api/handlers.go:420:		writeError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable")
+internal/api/server.go:57:	s.mux.HandleFunc("GET /healthz", s.handler.HandleHealthz)
+internal/api/server.go:58:	s.mux.HandleFunc("GET /readyz", s.handler.HandleReadyz)
+
+### cancel handler status
+253:func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
+254-	jobID := r.PathValue("id")
+255-	if !isValidIdentifier(jobID) {
+256-		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
+257-		return
+258-	}
+259-
+260-	job, err := h.coord.CancelJob(r.Context(), jobID)
+261-	if err != nil {
+262-		status, code, msg := mapDomainErrorToHTTP(err)
+263-		writeError(w, status, code, msg)
+264-		return
+265-	}
+266-
+267-	writeJSON(w, http.StatusOK, map[string]any{
+268-		"job_id":  job.ID,
+269-		"state":   job.State,
+270-		"message": "cancellation processed",
+271-	})
+272-}
+273-
+274-func (h *Handler) HandleListWorkers(w http.ResponseWriter, r *http.Request) {
+275-	workers, err := h.coord.ListWorkers(r.Context())
+276-	if err != nil {
+277-		status, code, msg := mapDomainErrorToHTTP(err)
+278-		writeError(w, status, code, msg)
+
+=================== 12-claims.txt ===================
+### MaxBytesReader / payload limit
+internal/api/handlers.go:65:const maxIdentifierLength = 128
+internal/api/handlers.go:441:			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+internal/executor/executor.go:13:	// MaxPayloadSizeBytes is the hard limit on task input payload (64 KiB).
+internal/executor/executor.go:14:	MaxPayloadSizeBytes = 64 * 1024
+internal/executor/executor.go:66:// 1. Enforces MaxPayloadSizeBytes.
+internal/executor/executor.go:74:	if len(payload) > MaxPayloadSizeBytes {
+internal/executor/executor.go:75:		return "", 1, fmt.Errorf("%w: payload size %d exceeds %d bytes", domain.ErrPayloadTooLarge, len(payload), MaxPayloadSizeBytes)
+internal/coordinator/service.go:129:	if len(payload) > executor.MaxPayloadSizeBytes {
+
+### worker backoff / re-register
+24:// ComputeBackoffWithJitter calculates exponential backoff with full jitter.
+25:func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Duration {
+37:	jitterFrac := 0.5 + rand.Float64()*0.5
+38:	return time.Duration(float64(dur) * jitterFrac)
+92:	baseBackoff := 200 * time.Millisecond
+93:	maxBackoff := 3 * time.Second
+106:					time.Sleep(baseBackoff)
+109:					time.Sleep(baseBackoff)
+112:					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+113:					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
+114:					time.Sleep(backoff)
+117:					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+118:					slog.Warn("work poll error", "err", err, "backoff", backoff)
+119:					time.Sleep(backoff)
+126:				time.Sleep(baseBackoff)
+190:	if resp.StatusCode == http.StatusNotFound {
+191:		slog.Warn("worker not found on coordinator during heartbeat (404); re-registering", "worker_id", a.cfg.WorkerID)
+193:			return fmt.Errorf("re-registration failed after 404 heartbeat: %w", regErr)
+198:	if resp.StatusCode >= 500 {
+221:	if resp.StatusCode == http.StatusNotFound {
+222:		slog.Warn("worker not found on coordinator during poll (404); re-registering", "worker_id", a.cfg.WorkerID)
+224:			return nil, fmt.Errorf("re-registration failed after 404 poll: %w", regErr)
+248:	if resp.StatusCode >= 500 {
+269:	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict || statusCode == http.StatusNotFound
+
+### CancelJob in service + renew/lease in non-test code
+195:func (s *Service) CancelJob(ctx context.Context, id string) (*domain.Job, error) {
+196-	s.mu.Lock()
+197-	defer s.mu.Unlock()
+198-
+199-	job, err := s.repo.CancelJob(ctx, id)
+200-	if err != nil {
+201-		return nil, err
+202-	}
+203-
+204-	slog.Info("job cancellation requested",
+205-		"job_id", job.ID,
+206-		"state", job.State,
+207-	)
+208-
+209-	return job, nil
+210-}
+211-
+212-// RegisterWorker registers or updates a worker process.
+213-// Validation bounds (SEC-015, SEC-016, SEC-017):
+214-//   - TotalSlots must be between 1 and 1024.
+215-//   - Version length must not exceed 64 characters; empty version is allowed (default: "").
+216-//   - SupportedTasks must contain at most 16 unique tasks; each task name must be 1..64 chars of [a-z0-9_].
+217-//     Duplicates are removed automatically.
+218-//     An empty SupportedTasks list is allowed (the worker registers but cannot claim any jobs).
+219-//     Unknown task names are accepted upon registration to support rolling worker upgrades.
+220-func (s *Service) RegisterWorker(ctx context.Context, worker *domain.Worker) error {
+221-	s.mu.Lock()
+222-	defer s.mu.Unlock()
+223-
+224-	if worker.ID == "" {
+225-		return fmt.Errorf("%w: worker_id cannot be empty", domain.ErrInvalidRequest)
+
+### FOR UPDATE SKIP LOCKED
+internal/storage/postgres/repository.go:708://  2. Begin transaction and lock candidate job row FOR UPDATE SKIP LOCKED.
+internal/storage/postgres/repository.go:755:	// Step 3: SELECT next eligible QUEUED job FOR UPDATE SKIP LOCKED
+internal/storage/postgres/repository.go:764:		FOR UPDATE SKIP LOCKED;
+
+### advisory lock / checksum
+internal/storage/postgres/migrator.go:5:	"crypto/sha256"
+internal/storage/postgres/migrator.go:26:// used for serializing migration transactions via pg_advisory_xact_lock.
+internal/storage/postgres/migrator.go:30:// SHA-256 checksum than the embedded migration file.
+internal/storage/postgres/migrator.go:31:var ErrChecksumMismatch = errors.New("migration checksum mismatch: file has been modified after being applied")
+internal/storage/postgres/migrator.go:113:		hash := sha256.Sum256(contentBytes)
+internal/storage/postgres/migrator.go:114:		checksum := hex.EncodeToString(hash[:])
+internal/storage/postgres/migrator.go:120:			Checksum: checksum,
+internal/storage/postgres/migrator.go:134:// 1. Takes pg_advisory_xact_lock FIRST inside the transaction before any catalog access.
+internal/storage/postgres/migrator.go:136:// 3. Verifies SHA-256 checksums of all previously applied migrations (fails loudly on tampering).
+internal/storage/postgres/migrator.go:153:	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1);", m.lockID); err != nil {
+
+### domain states
+internal/domain/attempt.go:38:	ClassPermanent    ErrorClass = "PERMANENT"
+internal/domain/attempt.go:39:	ClassTransient    ErrorClass = "TRANSIENT"
+internal/domain/attempt.go:40:	ClassUnknown      ErrorClass = "UNKNOWN"
+internal/domain/attempt.go:41:	ClassLeaseExpired ErrorClass = "LEASE_EXPIRED"
+internal/domain/events.go:9:	JobEventSubmitted       JobEventType = "JOB_SUBMITTED"
+internal/domain/events.go:10:	JobEventQueued          JobEventType = "JOB_QUEUED"
+internal/domain/events.go:11:	JobEventDispatched      JobEventType = "JOB_DISPATCHED"
+internal/domain/events.go:12:	JobEventCompleted       JobEventType = "JOB_COMPLETED"
+internal/domain/events.go:13:	JobEventFailed          JobEventType = "JOB_FAILED"
+internal/domain/events.go:14:	JobEventCancelled       JobEventType = "JOB_CANCELLED"
+internal/domain/events.go:15:	JobEventCancelRequested JobEventType = "JOB_CANCEL_REQUESTED"
+internal/domain/events.go:19:	JobEventDiagnosticLateResult JobEventType = "DIAGNOSTIC_LATE_RESULT"
+internal/domain/state.go:7:	StateSubmitted       JobState = "SUBMITTED"
+internal/domain/state.go:8:	StateQueued          JobState = "QUEUED"
+internal/domain/state.go:9:	StateRunning         JobState = "RUNNING"
+internal/domain/state.go:10:	StateCancelRequested JobState = "CANCEL_REQUESTED"
+internal/domain/state.go:11:	StateRetrying        JobState = "RETRYING"
+internal/domain/state.go:12:	StateSucceeded       JobState = "SUCCEEDED"
+internal/domain/state.go:13:	StateFailed          JobState = "FAILED"
+internal/domain/state.go:14:	StateCancelled       JobState = "CANCELLED"
+internal/domain/state.go:15:	StateRejected        JobState = "REJECTED"
+internal/domain/state.go:23:	AttemptPending   AttemptState = "PENDING"
+internal/domain/state.go:24:	AttemptRunning   AttemptState = "RUNNING"
+internal/domain/state.go:25:	AttemptCompleted AttemptState = "COMPLETED"
+internal/domain/state.go:26:	AttemptFailed    AttemptState = "FAILED"
+internal/domain/state.go:27:	AttemptTimedOut  AttemptState = "TIMED_OUT"
+internal/domain/state.go:28:	AttemptCancelled AttemptState = "CANCELLED"
+internal/domain/state.go:29:	AttemptLost      AttemptState = "LOST"
+internal/domain/state.go:36:	WorkerStatusHealthy   WorkerStatus = "HEALTHY"
+internal/domain/state.go:37:	WorkerStatusUnhealthy WorkerStatus = "UNHEALTHY"
+internal/domain/state.go:38:	WorkerStatusDraining  WorkerStatus = "DRAINING"
+
+### worker id validation on register
+67:func isValidIdentifier(id string) bool {
+217:	jobID := r.PathValue("id")
+218:	if !isValidIdentifier(jobID) {
+234:	jobID := r.PathValue("id")
+235:	if !isValidIdentifier(jobID) {
+254:	jobID := r.PathValue("id")
+255:	if !isValidIdentifier(jobID) {
+294:	if !isValidIdentifier(worker.ID) {
+316:	workerID := r.PathValue("id")
+317:	if !isValidIdentifier(workerID) {
+338:	workerID := r.PathValue("id")
+339:	if !isValidIdentifier(workerID) {
+362:	WorkerID   string `json:"worker_id"`
+369:	jobID := r.PathValue("id")
+370:	attemptID := r.PathValue("attempt_id")
+371:	if !isValidIdentifier(jobID) {
+375:	if !isValidIdentifier(attemptID) {
+386:	if !isValidIdentifier(req.WorkerID) {
+
+### scheduler/queue in dispatch path
+cmd/coordinator/main.go:46:	sched := scheduler.NewRoundRobinScheduler()
+internal/storage/inmemory.go:379:// Does NOT call the scheduler.
+internal/coordinator/service.go:57:	scheduler     scheduler.Scheduler
+internal/coordinator/service.go:67:func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+internal/coordinator/service.go:82:func NewPostgresService(repo storage.Repository, sched scheduler.Scheduler, reg *executor.Registry, workerTimeout time.Duration) *Service {
+internal/coordinator/service.go:327:	// Dispatch logging per ADR-0011 (fifo_pull): do NOT call scheduler.SelectWorker anywhere in the
+
+=================== 13-layout-state.txt ===================
+### backoff
+
+// ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).
+var ErrServiceUnavailable = errors.New("service unavailable: database outage or coordinator failure")
+
+// ComputeBackoffWithJitter calculates exponential backoff with full jitter.
+func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Duration {
+	if failureCount <= 0 {
+		return base
+	}
+	multiplier := 1 << (failureCount - 1)
+	if multiplier > 16 {
+		multiplier = 16
+	}
+	dur := base * time.Duration(multiplier)
+	if dur > max {
+		dur = max
+	}
+	jitterFrac := 0.5 + rand.Float64()*0.5
+	return time.Duration(float64(dur) * jitterFrac)
+}
+
+// Agent runs an independent worker process communicating strictly over HTTP.
+type Agent struct {
+
+### layout reality
+cmd
+cmd/coordinator
+cmd/mc
+cmd/migrate
+cmd/worker
+deployments
+internal
+internal/api
+internal/config
+internal/coordinator
+internal/domain
+internal/executor
+internal/queue
+internal/scheduler
+internal/storage
+internal/storage/postgres
+internal/storage/storagetest
+internal/worker
+scripts
+tests
+tests/architecture
+tests/docs
+tests/integration
+tests/review
+deployments:
+docker-compose.yml
+init-test-db.sh
+
+internal/queue:
+inmemory.go
+inmemory_test.go
+queue.go
+
+internal/scheduler:
+round_robin.go
+round_robin_test.go
+scheduler.go
+
+scripts:
+demo.sh
+
+### state-machine.md states
+12:| `SUBMITTED` | Ephemeral / Initial | Job has passed schema validation and been recorded by the API. | `QUEUED`, `REJECTED` |
+16:| `RETRYING` | Active / Backoff | An attempt failed or timed out, and the job is waiting out exponential backoff before becoming eligible for re-dispatch. | `RUNNING`, `FAILED`, `CANCELLED` |
+20:| `REJECTED` | **Terminal** | Job submission was rejected before acceptance (e.g., unsupported task type, invalid payload bounds). | *None* |
+64:  `AttemptPending = "PENDING"`, `AttemptRunning = "RUNNING"`, `AttemptCompleted = "COMPLETED"`, `AttemptFailed = "FAILED"`, `AttemptExpired = "EXPIRED"`, `AttemptCanceled = "CANCELED"`.
+66:  `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
+70:- **Canonical Attempt States**: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`.
+77:| `AttemptPending` | `"PENDING"` | `PENDING` | `repo.AssignJob` (planned; post-Phase 4 Round-Robin) | Pre-assignment window before worker claims slot |
+89:    AttemptPending   AttemptState = "PENDING"
+
+### PROJECT_STATE: cooperative cancellation / not yet
+5:- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
+17:  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndExpiry (planned test) and the CommitAttempt 409 evaluation order; Slice 4c receives the coordinator sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop and the delivery retry budget.
+24:  - **Symmetric Accept-Until-Swept Rule (ADR-0014, ADR-0016, `docs/protocol.md`, `docs/state-machine.md`, `docs/failure-model.md`, `docs/fault-injection-plan.md`):** Resolved renewal vs grace design contradiction. Leases grant exclusive rights until swept to `LOST`. While `attempts.state == 'RUNNING'`, both `RenewAttemptLease` and `CommitAttempt` succeed even if `lease_expires_at` has passed on database time, extending the lease from current database time (`clock_timestamp() + lease_duration`). Prevents cascading worker aborts during coordinator restarts and database outages. HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) is returned only once an attempt has been swept to `LOST`. Documented trade-off (alive but delayed worker retains attempt until next sweeper pass) and added planned tests.
+182:  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.
+186:### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+201:  - Renewal flood defense: formally documented as designed, not yet implemented (R-23); planned endpoint defenses (state short-circuit, indexed lookup, statement_timeout); accepted risk under SEC-004.
+205:### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
+209:  - Cooperative cancellation: worker receives `cancel_requested: true` via renewal, cancels execution context, preempted executor returns `context.Canceled`, worker commits with cancel status.
+
+### README mentions of cancel
+19:- **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`PENDING`, `QUEUED`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCEL_REQUESTED`, `CANCELLED`) and attempt states (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `LOST`, `CANCELLED`).
+263:- `POST /v1/jobs/{id}/cancel` - Request cooperative cancellation of a job. Returns HTTP 200.
+328:- **V1 (Phases 0–4):** Core execution with allowlisted tasks, transactional FIFO pull dispatch (`fifo_pull`), PostgreSQL durability, lease management, bounded retries, cooperative cancellation, and post-Phase 4 assignment-based round-robin scheduling.
+341:- [docs/phase4-plan.md](docs/phase4-plan.md): Phase 4 implementation plan for leases, retries, and cancellation.
+
+### CancelJob inmemory
+718:func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
+719-	r.mu.Lock()
+720-	defer r.mu.Unlock()
+721-
+722-	job, exists := r.jobs[jobID]
+723-	if !exists {
+724-		return nil, domain.ErrJobNotFound
+725-	}
+726-	if job.State.IsTerminal() {
+727-		return nil, domain.ErrJobAlreadyTerminal
+728-	}
+729-
+730-	if job.State == domain.StateCancelRequested {
+731-		copied := *job
+732-		return &copied, nil
+733-	}
+734-
+735-	fromState := job.State
+736-	var targetState domain.JobState
+737-	var eventType domain.JobEventType
+738-	if job.State == domain.StateRunning {
+739-		targetState = domain.StateCancelRequested
+740-		eventType = domain.JobEventCancelRequested
+741-	} else {
+742-		// QUEUED and RETRYING cancel immediately.
+743-		targetState = domain.StateCancelled
+744-		eventType = domain.JobEventCancelled
+745-	}
+746-
+747-	if err := job.TransitionTo(targetState); err != nil {
+748-		return nil, err
+749-	}
+750-	now := r.clock.Now()
+751-	job.UpdatedAt = now
+752-	if targetState == domain.StateCancelRequested {
+753-		job.CancelRequestedAt = &now
+754-	} else {
+755-		job.NotBefore = nil
+756-	}
+757-
+758-	r.recordEventLocked(&domain.JobEvent{
+759-		JobID:     jobID,
+760-		EventType: eventType,
+761-		FromState: &fromState,
+762-		ToState:   &targetState,
+763-		CreatedAt: now,
+
+=================== 14-mc-schema-license.txt ===================
+### mc main (subcommands/flags/get output)
+32:	case "submit":
+34:	case "get":
+36:	case "attempts":
+38:	case "workers":
+40:	case "help", "-h", "--help":
+50:	fmt.Println(`MiniCloud CLI (mc)
+63:	fs := flag.NewFlagSet("submit", flag.ExitOnError)
+105:		fmt.Println(string(body))
+109:	fmt.Printf("Job Submitted Successfully!\n")
+110:	fmt.Printf("  ID:           %s\n", job.ID)
+111:	fmt.Printf("  Task:         %s\n", job.TaskType)
+112:	fmt.Printf("  State:        %s\n", job.State)
+113:	fmt.Printf("  Max Attempts: %d\n", job.MaxAttempts)
+139:		fmt.Println(string(body))
+143:	fmt.Printf("Job Details:\n")
+144:	fmt.Printf("  ID:           %s\n", job.ID)
+145:	fmt.Printf("  Task:         %s\n", job.TaskType)
+146:	fmt.Printf("  State:        %s\n", job.State)
+147:	fmt.Printf("  Attempt ID:   %s\n", job.CurrentAttemptID)
+148:	fmt.Printf("  Created At:   %s\n", job.CreatedAt.Format(time.RFC3339))
+149:	fmt.Printf("  Updated At:   %s\n", job.UpdatedAt.Format(time.RFC3339))
+151:		fmt.Printf("  Result:\n")
+152:		fmt.Printf("    Exit Code:  %d\n", job.Result.ExitCode)
+153:		fmt.Printf("    Output:     %s\n", job.Result.Output)
+155:			fmt.Printf("    Error:      %s\n", job.Result.Error)
+186:		fmt.Println(string(body))
+190:	fmt.Printf("Attempts for Job %s (%d total):\n", res.JobID, len(res.Attempts))
+225:		fmt.Println(string(body))
+229:	fmt.Printf("Registered Workers (%d total):\n", len(res.Workers))
+
+### schema tables
+internal/storage/postgres/migrations/000001_initial_schema.sql:12:CREATE TABLE jobs (
+internal/storage/postgres/migrations/000001_initial_schema.sql:54:CREATE TABLE workers (
+internal/storage/postgres/migrations/000001_initial_schema.sql:74:CREATE TABLE attempts (
+internal/storage/postgres/migrations/000001_initial_schema.sql:133:CREATE TABLE results (
+internal/storage/postgres/migrations/000001_initial_schema.sql:152:CREATE TABLE job_events (
+
+### protocol 3.1 status
+### 3.1 `POST /v1/jobs` — Submit Job
+Submits a computational job for asynchronous execution.
+
+**Request:**
+```json
+{
+  "task_type": "sha256_loop",
+  "payload": {
+    "iterations": 10000,
+    "input": "minicloud-benchmark"
+  },
+  "max_attempts": 3,
+  "timeout_seconds": 30
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "job_id": "job_01j7xyz...",
+  "state": "QUEUED",
+  "task_type": "sha256_loop",
+  "created_at": "2026-10-19T22:00:00Z"
+}
+```
+
+**Errors:**
+- `400 Bad Request`: `UNKNOWN_TASK_TYPE`, `PAYLOAD_TOO_LARGE`, `INVALID_TIMEOUT`.
+
+---
+
+### LICENSE files
+ls: cannot access 'LICENSE*': No such file or directory
+ls: cannot access 'COPYING*': No such file or directory
+
+### readyz in memory mode
+87:func (s *Service) Ping(ctx context.Context) error {
+88-	return s.repo.Ping(ctx)
+89-}
+90-
+91-// SetClock injects a custom clock (e.g. for deterministic unit tests).
+92-func (s *Service) SetClock(c Clock) {
+93-	s.mu.Lock()
+94-	defer s.mu.Unlock()
+95-	s.clock = c
+785:// Ping implements storage.Repository. For InMemoryRepository it is always healthy.
+786:func (r *InMemoryRepository) Ping(ctx context.Context) error {
+
+=================== 15-testing.txt ===================
+### tests that stop container
+31:	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+33:		t.Skip("skipping postgres integration test: MINICLOUD_TEST_DATABASE_URL is unset")
+109:func stopPostgresContainer(t *testing.T) {
+111:	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "stop", "postgres")
+113:		t.Fatalf("failed to stop postgres container: %v, output: %s", err, string(out))
+117:func startPostgresContainer(t *testing.T) {
+119:	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "start", "postgres")
+121:		t.Fatalf("failed to start postgres container: %v, output: %s", err, string(out))
+124:	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+142:	t.Fatalf("timed out waiting for postgres container to become healthy after start")
+156:// TestPostgresWiring_CoordinatorRestartRecovery verifies real-process durability across coordinator kill:
+157://  1. Coordinator 1 starts against PostgreSQL storage.
+160://  4. Coordinator 2 starts on the exact same port and connects to the same PostgreSQL schema.
+167:func TestPostgresWiring_CoordinatorRestartRecovery(t *testing.T) {
+188:	startCoordCmd := func() *exec.Cmd {
+203:	coordCmd1 := startCoordCmd()
+205:		t.Fatalf("failed to start coordinator 1: %v", err)
+227:	workerID := "real-worker-restart-1"
+239:		t.Fatalf("failed to start worker process: %v", err)
+284:	coordCmd2 := startCoordCmd()
+286:		t.Fatalf("failed to start coordinator 2: %v", err)
+321:		t.Fatalf("expected in-flight job 1 to be accepted by restarted coordinator and SUCCEED, got %s", state1)
+342:// 1. Coordinator starts against healthy PostgreSQL.
+344:// 3. PostgreSQL container is stopped via docker compose stop postgres.
+347:// 6. PostgreSQL container is restored via docker compose start postgres.
+348:// 7. Coordinator automatically recovers without restart; /readyz returns 200 OK.
+353:	// Absolute safety guard: always restart container on test cleanup
+355:		startPostgresContainer(t)
+378:		t.Fatalf("failed to start coordinator: %v", err)
+406:	stopPostgresContainer(t)
+452:	startPostgresContainer(t)
+470:		t.Fatalf("coordinator failed to recover after database was restarted")
+487:// TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart executes 50 concurrent jobs
+488:// across 3 worker processes while killing and restarting the coordinator mid-run. It verifies:
+492:func TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart(t *testing.T) {
+511:	startCoordCmd := func() *exec.Cmd {
+526:	coordCmd := startCoordCmd()
+528:		t.Fatalf("failed to start coordinator: %v", err)
+564:			t.Fatalf("failed to start worker %d: %v", i, err)
+619:	// Restart coordinator
+----
+1011:	testDBURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+
+### other places that touch docker in tests
+tests/integration/postgres_wiring_test.go
+
+### _test suffix guard location
+internal/storage/inmemory_test.go:565:		ID:        "job_event_test",
+internal/storage/inmemory_test.go:577:	events, err := repo.ListEventsByJob(ctx, "job_event_test")
+internal/storage/inmemory_test.go:589:	cancelledJob, err := repo.CancelJob(ctx, "job_event_test")
+internal/storage/inmemory_test.go:597:	eventsAfterCancel, err := repo.ListEventsByJob(ctx, "job_event_test")
+internal/storage/inmemory_test.go:607:	_, err = repo.CancelJob(ctx, "job_event_test")
+internal/storage/postgres/testhelper_test.go:33:	// Hard safety guard: refuse execution unless database name ends in "_test"
+internal/storage/postgres/testhelper_test.go:34:	if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+internal/storage/postgres/testhelper_test.go:35:		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.ConnConfig.Database)
+internal/storage/postgres/security_test.go:220:		ID:             "j_replay_test",
+internal/storage/postgres/security_test.go:231:	att, err := repo.DispatchJob(ctx, "j_replay_test", "w_auth_1")
+
+### docs/testing-postgres.md warning?
+33:    restart: unless-stopped
+111:# Stop local PostgreSQL container (named volume minicloud_pgdata preserved)
+
+=================== 16-container-tests.txt ===================
+### stop/startPostgresContainer callers
+tests/integration/part_d_security_test.go:799:		startPostgresContainer(t)
+tests/integration/part_d_security_test.go:916:	stopPostgresContainer(t)
+tests/integration/part_d_security_test.go:923:	startPostgresContainer(t)
+tests/integration/part_d_security_test.go:1007:		startPostgresContainer(t)
+tests/integration/part_d_security_test.go:1134:	stopPostgresContainer(t)
+tests/integration/part_d_security_test.go:1151:	startPostgresContainer(t)
+tests/integration/postgres_wiring_test.go:355:		startPostgresContainer(t)
+tests/integration/postgres_wiring_test.go:406:	stopPostgresContainer(t)
+tests/integration/postgres_wiring_test.go:452:	startPostgresContainer(t)
+
+### part_d test funcs
+46:func TestSecurity_PartD_PoolExhaustion(t *testing.T) {
+356:func TestSecurity_PartD_SlowQuery_ContextDeadline(t *testing.T) {
+489:func TestSecurity_PartD_SQLInjection_EndToEnd(t *testing.T) {
+794:func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *testing.T) {
+1002:func TestSecurity_PartD_LeakScan(t *testing.T) {
+
+### part_d around 1000-1030
+// - hostnames/ports of the database
+// - lease tokens
+func TestSecurity_PartD_LeakScan(t *testing.T) {
+	schemaURL, pool, schemaName := setupPostgresTestSchema(t)
+
+	// Absolute safety guard: always restore database container on cleanup
+	t.Cleanup(func() {
+		startPostgresContainer(t)
+	})
+
+	// Extract sensitive tokens from environment inside test (never print them)
+	testDBURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+	parsedURL, err := url.Parse(testDBURL)
+	if err != nil {
+		t.Fatalf("failed to parse test db url: %v", err)
+	}
+	dbPassword, _ := parsedURL.User.Password()
+	dbHost := parsedURL.Hostname()
+	dbPort := parsedURL.Port()
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+
+	tmpDir := t.TempDir()
+	coordBin := filepath.Join(tmpDir, "coordinator")
+	cmdBuildCoord := exec.Command("go", "build", "-o", coordBin, "../../cmd/coordinator")
+	if out, err := cmdBuildCoord.CombinedOutput(); err != nil {
+		t.Fatalf("failed to build coordinator: %v, output: %s", err, string(out))
+	}
+
+	coordAddr, _ := getFreePort(t)
+
+### tests list integration
+TestSecurity_PartD_PoolExhaustion
+TestSecurity_PartD_SlowQuery_ContextDeadline
+TestSecurity_PartD_SQLInjection_EndToEnd
+TestSecurity_PartD_Outage_MidDispatchAndMidCommit
+TestSecurity_PartD_LeakScan
+TestPostgresWiring_CoordinatorRestartRecovery
+TestPostgresWiring_DatabaseOutageAndRecovery
+TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart
+
+### which integration tests in pkg exist that require DB URL
+tests/integration/part_d_security_test.go
+tests/integration/postgres_wiring_test.go
+
+=================== 17-guard.txt ===================
+### suffix guard anywhere
+tests/docs/citations_test.go:201:			if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+tests/docs/citations_test.go:232:		if len(content) > 0 && !bytes.HasSuffix(content, []byte{'\n'}) {
+tests/integration/postgres_wiring_test.go:27:// database name must end in '_test' and credentials are never printed.
+tests/integration/postgres_wiring_test.go:41:	// Hard safety guard: refuse execution unless database name ends in "_test"
+tests/integration/postgres_wiring_test.go:42:	if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+tests/integration/postgres_wiring_test.go:43:		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.ConnConfig.Database)
+tests/review/sec022_probe_test.go:176:	if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+tests/review/sec022_probe_test.go:177:		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.ConnConfig.Database)
+internal/storage/postgres/migrator_test.go:34:	// Hard safety guard: refuse execution unless database name ends in "_test"
+internal/storage/postgres/migrator_test.go:35:	if !strings.HasSuffix(cfg.Database, "_test") {
+
+### setupPostgresTestSchema
+tests/integration/postgres_wiring_test.go:28:func setupPostgresTestSchema(t *testing.T) (string, *pgxpool.Pool, string) {
+tests/integration/postgres_wiring_test.go-29-	t.Helper()
+tests/integration/postgres_wiring_test.go-30-
+tests/integration/postgres_wiring_test.go-31-	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")
+tests/integration/postgres_wiring_test.go-32-	if testURL == "" {
+tests/integration/postgres_wiring_test.go-33-		t.Skip("skipping postgres integration test: MINICLOUD_TEST_DATABASE_URL is unset")
+tests/integration/postgres_wiring_test.go-34-	}
+tests/integration/postgres_wiring_test.go-35-
+tests/integration/postgres_wiring_test.go-36-	cfg, err := pgxpool.ParseConfig(testURL)
+tests/integration/postgres_wiring_test.go-37-	if err != nil {
+tests/integration/postgres_wiring_test.go-38-		t.Fatalf("failed to parse test database url: %v", err)
+tests/integration/postgres_wiring_test.go-39-	}
+tests/integration/postgres_wiring_test.go-40-
+tests/integration/postgres_wiring_test.go-41-	// Hard safety guard: refuse execution unless database name ends in "_test"
+tests/integration/postgres_wiring_test.go-42-	if !strings.HasSuffix(cfg.ConnConfig.Database, "_test") {
+tests/integration/postgres_wiring_test.go-43-		t.Fatalf("SAFETY VIOLATION: refusing to run test against database %q; name must end in '_test'", cfg.ConnConfig.Database)
+tests/integration/postgres_wiring_test.go-44-	}
+tests/integration/postgres_wiring_test.go-45-
+tests/integration/postgres_wiring_test.go-46-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+tests/integration/postgres_wiring_test.go-47-	defer cancel()
+tests/integration/postgres_wiring_test.go-48-
+tests/integration/postgres_wiring_test.go-49-	adminConn, err := pgx.Connect(ctx, testURL)
+tests/integration/postgres_wiring_test.go-50-	if err != nil {
+tests/integration/postgres_wiring_test.go-51-		t.Fatalf("failed to connect admin conn: %v", err)
+tests/integration/postgres_wiring_test.go-52-	}
+tests/integration/postgres_wiring_test.go-53-	defer adminConn.Close(ctx)
+tests/integration/postgres_wiring_test.go-54-
+tests/integration/postgres_wiring_test.go-55-	b := make([]byte, 4)
+tests/integration/postgres_wiring_test.go-56-	if _, err := rand.Read(b); err != nil {
+tests/integration/postgres_wiring_test.go-57-		t.Fatalf("failed to generate random schema name: %v", err)
+tests/integration/postgres_wiring_test.go-58-	}
+tests/integration/postgres_wiring_test.go-59-	schemaName := fmt.Sprintf("test_wire_%s", hex.EncodeToString(b))
+tests/integration/postgres_wiring_test.go-60-
+tests/integration/postgres_wiring_test.go-61-	if _, err := adminConn.Exec(ctx, fmt.Sprintf("CREATE SCHEMA %s;", schemaName)); err != nil {
+tests/integration/postgres_wiring_test.go-62-		t.Fatalf("failed to create schema %s: %v", schemaName, err)
+tests/integration/postgres_wiring_test.go-63-	}
+tests/integration/postgres_wiring_test.go-64-
+tests/integration/postgres_wiring_test.go-65-	if _, err := adminConn.Exec(ctx, fmt.Sprintf("SET search_path TO %s;", schemaName)); err != nil {
+tests/integration/postgres_wiring_test.go-66-		_, _ = adminConn.Exec(ctx, fmt.Sprintf("DROP SCHEMA %s CASCADE;", schemaName))
+tests/integration/postgres_wiring_test.go-67-		t.Fatalf("failed to set search_path: %v", err)
+tests/integration/postgres_wiring_test.go-68-	}
+
+=================== 18-gates.txt ===================
+### env check
+0
+(no .env above = good)
+### gofmt
+CLEAN
+rc=0
+### go vet
+rc=0
+### go build
+rc=0
+### make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.805s
+rc=0
+
+=================== 19-gate-v-summary.txt ===================
+go test rc=0
+PASS 90 SKIP 28 FAIL 0
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	[no test files]
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/mc	[no test files]
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/worker	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.070s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.036s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.129s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.198s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.082s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.090s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.030s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.777s
+?   	github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.230s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.650s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.042s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	26.697s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	13.757s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.093s
+
+=================== render-check.py ===================
+import re, os, sys, unicodedata, subprocess
+os.chdir(os.path.expanduser('~/mc-readme-audit'))
+t = open('README.md', encoding='utf-8').read()
+lines = t.split('\n')
+# fences
+fence = [i+1 for i,l in enumerate(lines) if l.startswith('```')]
+print('fence lines count', len(fence), '(even = balanced):', len(fence)%2==0)
+# headings
+heads = [(i+1,l) for i,l in enumerate(lines) if re.match(r'#{1,6} ', l)]
+infence=False; real=[]
+for i,l in enumerate(lines):
+    if l.startswith('```'): infence = not infence
+    if not infence and re.match(r'#{1,6} ', l): real.append((i+1,l))
+print('headings outside fences:'); [print(' ',n,h) for n,h in real]
+# h1 count
+print('H1 count', sum(1 for _,h in real if h.startswith('# ')))
+# links
+links = re.findall(r'\[[^\]]*\]\(([^)]+)\)', t)
+print('markdown links', len(links))
+bad=[]
+for l in links:
+    if l.startswith('http'): print(' external', l); continue
+    p = l.split('#')[0]
+    if not os.path.exists(p): bad.append(l)
+print('unresolved relative links:', bad)
+# emojis / non-ascii symbols
+na = [(i+1,c,unicodedata.name(c,'?')) for i,l in enumerate(lines) for c in l if ord(c)>127]
+from collections import Counter
+print('non-ASCII chars:', Counter((c,n) for _,c,n in na))
+emo = [x for x in na if unicodedata.category(x[1]) in ('So','Sk') and not x[2].startswith('BOX')]
+print('emoji-like symbols:', emo)
+# line-number citations
+print('line-number citations:', re.findall(r'[\w/.]+\.(?:go|md|sql|sh|yml):\d+', t), re.findall(r'\blines? \d+', t))
+# marketing / overclaim words
+for w in ['production','secure','hardened','robust','enterprise','scalable','blazing','powerful','seamless','battle','best-in-class','state-of-the-art','fault-tolerant','highly','reliable','cloud-native','guarantee','exactly-once','safe']:
+    hits=[(i+1,l.strip()[:110]) for i,l in enumerate(lines) if re.search(w,l,re.I)]
+    if hits: print('WORD',w,hits)
+# diagram widths
+inblk=False
+for i,l in enumerate(lines):
+    if l.startswith('```text') and 36<=i+2<=40: inblk=True; continue
+dl = lines[35:73]
+w = Counter(len(x) for x in dl if x.startswith('+') or x.startswith('|'))
+print('diagram box-line widths (for lines starting + or |):', w)
+for i,x in enumerate(dl):
+    if (x.startswith('+') or x.startswith('|')) and len(x)!=65: print('  off-width line', 36+i, len(x), repr(x))
+# make targets
+mk = open('Makefile').read()
+phony = re.search(r'\.PHONY:(.*)', mk).group(1).split()
+claimed = re.findall(r'^- `make ([a-z-]+)`', t, re.M)
+print('README make targets', len(claimed), claimed)
+print('Makefile .PHONY', len(phony), phony)
+print('in Makefile not in README:', sorted(set(phony)-set(claimed)))
+print('in README not in Makefile:', sorted(set(claimed)-set(phony)))
+# backticked paths
+paths = set(re.findall(r'`((?:cmd|internal|deployments|docs|tests|scripts)/[A-Za-z0-9_./-]*|\.env\.example|AGENTS\.md|Makefile)`', t))
+missing=[p for p in sorted(paths) if not os.path.exists(p.rstrip('/'))]
+print('backticked repo paths', len(paths), 'missing:', missing)
+
+=================== 20-render.txt ===================
+fence lines count 38 (even = balanced): True
+headings outside fences:
+  1 # MiniCloud
+  5 ## Status
+  11 ## What Works Today
+  25 ## Architecture
+  76 ## Quick Start
+  78 ### 1. In-Memory Mode (Primary Quick Start)
+  163 ### 2. PostgreSQL Mode (Durable Persistence)
+  199 ## Configuration
+  228 ## CLI Usage
+  251 ## HTTP API
+  255 ### System Health
+  259 ### Job Lifecycle
+  265 ### Worker Protocol
+  272 ## Project Layout
+  301 ## Testing
+  303 ### Make Targets
+  319 ### Test Guardrails and Warnings
+  324 ## Roadmap
+  332 ## Documentation Index
+  351 ## Security
+  355 ## Development Workflow
+  359 ## License
+H1 count 1
+markdown links 24
+unresolved relative links: []
+non-ASCII chars: Counter({('─', 'BOX DRAWINGS LIGHT HORIZONTAL'): 46, ('├', 'BOX DRAWINGS LIGHT VERTICAL AND RIGHT'): 19, ('│', 'BOX DRAWINGS LIGHT VERTICAL'): 13, ('└', 'BOX DRAWINGS LIGHT UP AND RIGHT'): 4, ('—', 'EM DASH'): 1, ('–', 'EN DASH'): 1})
+emoji-like symbols: []
+line-number citations: [] []
+WORD production [(3, 'MiniCloud is a learning-oriented but engineering-serious distributed job-execution platform written in Go (sta'), (7, '- **Development Stage:** Pre-production (active V1 implementation).')]
+WORD safe [(316, '- `make db-reset-test`: Resets the `minicloud_test` database (safely refuses non-test names).')]
+diagram box-line widths (for lines starting + or |): Counter({67: 26, 25: 5})
+  off-width line 36 67 '+-----------------------------------------------------------------+'
+  off-width line 37 67 '|                          Client / CLI                           |'
+  off-width line 38 67 '|                           (cmd/mc)                              |'
+  off-width line 39 67 '+-----------------------------------------------------------------+'
+  off-width line 43 67 '+-----------------------------------------------------------------+'
+  off-width line 44 67 '|                      Coordinator Service                        |'
+  off-width line 45 67 '|                       (cmd/coordinator)                         |'
+  off-width line 46 67 '|                                                                 |'
+  off-width line 47 67 '|   +---------------------+             +---------------------+   |'
+  off-width line 48 67 '|   |   HTTP API Server   |             |  Domain State Mach. |   |'
+  off-width line 49 67 '|   |   (internal/api)    |             |  (internal/domain)  |   |'
+  off-width line 50 67 '|   +---------------------+             +---------------------+   |'
+  off-width line 51 67 '|              |                                   |              |'
+  off-width line 52 67 '|              +-----------------+-----------------+              |'
+  off-width line 53 67 '|                                |                                |'
+  off-width line 54 67 '|                                v                                |'
+  off-width line 55 67 '|   +---------------------------------------------------------+   |'
+  off-width line 56 67 '|   |                     Storage Driver                      |   |'
+  off-width line 57 67 '|   |         (internal/storage/inmemory or postgres)         |   |'
+  off-width line 58 67 '|   +---------------------------------------------------------+   |'
+  off-width line 59 67 '+-----------------------------------------------------------------+'
+  off-width line 64 67 '+-----------------------+      +----------------------------------+'
+  off-width line 65 67 '|     Worker Agent      |      |           PostgreSQL             |'
+  off-width line 66 67 '|     (cmd/worker)      |      |   jobs, attempts, workers,       |'
+  off-width line 67 67 '|                       |      |   job_results, job_events        |'
+  off-width line 68 67 '|  +-----------------+  |      +----------------------------------+'
+  off-width line 69 25 '|  | Task Executor   |  |'
+  off-width line 70 25 '|  | (echo, sleep,   |  |'
+  off-width line 71 25 '|  |  sha256_loop)   |  |'
+  off-width line 72 25 '|  +-----------------+  |'
+  off-width line 73 25 '+-----------------------+'
+README make targets 13 ['build', 'test', 'test-race', 'test-docs', 'test-db', 'fmt', 'vet', 'demo', 'db-up', 'db-down', 'db-psql', 'db-reset-test', 'clean']
+Makefile .PHONY 16 ['all', 'build', 'test', 'test-race', 'test-docs', 'fmt', 'vet', 'run-coordinator', 'run-worker', 'demo', 'clean', 'db-up', 'db-down', 'db-psql', 'db-reset-test', 'test-db']
+in Makefile not in README: ['all', 'run-coordinator', 'run-worker']
+in README not in Makefile: []
+backticked repo paths 21 missing: []
+
+=================== 21-gomod.txt ===================
+module github.com/BlaZe08-Dev/Minicloud
+
+go 1.22.2
+
+require github.com/jackc/pgx/v5 v5.7.1
+
+require (
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+
+=================== race.sh ===================
+cd ~/mc-readme-audit; E=~/mc-readme-audit-evidence
+MINICLOUD_STORAGE_DRIVER=memory timeout 25 ./bin/coordinator > /dev/null 2>&1 & CP=$!
+sleep 1
+MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 timeout 25 ./bin/worker > /dev/null 2>&1 & WP=$!
+echo "### mc workers immediately after starting worker (no sleep)"; ./bin/mc workers
+sleep 1
+echo "### submit then get immediately (no sleep)"
+J=$(./bin/mc submit --task echo --payload '{"message":"hi"}' | awk '/ID:/{print $2}'); ./bin/mc get $J
+echo "### attempts immediately"; ./bin/mc attempts $J
+echo "### readyz/healthz in memory mode"; curl -s -i http://127.0.0.1:8080/readyz | head -1; curl -s http://127.0.0.1:8080/readyz; echo; curl -s http://127.0.0.1:8080/healthz; echo
+echo "### cancel on a RUNNING sleep job (is worker told to stop?)"
+J2=$(./bin/mc submit --task sleep --payload '{"duration_ms":6000}' --timeout 30 | awk '/ID:/{print $2}'); sleep 1
+curl -s -X POST http://127.0.0.1:8080/v1/jobs/$J2/cancel; echo
+sleep 1; ./bin/mc get $J2
+sleep 6; echo "-- after the sleep would have ended:"; ./bin/mc get $J2; ./bin/mc workers
+kill $CP $WP; wait $CP $WP 2>/dev/null
+
+=================== 22-race-cancel.txt ===================
+### mc workers immediately after starting worker (no sleep)
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               12:08:37         [echo sleep sha256_loop]
+### submit then get immediately (no sleep)
+Job Details:
+  ID:           job_1_1d5bce1546ef
+  Task:         echo
+  State:        QUEUED
+  Attempt ID:   
+  Created At:   2026-10-28T12:08:39Z
+  Updated At:   2026-10-28T12:08:39Z
+### attempts immediately
+Attempts for Job job_1_1d5bce1546ef (0 total):
+NO   ATTEMPT ID   WORKER   STATE   EXIT   STARTED
+### readyz/healthz in memory mode
+HTTP/1.1 200 OK
+{"status":"ready"}
+
+{"status":"ok"}
+
+### cancel on a RUNNING sleep job (is worker told to stop?)
+{"job_id":"job_2_3be3076f7561","message":"cancellation processed","state":"CANCEL_REQUESTED"}
+
+Job Details:
+  ID:           job_2_3be3076f7561
+  Task:         sleep
+  State:        CANCEL_REQUESTED
+  Attempt ID:   att_2_941d0165d1ab
+  Created At:   2026-10-28T12:08:39Z
+  Updated At:   2026-10-28T12:08:40Z
+-- after the sleep would have ended:
+Job Details:
+  ID:           job_2_3be3076f7561
+  Task:         sleep
+  State:        SUCCEEDED
+  Attempt ID:   att_2_941d0165d1ab
+  Created At:   2026-10-28T12:08:39Z
+  Updated At:   2026-10-28T12:08:45Z
+  Result:
+    Exit Code:  0
+    Output:     {"slept_ms":6000}
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               12:08:45         [echo sleep sha256_loop]
+
+=================== 23-compose-config.txt ===================
+name: deployments
+services:
+  postgres:
+    container_name: minicloud-postgres
+    environment:
+      POSTGRES_DB: minicloud
+      POSTGRES_PASSWORD: replace_with_strong_password
+      POSTGRES_USER: postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      timeout: 3s
+      interval: 3s
+      retries: 10
+      start_period: 3s
+    image: postgres:16-alpine
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        host_ip: 127.0.0.1
+        target: 5432
+        published: "5433"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: volume
+        source: minicloud_pgdata
+        target: /var/lib/postgresql/data
+        volume: {}
+      - type: bind
+        source: /home/blazeee/mc-readme-audit/deployments/init-test-db.sh
+        target: /docker-entrypoint-initdb.d/init-test-db.sh
+        read_only: true
+        bind: {}
+networks:
+  default:
+    name: deployments_default
+volumes:
+  minicloud_pgdata:
+    name: minicloud_pgdata
+
+=================== 24-misc.txt ===================
+### SEC-004
+16:| **SEC-004** | Medium | Accepted Risk (V1) | HTTP API & Workers | HTTP API and worker endpoints lack authentication and authorization; open to local network. | Deferred to V3 (ADR-0004, ADR-0012); mitigated by `127.0.0.1` bind default. Verification step: future V3 mTLS/auth suite. |
+36:| **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Evaluation Order | In `CommitAttempt` on a terminal job, evaluating terminal state before verifying attempt lease token closes the attempt and records a diagnostic event prior to credential checks. | `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` |
+61:### SEC-004: Unauthenticated HTTP API and Worker Endpoints
+378:- **Impact**: Fleet-wide worker slot exhaustion (Denial of Service). Any client reaching the unauthenticated API (SEC-004) can issue two cancellation requests per running job to permanently strand worker capacity. In PostgreSQL mode, this slot leak is durable across coordinator restarts.
+418:- **Severity**: Informational (within SEC-004 accepted risk)
+### ADR range
+0001-record-architecture-decisions.md
+0016-cancellation-semantics.md
+16
+### PROJECT_STATE section 'Not done' / limits
+41:  - **Security Findings Register:** Documented `SEC-020` (Documentation Citation Drift and Nonexistent Citations) and `SEC-021` (Whole-Line Exemption Scoping in Rule C Citation Checker; verified across four executed mutation cases, with residual limitation documented for same-clause self-labeling) in `docs/security/findings.md` and `docs/security/test-plan.md`.
+59:  - **Documentation & Specifications:** Created `docs/security/field-limits.md` specifying all field limits and database constraints, authored `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md` detailing lock ordering, approximate FIFO, pooled connection timeouts (`statement_timeout`, `lock_timeout`), and migration isolation, updated `docs/architecture.md`, and documented Phase 3 dead-worker limitation in `docs/failure-model.md`.
+121:  - **Security Review Test Suite:** Added `internal/storage/postgres/security_test.go` covering SQL injection, boundary limits (65535, 65536, 65537 bytes), forged tokens, replay attacks, context cancellation atomicity, and a Go AST static analysis checker (`CheckSQLSafety`). The checker inspects all `Exec`, `Query`, `QueryRow`, and `Queue` calls across all non-test `.go` files in `internal/storage/postgres` (`migrator.go`, `repository.go`), enforcing that query arguments are string literals, declared constants, or variables whose every assignment in the file is a string literal (rejecting `fmt.Sprintf`, `+` string concatenation, function calls, and function parameters; verified on positive and negative test fixtures). A single narrow allowlist is granted to `migrator.go`'s `Migrate` method executing `migration.Content`, as migration SQL is read exclusively from build-time embedded assets (`embed.FS`), verified against SHA-256 checksums, and not caller-controlled. *Limitation:* The checker operates on single-file ASTs and does not detect dynamic SQL assembled in external helper functions returned as strings.
+201:  - Renewal flood defense: formally documented as designed, not yet implemented (R-23); planned endpoint defenses (state short-circuit, indexed lookup, statement_timeout); accepted risk under SEC-004.
+239:## 7. Known Defects, Limitations & Open Security Findings
+252:  - **SEC-021 (Informational, Confirmed by owner mutation; remediated for unrelated names; residual limitation documented):** Rule C's exemption keywords initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses with identifier token stripping. Verified across four executed mutation cases (separate sentence fails, semicolon clause fails, separate table cell fails, same clause passes). Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. Genuine future tests in use: `TestCoordinator_IDLeakage` (future test), `TestInMemoryRepository_MemoryExhaustion_Cap` (future test), `TestWorker_ExcessiveTimeoutClamped` (future test). Tested in `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`).
+254:  - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`). Phase 4 renewal flood mitigation is designed (token auth, per-attempt state short-circuit, indexed lookup on primary key, statement_timeout) but unauthenticated endpoints and missing application-level rate limiting are accepted risks under SEC-004 for V1.
+260:- **Distributed & Architectural Limitations:**
+### CHANGELOG head
+# Changelog
+
+All notable changes to MiniCloud will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- **P4-02 (docs):** Repaired 4a-drifted line citations in live docs to function and section references, applied the 4b/4c slice split to docs/phase4-plan.md, registered SEC-024, added six audit-record names to the citation allowlist, imported the P4-01 and P4-4a audits.
+- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+### demo script exists / what it does
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="8080"
+COORDINATOR_URL="http://127.0.0.1:${PORT}"
+export MINICLOUD_COORDINATOR_URL="${COORDINATOR_URL}"
+export MINICLOUD_HTTP_ADDR="127.0.0.1:${PORT}"
+
+echo ">> Starting coordinator on ${MINICLOUD_HTTP_ADDR}..."
+./bin/coordinator &
+COORD_PID=$!
+
+cleanup() {
+    echo ">> Cleaning up demo processes..."
+    kill "${COORD_PID}" 2>/dev/null || true
+    if [[ -n "${WORKER1_PID:-}" ]]; then kill "${WORKER1_PID}" 2>/dev/null || true; fi
+    if [[ -n "${WORKER2_PID:-}" ]]; then kill "${WORKER2_PID}" 2>/dev/null || true; fi
+    wait "${COORD_PID}" 2>/dev/null || true
+    echo ">> Demo cleanup completed."
+}
+trap cleanup EXIT
+
+# Wait for coordinator healthz
+for i in {1..30}; do
+    if curl -s "${COORDINATOR_URL}/healthz" >/dev/null 2>&1; then
+### mc submit flags + defaults
+}
+
+func handleSubmit(args []string) {
+	fs := flag.NewFlagSet("submit", flag.ExitOnError)
+	taskType := fs.String("task", "", "Allowlisted task type (echo, sleep, sha256_loop)")
+	payload := fs.String("payload", "{}", "JSON payload string")
+	timeoutSec := fs.Int("timeout", 60, "Task execution timeout in seconds")
+	maxAttempts := fs.Int("max-attempts", 3, "Maximum execution attempts")
+	coordURL := fs.String("coordinator-url", getCoordinatorURL(), "Coordinator URL")
+
+	_ = fs.Parse(args)
+
+	if *taskType == "" {
+		fmt.Fprintln(os.Stderr, "Error: --task is required")
+		fs.Usage()
+		os.Exit(1)
+	}
+
+	if !json.Valid([]byte(*payload)) {
+		fmt.Fprintln(os.Stderr, "Error: --payload must be valid JSON")
+		os.Exit(1)
+	}
+
+	reqBody, _ := json.Marshal(map[string]any{
+		"task_type":       *taskType,
+		"payload":         json.RawMessage(*payload),
+		"timeout_seconds": *timeoutSec,
+		"max_attempts":    *maxAttempts,
+	})
+
+	resp, err := http.Post(*coordURL+"/v1/jobs", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error submitting job: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusCreated {
+		fmt.Fprintf(os.Stderr, "Job submission failed (HTTP %d): %s\n", resp.StatusCode, string(body))
+		os.Exit(1)
+
+=================== 25-env-census.txt ===================
+### all distinct MINICLOUD_* tokens anywhere (code, tests, scripts, Makefile, yml, example)
+     14 MINICLOUD_COORDINATOR_URL
+     24 MINICLOUD_DATABASE_URL
+      9 MINICLOUD_DB_MAX_CONNS
+      8 MINICLOUD_DB_MIN_CONNS
+     12 MINICLOUD_DB_QUERY_TIMEOUT
+      3 MINICLOUD_DEFAULT_MAX_ATTEMPTS
+     21 MINICLOUD_HEARTBEAT_INTERVAL
+     15 MINICLOUD_HTTP_ADDR
+      3 MINICLOUD_LOG_LEVEL
+      3 MINICLOUD_MAX_JOB_RUNTIME
+      7 MINICLOUD_REAPER_INTERVAL
+     14 MINICLOUD_STORAGE_DRIVER
+     26 MINICLOUD_TEST_DATABASE_URL
+     12 MINICLOUD_WORKER_ID
+     13 MINICLOUD_WORKER_SLOTS
+     11 MINICLOUD_WORKER_TIMEOUT
+### in README
+MINICLOUD_COORDINATOR_URL
+MINICLOUD_DATABASE_URL
+MINICLOUD_DB_MAX_CONNS
+MINICLOUD_DB_MIN_CONNS
+MINICLOUD_DB_QUERY_TIMEOUT
+MINICLOUD_DEFAULT_MAX_ATTEMPTS
+MINICLOUD_HEARTBEAT_INTERVAL
+MINICLOUD_HTTP_ADDR
+MINICLOUD_LOG_LEVEL
+MINICLOUD_MAX_JOB_RUNTIME
+MINICLOUD_REAPER_INTERVAL
+MINICLOUD_STORAGE_DRIVER
+MINICLOUD_TEST_DATABASE_URL
+MINICLOUD_WORKER_ID
+MINICLOUD_WORKER_SLOTS
+MINICLOUD_WORKER_TIMEOUT
+### git status (before adding review files)
+.gitignore:2:bin/	bin
+.gitignore:19:.env	.env
+
+=================== 26-test-docs-after.txt (make test-docs with review files present) ===================
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.518s
