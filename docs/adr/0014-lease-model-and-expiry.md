@@ -17,7 +17,7 @@ Accepted by Owner (2026-10-26)
 ## Context
 In MiniCloud V1 Phase 3, jobs persist durably in PostgreSQL and workers pull work via atomic database transactions (`repo.DispatchNextJob`, ADR-0011 Option A, ADR-0013). However, Phase 3 explicitly deferred in-flight failure handling:
 - As documented in `docs/failure-model.md` and `docs/PROJECT_STATE.md`, if a worker process crashes, loses power, or suffers a network partition while executing a task, the job remains in `RUNNING` state indefinitely.
-- The worker reaper loop (`internal/coordinator/service.go:320-333`) marks inactive workers `UNHEALTHY` when `last_heartbeat_at` exceeds `worker_timeout`, but intentionally leaves active attempts untouched to avoid premature or uncoordinated state mutation.
+- The worker reaper loop (`internal/coordinator/service.go` func `ReapInactiveWorkers`) marks inactive workers `UNHEALTHY` when `last_heartbeat_at` exceeds `worker_timeout`, but intentionally leaves active attempts untouched to avoid premature or uncoordinated state mutation.
 - A partitioned or slow worker may wake up after arbitrary delays and attempt to commit results. Without lease boundaries, late commits could overwrite newer attempts or terminal states.
 
 Blueprint Sections 4, 5 ("Job Lifecycle and Consistency Model", pages 5–6), and 10 ("Test Strategy and Failure Injection", pages 9–10) mandate that:
@@ -94,7 +94,7 @@ MiniCloud adopts a dedicated renewal endpoint as the sole authoritative protocol
 - **Single Cancellation Channel & Commit Outcomes on `CANCEL_REQUESTED`**:
   The renewal response is the single channel for delivering cancellation requests to workers. When `job.state == 'CANCEL_REQUESTED'`, the renewal succeeds (`200 OK`), returns `"cancel_requested": true`, and does NOT extend `lease_expires_at` (it returns the current unextended expiry). The worker agent inspects this flag, cancels the task execution context via `context.CancelFunc`, stops further renewals, and still reports its result when execution finishes. If an uncooperative task ignores context cancellation, the lease expires within one lease duration (30s) from the last renewal; the sweeper closes the attempt and the job becomes `CANCELLED` (never `RETRYING`). Worst-case delivery latency is bounded by exactly one renewal interval (10 seconds default). (Accepted by owner).
   - When committing a result on `CANCEL_REQUESTED`:
-    - A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049` (permitted by `internal/domain/transition.go:21`).
+    - A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recording `JOB_COMPLETED`, matching today's verified behavior in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` (permitted by `internal/domain/transition.go:21`).
     - A failed commit (non-zero exit code or error string) transitions attempt to `FAILED` and job to `CANCELLED`, recording `JOB_CANCELLED` (cancel intent wins, never `RETRYING`).
 - **Lease-Lost Handling**: If renewal returns HTTP 409 Conflict (`LEASE_EXPIRED` or `STALE_ATTEMPT_REJECTED`) or 403 Forbidden (`WORKER_MISMATCH`), meaning the attempt was swept to `LOST` by the sweeper, the worker must immediately abort task execution via context cancellation and **must not report a result** to the coordinator. (Accepted by owner).
 - **Renewal Error Handling & Degradation**:
@@ -220,14 +220,14 @@ jobs -> workers -> attempts -> results -> job_events
 - **Code-Level Error Definition & 409 Evaluation Order (D-R3-02)**:
   ```go
   // ErrJobAlreadyTerminal is returned when an attempt commit is requested on an already-terminal job.
-  // Today's code returns this directly (internal/storage/inmemory.go:578-579, internal/storage/postgres/repository.go:983-985).
+  // Today's code returns this directly (internal/storage/inmemory.go func CommitAttempt, internal/storage/postgres/repository.go func CommitAttempt).
   var ErrJobAlreadyTerminal = errors.New("job is already terminal")
 
   // ErrLeaseExpired is returned when a renewal or commit is attempted on an attempt that was already swept to LOST.
   var ErrLeaseExpired = errors.New("attempt lease expired and was marked lost")
   ```
   Evaluation order on `CommitAttempt`:
-  1. Terminal Job -> HTTP 409 `JOB_ALREADY_TERMINAL`, `domain.ErrJobAlreadyTerminal`. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). The result row from the first commit is the single stored result; the retry is rejected; the worker treats the 409 as final. (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
+  1. Terminal Job -> HTTP 409 `JOB_ALREADY_TERMINAL`, `domain.ErrJobAlreadyTerminal`. Note that evaluating terminal state before lease token verification closes the attempt and records a diagnostic event prior to credential checks, registered as informational finding SEC-024 (within SEC-004). The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). The result row from the first commit is the single stored result; the retry is rejected; the worker treats the 409 as final. (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
   2. Swept Attempt (`LOST`) -> HTTP 409 `LEASE_EXPIRED`, `domain.ErrLeaseExpired`.
   3. Superseded Attempt / Token Mismatch / Attempt Not Running -> HTTP 409 `STALE_ATTEMPT_REJECTED`, `domain.ErrStaleAttempt`.
   The worker treats all three 409 codes as terminal and halts retrying.
