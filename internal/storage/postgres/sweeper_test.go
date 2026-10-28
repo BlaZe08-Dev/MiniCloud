@@ -458,3 +458,35 @@ func TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex(t 
 		t.Fatalf("a second diagnostic row for the same attempt must violate the unique index, got %v", err)
 	}
 }
+
+// TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool: the sweeper sets lock_timeout with
+// set_config(..., is_local => true), so it ends with the transaction. A pooled connection reused
+// by dispatch, commit or cancel must not inherit a 300ms (or any) lock_timeout.
+func TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool(t *testing.T) {
+	ctx := context.Background()
+	f := newSweepFixture(t, 300*time.Millisecond)
+	if res, err := f.repo.SweepExpiredLeases(ctx, zeroBackoff()); err != nil || len(res.Swept) != 1 {
+		t.Fatalf("setup sweep = %+v, %v", res, err)
+	}
+	// Hold every pooled connection at once so each one, not just the last used, is inspected.
+	var conns []*pgxpool.Conn
+	defer func() {
+		for _, c := range conns {
+			c.Release()
+		}
+	}()
+	for i := 0; i < int(f.pool.Stat().TotalConns()); i++ {
+		c, err := f.pool.Acquire(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		conns = append(conns, c)
+		var v string
+		if err := c.QueryRow(ctx, `SELECT current_setting('lock_timeout')`).Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		if v != "0" {
+			t.Fatalf("pooled connection %d kept lock_timeout=%q after the sweep", i, v)
+		}
+	}
+}
