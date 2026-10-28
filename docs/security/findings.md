@@ -33,6 +33,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
 | **SEC-022** | Medium | Fixed in slice 4a (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; late commit rejected as terminal without closing attempt, permanently leaking worker slot. | `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (regression test, executed in slice 4a) |
 | **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
+| **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Evaluation Order | In `CommitAttempt` on a terminal job, evaluating terminal state before verifying attempt lease token closes the attempt and records a diagnostic event prior to credential checks. | `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` |
 
 ---
 
@@ -408,6 +409,24 @@ FAIL
 - **Root Cause**: `TestMigrator_PreExistingInvalidRow_ValidationFails` directly calls `pgx.Connect(ctx, testURL)` after checking `testURL == ""` without extracting the database name or asserting that `strings.HasSuffix(dbName, "_test")`.
 - **Recommended Fix**: Fix is NOT authorized yet; adding the same `_test` suffix check as `TestMigrator_FreshMigrate` and other test helpers is a later small task.
 - **Regression Test**: `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`).
+
+---
+
+### SEC-024: Evaluation of Terminal Job State Precedes Attempt Lease Token Check in CommitAttempt
+
+- **Finding**: In `CommitAttempt`, evaluating job terminality (step 1 of 409 evaluation order) occurs before validating the worker's attempt lease token or worker ID (step 3). If a caller issues a result commit for an already-terminal job naming the active running attempt, the attempt is transitioned to `LOST` or `CANCELLED`, its worker slot is freed, and a `DIAGNOSTIC_LATE_RESULT` event is recorded, even if the commit request provided an invalid lease token or worker mismatch.
+- **Severity**: Informational (within SEC-004 accepted risk)
+- **Category**: Authorization / API Evaluation Order
+- **Status**: Open (executed in P4-4a audit, confirmed by code reading)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`, `docs/adr/0014-lease-model-and-expiry.md`)
+- **Preconditions**: A job has already reached a terminal state (`CANCELLED`, `SUCCEEDED`, `FAILED`), its current attempt is still `RUNNING`, and an unauthenticated caller submits a `CommitAttempt` request referencing that job and attempt.
+- **Reproduction Steps**:
+  1. Submit and dispatch a job to a worker. Transition the job to a terminal state (e.g. via cancellation).
+  2. Issue `CommitAttempt` specifying the running attempt ID, but with an invalid lease token or unassigned worker ID.
+  3. Observe that `CommitAttempt` returns HTTP 409 `JOB_ALREADY_TERMINAL`, transitions the running attempt to `CANCELLED`/`LOST`, frees the worker capacity slot, and records a `DIAGNOSTIC_LATE_RESULT` event before checking token validity.
+- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-022 remediation). The stored result of the job is never overwritten, and diagnostic event insertion is idempotent (capped at 1 per attempt via partial unique index).
+- **Remediation**: Documented in `docs/adr/0014-lease-model-and-expiry.md` as an accepted evaluation order under SEC-004. In V3, when worker authentication/mTLS is introduced, token/credential validation will precede state inspection.
+- **Verification / Regression Test**: `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` (audit probe executed on `agent/gemini/P4-4a-review`).
 
 ---
 
