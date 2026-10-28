@@ -1,0 +1,1287 @@
+
+=== [setup] $ git rev-parse --short HEAD origin/agent/claude/P4-4a origin/main origin/agent/claude/P4-01-review origin/agent/gemini/P4-4a-review; git status --short | wc -l; go version
+fatal: Needed a single revision
+1
+go version go1.22.2 linux/amd64
+--- exit: 0
+
+=== [preflight] $ ( [ -f .env ] || { echo STOP; exit 1; }; URL=$(grep -E "^MINICLOUD_TEST_DATABASE_URL=" .env | cut -d= -f2-); DB=$(printf "%s\n" "$URL" | sed -E "s#^.*/([^/?]+)([?].*)?\$#\1#"); echo "worktree: $(git rev-parse --show-toplevel)"; echo "test URL: $(printf "%s\n" "$URL" | sed -E "s#//[^@]*@#//***@#")"; echo "test DB: $DB"; [ "$(git rev-parse --show-toplevel)" != "$HOME/MiniCloud" ] && [ "$DB" = minicloud_test ] && echo STOP || echo "preflight OK" )
+worktree: /home/blazeee/MiniCloud-claude-audit
+test URL: postgres://***@127.0.0.1:5433/minicloud_claude_test?sslmode=disable
+test DB: minicloud_claude_test
+preflight OK
+--- exit: 0
+
+=== [scope-names] $ git diff --name-only origin/agent/claude/P4-4a..HEAD
+CHANGELOG.md
+docs/PROJECT_STATE.md
+docs/adr/0011-postgres-dispatch-and-recovery.md
+docs/adr/0014-lease-model-and-expiry.md
+docs/adr/0015-retry-policy-and-failure-classification.md
+docs/adr/0016-cancellation-semantics.md
+docs/agents/TASKS.md
+docs/agents/handoffs/P4-00-citation-check.txt
+docs/agents/handoffs/P4-00.md
+docs/agents/handoffs/P4-01.md
+docs/agents/handoffs/P4-02.md
+docs/agents/reviews/P4-00-round2.md
+docs/agents/reviews/P4-00-round3.md
+docs/agents/reviews/P4-00-round5-evidence.txt
+docs/agents/reviews/P4-00-round5.md
+docs/agents/reviews/P4-01-evidence.txt
+docs/agents/reviews/P4-01.md
+docs/agents/reviews/P4-4a-evidence.txt
+docs/agents/reviews/P4-4a.md
+docs/phase4-plan.md
+docs/protocol.md
+docs/security/findings.md
+docs/security/test-plan.md
+docs/security/threat-model.md
+docs/state-machine.md
+tests/docs/citation_allowlist.txt
+--- exit: 0
+
+=== [refs] $ for r in HEAD origin/agent/claude/P4-4a origin/main origin/agent/claude/P4-01-review origin/agent/gemini/P4-4a-review origin/agent/gemini/P4-02; do echo "$r $(git rev-parse --short $r)"; done; git log --oneline origin/agent/claude/P4-4a..HEAD | cat; git merge-base --is-ancestor origin/main HEAD && echo main-is-ancestor
+HEAD 33c31ed
+origin/agent/claude/P4-4a 8183a59
+origin/main d28a3d1
+origin/agent/claude/P4-01-review 13df333
+origin/agent/gemini/P4-4a-review e4c33fe
+origin/agent/gemini/P4-02 33c31ed
+33c31ed docs(agents): avoid regex match in P4-02 handoff
+889758a docs(agents): create P4-02 handoff record
+5b7c52c docs(agents): rephrase non-running attempt error in P4-01 handoff
+ab3d001 docs: record Phase 4 slice 4a completion in changelog and project state (Step 7)
+41a1831 docs(tasks): update task board for P4-01, P4-4a, P4-02, and P4-4b (Step 6)
+9091a3e docs(agents): address P4-01 audit minors in P4-00 handoff (Step 5)
+22c8697 docs(security): register SEC-024 informational finding (Step 4)
+e95665e docs(reviews): re-import P4-01 and P4-4a audits and allowlist review attack tests (Step 5b, D-P4-02-01)
+ad29ead docs(agents): create P4-01 handoff record (Step 5a, R6-07)
+1827003 docs(changelog): repair drifted line citations in changelog (Step 2)
+7f4a99e docs(project): repair drifted line citations in project state (Step 2)
+9fe9f49 docs(plan): repair remaining drifted line citations in phase 4 plan (Step 2)
+626878d docs(protocol): repair drifted line citations in protocol spec (Step 2)
+8cf9db6 docs(security): repair drifted line citations in threat model (Step 2)
+c92e49e docs(security): repair drifted line citations in security test plan (Step 2)
+971ef80 docs(domain): repair drifted line citations in state machine doc (Step 2)
+f45cdad docs(adr): repair drifted line citations in ADR-0016 (Step 2)
+bdac636 docs(adr): repair drifted line citations in ADR-0015 (Step 2)
+f3775d3 docs(adr): repair drifted line citations in ADR-0011 (Step 2)
+c69cf69 docs(adr): repair drifted line citations and link SEC-024 in ADR-0014 (Step 2)
+3d57400 docs(security): repair drifted line citations in findings register (Step 2)
+aec59d0 docs(plan): repair citations and apply Phase 4 scope split (Steps 2 & 3)
+d0aa165 docs(reviews): freeze historical line citations in P4-00 round 2 and 3 reviews
+44eeaa8 Merge remote-tracking branch 'origin/main' into agent/gemini/P4-02
+d28a3d1 Merge pull request #18 from BlaZe08-Dev/agent/gemini/P4-01
+fde4ca7 docs(agents): update task board with P4-00 close-out and register P4-01 and P4-4a (Fix 3)
+d27000a docs(handoff): rebuild P4-00 handoff with section citations and review statuses (Fix 2, R5-01)
+f774731 docs(project-state): drop ErrAttemptNotRunning from Phase 4 scope (Fix 1, R5-02)
+80c9e11 docs(plan): drop ErrAttemptNotRunning and associated planned tests (Fix 1, R5-02)
+12f31cb docs(protocol): drop ErrAttemptNotRunning from protocol 409 table (Fix 1, R5-02)
+f1007e2 docs(adr): drop ErrAttemptNotRunning from ADR-0014 (Fix 1, R5-02)
+8cbb627 docs(agents): add P4-00 round-5 audit review
+main-is-ancestor
+--- exit: 0
+
+=== [scope-code] $ git diff --stat origin/agent/claude/P4-4a..HEAD -- internal cmd tests ":!tests/docs/citation_allowlist.txt" ; echo "code-diff-lines: $(git diff origin/agent/claude/P4-4a..HEAD -- internal cmd tests ":!tests/docs/citation_allowlist.txt" | wc -l)"; git diff origin/agent/claude/P4-4a..HEAD --name-only | grep -v -E "^(docs/|CHANGELOG.md|tests/docs/citation_allowlist.txt)" | wc -l
+code-diff-lines: 0
+0
+--- exit: 0
+
+=== [allow-diff] $ git diff origin/agent/claude/P4-4a..HEAD -- tests/docs/citation_allowlist.txt; git diff --numstat origin/agent/claude/P4-4a..HEAD -- tests/docs/citation_allowlist.txt
+diff --git a/tests/docs/citation_allowlist.txt b/tests/docs/citation_allowlist.txt
+index df6d0dd..90175e2 100644
+--- a/tests/docs/citation_allowlist.txt
++++ b/tests/docs/citation_allowlist.txt
+@@ -18,3 +18,11 @@ test|TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce|Invented historical
+ # Audit probe tests on agent/claude/P4-00-review branch cited in P4-00 review
+ test|TestReviewP400_SEC022|Audit probe test flag cited in SEC-022 verbatim evidence
+ test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/claude/P4-00-review branch
++
++# Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestDomain_ComputeBackoff_FullJitter|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+8	0	tests/docs/citation_allowlist.txt
+--- exit: 0
+
+=== [frozen-diff] $ git diff -U0 origin/main..HEAD -- docs/agents/reviews/P4-00-round2.md docs/agents/reviews/P4-00-round3.md; git diff --numstat origin/main..HEAD -- docs/agents/reviews/P4-00-round2.md docs/agents/reviews/P4-00-round3.md
+diff --git a/docs/agents/reviews/P4-00-round2.md b/docs/agents/reviews/P4-00-round2.md
+index 778ea6e..04923c5 100644
+--- a/docs/agents/reviews/P4-00-round2.md
++++ b/docs/agents/reviews/P4-00-round2.md
+@@ -127,2 +127,2 @@ The most serious are these:
+-  - `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:716`).
+-  - `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:764`).
++  - `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go (line 716 at the audited commit)`).
++  - `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go (line 764 at the audited commit)`).
+diff --git a/docs/agents/reviews/P4-00-round3.md b/docs/agents/reviews/P4-00-round3.md
+index 4d808e7..c260499 100644
+--- a/docs/agents/reviews/P4-00-round3.md
++++ b/docs/agents/reviews/P4-00-round3.md
+@@ -382 +382 @@ to `:426`, G-R21). Rows R-01 to R-18 and R-20 to R-24 describe the right finding
+-  G3d-restart) plus **confirmed by code reading** (`internal/coordinator/service.go:352-464`,
++  G3d-restart) plus **confirmed by code reading** (`internal/coordinator/service.go (lines 352-464 at the audited commit)`,
+@@ -395 +395 @@ to `:426`, G-R21). Rows R-01 to R-18 and R-20 to R-24 describe the right finding
+-    - `CommitResult`'s `Ack` (`internal/coordinator/service.go:512-513`).
++    - `CommitResult`'s `Ack` (`internal/coordinator/service.go (lines 512-513 at the audited commit)`).
+2	2	docs/agents/reviews/P4-00-round2.md
+2	2	docs/agents/reviews/P4-00-round3.md
+--- exit: 0
+
+=== [frozen-wordaudit] $ git diff --word-diff=porcelain -U0 origin/main..HEAD -- docs/agents/reviews/P4-00-round2.md docs/agents/reviews/P4-00-round3.md | grep -E "^[+-][^+-]"
+-(`internal/coordinator/service_test.go:716`).
++(`internal/coordinator/service_test.go (line 716 at the audited commit)`).
+-(`internal/coordinator/service_test.go:764`).
++(`internal/coordinator/service_test.go (line 764 at the audited commit)`).
+-(`internal/coordinator/service.go:352-464`,
++(`internal/coordinator/service.go (lines 352-464 at the audited commit)`,
+-(`internal/coordinator/service.go:512-513`).
++(`internal/coordinator/service.go (lines 512-513 at the audited commit)`).
+--- exit: 0
+
+=== [ruleb-baseline-original-frozen] $ (cd /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/ruleb && go test -count=1 ./tests/docs/ -run TestCitations 2>&1 | grep -E "RuleB|RuleF|^(ok|FAIL|---)" | head -20)
+--- FAIL: TestCitations (0.52s)
+    --- FAIL: TestCitations/RuleB_LineAnchors (0.19s)
+        citations_test.go:720: docs/agents/reviews/P4-00-round2.md:127: [RuleB] line citation internal/coordinator/service_test.go:716 exceeds file line count (676)
+        citations_test.go:720: docs/agents/reviews/P4-00-round2.md:128: [RuleB] line citation internal/coordinator/service_test.go:764 exceeds file line count (676)
+        citations_test.go:720: docs/agents/reviews/P4-00-round3.md:382: [RuleB] line citation internal/coordinator/service.go:352 exceeds file line count (410)
+        citations_test.go:720: docs/agents/reviews/P4-00-round3.md:395: [RuleB] line citation internal/coordinator/service.go:512 exceeds file line count (410)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.530s
+FAIL
+--- exit: 0
+
+=== [ruleb-with-path-allowlist-probe] $ (cd /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/ruleb && go test -count=1 ./tests/docs/ -run TestCitations 2>&1 | grep -E "RuleB|RuleF|^(ok|FAIL|---)" | head -20)
+--- FAIL: TestCitations (0.53s)
+    --- FAIL: TestCitations/RuleF_Allowlist (0.04s)
+        citations_test.go:748: tests/docs/citation_allowlist.txt:30: [RuleF] allowlist entry is stale: path "internal/coordinator/service_test.go" now exists in repository
+        citations_test.go:748: tests/docs/citation_allowlist.txt:31: [RuleF] allowlist entry is stale: path "internal/coordinator/service.go" now exists in repository
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.532s
+FAIL
+--- exit: 0
+
+=== [names-check] $ python3 -I ~/mc-tools-claude/names.py origin/main HEAD /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/testlist.txt
+checked tokens: 4209
+docs/adr/0016-cancellation-semantics.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | - Today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move a job to
+docs/agents/TASKS.md | sec | SEC-025 | | `docs/security/findings.md` | none | Released; next free SEC number SEC-025 |
+docs/agents/handoffs/P4-02.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:55 | cites internal/storage/inmemory.go:494 | base(720 lines): return nil, nil, domain.ErrNoQu
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:68 | cites internal/storage/inmemory.go:615-618 | base(720 lines): if outcome.ExitCode == 0 &&
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:68 | cites internal/storage/postgres/repository.go:1046-1049 | base(1355 lines): if outcome.Ex
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:77 | cites internal/storage/inmemory.go:658-700 | base(720 lines): func (r *InMemoryRepository
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:77 | cites internal/storage/postgres/repository.go:1135-1233 | base(1355 lines): // CancelJob 
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:84 | cites internal/storage/inmemory.go:619-622 | base(720 lines): } else { | tip(788 lines): 
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:84 | cites internal/storage/postgres/repository.go:1050-1054 | base(1355 lines): } else { | ti
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:86 | cites internal/storage/inmemory.go:619-622 | base(720 lines): } else { | tip(788 lines): 
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:86 | cites internal/storage/postgres/repository.go:1050-1054 | base(1355 lines): } else { | ti
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:154 | cites internal/storage/inmemory.go:615-618 | base(720 lines): if outcome.ExitCode == 0 &
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:199 | cites internal/domain/transition.go:4-33 | base(49 lines): var allowedTransitions = map[
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:202 | cites internal/coordinator/service_test.go:575 | base(807 lines): func TestService_Commi
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:210 | cites internal/coordinator/service_test.go:47 | base(807 lines): svc := coordinator.NewS
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:215 | cites internal/coordinator/service.go:71-72 | base(524 lines): // NewServiceWithQueue co
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:215 | cites tests/integration/multi_worker_batch_test.go:39-40 | base(207 lines): q := queue.N
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:218 | cites internal/coordinator/service_test.go:338-381 | base(807 lines): type spyQueue stru
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:327 | cites docs/security/findings.md:34 | base(478 lines): | **SEC-022** | Medium | Open (exe
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:329 | cites docs/security/findings.md:35 | base(478 lines): | **SEC-023** | Low | Open (execut
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:331 | cites docs/security/findings.md:375 | base(478 lines): Neither repository checks for `jo
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:333 | cites docs/security/findings.md:383 | base(478 lines): 2. In `CommitAttempt` on a termin
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:340 | cites internal/storage/inmemory.go:658-700 | base(720 lines): func (r *InMemoryRepositor
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:365 | cites internal/domain/transition.go:4-33 | base(49 lines): var allowedTransitions = map[
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:367 | cites internal/storage/inmemory.go:658-700 | base(720 lines): func (r *InMemoryRepositor
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:367 | cites internal/storage/postgres/repository.go:1135-1233 | base(1355 lines): // CancelJob
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:380 | cites internal/api/api_test.go:27 | base(1133 lines): repo := storage.NewInMemoryReposit
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:387 | cites internal/coordinator/service.go:194-195 | base(524 lines): if !s.dispatchViaRepo &
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:390 | cites internal/coordinator/service.go:237-239 | base(524 lines): if job.State == domain.
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:393 | cites internal/coordinator/service.go:512-513 | base(524 lines): if !s.dispatchViaRepo &
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:396 | cites internal/coordinator/service.go:71-72 | base(524 lines): // NewServiceWithQueue co
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:399 | cites internal/coordinator/service_test.go:338-381 | base(807 lines): type spyQueue stru
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:402 | cites internal/coordinator/service_test.go:526 | base(807 lines): func TestService_Claim
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:404 | cites internal/domain/transition.go:21 | base(49 lines): StateSucceeded: true, | tip(49 
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:406 | cites internal/domain/transition.go:4-33 | base(49 lines): var allowedTransitions = map[
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:409 | cites internal/domain/transition_test.go:27-33 | base(117 lines): domain.StateCancelRequ
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:412 | cites internal/storage/inmemory.go:494 | base(720 lines): return nil, nil, domain.ErrNoQ
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:414 | cites internal/storage/inmemory.go:615-618 | base(720 lines): if outcome.ExitCode == 0 &
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:417 | cites internal/storage/inmemory.go:619-622 | base(720 lines): } else { | tip(788 lines):
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:420 | cites internal/storage/inmemory.go:658-700 | base(720 lines): func (r *InMemoryRepositor
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:426 | cites internal/storage/postgres/repository.go:1046-1049 | base(1355 lines): if outcome.E
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:429 | cites internal/storage/postgres/repository.go:1050-1054 | base(1355 lines): } else { | t
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:432 | cites internal/storage/postgres/repository.go:1135-1233 | base(1355 lines): // CancelJob
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:435 | cites internal/storage/storagetest/conformance.go:360 | base(605 lines): if reqJob.State
+docs/agents/handoffs/P4-4a-citation-drift.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt:437 | cites tests/integration/multi_worker_batch_test.go:39-40 | base(207 lines): q := queue.N
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAgent_Run_SingleJobSuccess | docs/agents/reviews/P4-00-round2-evidence.txt:1142 | cites docs/security/findings.md:215 | base(478 lines): - `TestAgent_Run_SingleJobSucces
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAgent_Run_SingleJobSuccess | docs/agents/reviews/P4-00-round2-evidence.txt:1142 | cites docs/security/findings.md:215 | base(478 lines): - `TestAgent_Run_SingleJobSucces
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAgent_Run_SingleJobSuccess | docs/agents/reviews/P4-00-round2-evidence.txt:1143 | cites docs/security/findings.md:458 | base(478 lines): - `TestAgent_Run_SingleJobSucces
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAgent_Run_SingleJobSuccess | docs/agents/reviews/P4-00-round2-evidence.txt:1143 | cites docs/security/findings.md:458 | base(478 lines): - `TestAgent_Run_SingleJobSucces
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobLifecycle_InMemory | docs/agents/reviews/P4-00-round2-evidence.txt:1150 | cites docs/security/findings.md:209 | base(478 lines): - `TestAPI_JobLifecycle_InMemory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobLifecycle_InMemory | docs/agents/reviews/P4-00-round2-evidence.txt:1150 | cites docs/security/findings.md:209 | base(478 lines): - `TestAPI_JobLifecycle_InMemory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobLifecycle_InMemory | docs/agents/reviews/P4-00-round2-evidence.txt:1151 | cites docs/security/findings.md:460 | base(478 lines): - `TestAPI_JobLifecycle_InMemory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobLifecycle_InMemory | docs/agents/reviews/P4-00-round2-evidence.txt:1151 | cites docs/security/findings.md:460 | base(478 lines): - `TestAPI_JobLifecycle_InMemory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobNumericBounds_Validation | docs/agents/reviews/P4-00-round2-evidence.txt:1153 | cites docs/security/findings.md:222 | base(478 lines): - `TestAPI_JobNumericBounds_Vali
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobNumericBounds_Validation | docs/agents/reviews/P4-00-round2-evidence.txt:1153 | cites docs/security/findings.md:222 | base(478 lines): - `TestAPI_JobNumericBounds_Vali
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobNumericBounds_Validation | docs/agents/reviews/P4-00-round2-evidence.txt:1154 | cites docs/security/findings.md:461 | base(478 lines): - `TestAPI_JobNumericBounds_Vali
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_JobNumericBounds_Validation | docs/agents/reviews/P4-00-round2-evidence.txt:1154 | cites docs/security/findings.md:461 | base(478 lines): - `TestAPI_JobNumericBounds_Vali
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_ReadHeaderTimeout_SlowLorisProtection | docs/agents/reviews/P4-00-round2-evidence.txt:1156 | cites docs/security/findings.md:221 | base(478 lines): - `TestAPI_ReadHeaderTimeout_Slo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_ReadHeaderTimeout_SlowLorisProtection | docs/agents/reviews/P4-00-round2-evidence.txt:1156 | cites docs/security/findings.md:221 | base(478 lines): - `TestAPI_ReadHeaderTimeout_Slo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_ReadHeaderTimeout_SlowLorisProtection | docs/agents/reviews/P4-00-round2-evidence.txt:1157 | cites docs/security/findings.md:462 | base(478 lines): - `TestAPI_ReadHeaderTimeout_Slo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_ReadHeaderTimeout_SlowLorisProtection | docs/agents/reviews/P4-00-round2-evidence.txt:1157 | cites docs/security/findings.md:462 | base(478 lines): - `TestAPI_ReadHeaderTimeout_Slo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerID_ValidationBounds | docs/agents/reviews/P4-00-round2-evidence.txt:1164 | cites docs/security/findings.md:223 | base(478 lines): - `TestAPI_WorkerID_ValidationBo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerID_ValidationBounds | docs/agents/reviews/P4-00-round2-evidence.txt:1164 | cites docs/security/findings.md:223 | base(478 lines): - `TestAPI_WorkerID_ValidationBo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerID_ValidationBounds | docs/agents/reviews/P4-00-round2-evidence.txt:1165 | cites docs/security/findings.md:464 | base(478 lines): - `TestAPI_WorkerID_ValidationBo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerID_ValidationBounds | docs/agents/reviews/P4-00-round2-evidence.txt:1165 | cites docs/security/findings.md:464 | base(478 lines): - `TestAPI_WorkerID_ValidationBo
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerRegistration_Limits | docs/agents/reviews/P4-00-round2-evidence.txt:1167 | cites docs/security/findings.md:217 | base(478 lines): - `TestAPI_WorkerRegistration_Li
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerRegistration_Limits | docs/agents/reviews/P4-00-round2-evidence.txt:1167 | cites docs/security/findings.md:217 | base(478 lines): - `TestAPI_WorkerRegistration_Li
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerRegistration_Limits | docs/agents/reviews/P4-00-round2-evidence.txt:1168 | cites docs/security/findings.md:465 | base(478 lines): - `TestAPI_WorkerRegistration_Li
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestAPI_WorkerRegistration_Limits | docs/agents/reviews/P4-00-round2-evidence.txt:1168 | cites docs/security/findings.md:465 | base(478 lines): - `TestAPI_WorkerRegistration_Li
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_IDLeakage | docs/agents/reviews/P4-00-round2-evidence.txt:1170 | cites docs/security/findings.md:454 | base(478 lines): - `TestCoordinator_IDLeakage`: F
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_IDLeakage | docs/agents/reviews/P4-00-round2-evidence.txt:1170 | cites docs/security/findings.md:454 | base(478 lines): - `TestCoordinator_IDLeakage`: F
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_Service | docs/agents/reviews/P4-00-round2-evidence.txt:1172 | cites docs/security/findings.md:213 | base(478 lines): - `TestCoordinator_Service` (doe
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_Service | docs/agents/reviews/P4-00-round2-evidence.txt:1172 | cites docs/security/findings.md:213 | base(478 lines): - `TestCoordinator_Service` (doe
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_Service | docs/agents/reviews/P4-00-round2-evidence.txt:1173 | cites docs/security/findings.md:466 | base(478 lines): - `TestCoordinator_Service` (doe
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestCoordinator_Service | docs/agents/reviews/P4-00-round2-evidence.txt:1173 | cites docs/security/findings.md:466 | base(478 lines): - `TestCoordinator_Service` (doe
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_One | docs/agents/reviews/P4-00-round2-evidence.txt:1176 | cites docs/security/findings.md:279 | base(478 lines): 1. **Separate sentence**: Append
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_One | docs/agents/reviews/P4-00-round2-evidence.txt:1176 | cites docs/security/findings.md:279 | base(478 lines): 1. **Separate sentence**: Append
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFabricated_Foo | docs/agents/reviews/P4-00-round2-evidence.txt:1178 | cites docs/security/findings.md:290 | base(478 lines): - `RuleC_SeparateClause_Fail`: A
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFabricated_Foo | docs/agents/reviews/P4-00-round2-evidence.txt:1178 | cites docs/security/findings.md:290 | base(478 lines): - `RuleC_SeparateClause_Fail`: A
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_Three | docs/agents/reviews/P4-00-round2-evidence.txt:1181 | cites docs/security/findings.md:281 | base(478 lines): 3. **Different table cell**: App
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_Three | docs/agents/reviews/P4-00-round2-evidence.txt:1181 | cites docs/security/findings.md:281 | base(478 lines): 3. **Different table cell**: App
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_Two | docs/agents/reviews/P4-00-round2-evidence.txt:1184 | cites docs/security/findings.md:280 | base(478 lines): 2. **Semicolon clause**: Appendi
+docs/agents/handoffs/P4-4a-citation-drift.txt | test-planned-only | TestFab_Two | docs/agents/reviews/P4-00-round2-evidence.txt:1184 | cites docs/security/findings.md:280 | base(478 lines): 2. **Semicolon clause**: Appendi
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestInMemoryRepository_MemoryExhaustion_Cap | docs/agents/reviews/P4-00-round2-evidence.txt:1186 | cites docs/security/findings.md:452 | base(478 lines): - `TestInMemoryRepository_Memory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestInMemoryRepository_MemoryExhaustion_Cap | docs/agents/reviews/P4-00-round2-evidence.txt:1186 | cites docs/security/findings.md:452 | base(478 lines): - `TestInMemoryRepository_Memory
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestJob_Transitions | docs/agents/reviews/P4-00-round2-evidence.txt:1188 | cites docs/security/findings.md:212 | base(478 lines): - `TestJob_Transitions` (does no
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestJob_Transitions | docs/agents/reviews/P4-00-round2-evidence.txt:1188 | cites docs/security/findings.md:212 | base(478 lines): - `TestJob_Transitions` (does no
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestJob_Transitions | docs/agents/reviews/P4-00-round2-evidence.txt:1189 | cites docs/security/findings.md:467 | base(478 lines): - `TestJob_Transitions` (does no
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestJob_Transitions | docs/agents/reviews/P4-00-round2-evidence.txt:1189 | cites docs/security/findings.md:467 | base(478 lines): - `TestJob_Transitions` (does no
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestMigrator_ApplyAll_CleanDatabase | docs/agents/reviews/P4-00-round2-evidence.txt:1196 | cites docs/security/findings.md:218 | base(478 lines): - `TestMigrator_ApplyAll_CleanDa
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestMigrator_ApplyAll_CleanDatabase | docs/agents/reviews/P4-00-round2-evidence.txt:1196 | cites docs/security/findings.md:218 | base(478 lines): - `TestMigrator_ApplyAll_CleanDa
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestMigrator_ApplyAll_CleanDatabase | docs/agents/reviews/P4-00-round2-evidence.txt:1197 | cites docs/security/findings.md:469 | base(478 lines): - `TestMigrator_ApplyAll_CleanDa
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestMigrator_ApplyAll_CleanDatabase | docs/agents/reviews/P4-00-round2-evidence.txt:1197 | cites docs/security/findings.md:469 | base(478 lines): - `TestMigrator_ApplyAll_CleanDa
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2-evidence.txt:1206 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2-evidence.txt:1206 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestWorker_ExcessiveTimeoutClamped | docs/agents/reviews/P4-00-round2-evidence.txt:1228 | cites docs/security/findings.md:453 | base(478 lines): - `TestWorker_ExcessiveTimeoutCl
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestWorker_ExcessiveTimeoutClamped | docs/agents/reviews/P4-00-round2-evidence.txt:1228 | cites docs/security/findings.md:453 | base(478 lines): - `TestWorker_ExcessiveTimeoutCl
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2-evidence.txt:1481 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2-evidence.txt:1481 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2.md:261 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed): MINICLOUD
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round2.md:261 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed): MINICLOUD
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round4-evidence.txt:3070 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a-citation-drift.txt | test | TestReviewP400_SEC02 | docs/agents/reviews/P4-00-round4-evidence.txt:3070 | cites docs/security/findings.md:313 | base(478 lines): === E1. SEC-022 probe (executed)
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | Delete the Gating Tests bullet `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) from Slice 4a. The other InMemoryRepository bul
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestPostgresRepository_Sweeper_CanonicalLockOrder | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestConformance_RenewLease_AcceptUntilSwept | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestConformance_RenewLease_RejectedAfterLost | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestConformance_SweepExpiredLeases_RetryOrFail | Keep the existing "Canonical Sweeper Transaction (R-08)" bullets and the Postgres gating tests `TestPostgresRepository_Sweeper_CanonicalLock
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit | Consequence to settle: 4b's exit-criteria mutation proof "Removing startup grace check in sweeper must cause `TestPostgresWiring_Coordinator
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestCoordinator_LeaseSweeper_ | 3. **Slice 4c keeps and sharpens** the sweeper loop and worker loops. In its Scope, under "Coordinator Service (`internal/coordinator`)", st
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping | 3. **Slice 4c keeps and sharpens** the sweeper loop and worker loops. In its Scope, under "Coordinator Service (`internal/coordinator`)", st
+docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | | `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) | **not executed, not built** (D1: moved to slice 4c by owner decision) |
+docs/agents/reviews/P4-01-evidence.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | D	docs/agents/handoffs/P4-00-citation-check.txt
+docs/agents/reviews/P4-01-evidence.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | docs/agents/handoffs/P4-00-citation-check.txt |  439 ------
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:123:+  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (pl
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:139:+  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planne
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:531:    153|   - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAtte
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:533:    196|   - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected`
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1167:    153|   - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAtt
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1169:    196|   - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected
+docs/agents/reviews/P4-01-evidence.txt | test | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1307:NOT-IN-CODE | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected
+docs/agents/reviews/P4-01-evidence.txt | test | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1318:NOT-IN-CODE | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAtt
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1770:NOT-IN-CODE TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected; 
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5-evidence.txt:1772:NOT-IN-CODE TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttem
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | HEAD:docs/agents/reviews/P4-00-round5.md:133:    `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | HEAD:docs/agents/reviews/P4-00-round5.md:136:    `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test) at
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged | 88:| R3-02 | D-R3-02 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/protocol.md` (section 6.3 error table), 
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestWorker_Client_Renew400KeepsRunning | 235: - `TestWorker_Client_Renew400KeepsRunning` (planned test): Verifies worker encountering HTTP 400 from renewal disables renewals
+docs/agents/reviews/P4-01-evidence.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | HEAD:docs/agents/TASKS.md:46:- Owned files: `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-00-citation-check.txt` (to delete), `d
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/PROJECT_STATE.md | diff --git a/docs/PROJECT_STATE.md b/docs/PROJECT_STATE.md
+docs/agents/reviews/P4-01-evidence.txt | path | b/docs/PROJECT_STATE.md | diff --git a/docs/PROJECT_STATE.md b/docs/PROJECT_STATE.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/PROJECT_STATE.md | --- a/docs/PROJECT_STATE.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/adr/0014-lease-model-and-expiry.md | diff --git a/docs/adr/0014-lease-model-and-expiry.md b/docs/adr/0014-lease-model-and-expiry.md
+docs/agents/reviews/P4-01-evidence.txt | path | b/docs/adr/0014-lease-model-and-expiry.md | diff --git a/docs/adr/0014-lease-model-and-expiry.md b/docs/adr/0014-lease-model-and-expiry.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/adr/0014-lease-model-and-expiry.md | --- a/docs/adr/0014-lease-model-and-expiry.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/phase4-plan.md | diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+docs/agents/reviews/P4-01-evidence.txt | path | b/docs/phase4-plan.md | diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/phase4-plan.md | --- a/docs/phase4-plan.md
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_Sweeper_CanonicalLockOrder | - `TestPostgresRepository_Sweeper_CanonicalLockOrder` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck | - `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt | - `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt | -  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit | - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_RenewLease_SuccessAndStaleRejection | - `TestAPI_RenewLease_SuccessAndStaleRejection` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected | -  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAgent_PeriodicLeaseRenewal_Success | - `TestAgent_PeriodicLeaseRenewal_Success` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestAgent_LeaseRenewal_ReceivesCancelRequested | - `TestAgent_LeaseRenewal_ReceivesCancelRequested` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | test-planned-only | TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt | - `TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt` (planned test)
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/protocol.md | diff --git a/docs/protocol.md b/docs/protocol.md
+docs/agents/reviews/P4-01-evidence.txt | path | b/docs/protocol.md | diff --git a/docs/protocol.md b/docs/protocol.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/protocol.md | --- a/docs/protocol.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/agents/TASKS.md | diff --git a/docs/agents/TASKS.md b/docs/agents/TASKS.md
+docs/agents/reviews/P4-01-evidence.txt | path | b/docs/agents/TASKS.md | diff --git a/docs/agents/TASKS.md b/docs/agents/TASKS.md
+docs/agents/reviews/P4-01-evidence.txt | path | a/docs/agents/TASKS.md | --- a/docs/agents/TASKS.md
+docs/agents/reviews/P4-01-evidence.txt | path | docs/agents/handoffs/P4-00-citation-check.txt | +- Owned files: `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-00-citation-check.txt` (to delete), `docs/phase4-plan.md`, `docs/p
+docs/agents/reviews/P4-01.md | path | agents/TASKS.md | | `git diff --name-status origin/main..HEAD` | 9 files, all under `docs/`: `PROJECT_STATE.md`, `adr/0014`, `agents/TASKS.md`, `phase4-plan.m
+docs/agents/reviews/P4-01.md | test-planned-only | TestInMemoryRepository_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt | - `TestInMemoryRepository_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` (planned test), slice 4a
+docs/agents/reviews/P4-01.md | test-planned-only | TestPostgresRepository_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt | - `TestPostgresRepository_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` (planned test), slice 4b,
+docs/agents/reviews/P4-01.md | path | docs/agents/handoffs/P4-00-citation-check.txt | | `docs/agents/handoffs/P4-00-citation-check.txt` | deleted (`D` in the diff). Only TASKS.md still names it, as "(to delete)". |
+docs/agents/reviews/P4-01.md | test-planned-only | TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt | | Planned test `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` | handoff says it verifies `CommitAttempt` closes the attempt
+docs/agents/reviews/P4-4a-evidence.txt | path | a/docs/security/findings.md | diff --git a/docs/security/findings.md b/docs/security/findings.md
+docs/agents/reviews/P4-4a-evidence.txt | path | b/docs/security/findings.md | diff --git a/docs/security/findings.md b/docs/security/findings.md
+docs/agents/reviews/P4-4a-evidence.txt | path | a/docs/security/findings.md | --- a/docs/security/findings.md
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/domain/transition.go | diff --git a/internal/domain/transition.go b/internal/domain/transition.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/domain/transition.go | diff --git a/internal/domain/transition.go b/internal/domain/transition.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/coordinator/service.go | diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/coordinator/service.go | diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | a/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | path | b/internal/storage/inmemory.go | diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+docs/agents/reviews/P4-4a-evidence.txt | test | TestAudit_Point4 | $ go test -v -race -run 'TestAudit_Point4' ./tests/review/...
+docs/agents/reviews/P4-4a-evidence.txt | test | TestAudit_Point4 | $ MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -run 'TestAudit_Point4.*/postgres' ./tests/review/...
+docs/agents/reviews/P4-4a-evidence.txt | test | TestConformance_CancelJob_ | $ go test -v -race -run 'TestConformance_CancelJob_|TestConformance_CommitAttempt_|TestProperty_StateMachine_ModelConformance' ./internal/st
+docs/agents/reviews/P4-4a-evidence.txt | test | TestConformance_CommitAttempt_ | $ go test -v -race -run 'TestConformance_CancelJob_|TestConformance_CommitAttempt_|TestProperty_StateMachine_ModelConformance' ./internal/st
+docs/agents/reviews/P4-4a-evidence.txt | test | TestConformance_CancelJob_ | $ MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -run 'TestConformance_CancelJob_|TestConformance_CommitAttempt_|TestProperty_StateMach
+docs/agents/reviews/P4-4a-evidence.txt | test | TestConformance_CommitAttempt_ | $ MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -run 'TestConformance_CancelJob_|TestConformance_CommitAttempt_|TestProperty_StateMach
+docs/phase4-plan.md | path | storagetest/conformance.go | - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
+docs/phase4-plan.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_RenewLease_AcceptUntilSwept | - `TestConformance_RenewLease_AcceptUntilSwept` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_RenewLease_RejectedAfterLost | - `TestConformance_RenewLease_RejectedAfterLost` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_SweepExpiredLeases_RetryOrFail | - `TestConformance_SweepExpiredLeases_RetryOrFail` (planned test)
+docs/phase4-plan.md | test-planned-only | TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping | - `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test)
+docs/phase4-plan.md | test-planned-only | TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit | - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+docs/security/findings.md | test | TestCoordinator_IDLeakage | | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`pref
+docs/security/findings.md | test | TestCoordinator_Service | - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `Test
+unresolved: 197
+--- exit: 0
+
+=== [adr-invented-grep] $ grep -rn -E "0015-bounded|0016-cancellation-and-drain|bounded-retries-and-backoff|cancellation-and-drain" --include="*" . 2>/dev/null | grep -v "^./.git/" | head; echo "---ADR files:"; ls docs/adr | grep -E "^001[1-6]"; echo "--- ADR filenames referenced anywhere in HEAD docs but missing:"; grep -rhoE "\b[0-9]{4}-[a-z0-9-]+\.md\b" docs CHANGELOG.md AGENTS.md | sort -u | while read f; do [ -e docs/adr/$f ] || echo "MISSING $f"; done
+./docs/agents/reviews/P4-02-evidence.txt:370:=== [adr-invented-grep] $ grep -rn -E "0015-bounded|0016-cancellation-and-drain|bounded-retries-and-backoff|cancellation-and-drain" --include="*" . 2>/dev/null | grep -v "^./.git/" | head; echo "---ADR files:"; ls docs/adr | grep -E "^001[1-6]"; echo "--- ADR filenames referenced anywhere in HEAD docs but missing:"; grep -rhoE "\b[0-9]{4}-[a-z0-9-]+\.md\b" docs CHANGELOG.md AGENTS.md | sort -u | while read f; do [ -e docs/adr/$f ] || echo "MISSING $f"; done
+---ADR files:
+0011-postgres-dispatch-and-recovery.md
+0012-security-and-adversarial-testing-workflow.md
+0013-durable-dispatch-and-coordinator-recovery.md
+0014-lease-model-and-expiry.md
+0015-retry-policy-and-failure-classification.md
+0016-cancellation-semantics.md
+--- ADR filenames referenced anywhere in HEAD docs but missing:
+MISSING 0013-worker-registration-bounds-and-rejection-codes.md
+--- exit: 0
+
+=== [storagetest] $ grep -n "storagetest/conformance.go" docs/phase4-plan.md; git blame -L "$(grep -n "storagetest/conformance.go" docs/phase4-plan.md | head -1 | cut -d: -f1),+0" docs/phase4-plan.md | cut -c1-60; find . -name conformance.go -path "*storagetest*" -not -path "./.git/*"
+39:       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` (in `RunRepositoryConformanceTests`) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+43:       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
+89:  - Expand shared conformance suite in `internal/storage/storagetest/conformance.go` (`TestConformance_CancelJob_IdempotentCancelRequested`, `TestConformance_CancelJob_RetryingImmediatelyCancelled`, `TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt`).
+126:    - Shared conformance tests for `RenewLease` and `SweepExpiredLeases` in `internal/storage/storagetest/conformance.go`, run against both repositories.
+236:    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt`, permitted by `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). No existing test in the test suite asserts the old outcome (`StateCancelRequested` is tested in `internal/domain/transition_test.go` and `internal/storage/storagetest/conformance.go`). The coordinator requires no special cancel acknowledgement wire signal.
+fatal: -L invalid empty range
+./internal/storage/storagetest/conformance.go
+--- exit: 0
+
+=== [helpers] $ grep -rn -E "func (newTestService|newTestServer|setupTestServer|setupTestCoordinator|setupErrorServer)\b" internal tests; echo; grep -n -E "newTestService|newTestServer" docs/phase4-plan.md | cut -c1-200; echo; grep -rn -E "coordinator.NewService\(" internal/coordinator/service_test.go internal/api/api_test.go | head -20
+internal/api/api_test.go:26:func setupTestServer() (*httptest.Server, *coordinator.Service) {
+internal/api/api_test.go:53:func setupErrorServer(injectErr error) (*httptest.Server, *coordinator.Service) {
+internal/coordinator/service_test.go:41:func setupTestCoordinator(workerTimeout time.Duration) (*coordinator.Service, *mockClock, storage.Repository) {
+
+58:       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `newTestService`), `internal/api/api_test.go` (helper `n
+
+internal/coordinator/service_test.go:46:	svc := coordinator.NewService(repo, sched, reg, workerTimeout)
+internal/coordinator/service_test.go:273:	svc := coordinator.NewService(repo, sched, reg, 100*time.Millisecond)
+internal/coordinator/service_test.go:342:	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+internal/api/api_test.go:30:	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+internal/api/api_test.go:58:	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+internal/api/api_test.go:588:	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+--- exit: 0
+
+=== [imports] $ 
+for f in docs/agents/reviews/P4-01.md docs/agents/reviews/P4-01-evidence.txt; do git diff --quiet origin/agent/claude/P4-01-review:$f HEAD:$f && echo "IDENTICAL $f vs P4-01-review" || echo "DIFF $f"; done
+for f in docs/agents/reviews/P4-4a.md docs/agents/reviews/P4-4a-evidence.txt; do git diff --quiet origin/agent/gemini/P4-4a-review:$f HEAD:$f && echo "IDENTICAL $f vs P4-4a-review" || echo "DIFF $f"; done
+for r in origin/agent/claude/P4-01-review origin/agent/gemini/P4-4a-review; do echo "== $r files vs main:"; git diff --name-only origin/main..$r; done
+echo "== audit_attacks_test.go in HEAD?"; git ls-tree -r --name-only HEAD | grep -c audit_attacks_test || true
+git ls-tree -r --name-only HEAD tests/review | head
+IDENTICAL docs/agents/reviews/P4-01.md vs P4-01-review
+IDENTICAL docs/agents/reviews/P4-01-evidence.txt vs P4-01-review
+IDENTICAL docs/agents/reviews/P4-4a.md vs P4-4a-review
+IDENTICAL docs/agents/reviews/P4-4a-evidence.txt vs P4-4a-review
+== origin/agent/claude/P4-01-review files vs main:
+docs/agents/reviews/P4-01-evidence.txt
+docs/agents/reviews/P4-01.md
+== origin/agent/gemini/P4-4a-review files vs main:
+docs/PROJECT_STATE.md
+docs/adr/0014-lease-model-and-expiry.md
+docs/agents/TASKS.md
+docs/agents/handoffs/P4-00-citation-check.txt
+docs/agents/handoffs/P4-00.md
+docs/agents/handoffs/P4-4a-citation-drift.txt
+docs/agents/handoffs/P4-4a.md
+docs/agents/reviews/P4-00-round5-evidence.txt
+docs/agents/reviews/P4-00-round5.md
+docs/agents/reviews/P4-4a-evidence.txt
+docs/agents/reviews/P4-4a.md
+docs/phase4-plan.md
+docs/protocol.md
+docs/security/findings.md
+internal/api/api_test.go
+internal/coordinator/service.go
+internal/coordinator/service_test.go
+internal/domain/attempt.go
+internal/domain/events.go
+internal/domain/job.go
+internal/domain/state.go
+internal/domain/transition.go
+internal/domain/transition_test.go
+internal/storage/inmemory.go
+internal/storage/inmemory_test.go
+internal/storage/postgres/concurrency_test.go
+internal/storage/postgres/repository.go
+internal/storage/postgres/repository_test.go
+internal/storage/storagetest/conformance.go
+tests/docs/citation_allowlist.txt
+tests/integration/multi_worker_batch_test.go
+tests/review/audit_attacks_test.go
+tests/review/sec022_probe_test.go
+== audit_attacks_test.go in HEAD?
+0
+tests/review/sec022_probe_test.go
+--- exit: 0
+
+=== [r14-r22-claims] $ 
+echo "-- R-14 old config names (expect none):"; grep -rn "MINICLOUD_DEFAULT_LEASE_DURATION\|MINICLOUD_LEASE_SWEEPER_INTERVAL" docs CHANGELOG.md --include=*.md | grep -v "docs/agents/reviews\|docs/agents/handoffs" | head
+echo "-- R-14 old STATE names EXPIRED/CANCELED in ADR-0014/plan (the builder claims these were replaced):"; grep -n "AttemptExpired\|\"EXPIRED\"\|AttemptCanceled\|\"CANCELED\"" docs/adr/0014-lease-model-and-expiry.md docs/phase4-plan.md | head
+echo "-- R-18 messages:"; grep -rn "pending retry cancelled immediately\|job cancelled immediately" docs/adr docs/protocol.md docs/phase4-plan.md | cut -c1-220
+echo "-- R-19 formula in ADR-0015:"; grep -n -i "partition\|lease (30\|sweep interval" docs/adr/0015-retry-policy-and-failure-classification.md | cut -c1-260 | head
+echo "-- R-20 line cites in SEC-020 area / failure-model:"; grep -n "failure-model.md:[0-9]" docs/security/findings.md | head -3; grep -n -E "\.(go|md):[0-9]+" docs/failure-model.md | head -3
+echo "-- R-22 FS-07:"; grep -n "FS-07" docs/failure-model.md | cut -c1-300 | head -3; grep -n -i "phase 5" docs/failure-model.md docs/roadmap.md | head; grep -n "Phase 4" docs/roadmap.md | cut -c1-200 | head -3
+-- R-14 old config names (expect none):
+-- R-14 old STATE names EXPIRED/CANCELED in ADR-0014/plan (the builder claims these were replaced):
+-- R-18 messages:
+-- R-19 formula in ADR-0015:
+83:  - Every attempt marked `LOST` by the lease sweeper (due to worker crash, network partition, or lease expiration) **consumes 1 attempt** from the job's `max_attempts` budget. (Accepted by owner).
+84:  - **Consequence for Prolonged Outages**: Each lost attempt costs approximately lease duration (~30s) + up to one sweeper tick (~5s) + backoff delay. Repeated losses consume the `max_attempts` budget. While coordinator startup and database outage grace win
+-- R-20 line cites in SEC-020 area / failure-model:
+8:- **Phase 4 Lease Recovery & Grace Period Guarantees:** In Phase 4 (ADR-0014, ADR-0015, ADR-0016), dead worker reclamation is fully solved. When a worker process dies abruptly or loses connectivity while executing a `RUNNING` job, its attempt lease expires on database time (`lease_expires_at`). To prevent coordinator restarts or database outages from mass-expiring healthy attempts and violating Phase 3 surviving-worker commit guarantees (`TestPostgresWiring_CoordinatorRestartRecovery` in `tests/integration/postgres_wiring_test.go:167` and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` in `tests/integration/part_d_security_test.go:794`), MiniCloud implements:
+51:Inspection of the current worker implementation in `internal/worker/client.go:324-355` (`executeAndReport`) reveals that `ReportResult` retries at most 5 times with exponential backoff (100ms * 2^attempt), yielding approximately 3.1 seconds of total retry duration (100ms + 200ms + 400ms + 800ms + 1600ms = 3.1s). If a coordinator restart or database outage lasts longer than 3.1 seconds (e.g., a 15–45 second coordinator crash), any task that completes *during* the outage discards its completed result at the worker side. Even if the coordinator restarts and enables its 30-second startup grace period, no result is delivered, resulting in lost work and redundant retry dispatch.
+76:   - `internal/worker/client_test.go:16-38` (`TestIsNonRetryableReportError`): Currently pins classification of HTTP 403, 404, 409 as terminal/non-retryable and 200, 400, 500, 502, 503, 504 as retryable.
+-- R-22 FS-07:
+27:| **FS-07** | **Dispatch transport (Redis) unavailable** | Coordinator retains persistent job state in database. Jobs are requeued upon transport reconnection. | V2 (Transport Evaluation) | Out of Scope for V1. |
+16:| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale res
+17:| **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted
+45:   - `internal/scheduler` is intentionally not used in the V1 dispatch loop during Phase 3 (temporary until post-Phase 4 assignment slice).
+--- exit: 0
+
+=== [seeds-in-code] $ grep -n -i "seed\|steps\|numSteps\|const " internal/storage/model_test.go 2>/dev/null | head -30; grep -rln "TestProperty_StateMachine_ModelConformance" internal tests | head
+internal/storage/inmemory_test.go
+internal/storage/storagetest/conformance.go
+internal/storage/postgres/repository_test.go
+--- exit: 0
+
+=== [seeds-in-code2] $ grep -n "TestProperty_StateMachine_ModelConformance" internal/storage/inmemory_test.go internal/storage/storagetest/conformance.go internal/storage/postgres/repository_test.go; F=internal/storage/storagetest/conformance.go; L=$(grep -n "func TestProperty_StateMachine_ModelConformance\|func RunModelConformance\|func RunStateMachineModel" $F | head -1 | cut -d: -f1); echo "start $L"; grep -n -i "seed\|steps\|numSteps\|rand.New\|rand.NewSource" $F | head -30; echo ---mem; grep -n -B3 -A12 "TestProperty_StateMachine_ModelConformance" internal/storage/inmemory_test.go | head -40; echo ---pg; grep -n -B3 -A12 "TestProperty_StateMachine_ModelConformance" internal/storage/postgres/repository_test.go | head -40
+internal/storage/inmemory_test.go:766:func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+internal/storage/storagetest/conformance.go:943:// (fault-injection-plan.md invariant 4). Wrapped by TestProperty_StateMachine_ModelConformance.
+internal/storage/postgres/repository_test.go:53:func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+start 944
+940:// seeded random sequence of submit, poll, commit (valid, wrong token, replay) and cancel
+944:func RunStateMachineModelConformance(t *testing.T, newHarness func(t *testing.T) Harness, seeds []int64, steps int) {
+945:	for _, seed := range seeds {
+946:		seed := seed
+947:		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) {
+948:			runModelSeed(t, newHarness(t).Repo, seed, steps)
+953:func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) {
+955:	rng := rand.New(rand.NewSource(seed))
+993:				t.Fatalf("seed %d step %d (%s): GetJob(%s): %v", seed, step, op, j.id, err)
+996:				t.Fatalf("seed %d step %d (%s): job %s state: repo=%s model=%s", seed, step, op, j.id, got.State, j.state)
+1000:				t.Fatalf("seed %d step %d (%s): ListAttemptsByJob: %v", seed, step, op, err)
+1003:				t.Fatalf("seed %d step %d (%s): job %s attempts: repo=%d model=%d", seed, step, op, j.id, len(atts), len(j.attempts))
+1013:					t.Fatalf("seed %d step %d (%s): job %s attempt %s: repo=%s model=%v", seed, step, op, j.id, a.ID, a.State, want)
+1016:					t.Fatalf("seed %d step %d (%s): INVARIANT: terminal job %s has active attempt %s", seed, step, op, j.id, a.ID)
+1022:				t.Fatalf("seed %d step %d (%s): worker %s slots: repo=%d model=%d", seed, step, op, id, got, freeSlots(id))
+1031:				t.Fatalf("seed %d step %d (%s): unexpected error: %v", seed, step, op, got)
+1036:			t.Fatalf("seed %d step %d (%s): expected %v, got %v", seed, step, op, want, got)
+1040:	for step := 0; step < steps; step++ {
+1043:			id := fmt.Sprintf("j_model_%d_%d", seed, len(order))
+1070:					t.Fatalf("seed %d step %d (poll): FIFO violated: repo dispatched %s, model expected %s", seed, step, job.ID, next.id)
+1137:		check(steps, "final", j)
+---mem
+763-	}
+764-}
+765-
+766:func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+767-	storagetest.RunStateMachineModelConformance(t, newInMemoryHarness, []int64{1, 2, 3, 4, 5, 6, 7, 8}, 400)
+768-}
+769-
+770-func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
+771-	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newInMemoryHarness)
+772-}
+---pg
+50-	storagetest.RunCommitAttemptTerminalJobConformance(t, newPostgresHarness)
+51-}
+52-
+53:func TestProperty_StateMachine_ModelConformance(t *testing.T) {
+54-	storagetest.RunStateMachineModelConformance(t, newPostgresHarness, []int64{1, 2, 3}, 120)
+55-}
+56-
+57-func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
+58-	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newPostgresHarness)
+59-}
+--- exit: 0
+
+=== [seeds-docs] $ grep -rn -i "seeds\|[0-9] steps\|x [0-9]* steps" docs CHANGELOG.md | grep -v "docs/agents/reviews/P4-02\|reviews/P4-00" | cut -c1-260
+docs/agents/reviews/P4-01-evidence.txt:365:[exit=1] (1 = no test seeds a non-RUNNING attempt)
+docs/agents/reviews/P4-01.md:76:so the terminal-job check answers first. No test seeds a non-`RUNNING` attempt on a live job
+docs/agents/handoffs/P4-4a.md:79:| `TestProperty_StateMachine_ModelConformance` | executed, memory (8 seeds x 400 steps) and PostgreSQL (3 seeds x 120 steps); covers submit, poll, commit (valid, wrong token, replay) and cancel; no lease, sweeper or retry opera
+docs/agents/handoffs/P4-4a.md:91:| `TestProperty_StateMachine_ModelConformance` (memory + PG wrappers) | same | repository agrees with a reference model on job state, attempt states, error classes, slots; FIFO; Invariant 4 after every step | m1a-m1d (fails see
+docs/agents/handoffs/P4-4a.md:1083:- S7. Duplicate cancel could still finalise a job through another path: model test (cancel after cancel, commit after cancel) shows no divergence over 8 + 3 seeds. Evidence: executed.
+docs/PROJECT_STATE.md:15:  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_Commit
+CHANGELOG.md:15:  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_N
+--- exit: 0
+
+=== [counts-4a] $ grep -n -E "PASS [0-9]+|SKIP [0-9]+|FAIL [0-9]+" docs/agents/handoffs/P4-4a.md docs/agents/reviews/P4-4a.md | cut -c1-260 | head -30; echo; grep -n -E "^(PASS|SKIP|FAIL) [0-9]|PASS [0-9]+ SKIP" docs/agents/reviews/P4-4a-evidence.txt | head -20
+docs/agents/handoffs/P4-4a.md:106:- Baseline (`env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`, `grep -c '^--- ...'`): **PASS 77 SKIP 26 FAIL 0**. `make test-db`: **53 PASS / 0 SKIP / 0 FAIL** (counting every `--- PASS` line, subtests inclu
+docs/agents/handoffs/P4-4a.md:107:- Final, DB URL unset: **PASS 89 SKIP 28 FAIL 1**. `make test-db`: **PASS 70 / SKIP 0 / FAIL 0**.
+docs/agents/handoffs/P4-4a.md:111:- FAIL 1 is `TestCitations` (blocker B1). Baseline had 0.
+docs/agents/handoffs/P4-4a.md:135:PASS 77 SKIP 26 FAIL 0
+docs/agents/handoffs/P4-4a.md:1044:PASS 89 SKIP 28 FAIL 1
+docs/agents/reviews/P4-4a.md:35:| DB-unset suite test counts | `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...` | Builder: `PASS 89 SKIP 28 FAIL 1`<br>Review branch: `PASS 93 SKIP 28 FAIL 1` (+4 review attack tests) | Yes |
+docs/agents/reviews/P4-4a.md:36:| `make test-db` test counts | `make test-db` | `PASS 70 SKIP 0 FAIL 0` (all subtests counted) | Yes |
+docs/agents/reviews/P4-4a.md:78:- `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` (Memory: PASS 0.03s, Postgres: PASS 1.06s)
+docs/agents/reviews/P4-4a.md:79:- `TestAudit_Point4b_ConcurrentCancels` (Memory: PASS 0.03s, Postgres: PASS 28.25s)
+docs/agents/reviews/P4-4a.md:80:- `TestAudit_Point4c_CommitRacingCancel` (Memory: PASS 0.01s, Postgres: PASS 21.27s)
+docs/agents/reviews/P4-4a.md:81:- `TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount` (Memory: PASS 0.00s, Postgres: PASS 0.40s)
+
+463:PASS 93 SKIP 28 FAIL 1 (89 PASS on builder's tip, +4 audit tests)
+--- exit: 0
+
+=== [sec024-index] $ ls internal/storage/postgres/migrations; grep -rn "idx_job_events_unique_diagnostic_late_result" internal | head -3; echo "--- how PG bounds the diagnostic event:"; grep -n -i "NOT EXISTS\|DIAGNOSTIC_LATE_RESULT" internal/storage/postgres/repository.go | head; echo "--- docs mentioning the index in SEC-024 / ADR-0014:"; grep -n "partial unique index" docs/security/findings.md docs/adr/0014-lease-model-and-expiry.md | cut -c1-240
+000001_initial_schema.sql
+000002_schema_hardening.sql
+000003_worker_limits.sql
+--- how PG bounds the diagnostic event:
+1147:// records at most one DIAGNOSTIC_LATE_RESULT event per attempt. An attempt that is already
+1182:	// The job row lock serialises concurrent rejections, so NOT EXISTS bounds the event to one per attempt.
+1186:		WHERE NOT EXISTS (
+--- docs mentioning the index in SEC-024 / ADR-0014:
+docs/security/findings.md:427:- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-02
+docs/adr/0014-lease-model-and-expiry.md:234:- **Hard Boundary (No Resurrection Once Swept)**: Once the sweeper acquires row locks and transitions the attempt to `LOST`, Option 2 ceases. Any subsequent commit or renewal attempt is strictly r
+--- exit: 0
+
+=== [sec-numbers] $ grep -o "SEC-0[0-9][0-9]" docs/security/findings.md | sort -u | tail -4; grep -n "SEC-025\|SEC-024" docs/agents/TASKS.md | cut -c1-200; grep -n "next free" -i docs/security/*.md docs/PROJECT_STATE.md CHANGELOG.md | cut -c1-200
+SEC-021
+SEC-022
+SEC-023
+SEC-024
+17:| `docs/security/findings.md` | none | Released; next free SEC number SEC-025 |
+56:- Goal: repair line citations and drift, update Phase 4 plan with 4a/4b/4c scope split, register SEC-024, resolve P4-01 audit minors, update task board and changelog.
+--- exit: 0
+
+=== [r4a01] $ grep -rn "RetryBackoff\|R-4a-01" docs CHANGELOG.md | grep -v "docs/agents/reviews/\|handoffs/P4-4a" | cut -c1-330; echo ---real test:; grep -n -A25 "func TestInMemoryRepository_RetryBackoff" internal/storage/inmemory_test.go | head -40 | cut -c1-140
+docs/agents/handoffs/P4-02.md:7:- `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and transition matrix sections. Applied Phase 4 scope split (4b gets `RenewLease`/`SweepExpiredLeases` with row lock, `TestInMemoryRepository_LeaseRenewalAndExpi
+docs/phase4-plan.md:107:  - `TestInMemoryRepository_RetryBackoff` (executed; covers `not_before` dispatch eligibility gating only; no backoff computation per R-4a-01)
+docs/phase4-plan.md:247:  - `TestCoordinator_RetryBackoffWithJitter` (planned test)
+---real test:
+667:func TestInMemoryRepository_RetryBackoff(t *testing.T) {
+668-	ctx := context.Background()
+669-	start := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+670-	clk := &retryTestClock{now: start}
+671-	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+672-
+673-	if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w_retry", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []str
+674-		t.Fatalf("UpsertWorker failed: %v", err)
+675-	}
+676-	if err := repo.SubmitJob(ctx, &domain.Job{ID: "j_retry", TaskType: "echo", Payload: []byte(`{"message":"x"}`), State: domain.StateQueue
+677-		t.Fatalf("SubmitJob failed: %v", err)
+678-	}
+679-	first, err := repo.DispatchJob(ctx, "j_retry", "w_retry")
+680-	if err != nil {
+681-		t.Fatalf("DispatchJob failed: %v", err)
+682-	}
+683-
+684-	// Attempt 1 is lost and the job waits for its backoff (stands in for the sweeper of slice 4b).
+685-	att, _ := repo.GetAttempt(ctx, first.ID)
+686-	att.State = domain.AttemptLost
+687-	if err := repo.UpdateAttempt(ctx, att); err != nil {
+688-		t.Fatalf("UpdateAttempt failed: %v", err)
+689-	}
+690-	notBefore := start.Add(5 * time.Second)
+691-	job, _ := repo.GetJob(ctx, "j_retry")
+692-	job.State = domain.StateRetrying
+--- exit: 0
+
+=== [p401-handoff-facts] $ git rev-parse --short origin/agent/gemini/P4-01 2>&1; git log --oneline -1 fde4ca7 | cat; echo "--- P4-01 changed files (f6c7ec8..d28a3d1 first-parent diff):"; git diff --name-only f6c7ec8 d28a3d1; echo "--- exists in HEAD?"; ls docs/agents/handoffs/; echo "--- 77/26 in P4-01 evidence:"; grep -n "PASS 77\|77 SKIP\|SKIP 26" docs/agents/reviews/P4-01-evidence.txt | head -5
+fatal: Needed a single revision
+fde4ca7 docs(agents): update task board with P4-00 close-out and register P4-01 and P4-4a (Fix 3)
+--- P4-01 changed files (f6c7ec8..d28a3d1 first-parent diff):
+docs/PROJECT_STATE.md
+docs/adr/0014-lease-model-and-expiry.md
+docs/agents/TASKS.md
+docs/agents/handoffs/P4-00-citation-check.txt
+docs/agents/handoffs/P4-00.md
+docs/agents/reviews/P4-00-round5-evidence.txt
+docs/agents/reviews/P4-00-round5.md
+docs/phase4-plan.md
+docs/protocol.md
+--- exists in HEAD?
+P0-01-citation-proof.txt
+P0-01.md
+P4-00.md
+P4-01.md
+P4-02.md
+P4-4a-citation-drift.txt
+P4-4a.md
+--- 77/26 in P4-01 evidence:
+559:PASS 77 SKIP 26 FAIL 0
+--- exit: 0
+
+=== [stale-today] $ echo "--- NewServiceWithQueue / spyQueue in live docs:"; grep -rn "NewServiceWithQueue\|spyQueue" docs CHANGELOG.md README.md 2>/dev/null | grep -v "docs/agents/reviews\|docs/agents/handoffs" | cut -c1-200
+echo "--- code: still exists?"; grep -rn "NewServiceWithQueue\|spyQueue" internal cmd tests | head -3
+echo "--- cancel-today statements:"; grep -n -i "falls through\|fall into\|else. branch\|prematurely" docs/state-machine.md docs/adr/*.md docs/protocol.md docs/architecture.md docs/schema.md docs/failure-model.md 2>/dev/null | cut -c1-230
+--- NewServiceWithQueue / spyQueue in live docs:
+docs/phase4-plan.md:57:       - `NewServiceWithQueue` in `internal/coordinator/service.go` and its queue parameter are retired (deleted per D3; `tests/integration/multi_worker_batch_test.go` func `Tes
+docs/phase4-plan.md:64:         - The historical `spyQueue` helper was eliminated, and seven tests were rewritten to assert observable domain outcomes (job state, attempt state, worker slot capacity) 
+docs/adr/0015-retry-policy-and-failure-classification.md:126:   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob
+docs/adr/0008-dispatch-transport-queue-interface.md:52:   - `coordinator.NewServiceWithQueue` allows injecting alternative transport implementations (such as Redis Streams in V2) without modifying dom
+docs/adr/0008-dispatch-transport-queue-interface.md:71:- *Mutator Method (`SetQueue`):* Rejected in favor of constructor injection (`NewServiceWithQueue`) to maintain immutable service dependencies an
+docs/PROJECT_STATE.md:14:  - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `rep
+CHANGELOG.md:14:  - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.Dispatc
+CHANGELOG.md:129:  - `internal/coordinator`: Added `NewServiceWithQueue` constructor while keeping `NewService` signature defaulting to `InMemoryQueue`; integrated queue enqueue on submit, claim with 
+--- code: still exists?
+--- cancel-today statements:
+docs/state-machine.md:48:  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) -> falls through to `CANCELLED` (event `JOB_CANCELLED`).
+docs/state-machine.md:52:  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4,
+docs/adr/0006-redis-streams-dispatch-evaluation-in-v2.md:38:  - Avoids introducing Redis prematurely in V1 when PostgreSQL pull dispatch is sufficient for core correctness.
+docs/adr/0010-migrations-policy.md:47:    A session-level advisory lock (`pg_advisory_lock`) on a pooled connection (`pgxpool`) introduces dangerous leak hazards: if the connection returns to the pool or statements execute on diff
+docs/adr/0016-cancellation-semantics.md:24:  4. If job is in any other non-terminal state (which currently includes `CANCEL_REQUESTED` or future `RETRYING`): the `else` branch transitions the job directly to `CANCELLED` (audit eve
+docs/adr/0016-cancellation-semantics.md:45:   - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may s
+--- exit: 0
+
+=== [cancel-code] $ L=$(grep -n "^func (r \*InMemoryRepository) CancelJob" internal/storage/inmemory.go | cut -d: -f1); sed -n "${L},$((L+55))p" internal/storage/inmemory.go
+func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*domain.Job, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	job, exists := r.jobs[jobID]
+	if !exists {
+		return nil, domain.ErrJobNotFound
+	}
+	if job.State.IsTerminal() {
+		return nil, domain.ErrJobAlreadyTerminal
+	}
+
+	if job.State == domain.StateCancelRequested {
+		copied := *job
+		return &copied, nil
+	}
+
+	fromState := job.State
+	var targetState domain.JobState
+	var eventType domain.JobEventType
+	if job.State == domain.StateRunning {
+		targetState = domain.StateCancelRequested
+		eventType = domain.JobEventCancelRequested
+	} else {
+		// QUEUED and RETRYING cancel immediately.
+		targetState = domain.StateCancelled
+		eventType = domain.JobEventCancelled
+	}
+
+	if err := job.TransitionTo(targetState); err != nil {
+		return nil, err
+	}
+	now := r.clock.Now()
+	job.UpdatedAt = now
+	if targetState == domain.StateCancelRequested {
+		job.CancelRequestedAt = &now
+	} else {
+		job.NotBefore = nil
+	}
+
+	r.recordEventLocked(&domain.JobEvent{
+		JobID:     jobID,
+		EventType: eventType,
+		FromState: &fromState,
+		ToState:   &targetState,
+		CreatedAt: now,
+	})
+
+	copied := *job
+	return &copied, nil
+}
+
+// ListEventsByJob retrieves all recorded lifecycle events for a specific job in order.
+func (r *InMemoryRepository) ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+--- exit: 0
+
+=== [slice-mentions] $ grep -rn -E "Slice 4[abcd]|slice 4[abcd]|\b4[abcd]\b.*(slice|Slice)" docs/roadmap.md docs/architecture.md docs/fault-injection-plan.md docs/failure-model.md docs/schema.md docs/state-machine.md docs/protocol.md docs/adr/0014-lease-model-and-expiry.md docs/adr/0015-retry-policy-and-failure-classification.md docs/adr/0016-cancellation-semantics.md docs/security/test-plan.md docs/security/threat-model.md | cut -c1-330
+docs/roadmap.md:54:1. **Slice 4a: Domain State Machine, Attempt Lease Primitives, In-Memory Parity & Property Test**:
+docs/roadmap.md:58:2. **Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation**:
+docs/roadmap.md:61:3. **Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring**:
+docs/roadmap.md:64:4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
+docs/failure-model.md:80:   Expanding `executeAndReport` in `internal/worker/client.go:324-355` from a fixed 5-iteration loop to a 60-second time-bounded loop with capped jittered backoff, and updating `IsNonRetryableReportError` to classify deterministic HTTP 400 as non-retryable (so malformed results do not retry for 60 second
+docs/schema.md:291:*Status: PROPOSED (Design only; no SQL migration files created until Slice 4b)*
+docs/state-machine.md:86:In Slice 4a, `internal/domain/state.go` will be updated to declare:
+docs/state-machine.md:104:In-memory attempt state validation: In Slice 4a, the in-memory repository will validate attempt states against canonical attempt states (preventing typos like `"CANCELED"` from being stored in memory tests).
+docs/state-machine.md:110:A codebase-wide inspection confirms that no stored rows or API outputs ever used `"EXPIRED"` or single-L `"CANCELED"`, as verified by the following historical grep queries prior to reconciliation in slice 4a:
+docs/state-machine.md:124:Reconciliation in slice 4a removed both unused constants. Neither constant was ever referenced in repository queries, database inserts, or API serialization routines. All persistence layers write canonical strings exclusively.
+docs/adr/0014-lease-model-and-expiry.md:191:  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `executeAndReport` from 5 attempts to 
+docs/adr/0015-retry-policy-and-failure-classification.md:126:   - In Slice 4a, the memory-mode coordinator (`internal/coordinator/service.go`) is rewired to dispatch directly via `repo.DispatchNextJob`, removing the separate queue claiming path and unifying the dispatch architecture across backends. Coordinator unit tests in `in
+docs/adr/0016-cancellation-semantics.md:46:   - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op performed directly in the repository `CancelJob` method under the job row lock (in PostgreSQL) or mutex (in-memory). It returns the existing job state with HTTP 200 `CANCEL_REQUESTED` (with the sa
+docs/security/threat-model.md:116:    - Remediation: (a) Handle `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"`; (b) in `CommitAttempt` on a terminal job, close the attempt strictly if still in `RUNNING` and free the worker slot in the same tran
+docs/security/threat-model.md:117:    - Verification step: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+--- exit: 0
+
+=== [r22-r20-r18] $ grep -n -i "design specifications\|proposed\|accepted" docs/roadmap.md | cut -c1-200 | head; echo ---ADR status; grep -n -i "^\*\*Status\|^- \*\*Status\|Status:" docs/adr/0014-*.md docs/adr/0015-*.md docs/adr/0016-*.md | head -6; echo ---R18 RETRYING-cancel messages; grep -rn -i "retry cancelled\|retrying.*cancel.*immediately\|cancelled immediately" docs/protocol.md docs/adr/0016-cancellation-semantics.md docs/phase4-plan.md | cut -c1-220 | head; echo ---R20 SEC-020 / failure-model line cites:; grep -c -E "\.(go|md):[0-9]+" docs/failure-model.md; grep -n -E "\.go:[0-9]+" docs/failure-model.md | cut -c1-80
+15:| **V1** | **Phase 3: Durable State** | PostgreSQL schema, forward-only migrations, coordinator restart recovery, transactional FIFO pull dispatch (`fifo_pull`). | Accepted jobs recover correctly a
+16:| **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale res
+17:| **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted
+51:## 4. Proposed Phase 4 Sub-Slices (Retry & Recovery)
+---ADR status
+---R18 RETRYING-cancel messages
+docs/protocol.md:117:**Response (200 OK — Queued or Retrying Job Cancelled Immediately):**
+docs/adr/0016-cancellation-semantics.md:48:   - When a job is in `RETRYING` awaiting backoff, `CancelJob` immediately transitions it to `CANCELLED` (terminal), clears `not_before`, and removes it from dispatch eligibilit
+docs/adr/0016-cancellation-semantics.md:61:   - Transition: `RETRYING` -> `CANCELLED` immediately (`internal/domain/transition.go:27`).
+docs/phase4-plan.md:76:     - When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before` and recording a `JOB_CANCELLED` event.
+---R20 SEC-020 / failure-model line cites:
+6
+8:- **Phase 4 Lease Recovery & Grace Period Guarantees:** In Phase 4 (ADR-0014, 
+51:Inspection of the current worker implementation in `internal/worker/client.go
+76:   - `internal/worker/client_test.go:16-38` (`TestIsNonRetryableReportError`)
+77:   - `internal/worker/client_test.go:40-112` (`TestAgent_ReportResult_Rejecti
+78:   - `internal/worker/client.go:324-355` (`executeAndReport`): Implements the
+80:   Expanding `executeAndReport` in `internal/worker/client.go:324-355` from a
+--- exit: 0
+
+=== [fm-cites] $ grep -n "^func executeAndReport\|^func (.*) executeAndReport\|func IsNonRetryableReportError\|^func " internal/worker/client.go | awk -F: "\$1>300 && \$1<420 || /executeAndReport|IsNonRetryable/"; echo; sed -n "16p;38p;40p;112p" internal/worker/client_test.go; echo; grep -n "func TestIsNonRetryableReportError\|func TestAgent_ReportResult_RejectionHandling" internal/worker/client_test.go; echo "--- transition.go:27 (ADR-0016:61)"; sed -n "20,30p" internal/domain/transition.go; echo "--- ADR-0016:61 and ADR-0014:97 cite transition.go line:"; grep -n "transition.go:[0-9]" docs/adr/*.md docs/*.md docs/security/*.md | cut -c1-160
+268:func IsNonRetryableReportError(statusCode int) bool {
+306:func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
+
+func TestIsNonRetryableReportError(t *testing.T) {
+}
+func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
+}
+
+16:func TestIsNonRetryableReportError(t *testing.T) {
+40:func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
+--- transition.go:27 (ADR-0016:61)
+		StateCancelled: true,
+		StateSucceeded: true,
+		StateFailed:    true,
+	},
+	StateRetrying: {
+		StateRunning:   true,
+		StateFailed:    true,
+		StateCancelled: true,
+	},
+	StateSucceeded: {},
+	StateFailed:    {},
+--- ADR-0016:61 and ADR-0014:97 cite transition.go line:
+docs/adr/0014-lease-model-and-expiry.md:97:    - A success commit (exit code 0 and empty error) transitions attempt to `COMPLETED` and job to `SUCCEEDED`, recor
+docs/adr/0016-cancellation-semantics.md:61:   - Transition: `RETRYING` -> `CANCELLED` immediately (`internal/domain/transition.go:27`).
+docs/adr/0016-cancellation-semantics.md:115:  - In MiniCloud's FSM (`internal/domain/transition.go:21`), `CANCEL_REQUESTED` explicitly permits transitions to `S
+docs/state-machine.md:40:*Note: In the domain FSM (`internal/domain/transition.go:4-33`), the diagonal is strictly `—` (no self-transitions). A duplicate canc
+docs/state-machine.md:54:  3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the renewal response (`cancel_reques
+docs/security/findings.md:376:  Neither repository checks for `job.State == domain.StateCancelRequested`. Fallback `else` transitions the job to `StateCancelled
+docs/security/threat-model.md:53:| **Job State Machine (`internal/domain`)** | Job & Attempt state invariants, transition validity | Service layer to State Mach
+--- exit: 0
+
+=== [sec014-target] $ grep -n "INSERT INTO jobs" internal/storage/postgres/repository.go | head -3; L=$(grep -n "INSERT INTO jobs" internal/storage/postgres/repository.go | head -1 | cut -d: -f1); awk -v l=$L "NR<=l && /^func /{f=\$0} END{print f}" internal/storage/postgres/repository.go; git show origin/main:internal/storage/postgres/repository.go | awk "NR<=1085 && /^func /{f=\$0} END{print \"main:1080 is inside: \" f}"; grep -n "chk_jobs_max_attempts\|chk_jobs_timeout" internal/storage/postgres/migrations/*.sql | head -3; sed -n 20,32p docs/security/findings.md | grep -n "SEC-014" | cut -c1-80
+60:		INSERT INTO jobs (id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at)
+462:		INSERT INTO jobs (id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at)
+func (r *Repository) CreateJob(ctx context.Context, job *domain.Job) error {
+main:1080 is inside: func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
+internal/storage/postgres/migrations/000001_initial_schema.sql:36:    CONSTRAINT chk_jobs_max_attempts 
+internal/storage/postgres/migrations/000001_initial_schema.sql:38:    CONSTRAINT chk_jobs_timeout 
+7:| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API B
+--- exit: 0
+
+=== [obsolete-scan] $ grep -rn "ErrAttemptNotRunning\|AttemptNotRunning" docs CHANGELOG.md | grep -v "docs/agents/reviews/" | cut -c1-200; echo "--- handoff P4-02: claims numbers:"; grep -n "43\|90\|PASS" docs/agents/handoffs/P4-02.md | cut -c1-160
+--- handoff P4-02: claims numbers:
+32:- `make test-docs`: PASS (ok `github.com/BlaZe08-Dev/Minicloud/tests/docs` 0.584s).
+34:- `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 90, SKIP 28, FAIL 0.
+35:- `make test-db`: PASS 70, SKIP 0, FAIL 0 (`internal/storage/postgres` 35.819s).
+--- exit: 0
+
+=== [gates-gofmt-vet-build] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/gates.txt
+# gates run on a clean export of HEAD 33c31ed (git archive) at /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/gate, MINICLOUD_TEST_DATABASE_URL unset
+gofmt clean
+go vet exit 0
+go build exit 0
+--- exit: 0
+
+=== [gate-test-docs] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/gate-docs.log
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.618s
+make test-docs exit 0
+--- exit: 0
+
+=== [gate-v-counts] $ tail -4 /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/gate-v.log; cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/gate-counts.log
+    --- SKIP: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.101s
+go test exit 0
+PASS 90 SKIP 28 FAIL 0
+--- exit: 0
+
+=== [names-check-4a-delta-nonnoise] $ grep -v -E 'evidence|citation-drift|citation-check|reviews/P4-0' /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/names-4a.txt | cut -c1-260
+checked tokens: 2914
+docs/adr/0016-cancellation-semantics.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | - Today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttem
+docs/agents/TASKS.md | sec | SEC-025 | | `docs/security/findings.md` | none | Released; next free SEC number SEC-025 |
+docs/agents/handoffs/P4-00.md | test-planned-only | TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged | - `0014-lease-model-and-expiry.md`: Corrected Blueprint citations to Section 5 ("Job Lifecycle and Consistency Mode
+docs/agents/handoffs/P4-00.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | - `0016-cancellation-semantics.md`: Corrected Blueprint Section 8 title ("API, Data Model, and Configuration", page 8) and Section 10
+docs/agents/handoffs/P4-00.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | - Inserted exact D-R3-01 outage grace sentence (phase4-plan.md overview and slice 4c). In Slice 4a, `CommitAttempt` on a terminal job
+docs/agents/handoffs/P4-00.md | test-planned-only | TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged | | R3-02 | D-R3-02 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/protocol.md` (sect
+docs/agents/handoffs/P4-00.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | | R3-06 | D-R3-06 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/adr/0016-cancellation-semantics.md` 
+docs/agents/handoffs/P4-00.md | test-planned-only | TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob | | R4-02 | D-R4-02 | RESOLVED | `docs/phase4-plan.md` (slices 4b and 4d), `docs/adr/0016-cancellation-semantics.md` (Decision), `docs/
+docs/agents/handoffs/P4-00.md | test-planned-only | TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt | - `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test): Verifies CommitAttempt closes attempt strictly if still in
+docs/agents/handoffs/P4-02.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and
+docs/phase4-plan.md | path | storagetest/conformance.go | - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
+docs/phase4-plan.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_RenewLease_AcceptUntilSwept | - `TestConformance_RenewLease_AcceptUntilSwept` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_RenewLease_RejectedAfterLost | - `TestConformance_RenewLease_RejectedAfterLost` (planned test)
+docs/phase4-plan.md | test-planned-only | TestConformance_SweepExpiredLeases_RetryOrFail | - `TestConformance_SweepExpiredLeases_RetryOrFail` (planned test)
+docs/phase4-plan.md | test-planned-only | TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping | - `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test)
+docs/phase4-plan.md | test-planned-only | TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit | - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+docs/security/findings.md | test | TestCoordinator_IDLeakage | | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`pref
+docs/security/findings.md | test | TestCoordinator_Service | - `TestCoordinator_Service` (does not exist (invented in an earlier report); actual real tests asserting coordinator service behavior: `Test
+unresolved: 188
+--- exit: 0
+
+=== [citedrift-live] $ head -3 /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/citedrift.txt; echo 'live-docs citations checked:'; grep -c cites /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/citedrift-live.txt; echo 'live-docs drifted rows (same_text=NO or beyond_end=YES):'; grep -c -E 'same_text=NO|beyond_end_now=YES' /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/citedrift-live.txt
+# citation drift: base=origin/main tip=HEAD
+# changed files: 42
+CHANGELOG.md:61 | cites internal/api/api_test.go:212-321 | base(1133 lines): if respWrongWorker.StatusCode != http.StatusForbidden { | tip(1194 lines): if respWrongWorker.StatusCode != http.StatusForbidden { | beyond_end_now=no | same_text=yes
+live-docs citations checked:
+84
+live-docs drifted rows (same_text=NO or beyond_end=YES):
+0
+--- exit: 1
+
+=== [mapcheck-removed-citations] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/mapcheck.txt | cut -c1-260
+CHANGELOG.md | 21 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+CHANGELOG.md | 21 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+CHANGELOG.md | 32 | internal/storage/storagetest/conformance.go:299-363 | ok | encl=RunRepositoryConformanceTests run=CancelJob_QueuedAndRunning text=t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+docs/PROJECT_STATE.md | 21 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/PROJECT_STATE.md | 21 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/PROJECT_STATE.md | 172 | internal/storage/storagetest/conformance.go:299-363 | ok | encl=RunRepositoryConformanceTests run=CancelJob_QueuedAndRunning text=t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+docs/PROJECT_STATE.md | 172 | internal/storage/inmemory_test.go:559-611 | ok | encl=TestInMemoryRepository_SubmitJob_And_CancelJob_Events run=None text=func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t
+docs/PROJECT_STATE.md | 173 | internal/domain/state.go:22-27 | CHECK | encl=AttemptState run=None text=AttemptPending   AttemptState = "PENDING"
+docs/PROJECT_STATE.md | 251 | internal/coordinator/service.go:26 | ok | encl=generateID run=None text=seq := atomic.AddInt64(&idCounter, 1)
+docs/adr/0011-postgres-dispatch-and-recovery.md | 78 | internal/coordinator/service.go:58 | ok | encl=Service run=None text=scheduler       scheduler.Scheduler
+docs/adr/0011-postgres-dispatch-and-recovery.md | 78 | service.go:66-80 | ok | encl=Service run=None text=// NewService constructs a new Coordinator Service with the 
+docs/adr/0011-postgres-dispatch-and-recovery.md | 79 | service.go:290-386 | CHECK | encl=RegisterWorker run=None text=worker.LastHeartbeatAt = now
+docs/adr/0011-postgres-dispatch-and-recovery.md | 81 | internal/scheduler/round_robin_test.go:32 | CHECK | encl=TestRoundRobinScheduler_Determinism run=None text=t.Fatalf("iteration %d: decision record selected expected %s
+docs/adr/0014-lease-model-and-expiry.md | 20 | internal/coordinator/service.go:320-333 | ok | encl=ReapInactiveWorkers run=None text=func (s *Service) ReapInactiveWorkers(ctx context.Context) (
+docs/adr/0014-lease-model-and-expiry.md | 97 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/adr/0014-lease-model-and-expiry.md | 97 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/adr/0014-lease-model-and-expiry.md | 97 | internal/domain/transition.go:21 | CHECK | encl=allowedTransitions run=None text=StateSucceeded: true,
+docs/adr/0014-lease-model-and-expiry.md | 223 | internal/storage/inmemory.go:578-579 | ok | encl=CommitAttempt run=None text=if job.State.IsTerminal() {
+docs/adr/0014-lease-model-and-expiry.md | 223 | internal/storage/postgres/repository.go:983-985 | ok | encl=CommitAttempt run=None text=if job.State.IsTerminal() {
+docs/adr/0015-retry-policy-and-failure-classification.md | 126 | internal/coordinator/service_test.go:338-381 | CHECK | encl=spyQueue run=None text=type spyQueue struct {
+docs/adr/0015-retry-policy-and-failure-classification.md | 133 | internal/storage/inmemory.go:494 | ok | encl=DispatchNextJob run=None text=return nil, nil, domain.ErrNoQueuedJobs
+docs/adr/0016-cancellation-semantics.md | 20 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/adr/0016-cancellation-semantics.md | 20 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/adr/0016-cancellation-semantics.md | 52 | internal/storage/inmemory.go:619-622 | ok | encl=CommitAttempt run=None text=} else {
+docs/adr/0016-cancellation-semantics.md | 52 | internal/storage/postgres/repository.go:1050-1054 | ok | encl=CommitAttempt run=None text=} else {
+docs/adr/0016-cancellation-semantics.md | 121 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/adr/0016-cancellation-semantics.md | 121 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/adr/0016-cancellation-semantics.md | 149 | internal/storage/storagetest/conformance.go:299-363 | ok | encl=RunRepositoryConformanceTests run=CancelJob_QueuedAndRunning text=t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+docs/adr/0016-cancellation-semantics.md | 149 | internal/storage/inmemory_test.go:559 | ok | encl=TestInMemoryRepository_SubmitJob_And_CancelJob_Events run=None text=func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t
+docs/phase4-plan.md | 32 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/phase4-plan.md | 32 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/phase4-plan.md | 39 | internal/storage/storagetest/conformance.go:299-363 | ok | encl=RunRepositoryConformanceTests run=CancelJob_QueuedAndRunning text=t.Run("CancelJob_QueuedAndRunning", func(t *testing.T) {
+docs/phase4-plan.md | 40 | internal/storage/inmemory_test.go:559 | ok | encl=TestInMemoryRepository_SubmitJob_And_CancelJob_Events run=None text=func TestInMemoryRepository_SubmitJob_And_CancelJob_Events(t
+docs/phase4-plan.md | 48 | internal/domain/transition.go:4-33 | ok | encl=allowedTransitions run=None text=var allowedTransitions = map[JobState]map[JobState]bool{
+docs/phase4-plan.md | 54 | internal/coordinator/service.go:401-409 | ok | encl=PollWork run=None text=item, err := s.queue.Claim(ctx, worker)
+docs/phase4-plan.md | 56 | internal/coordinator/service.go:194-195 | ok | encl=SubmitJob run=None text=if !s.dispatchViaRepo && s.queue != nil {
+docs/phase4-plan.md | 56 | internal/coordinator/service.go:512-513 | ok | encl=CommitResult run=None text=if !s.dispatchViaRepo && s.queue != nil {
+docs/phase4-plan.md | 56 | internal/coordinator/service.go:237-239 | ok | encl=CancelJob run=None text=if job.State == domain.StateCancelled && !s.dispatchViaRepo 
+docs/phase4-plan.md | 57 | internal/coordinator/service.go:71-72 | ok | encl=NewService run=None text=// NewServiceWithQueue constructs a new Coordinator Service 
+docs/phase4-plan.md | 57 | tests/integration/multi_worker_batch_test.go:39-40 | ok | encl=TestThreeWorkerBatch_Integration run=None text=q := queue.NewInMemoryQueue()
+docs/phase4-plan.md | 58 | internal/coordinator/service_test.go:47 | CHECK | encl=setupTestCoordinator run=None text=svc := coordinator.NewService(repo, sched, reg, workerTimeou
+docs/phase4-plan.md | 58 | internal/api/api_test.go:58 | CHECK | encl=setupErrorServer run=None text=svc := coordinator.NewService(repo, sched, reg, 10*time.Seco
+docs/phase4-plan.md | 58 | tests/integration/coordinator_restart_test.go:67 | CHECK | encl=TestWorker_CoordinatorRestart_AutoReRegistrationAndCompletion run=None text=svc1 := coordinator.NewService(repo1, sched1, reg1, 5*time.S
+docs/phase4-plan.md | 58 | tests/integration/worker_liveness_test.go:43 | CHECK | encl=TestWorkerLiveness_DeadWorkerReapedAndWorkContinues run=None text=svc := coordinator.NewService(repo, sched, reg, workerTimeou
+docs/phase4-plan.md | 60 | tests/integration/local_core_test.go:25 | ok | encl=TestLocalCore_MultiProcessIntegration run=None text=func TestLocalCore_MultiProcessIntegration(t *testing.T) {
+docs/phase4-plan.md | 60 | tests/integration/multi_worker_batch_test.go:26 | ok | encl=TestThreeWorkerBatch_Integration run=None text=func TestThreeWorkerBatch_Integration(t *testing.T) {
+docs/phase4-plan.md | 61 | internal/api/api_test.go:27 | ok | encl=setupTestServer run=None text=repo := storage.NewInMemoryRepository()
+docs/phase4-plan.md | 64 | internal/coordinator/service_test.go:338-381 | ok | encl=spyQueue run=None text=type spyQueue struct {
+docs/phase4-plan.md | 65 | internal/coordinator/service_test.go:386 | ok | encl=TestService_Claim_JobNoLongerQueued_Dropped run=None text=func TestService_Claim_JobNoLongerQueued_Dropped(t *testing.
+docs/phase4-plan.md | 66 | internal/coordinator/service_test.go:458 | ok | encl=TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased run=None text=func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_Droppe
+docs/phase4-plan.md | 67 | internal/coordinator/service_test.go:575 | ok | encl=TestService_CommitResult_AckOnlyOnAccepted run=None text=func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T
+docs/phase4-plan.md | 68 | internal/coordinator/service_test.go:665 | ok | encl=TestService_ClaimOutcome_TransientFailure_QueueReleased run=None text=func TestService_ClaimOutcome_TransientFailure_QueueReleased
+docs/phase4-plan.md | 69 | internal/coordinator/service_test.go:716 | ok | encl=TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased run=None text=func TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNe
+docs/phase4-plan.md | 70 | internal/coordinator/service_test.go:764 | ok | encl=TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released run=None text=func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy
+docs/phase4-plan.md | 71 | internal/coordinator/service_test.go:526 | ok | encl=TestService_Claim_Redelivery_NoDuplicateAttempt run=None text=func TestService_Claim_Redelivery_NoDuplicateAttempt(t *test
+docs/phase4-plan.md | 79 | internal/domain/state.go:22-27 | ok | encl=AttemptState run=None text=AttemptPending   AttemptState = "PENDING"
+docs/phase4-plan.md | 136 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/phase4-plan.md | 136 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/phase4-plan.md | 136 | internal/domain/transition.go:21 | ok | encl=allowedTransitions run=None text=StateSucceeded: true,
+docs/phase4-plan.md | 226 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/phase4-plan.md | 226 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/phase4-plan.md | 226 | internal/domain/transition.go:21 | ok | encl=allowedTransitions run=None text=StateSucceeded: true,
+docs/phase4-plan.md | 226 | internal/storage/inmemory.go:619-622 | ok | encl=CommitAttempt run=None text=} else {
+docs/phase4-plan.md | 226 | internal/storage/postgres/repository.go:1050-1054 | ok | encl=CommitAttempt run=None text=} else {
+docs/phase4-plan.md | 226 | internal/domain/transition_test.go:27-33 | CHECK | encl=TestJobTransitionMatrix_AllPairs run=None text=domain.StateCancelRequested: true,
+docs/phase4-plan.md | 226 | internal/storage/storagetest/conformance.go:360 | CHECK | encl=RunRepositoryConformanceTests run=CancelJob_QueuedAndRunning text=if reqJob.State != domain.StateCancelRequested {
+docs/protocol.md | 480 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/protocol.md | 480 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/protocol.md | 480 | internal/domain/transition.go:21 | ok | encl=allowedTransitions run=None text=StateSucceeded: true,
+docs/security/findings.md | 13 | internal/coordinator/service_test.go:210 | ok | encl=TestService_WorkerMismatch_Rejected run=None text=func TestService_WorkerMismatch_Rejected(t *testing.T) {
+docs/security/findings.md | 13 | internal/api/api_test.go:104 | CHECK | encl=TestAPI_SubmitJob_Validation run=None text=t.Fatalf("failed to decode response: %v", err)
+docs/security/findings.md | 14 | internal/coordinator/service_test.go:458 | ok | encl=TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased run=None text=func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_Droppe
+docs/security/findings.md | 14 | internal/storage/storagetest/conformance.go:64 | CHECK | encl=RunRepositoryConformanceTests run=DispatchJob_PreconditionsAndPrecedence text=t.Run("DispatchJob_PreconditionsAndPrecedence", func(t *test
+docs/security/findings.md | 25 | internal/coordinator/service.go:26 | ok | encl=generateID run=None text=seq := atomic.AddInt64(&idCounter, 1)
+docs/security/findings.md | 26 | internal/coordinator/service.go:119-125 | CHECK | encl=SetClock run=None text=
+docs/security/findings.md | 26 | internal/api/handlers.go:138-158 | CHECK | encl=mapDomainErrorToHTTP run=None text=return http.StatusServiceUnavailable, "WORKER_UNHEALTHY", er
+docs/security/findings.md | 26 | internal/storage/postgres/repository.go:1080-1085 | ok | encl=CommitAttempt run=None text=RETURNING updated_at;
+docs/security/findings.md | 26 | internal/api/api_test.go:476-608 | ok | encl=TestAPI_SubmitJob_MalformedJSON_FixedMessage run=None text=}
+docs/security/findings.md | 26 | internal/storage/postgres/security_test.go:809-883 | ok | encl=Sneaky run=None text=// or timeout_seconds (< 1 or > 86400) directly into Postgre
+docs/security/findings.md | 27 | internal/coordinator/service.go:127 | CHECK | encl=SetClock run=None text=
+docs/security/findings.md | 27 | internal/api/api_test.go:811 | ok | encl=TestAPI_SubmitJob_BoundaryValues run=None text=if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expe
+docs/security/findings.md | 27 | internal/storage/postgres/security_test.go:888 | ok | encl=TestPostgresRepository_Security_WorkerCheckConstraints run=None text=func TestPostgresRepository_Security_WorkerCheckConstraints(
+docs/security/findings.md | 28 | internal/coordinator/service.go:129 | CHECK | encl=SetClock run=None text=MaxWorkerSlots          = 1024
+docs/security/findings.md | 28 | internal/api/api_test.go:866 | ok | encl=TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500 run=None text=t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500);
+docs/security/findings.md | 28 | internal/storage/postgres/security_test.go:888 | ok | encl=TestPostgresRepository_Security_WorkerCheckConstraints run=None text=func TestPostgresRepository_Security_WorkerCheckConstraints(
+docs/security/findings.md | 29 | internal/coordinator/service.go:130 | CHECK | encl=SetClock run=None text=MaxWorkerVersionLength  = 64
+docs/security/findings.md | 29 | internal/api/api_test.go:921 | ok | encl=TestAPI_RegisterWorker_SlotsUpperLimit run=None text=t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, r
+docs/security/findings.md | 29 | internal/storage/postgres/security_test.go:888 | ok | encl=TestPostgresRepository_Security_WorkerCheckConstraints run=None text=func TestPostgresRepository_Security_WorkerCheckConstraints(
+docs/security/findings.md | 45 | internal/coordinator/service.go:230-245 | CHECK | encl=CancelJob run=None text=defer s.mu.Unlock()
+docs/security/findings.md | 55 | internal/coordinator/service_test.go:210 | ok | encl=TestService_WorkerMismatch_Rejected run=None text=func TestService_WorkerMismatch_Rejected(t *testing.T) {
+docs/security/findings.md | 55 | internal/api/api_test.go:104 | CHECK | encl=TestAPI_SubmitJob_Validation run=None text=t.Fatalf("failed to decode response: %v", err)
+docs/security/findings.md | 103 | internal/coordinator/service.go:119-125 | CHECK | encl=SetClock run=None text=
+docs/security/findings.md | 103 | internal/api/handlers.go:138-158 | CHECK | encl=mapDomainErrorToHTTP run=None text=return http.StatusServiceUnavailable, "WORKER_UNHEALTHY", er
+docs/security/findings.md | 103 | internal/storage/postgres/repository.go:1080-1085 | ok | encl=CommitAttempt run=None text=RETURNING updated_at;
+docs/security/findings.md | 134 | internal/coordinator/service_test.go:458 | ok | encl=TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased run=None text=func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_Droppe
+docs/security/findings.md | 134 | internal/storage/storagetest/conformance.go:64 | CHECK | encl=RunRepositoryConformanceTests run=DispatchJob_PreconditionsAndPrecedence text=t.Run("DispatchJob_PreconditionsAndPrecedence", func(t *test
+docs/security/findings.md | 183 | internal/coordinator/service.go:24-30 | ok | encl=idCounter run=None text=// generateID creates a unique, readable identifier with the
+docs/security/findings.md | 188 | internal/coordinator/service.go:253-255 | CHECK | encl=CancelJob run=None text=//   - SupportedTasks must contain at most 16 unique tasks; 
+docs/security/findings.md | 193 | internal/coordinator/service.go:256-258 | CHECK | encl=CancelJob run=None text=//     Unknown task names are accepted upon registration to 
+docs/security/findings.md | 198 | internal/coordinator/service.go:259-267 | ok | encl=RegisterWorker run=None text=defer s.mu.Unlock()
+docs/security/findings.md | 213 | internal/coordinator/service_test.go:54 | ok | encl=TestService_WorkerLiveness_ReaperAndRecovery run=None text=func TestService_WorkerLiveness_ReaperAndRecovery(t *testing
+docs/security/findings.md | 213 | internal/coordinator/service_test.go:764 | ok | encl=TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released run=None text=func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy
+docs/security/findings.md | 303 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/security/findings.md | 303 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/security/findings.md | 362 | internal/storage/inmemory.go:679-682 | ok | encl=CancelJob run=None text=} else {
+docs/security/findings.md | 362 | internal/storage/postgres/repository.go:1190-1193 | ok | encl=CancelJob run=None text=} else {
+docs/security/findings.md | 376 | internal/storage/postgres/repository.go:983-984 | ok | encl=CommitAttempt run=None text=if job.State.IsTerminal() {
+docs/security/findings.md | 376 | internal/storage/inmemory.go:577-579 | ok | encl=CommitAttempt run=None text=}
+docs/security/test-plan.md | 28 | internal/api/api_test.go:104 | CHECK | encl=TestAPI_SubmitJob_Validation run=None text=t.Fatalf("failed to decode response: %v", err)
+docs/security/test-plan.md | 28 | internal/storage/storagetest/conformance.go:206 | ok | encl=RunRepositoryConformanceTests run=CommitAttempt_ValidationsAndOutcome text=t.Run("CommitAttempt_ValidationsAndOutcome", func(t *testing
+docs/security/test-plan.md | 29 | internal/coordinator/service_test.go:210 | ok | encl=TestService_WorkerMismatch_Rejected run=None text=func TestService_WorkerMismatch_Rejected(t *testing.T) {
+docs/security/test-plan.md | 29 | internal/api/api_test.go:104 | CHECK | encl=TestAPI_SubmitJob_Validation run=None text=t.Fatalf("failed to decode response: %v", err)
+docs/security/test-plan.md | 29 | internal/storage/storagetest/conformance.go:206 | ok | encl=RunRepositoryConformanceTests run=CommitAttempt_ValidationsAndOutcome text=t.Run("CommitAttempt_ValidationsAndOutcome", func(t *testing
+docs/security/test-plan.md | 38 | internal/coordinator/service_test.go:54 | ok | encl=TestService_WorkerLiveness_ReaperAndRecovery run=None text=func TestService_WorkerLiveness_ReaperAndRecovery(t *testing
+docs/security/test-plan.md | 38 | tests/integration/worker_liveness_test.go:27 | ok | encl=TestWorkerLiveness_DeadWorkerReapedAndWorkContinues run=None text=func TestWorkerLiveness_DeadWorkerReapedAndWorkContinues(t *
+docs/security/test-plan.md | 40 | internal/coordinator/service_test.go:665 | ok | encl=TestService_ClaimOutcome_TransientFailure_QueueReleased run=None text=func TestService_ClaimOutcome_TransientFailure_QueueReleased
+docs/security/test-plan.md | 40 | tests/integration/postgres_wiring_test.go:350 | ok | encl=TestPostgresWiring_DatabaseOutageAndRecovery run=None text=func TestPostgresWiring_DatabaseOutageAndRecovery(t *testing
+docs/security/test-plan.md | 40 | tests/integration/part_d_security_test.go:794 | ok | encl=TestSecurity_PartD_Outage_MidDispatchAndMidCommit run=None text=func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *te
+docs/security/test-plan.md | 70 | internal/coordinator/service_test.go:526 | ok | encl=TestService_Claim_Redelivery_NoDuplicateAttempt run=None text=func TestService_Claim_Redelivery_NoDuplicateAttempt(t *test
+docs/security/test-plan.md | 71 | internal/coordinator/service_test.go:458 | ok | encl=TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased run=None text=func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_Droppe
+docs/security/test-plan.md | 71 | internal/storage/storagetest/conformance.go:64 | CHECK | encl=RunRepositoryConformanceTests run=DispatchJob_PreconditionsAndPrecedence text=t.Run("DispatchJob_PreconditionsAndPrecedence", func(t *test
+docs/security/threat-model.md | 43 | internal/coordinator/service_test.go:210 | ok | encl=TestService_WorkerMismatch_Rejected run=None text=func TestService_WorkerMismatch_Rejected(t *testing.T) {
+docs/security/threat-model.md | 43 | internal/api/api_test.go:104 | CHECK | encl=TestAPI_SubmitJob_Validation run=None text=t.Fatalf("failed to decode response: %v", err)
+docs/security/threat-model.md | 44 | internal/coordinator/service.go:24-30 | ok | encl=idCounter run=None text=// generateID creates a unique, readable identifier with the
+docs/security/threat-model.md | 46 | internal/coordinator/service.go:253-267 | CHECK | encl=CancelJob run=None text=//   - SupportedTasks must contain at most 16 unique tasks; 
+docs/security/threat-model.md | 46 | internal/api/api_test.go:811-980 | CHECK | encl=TestAPI_SubmitJob_BoundaryValues run=None text=if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expe
+docs/security/threat-model.md | 48 | internal/storage/postgres/security_test.go:192 | CHECK | encl=TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits run=None text=// replayed commits, and unauthorized workers cannot breach 
+docs/security/threat-model.md | 48 | internal/storage/storagetest/conformance.go:206 | CHECK | encl=RunRepositoryConformanceTests run=CommitAttempt_ValidationsAndOutcome text=t.Run("CommitAttempt_ValidationsAndOutcome", func(t *testing
+docs/security/threat-model.md | 51 | internal/coordinator/service_test.go:458 | ok | encl=TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased run=None text=func TestService_Claim_JobNotQueuedAndWorkerUnhealthy_Droppe
+docs/security/threat-model.md | 54 | internal/executor/executor.go:14-15 | CHECK | encl=None run=None text=MaxPayloadSizeBytes = 64 * 1024
+docs/security/threat-model.md | 54 | internal/coordinator/service.go:97 | CHECK | encl=NewPostgresService run=None text=return &Service{
+docs/security/threat-model.md | 54 | internal/executor/executor_test.go:96 | ok | encl=TestExecutor_PayloadSizeLimit run=None text=func TestExecutor_PayloadSizeLimit(t *testing.T) {
+docs/security/threat-model.md | 54 | internal/storage/postgres/security_test.go:104 | CHECK | encl=TestPostgresRepository_Security_SQLInjectionChallenge run=None text=// output boundary enforcement at 65535 (below), 65536 (exac
+docs/security/threat-model.md | 90 | internal/coordinator/service.go:24-30 | ok | encl=idCounter run=None text=// generateID creates a unique, readable identifier with the
+docs/security/threat-model.md | 98 | internal/api/handlers.go:138-158 | CHECK | encl=mapDomainErrorToHTTP run=None text=return http.StatusServiceUnavailable, "WORKER_UNHEALTHY", er
+docs/security/threat-model.md | 98 | internal/coordinator/service.go:119-125 | CHECK | encl=SetClock run=None text=
+docs/security/threat-model.md | 102 | internal/coordinator/service.go:253-255 | CHECK | encl=CancelJob run=None text=//   - SupportedTasks must contain at most 16 unique tasks; 
+docs/security/threat-model.md | 114 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/security/threat-model.md | 114 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/state-machine.md | 44 | internal/storage/inmemory.go:658-700 | ok | encl=CancelJob run=None text=func (r *InMemoryRepository) CancelJob(ctx context.Context, 
+docs/state-machine.md | 44 | internal/storage/postgres/repository.go:1135-1233 | ok | encl=CommitAttempt run=None text=// CancelJob atomically cancels a queued or running job and 
+docs/state-machine.md | 54 | internal/storage/inmemory.go:615-618 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/state-machine.md | 54 | internal/storage/postgres/repository.go:1046-1049 | ok | encl=CommitAttempt run=None text=if outcome.ExitCode == 0 && outcome.Error == "" {
+docs/state-machine.md | 54 | internal/domain/transition.go:21 | CHECK | encl=allowedTransitions run=None text=StateSucceeded: true,
+docs/state-machine.md | 54 | internal/storage/inmemory.go:619-622 | ok | encl=CommitAttempt run=None text=} else {
+docs/state-machine.md | 54 | internal/storage/postgres/repository.go:1050-1054 | ok | encl=CommitAttempt run=None text=} else {
+docs/state-machine.md | 63 | internal/domain/state.go:22-27 | CHECK | encl=AttemptState run=None text=AttemptPending   AttemptState = "PENDING"
+docs/state-machine.md | 113 | internal/domain/state.go:26 | ok | encl=AttemptState run=None text=AttemptExpired   AttemptState = "EXPIRED"
+docs/state-machine.md | 116 | internal/domain/state.go:27 | ok | encl=AttemptState run=None text=AttemptCanceled  AttemptState = "CANCELED"
+docs/state-machine.md | 119 | internal/domain/state.go:26 | ok | encl=AttemptState run=None text=AttemptExpired   AttemptState = "EXPIRED"
+docs/state-machine.md | 122 | internal/domain/state.go:27 | ok | encl=AttemptState run=None text=AttemptCanceled  AttemptState = "CANCELED"
+total 151 CHECK 41
+--- exit: 0
+
+=== [funcrefs-notfound] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/funcrefs.txt | cut -c1-260
+NOTFOUND docs/PROJECT_STATE.md | `attempt_state` not in internal/storage/postgres/migrations/000001_initial_schema.sql | - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CA
+NOTFOUND docs/phase4-plan.md | `CANCEL_REQUESTED` not in internal/domain/transition.go | - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/tran
+NOTFOUND docs/phase4-plan.md | `newTestService` not in internal/coordinator/service_test.go | - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_tes
+NOTFOUND docs/phase4-plan.md | `newTestServer` not in internal/api/api_test.go | - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_tes
+NOTFOUND docs/phase4-plan.md | `attempt_state` not in internal/storage/postgres/migrations/000001_initial_schema.sql | - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'
+NOTFOUND docs/security/findings.md | `IsValidIdentifier` not in internal/coordinator/service.go | | **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negativ
+NOTFOUND docs/security/threat-model.md | `TestAPI_RegisterWorker_SlotsUpperLimit` not in internal/coordinator/service.go | | | | | **Unbounded Worker Registration Parameters (Slots, Version, Tasks)**: Extreme values or arrays skew scheduling o
+NOTFOUND docs/security/threat-model.md | `TestPostgresRepository_Security_ForgedTokenAndReplayAttacks` not in internal/storage/storagetest/conformance.go | | **Worker Protocol (`internal/worker`)** | Attempt lease tokens, worker availability | Remote Worker pr
+NOTFOUND docs/security/threat-model.md | `TestExecutor_PayloadSizeLimit` not in internal/coordinator/service.go | | | | | **Oversized Payloads & Outputs**: Jobs with massive payloads crashing workers. | Validated in executor (`MaxPayl
+NOTFOUND docs/security/threat-model.md | `IsValidIdentifier` not in internal/coordinator/service.go | 8. **Unvalidated Numeric Boundaries in Job Submission (`internal/api/handlers.go:138-158`, `internal/coordinator/service
+checked 57 notfound 10
+--- exit: 0
+
+=== [livecites-regression] $ echo main:; tail -1 /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/livecites-main.txt; echo HEAD:; tail -1 /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/livecites-head2.txt; echo 'flagged at HEAD but not at main (regressions):'; comm -13 <(grep -E '^(MISMATCH|BEYOND)' /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/livecites-main.txt | sed -E 's/^(\w+) ([^ ]+):[0-9]+ /\1 \2 /' | sort -u) <(grep -E '^(MISMATCH|BEYOND)' /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/livecites-head2.txt | sed -E 's/^(\w+) ([^ ]+):[0-9]+ /\1 \2 /' | sort -u) | wc -l
+main:
+live citations at HEAD: 379 flagged: 83
+HEAD:
+live citations at HEAD: 275 flagged: 77
+flagged at HEAD but not at main (regressions):
+0
+--- exit: 0
+
+=== [stale-planned-labels] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/stale-planned.txt
+CHANGELOG.md:39 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+docs/PROJECT_STATE.md:29 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+docs/PROJECT_STATE.md:179 `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` is labelled (planned test) but exists
+docs/PROJECT_STATE.md:179 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+docs/PROJECT_STATE.md:183 `TestProperty_StateMachine_ModelConformance` is labelled (planned test) but exists
+docs/adr/0016-cancellation-semantics.md:150 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+docs/fault-injection-plan.md:116 `TestProperty_StateMachine_ModelConformance` is labelled (planned test) but exists
+docs/phase4-plan.md:270 `TestProperty_StateMachine_ModelConformance` is labelled (planned test) but exists
+docs/security/findings.md:386 `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` is labelled (planned test) but exists
+docs/security/findings.md:386 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+docs/security/threat-model.md:117 `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` is labelled (planned test) but exists
+docs/security/threat-model.md:117 `TestConformance_CancelJob_IdempotentCancelRequested` is labelled (planned test) but exists
+--- exit: 0
+
+=== [plan-diff-4a-vs-p402] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/plan-4a.diff | cut -c1-400
+diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+index b3bb409..115dcee 100644
+--- a/docs/phase4-plan.md
++++ b/docs/phase4-plan.md
+@@ -32 +32 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - *Current Behavior*: Today, `internal/storage/inmemory.go:658-700` and `internal/storage/postgres/repository.go:1135-1233` behave identically: terminal job -> `ErrJobAlreadyTerminal`; `QUEUED` -> `CANCELLED`; `RUNNING` -> `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); and any subsequent non-terminal state (including `CANCEL_REQUESTED` and `RETRYING`) transitions to `CANCELLED` via fa
++     - *Current Behavior*: In `CancelJob` (`internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob`), terminal jobs return `ErrJobAlreadyTerminal`; `QUEUED` transitions to `CANCELLED`; `RUNNING` transitions to `CANCEL_REQUESTED` (attempt unmodified in `RUNNING`); duplicate cancel on `CANCEL_REQUESTED` is an idempotent no-op; and `RETRYING` tra
+@@ -39,2 +39,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go:299-363` (specifically line 335) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+-       - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go:559` (specifically line 607) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
++       - The existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` (in `RunRepositoryConformanceTests`) asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
++       - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
+@@ -43 +43 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) will be added to `storagetest/conformance.go`.
++       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
+@@ -48 +48 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go:4-33`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
++     - Note: `CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the domain FSM transition table (`internal/domain/transition.go` table `allowedTransitions`), so its cell does NOT flip. Duplicate cancel is handled in repository `CancelJob` under row lock as an idempotent no-op (returning the job in `CANCEL_REQUESTED` unchanged).
+@@ -52 +52 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - Planned test: `TestAPI_CancelJob_SuccessReturns200` (planned test).
++     - Planned test: `TestAPI_CancelJob_SuccessReturns200`.
+@@ -54 +54 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`internal/coordinator/service.go:401-409`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
++     - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`PollWork` in `internal/coordinator/service.go` func `PollWork`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
+@@ -56,3 +56,3 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - When DB dispatch replaces queue operations in Slice 4a, `SubmitJob`'s `s.queue.Enqueue` (`internal/coordinator/service.go:194-195`), `CommitResult`'s `s.queue.Ack` (`internal/coordinator/service.go:512-513`), and `CancelJob`'s `s.queue.Ack` (`internal/coordinator/service.go:237-239`) are removed with the memory-dispatch rewire (candidate for owner approval).
+-       - `NewServiceWithQueue` (`internal/coordinator/service.go:71-72`) and its queue parameter (still passed in `tests/integration/multi_worker_batch_test.go:39-40`) are candidates for owner approval (propose deprecation/retirement or compatibility wrapper).
+-       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go:47`, `:274`, `internal/api/api_test.go:58`, `:588`, `tests/integration/coordinator_restart_test.go:67`, `:181`, `tests/integration/worker_liveness_test.go:43`.
++       - When DB dispatch replaces queue operations in Slice 4a, queue operations (`s.queue.Enqueue`, `s.queue.Ack`) are completely removed from `SubmitJob`, `CommitResult`, and `CancelJob` in `internal/coordinator/service.go` with the memory-dispatch rewire.
++       - `NewServiceWithQueue` in `internal/coordinator/service.go` and its queue parameter are retired (deleted per D3; `tests/integration/multi_worker_batch_test.go` func `TestThreeWorkerBatch_Integration` constructs via `NewService`).
++       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `newTestService`), `internal/api/api_test.go` (helper `newTestServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
+@@ -60,2 +60,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - `tests/integration/local_core_test.go:25` and `tests/integration/multi_worker_batch_test.go:26`: use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
+-       - `internal/api/api_test.go:27`: uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
++       - `tests/integration/local_core_test.go` (`TestLocalCore_MultiProcessIntegration`) and `tests/integration/multi_worker_batch_test.go` (`TestThreeWorkerBatch_Integration`): use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
++       - `internal/api/api_test.go` (helper `setupTestServer`): uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
+@@ -64,8 +64,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-         - Six tests use `spyQueue` (`internal/coordinator/service_test.go:338-381`) and assert queue `Ack`/`Release` calls; they are rewritten to assert observable domain outcomes (job state, attempt state, worker slot capacity) instead of queue method calls (each a candidate for owner approval):
+-           1. `TestService_Claim_JobNoLongerQueued_Dropped` (`internal/coordinator/service_test.go:386`) (candidate for owner approval)
+-           2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` (`internal/coordinator/service_test.go:458`) (candidate for owner approval)
+-           3. `TestService_CommitResult_AckOnlyOnAccepted` (`internal/coordinator/service_test.go:575`) (candidate for owner approval)
+-           4. `TestService_ClaimOutcome_TransientFailure_QueueReleased` (`internal/coordinator/service_test.go:665`) (candidate for owner approval)
+-           5. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` (`internal/coordinator/service_test.go:716`) (candidate for owner approval)
+-           6. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` (`internal/coordinator/service_test.go:764`) (candidate for owner approval)
+-         - One test (`TestService_Claim_Redelivery_NoDuplicateAttempt` at `internal/coordinator/service_test.go:526`) uses a plain queue plus `q.Enqueue` and loses its meaning upon rewiring, rewritten or retired (candidate for owner approval).
++         - The historical `spyQueue` helper was eliminated, and seven tests were rewritten to assert observable domain outcomes (job state, attempt state, worker slot capacity) instead of queue method calls:
++           1. `TestService_Claim_JobNoLongerQueued_Dropped` in `internal/coordinator/service_test.go`
++           2. `TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased` in `internal/coordinator/service_test.go`
++           3. `TestService_Claim_Redelivery_NoDuplicateAttempt` in `internal/coordinator/service_test.go`
++           4. `TestService_CommitResult_AckOnlyOnAccepted` in `internal/coordinator/service_test.go`
++           5. `TestService_ClaimOutcome_TransientFailure_QueueReleased` in `internal/coordinator/service_test.go`
++           6. `TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased` in `internal/coordinator/service_test.go`
++           7. `TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released` in `internal/coordinator/service_test.go`
+@@ -77 +77 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - Planned test: `TestConformance_CancelJob_RetryingImmediatelyCancelled` (planned test).
++     - Planned test: `TestConformance_CancelJob_RetryingImmediatelyCancelled`.
+@@ -79 +79 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql:97`. Map/rename domain constants `AttemptState` in `internal/domain/state.go:22-27` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
++  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+@@ -85 +85 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Implement `RenewLease`, `SweepExpiredLeases`, and dual grace timers.
++    - (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)
+@@ -89,2 +89,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - Expand shared conformance suite in `internal/storage/storagetest/conformance.go`.
+-  - Property test: `TestProperty_StateMachine_ModelConformance` (planned test) driving reference model and repository with injectable clock.
++  - Expand shared conformance suite in `internal/storage/storagetest/conformance.go` (`TestConformance_CancelJob_IdempotentCancelRequested`, `TestConformance_CancelJob_RetryingImmediatelyCancelled`, `TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt`).
++  - Property test: `TestProperty_StateMachine_ModelConformance` driving reference model and repository with injectable clock.
+@@ -97 +97 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Mutating duplicate cancel logic to return error or transition to `CANCELLED` must cause `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) to fail.
++    - Mutating duplicate cancel logic to return error or transition to `CANCELLED` must cause `TestConformance_CancelJob_IdempotentCancelRequested` to fail.
+@@ -101,8 +101,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - `TestJobTransitionMatrix_AllPairs` (updated with 2 approved cell changes)
+-  - `TestConformance_CancelJob_IdempotentCancelRequested` (planned test)
+-  - `TestConformance_CancelJob_RetryingImmediatelyCancelled` (planned test)
+-  - `TestAPI_CancelJob_SuccessReturns200` (planned test)
+-  - `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a)
+-  - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
+-  - `TestInMemoryRepository_RetryBackoff` (planned test)
+-  - `TestProperty_StateMachine_ModelConformance` (planned test)
++  - `TestJobTransitionMatrix_AllPairs` (executed; updated with 2 approved cell changes)
++  - `TestConformance_CancelJob_IdempotentCancelRequested` (executed, memory and PostgreSQL)
++  - `TestConformance_CancelJob_RetryingImmediatelyCancelled` (executed, memory and PostgreSQL)
++  - `TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` (executed, memory and PostgreSQL; owner item R6-01)
++  - `TestAPI_CancelJob_SuccessReturns200` (executed, memory-backed server)
++  - `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (regression test, executed on memory and PostgreSQL)
++  - `TestInMemoryRepository_RetryBackoff` (executed; covers `not_before` dispatch eligibility gating only; no backoff computation per R-4a-01)
++  - `TestProperty_StateMachine_ModelConformance` (executed, memory and PostgreSQL)
+@@ -120,0 +121 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
++    - Add `RenewLease` and `SweepExpiredLeases` to the `storage.Repository` interface and implement both in `internal/storage.InMemoryRepository` (evaluating time on the injected repository clock) and in `internal/storage/postgres.Repository` (database time), with identical semantics.
+@@ -122 +123,4 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - `SweepExpiredLeases`: single-transaction lock-ordered candidate sweep (`jobs -> workers -> attempts -> results -> job_events`).
++    - `SweepExpiredLeases`: single-transaction lock-ordered candidate sweep (`jobs -> workers -> attempts -> results -> job_events`). The method receives the current grace state (startup-grace deadline, open outage window, cooldown end) as an input value from its caller and performs the only authoritative grace check inside the row locks; it neither owns nor advances that state.
++    - Add a pure job-retry backoff function in `internal/domain` (ADR-0015 parameters: base 1 s, cap 30 s, jitter factor in [0.5, 1.5], default max_attempts 3, randomness injected so tests are deterministic) with planned test `TestDomain_ComputeBackoff_FullJitter` (planned test); Slice 4d reuses it unchanged.
++    - The sweep decides a lost attempt from `attempt_no` versus `max_attempts` with class `LEASE_EXPIRED`, without slice 4d's classification.
++    - Shared conformance tests for `RenewLease` and `SweepExpiredLeases` in `internal/storage/storagetest/conformance.go`, run against both repositories.
+@@ -135,2 +139,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would surface as HTTP 500).
+-    - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`internal/storage/inmemory.go:615-618`, `internal/storage/postgres/repository.go:1046-1049`, `internal/domain/transition.go:21`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4).
++      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`) -> return 409 `STALE_ATTEMPT_REJECTED` (already returned by `CommitAttempt` in `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go`, and mapped by `mapDomainErrorToHTTP` in `internal/api/handlers.go`).
++    - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`, `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-
+@@ -145 +149 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Removing startup grace check in sweeper must cause `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test) to fail.
++    - Removing startup grace check in sweeper (driven by passing grace-state input to `SweepExpiredLeases`) must cause sweeper grace tests to fail; coordinator-level restart grace is tested in 4c.
+@@ -153,2 +156,0 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
+-  - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+@@ -155,0 +158,5 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
++  - `TestDomain_ComputeBackoff_FullJitter` (planned test)
++  - `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test)
++  - `TestConformance_RenewLease_AcceptUntilSwept` (planned test)
++  - `TestConformance_RenewLease_RejectedAfterLost` (planned test)
++  - `TestConformance_SweepExpiredLeases_RetryOrFail` (planned test)
+@@ -169 +175,0 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
+@@ -181 +187 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Implement `StartLeaseSweeper(ctx, interval)` ticking every 5s (`MINICLOUD_SWEEPER_INTERVAL`).
++    - Component owns: `StartLeaseSweeper(ctx, interval)` cadence (5s, `MINICLOUD_SWEEPER_INTERVAL`), failed-tick tracking, the outage grace window and cooldown state (R-09), and the startup grace period, and passes that state to the 4b `SweepExpiredLeases` on every tick.
+@@ -196 +201,0 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
+@@ -199,0 +205,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
++  - `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test)
++  - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
+@@ -229 +236 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code in `internal/storage/inmemory.go:615-618` and `internal/storage/postgres/repository.go:1046-1049`, permitted by `interna
++    - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` fu
+--- exit: 0
+
+=== [livecites-head-mismatches] $ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude-audit/d6fe5cea-32ab-430e-b0b0-813036d3ee58/scratchpad/livecites-head2.txt | cut -c1-300
+MISMATCH CHANGELOG.md:61 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH CHANGELOG.md:62 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH CHANGELOG.md:63 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH CHANGELOG.md:65 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/PROJECT_STATE.md:25 `TestIsNonRetryableReportError` cited internal/worker/client_test.go:40 but defined at internal/worker/client_test.go:[16] | line text: func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
+MISMATCH docs/PROJECT_STATE.md:61 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/PROJECT_STATE.md:62 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/PROJECT_STATE.md:63 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/PROJECT_STATE.md:65 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/PROJECT_STATE.md:242 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/PROJECT_STATE.md:243 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/PROJECT_STATE.md:244 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/PROJECT_STATE.md:246 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/PROJECT_STATE.md:247 `TestAPI_RegisterWorker_SlotsUpperLimit` cited internal/api/api_test.go:811 but defined at internal/api/api_test.go:[886] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/PROJECT_STATE.md:247 `TestPostgresRepository_Security_WorkerCheckConstraints` cited internal/storage/postgres/security_test.go:892 but defined at internal/storage/postgres/security_test.go:[888] | line text: 
+MISMATCH docs/PROJECT_STATE.md:248 `TestAPI_RegisterWorker_VersionLengthLimit` cited internal/api/api_test.go:865 but defined at internal/api/api_test.go:[941] | line text: body, _ := io.ReadAll(resp.Body)
+MISMATCH docs/PROJECT_STATE.md:248 `TestPostgresRepository_Security_WorkerCheckConstraints` cited internal/storage/postgres/security_test.go:926 but defined at internal/storage/postgres/security_test.go:[888] | line text: 
+MISMATCH docs/PROJECT_STATE.md:249 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:919 but defined at internal/api/api_test.go:[996] | line text: 
+MISMATCH docs/PROJECT_STATE.md:249 `TestPostgresRepository_Security_WorkerCheckConstraints` cited internal/storage/postgres/security_test.go:943 but defined at internal/storage/postgres/security_test.go:[888] | line text: 
+MISMATCH docs/security/findings.md:13 `TestAPI_StaleAttemptRejection` cited internal/api/api_test.go:104 but defined at internal/api/api_test.go:[138] | line text: t.Fatalf("failed to decode response: %v", err)
+MISMATCH docs/security/findings.md:19 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/security/findings.md:20 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/findings.md:21 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/findings.md:26 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/security/findings.md:27 `TestAPI_RegisterWorker_SlotsUpperLimit` cited internal/api/api_test.go:811 but defined at internal/api/api_test.go:[886] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/security/findings.md:28 `TestAPI_RegisterWorker_VersionLengthLimit` cited internal/api/api_test.go:866 but defined at internal/api/api_test.go:[941] | line text: t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500); body: %s"
+MISMATCH docs/security/findings.md:29 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:921 but defined at internal/api/api_test.go:[996] | line text: t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.Status
+MISMATCH docs/security/findings.md:56 `TestAPI_StaleAttemptRejection` cited internal/api/api_test.go:104 but defined at internal/api/api_test.go:[138] | line text: t.Fatalf("failed to decode response: %v", err)
+MISMATCH docs/security/findings.md:123 `TestAPI_SubmitJob_BoundaryValues` cited internal/api/api_test.go:476 but defined at internal/api/api_test.go:[657] | line text: }
+MISMATCH docs/security/findings.md:124 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:567 but defined at internal/api/api_test.go:[834] | line text: reqPoll, err := http.NewRequest(http.MethodPost, ts.URL+"/v1/workers/"
+MISMATCH docs/security/findings.md:155 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/security/findings.md:160 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/findings.md:165 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/findings.md:190 `TestAPI_RegisterWorker_SlotsUpperLimit` cited internal/api/api_test.go:811 but defined at internal/api/api_test.go:[886] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/security/findings.md:195 `TestAPI_RegisterWorker_VersionLengthLimit` cited internal/api/api_test.go:866 but defined at internal/api/api_test.go:[941] | line text: t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500); body: %s"
+MISMATCH docs/security/findings.md:200 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:921 but defined at internal/api/api_test.go:[996] | line text: t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.Status
+MISMATCH docs/security/findings.md:218 `TestAPI_RegisterWorker_SlotsUpperLimit` cited internal/api/api_test.go:811 but defined at internal/api/api_test.go:[886] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/security/findings.md:218 `TestAPI_RegisterWorker_VersionLengthLimit` cited internal/api/api_test.go:866 but defined at internal/api/api_test.go:[941] | line text: t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500); body: %s"
+MISMATCH docs/security/findings.md:218 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:921 but defined at internal/api/api_test.go:[996] | line text: t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.Status
+MISMATCH docs/security/findings.md:219 `TestMigrator_FreshMigrate` cited internal/storage/postgres/migrator_test.go:281 but defined at internal/storage/postgres/migrator_test.go:[77] | line text: }
+MISMATCH docs/security/findings.md:219 `TestMigrator_IdempotentReRun` cited internal/storage/postgres/migrator_test.go:329 but defined at internal/storage/postgres/migrator_test.go:[135] | line text: }
+MISMATCH docs/security/findings.md:221 `TestMigrator_ConcurrentMigrators_ExactlyOneApplies` cited internal/storage/postgres/migrator_test.go:374 but defined at internal/storage/postgres/migrator_test.go:[184] | line text: })
+MISMATCH docs/security/findings.md:222 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/findings.md:223 `TestAPI_SubmitJob_BoundaryValues` cited internal/api/api_test.go:476 but defined at internal/api/api_test.go:[657] | line text: }
+MISMATCH docs/security/findings.md:224 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/findings.md:444 `TestSecurity_PartD_SlowQuery_ContextDeadline` cited tests/integration/part_d_security_test.go:260 but defined at tests/integration/part_d_security_test.go:[356] | line text: 
+MISMATCH docs/security/findings.md:447 `TestSecurity_PartD_SQLInjection_EndToEnd` cited tests/integration/part_d_security_test.go:382 but defined at tests/integration/part_d_security_test.go:[489] | line text: }
+MISMATCH docs/security/findings.md:450 `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` cited tests/integration/part_d_security_test.go:707 but defined at tests/integration/part_d_security_test.go:[794] | line text: for i, attack := range versionInjections {
+MISMATCH docs/security/findings.md:453 `TestSecurity_PartD_LeakScan` cited tests/integration/part_d_security_test.go:907 but defined at tests/integration/part_d_security_test.go:[1002] | line text: }
+MISMATCH docs/security/findings.md:459 `TestMigrator_NotSubjectToCoordinatorQueryTimeout` cited internal/storage/postgres/migrator_test.go:640 but defined at internal/storage/postgres/migrator_test.go:[643] | line text: // TestMigrator_NotSubjectToCoordinatorQueryTimeout verifies that migr
+MISMATCH docs/security/test-plan.md:16 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/test-plan.md:17 `TestSecurity_PartD_SQLInjection_EndToEnd` cited tests/integration/part_d_security_test.go:343 but defined at tests/integration/part_d_security_test.go:[489] | line text: if recResp.StatusCode != http.StatusOK {
+MISMATCH docs/security/test-plan.md:19 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/security/test-plan.md:19 `TestSecurity_PartD_LeakScan` cited tests/integration/part_d_security_test.go:907 but defined at tests/integration/part_d_security_test.go:[1002] | line text: }
+MISMATCH docs/security/test-plan.md:20 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/test-plan.md:22 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/security/test-plan.md:27 `TestJob_TransitionTo` cited internal/domain/transition_test.go:48 but defined at internal/domain/transition_test.go:[79] | line text: toState := to
+MISMATCH docs/security/test-plan.md:28 `TestAPI_StaleAttemptRejection` cited internal/api/api_test.go:104 but defined at internal/api/api_test.go:[138] | line text: t.Fatalf("failed to decode response: %v", err)
+MISMATCH docs/security/test-plan.md:29 `TestAPI_StaleAttemptRejection` cited internal/api/api_test.go:104 but defined at internal/api/api_test.go:[138] | line text: t.Fatalf("failed to decode response: %v", err)
+MISMATCH docs/security/test-plan.md:30 `TestInMemoryRepository_LeaseTokenHashVerification` cited internal/storage/inmemory_test.go:212 but defined at internal/storage/inmemory_test.go:[399] | line text: expectedErr: domain.ErrWorkerTaskUnsupported,
+MISMATCH docs/security/test-plan.md:31 `TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt` cited internal/storage/inmemory_test.go:120 but defined at internal/storage/inmemory_test.go:[261] | line text: ctx := context.Background()
+MISMATCH docs/security/test-plan.md:42 `TestSecurity_PartD_SlowQuery_ContextDeadline` cited tests/integration/part_d_security_test.go:260 but defined at tests/integration/part_d_security_test.go:[356] | line text: 
+MISMATCH docs/security/test-plan.md:43 `TestMigrator_NotSubjectToCoordinatorQueryTimeout` cited internal/storage/postgres/migrator_test.go:640 but defined at internal/storage/postgres/migrator_test.go:[643] | line text: // TestMigrator_NotSubjectToCoordinatorQueryTimeout verifies that migr
+MISMATCH docs/security/threat-model.md:39 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/threat-model.md:41 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/security/threat-model.md:42 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/security/threat-model.md:43 `TestAPI_StaleAttemptRejection` cited internal/api/api_test.go:104 but defined at internal/api/api_test.go:[138] | line text: t.Fatalf("failed to decode response: %v", err)
+MISMATCH docs/security/threat-model.md:45 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/threat-model.md:46 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:811-980 but defined at internal/api/api_test.go:[996] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/security/threat-model.md:61 `TestSecurity_PartD_LeakScan` cited tests/integration/part_d_security_test.go:907 but defined at tests/integration/part_d_security_test.go:[1002] | line text: }
+MISMATCH docs/security/threat-model.md:71 `TestAPI_Slowloris_ReadHeaderTimeout` cited internal/api/api_test.go:414-473 but defined at internal/api/api_test.go:[584] | line text: if strings.Contains(readyBodyStr, marker) {
+MISMATCH docs/security/threat-model.md:75 `TestAPI_IdentifierValidation_NegativeCases` cited internal/api/api_test.go:323-412 but defined at internal/api/api_test.go:[489] | line text: leakMarkers: []string{
+MISMATCH docs/security/threat-model.md:80 `TestAPI_SubmitJob_MalformedJSON_FixedMessage` cited internal/api/api_test.go:212-321 but defined at internal/api/api_test.go:[435] | line text: if respWrongWorker.StatusCode != http.StatusForbidden {
+MISMATCH docs/security/threat-model.md:100 `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` cited internal/api/api_test.go:476-608 but defined at internal/api/api_test.go:[834] | line text: }
+MISMATCH docs/security/threat-model.md:104 `TestAPI_RegisterWorker_SlotsUpperLimit` cited internal/api/api_test.go:811 but defined at internal/api/api_test.go:[886] | line text: if tc.expectedAttempts > 0 && created.MaxAttempts != tc.expectedAttemp
+MISMATCH docs/security/threat-model.md:108 `TestAPI_RegisterWorker_VersionLengthLimit` cited internal/api/api_test.go:866 but defined at internal/api/api_test.go:[941] | line text: t.Fatalf("expected HTTP 400 Bad Request, got %d (never 500); body: %s"
+MISMATCH docs/security/threat-model.md:112 `TestAPI_RegisterWorker_SupportedTasksAllowlist` cited internal/api/api_test.go:921 but defined at internal/api/api_test.go:[996] | line text: t.Fatalf("expected HTTP status %d, got %d", tc.wantStatus, resp.Status
+live citations at HEAD: 275 flagged: 77
+--- exit: 0
+
+=== [docs-gate-with-review-files] $ env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 ./tests/docs; git status --short
+--- FAIL: TestCitations (0.56s)
+    --- FAIL: TestCitations/RuleC_TestIdentifiers (0.20s)
+        citations_test.go:727: docs/agents/reviews/P4-02.md:211: [RuleC] cited test "TestAPI_" does not exist
+        citations_test.go:727: docs/agents/reviews/P4-02.md:211: [RuleC] cited test "TestMigrator_" does not exist
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.562s
+FAIL
+?? docs/agents/reviews/P4-02-evidence.txt
+?? docs/agents/reviews/P4-02.md
+--- exit: 0
+
+=== [docs-gate-with-review-files-2] $ env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.555s
+--- exit: 0
