@@ -299,6 +299,22 @@ func TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt(t *testi
 	}
 }
 
+// TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow: a failure opens exactly
+// one window. Once it and the cooldown are over, healthy ticks must never open another; a trigger
+// that is not consumed would suppress reaping forever.
+func TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow(t *testing.T) {
+	h := newSweeperHarness(t, 0)
+	h.okTickAt(0)
+	_ = h.tickAt(5*time.Second, nil, errDBDown, domain.SweepResult{})
+	first := h.okTickAt(10 * time.Second).OutageWindowUntil // window until +40s, cooldown until +70s
+	for d := 15 * time.Second; d <= 200*time.Second; d += sweepInterval {
+		g := h.okTickAt(d)
+		if !g.OutageWindowUntil.Equal(first) {
+			t.Fatalf("a healthy tick at +%v changed OutageWindowUntil from %v to %v: the failure trigger was not consumed", d, first, g.OutageWindowUntil)
+		}
+	}
+}
+
 // TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery: a sweep that fails on the
 // very first tick still leaves startup grace anchored at the first successful database read, and
 // the recovery tick opens the outage window too.
