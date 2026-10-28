@@ -8,7 +8,7 @@ Method notes (deviations and disclosures):
 - **Clone over HTTPS, not SSH.** The prescribed `git@github.com:` clone failed with `Permission denied (publickey)` in this environment (reproduced in ev 00b). I cloned `https://github.com/BlaZe08-Dev/Minicloud.git`, the URL this repository's own `origin` already uses. HEAD is `f0e6cea` as expected (ev 00a). The final push may need the same change; see the end of this file.
 - No `.env` anywhere in the clone, no `MINICLOUD_*` variable in the environment (ev 00a), `MINICLOUD_TEST_DATABASE_URL` unset for every Go command (`env -u`, ev 29-33), no `make test-db`, no database or container touched. `docker compose config` was run against a throwaway env-file with a fake password outside the repository (ev 27); it does not contact the daemon. The fake file is deleted.
 - Ports: 8080 and 18080 were free at the start (ev 00a). Everything I started ran on 18080 or 18081, with the real child PID recorded (`$!` of the direct background command, no `timeout` wrapper around servers) and killed by a trap on exactly those PIDs. Afterwards no listener on 18080 or 18081 (ev 07, 28). The `pgrep` line at the end of ev 28 prints one line: that is the shell that ran `pgrep` (its own command line contains the pattern), not a leftover process.
-- `make build` created `bin/` in the clone (not gitignored). It is not staged or committed.
+- `make build` created `bin/` in the clone (gitignored via `bin/` in `.gitignore`). It is not staged or committed.
 - I read the `agent/claude/P4-4c-b` worktree read-only (git log and git grep, ev 19, 46) to judge staleness. I changed nothing there.
 
 ## 1. Findings from earlier rounds: re-check
