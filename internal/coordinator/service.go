@@ -48,6 +48,10 @@ type WorkAssignment struct {
 	TaskType       string          `json:"task_type"`
 	Payload        json.RawMessage `json:"payload"`
 	TimeoutSeconds int             `json:"timeout_seconds"`
+	// LeaseExpiresAt and LeaseDurationSeconds are the additive lease metadata of protocol 6.2:
+	// the worker derives its renewal interval (one third of the lease) from the duration.
+	LeaseExpiresAt       *time.Time `json:"lease_expires_at,omitempty"`
+	LeaseDurationSeconds int        `json:"lease_duration_seconds,omitempty"`
 }
 
 // Service orchestrates jobs, worker coordination, scheduling, and attempt lifecycle.
@@ -58,6 +62,7 @@ type Service struct {
 	executorReg   *executor.Registry
 	clock         Clock
 	workerTimeout time.Duration
+	leaseDuration time.Duration
 }
 
 // NewService constructs a new Coordinator Service. Dispatch flows through repo.DispatchNextJob
@@ -74,6 +79,7 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		executorReg:   reg,
 		clock:         realClock{},
 		workerTimeout: workerTimeout,
+		leaseDuration: domain.DefaultLeaseDuration,
 	}
 }
 
@@ -93,6 +99,17 @@ func (s *Service) SetClock(c Clock) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.clock = c
+}
+
+// SetLeaseDuration sets the lease length advertised to workers in poll responses. It must equal
+// the lease duration the repository stamps (both come from MINICLOUD_LEASE_DURATION in the
+// coordinator binary); the repository remains the authority for expiry.
+func (s *Service) SetLeaseDuration(d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if d > 0 {
+		s.leaseDuration = d
+	}
 }
 
 const (
@@ -344,6 +361,9 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 		TaskType:       job.TaskType,
 		Payload:        job.Payload,
 		TimeoutSeconds: job.TimeoutSeconds,
+
+		LeaseExpiresAt:       attempt.LeaseExpiresAt,
+		LeaseDurationSeconds: int(s.leaseDuration / time.Second),
 	}, nil
 }
 
@@ -407,4 +427,29 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 	)
 
 	return job, nil
+}
+
+// RenewLease extends the lease of the caller's attempt, or reports that the job was cancelled
+// (ADR-0014, ADR-0016: the renewal response is the sole cancellation channel). All decisions,
+// including the 409 evaluation order, are made by repo.RenewLease under the row locks; the service
+// only logs rejections. It takes no service-wide lock, so a slow commit never delays a renewal,
+// and it writes no event: a rejected renewal changes nothing (owner decision Q-8).
+func (s *Service) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+	renewal, err := s.repo.RenewLease(ctx, jobID, attemptID, leaseToken, workerID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrJobAlreadyTerminal),
+			errors.Is(err, domain.ErrLeaseExpired),
+			errors.Is(err, domain.ErrStaleAttempt),
+			errors.Is(err, domain.ErrWorkerMismatch):
+			slog.Warn("lease renewal rejected",
+				"job_id", jobID,
+				"attempt_id", attemptID,
+				"reporting_worker", workerID,
+				"reason", err.Error(),
+			)
+		}
+		return nil, err
+	}
+	return renewal, nil
 }

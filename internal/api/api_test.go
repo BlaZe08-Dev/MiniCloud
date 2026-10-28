@@ -1277,3 +1277,306 @@ func TestAPI_CommitResult_AfterLeaseSweep_Returns409LeaseExpired(t *testing.T) {
 		t.Fatalf("late result on a swept attempt: %d %s, want 409 LEASE_EXPIRED", code, body)
 	}
 }
+
+// renewHarness is a memory-backed coordinator on a fake repository clock, with helpers to drive
+// the worker protocol over HTTP.
+type renewHarness struct {
+	t     *testing.T
+	ts    *httptest.Server
+	clock *apiTestClock
+	repo  *storage.InMemoryRepository
+	svc   *coordinator.Service
+}
+
+func newRenewHarness(t *testing.T) *renewHarness {
+	t.Helper()
+	clock := &apiTestClock{now: time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)}
+	repo := storage.NewInMemoryRepository(storage.WithClock(clock))
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	ts := httptest.NewServer(api.NewServer("127.0.0.1:0", svc).Handler())
+	t.Cleanup(ts.Close)
+	h := &renewHarness{t: t, ts: ts, clock: clock, repo: repo, svc: svc}
+	if code, body := h.post("/v1/workers/register", `{"id":"worker-1","version":"v","total_slots":4,"supported_tasks":["echo"]}`); code != http.StatusOK {
+		t.Fatalf("register: %d %s", code, body)
+	}
+	return h
+}
+
+func (h *renewHarness) post(path, body string) (int, string) {
+	h.t.Helper()
+	resp, err := http.Post(h.ts.URL+path, "application/json", strings.NewReader(body))
+	if err != nil {
+		h.t.Fatalf("POST %s failed: %v", path, err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(raw)
+}
+
+// start submits an echo job and has worker-1 claim it.
+func (h *renewHarness) start(maxAttempts int) (jobID string, a coordinator.WorkAssignment) {
+	h.t.Helper()
+	code, body := h.post("/v1/jobs", fmt.Sprintf(`{"task_type":"echo","payload":{"message":"x"},"max_attempts":%d}`, maxAttempts))
+	if code != http.StatusCreated {
+		h.t.Fatalf("submit: %d %s", code, body)
+	}
+	var job domain.Job
+	_ = json.Unmarshal([]byte(body), &job)
+	code, body = h.post("/v1/workers/worker-1/poll", ``)
+	if code != http.StatusOK {
+		h.t.Fatalf("poll: %d %s", code, body)
+	}
+	var poll struct {
+		Assignment coordinator.WorkAssignment `json:"assignment"`
+	}
+	_ = json.Unmarshal([]byte(body), &poll)
+	return job.ID, poll.Assignment
+}
+
+type renewResponse struct {
+	Status          string    `json:"status"`
+	LeaseExpiresAt  time.Time `json:"lease_expires_at"`
+	CancelRequested bool      `json:"cancel_requested"`
+}
+
+func renewPath(jobID, attemptID string) string {
+	return "/v1/jobs/" + jobID + "/attempts/" + attemptID + "/renew"
+}
+
+func renewBody(workerID, token string) string {
+	return fmt.Sprintf(`{"worker_id":%q,"lease_token":%q}`, workerID, token)
+}
+
+func errorCode(t *testing.T, body string) string {
+	t.Helper()
+	var env api.ErrorResponse
+	if err := json.Unmarshal([]byte(body), &env); err != nil {
+		t.Fatalf("response %q is not an error envelope: %v", body, err)
+	}
+	return env.Error.Code
+}
+
+func (h *renewHarness) eventCount(jobID string) int {
+	h.t.Helper()
+	evs, err := h.repo.ListEventsByJob(context.Background(), jobID)
+	if err != nil {
+		h.t.Fatalf("ListEventsByJob: %v", err)
+	}
+	return len(evs)
+}
+
+// TestAPI_RenewLease_SuccessAndStaleRejection pins the protocol table of docs/protocol.md section
+// 6.1 / 6.3 for POST /renew: 200 RENEWED with cancel_requested, and the exact status and code for
+// every rejection.
+func TestAPI_RenewLease_SuccessAndStaleRejection(t *testing.T) {
+	h := newRenewHarness(t)
+	jobID, a := h.start(3)
+	path := renewPath(jobID, a.AttemptID)
+
+	// Success: the lease is extended from repository-now.
+	h.clock.Advance(10 * time.Second)
+	code, body := h.post(path, renewBody("worker-1", a.LeaseToken))
+	if code != http.StatusOK {
+		t.Fatalf("renew: %d %s", code, body)
+	}
+	var got renewResponse
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	wantExpiry := h.clock.Now().Add(domain.DefaultLeaseDuration)
+	if got.Status != "RENEWED" || got.CancelRequested || !got.LeaseExpiresAt.Equal(wantExpiry) {
+		t.Fatalf("renew response = %+v, want RENEWED, cancel_requested=false, lease_expires_at=%v", got, wantExpiry)
+	}
+	evBefore := h.eventCount(jobID)
+
+	rejections := []struct {
+		name     string
+		path     string
+		body     string
+		status   int
+		wantCode string
+	}{
+		{"wrong worker", path, renewBody("worker-2", a.LeaseToken), http.StatusForbidden, "WORKER_MISMATCH"},
+		{"wrong token", path, renewBody("worker-1", "not-the-token"), http.StatusConflict, "STALE_ATTEMPT_REJECTED"},
+		{"unknown attempt id is stale, as for commit", renewPath(jobID, "att_missing"), renewBody("worker-1", a.LeaseToken), http.StatusConflict, "STALE_ATTEMPT_REJECTED"},
+		{"unknown job", renewPath("job_missing", a.AttemptID), renewBody("worker-1", a.LeaseToken), http.StatusNotFound, "JOB_NOT_FOUND"},
+	}
+	for _, tc := range rejections {
+		t.Run(tc.name, func(t *testing.T) {
+			code, body := h.post(tc.path, tc.body)
+			if code != tc.status || errorCode(t, body) != tc.wantCode {
+				t.Fatalf("got %d %s, want %d %s", code, body, tc.status, tc.wantCode)
+			}
+		})
+	}
+	if n := h.eventCount(jobID); n != evBefore {
+		t.Fatalf("rejected renewals wrote events: %d -> %d", evBefore, n)
+	}
+	// A rejected renewal must not have moved the lease.
+	code, body = h.post(path, renewBody("worker-1", a.LeaseToken))
+	_ = json.Unmarshal([]byte(body), &got)
+	if code != http.StatusOK || !got.LeaseExpiresAt.Equal(wantExpiry) {
+		t.Fatalf("renew after rejections: %d %s, want unchanged expiry %v", code, body, wantExpiry)
+	}
+
+	t.Run("terminal job", func(t *testing.T) {
+		code, body := h.post("/v1/jobs/"+jobID+"/attempts/"+a.AttemptID+"/result", `{"lease_token":"`+a.LeaseToken+`","worker_id":"worker-1","exit_code":0,"output":"done"}`)
+		if code != http.StatusOK {
+			t.Fatalf("commit: %d %s", code, body)
+		}
+		n := h.eventCount(jobID)
+		code, body = h.post(path, renewBody("worker-1", a.LeaseToken))
+		if code != http.StatusConflict || errorCode(t, body) != "JOB_ALREADY_TERMINAL" {
+			t.Fatalf("renew on a terminal job: %d %s, want 409 JOB_ALREADY_TERMINAL", code, body)
+		}
+		if after := h.eventCount(jobID); after != n {
+			t.Fatalf("renewal on a terminal job wrote %d event(s) (owner decision Q-8: none)", after-n)
+		}
+	})
+
+	t.Run("swept attempt", func(t *testing.T) {
+		jobID, a := h.start(3)
+		h.clock.Advance(domain.DefaultLeaseDuration + time.Second)
+		res, err := h.repo.SweepExpiredLeases(context.Background(), domain.SweepParams{Backoff: func(int) time.Duration { return time.Hour }})
+		if err != nil || len(res.Swept) != 1 {
+			t.Fatalf("sweep = %+v, %v", res, err)
+		}
+		n := h.eventCount(jobID)
+		code, body := h.post(renewPath(jobID, a.AttemptID), renewBody("worker-1", a.LeaseToken))
+		if code != http.StatusConflict || errorCode(t, body) != "LEASE_EXPIRED" {
+			t.Fatalf("renew on a swept attempt: %d %s, want 409 LEASE_EXPIRED", code, body)
+		}
+		if after := h.eventCount(jobID); after != n {
+			t.Fatalf("renewal on a LOST attempt wrote %d event(s) (owner decision Q-8: none)", after-n)
+		}
+	})
+}
+
+// TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery covers the two 200 cases that carry the
+// lease semantics: a lapsed but unswept lease is renewed from now, and a cancelled job reports
+// cancel_requested without extending the lease (ADR-0014, ADR-0016: the renewal response is the
+// only cancellation channel).
+func TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery(t *testing.T) {
+	h := newRenewHarness(t)
+	jobID, a := h.start(3)
+	path := renewPath(jobID, a.AttemptID)
+
+	h.clock.Advance(domain.DefaultLeaseDuration + 5*time.Second) // lapsed, not swept
+	code, body := h.post(path, renewBody("worker-1", a.LeaseToken))
+	var got renewResponse
+	_ = json.Unmarshal([]byte(body), &got)
+	if code != http.StatusOK || !got.LeaseExpiresAt.Equal(h.clock.Now().Add(domain.DefaultLeaseDuration)) {
+		t.Fatalf("renew of a lapsed unswept lease: %d %s, want 200 extended from now", code, body)
+	}
+	extended := got.LeaseExpiresAt
+
+	if code, body := h.post("/v1/jobs/"+jobID+"/cancel", ``); code != http.StatusOK {
+		t.Fatalf("cancel: %d %s", code, body)
+	}
+	h.clock.Advance(10 * time.Second)
+	code, body = h.post(path, renewBody("worker-1", a.LeaseToken))
+	_ = json.Unmarshal([]byte(body), &got)
+	if code != http.StatusOK || got.Status != "RENEWED" || !got.CancelRequested || !got.LeaseExpiresAt.Equal(extended) {
+		t.Fatalf("renew on CANCEL_REQUESTED: %d %s, want 200 RENEWED cancel_requested=true, expiry unchanged %v", code, body, extended)
+	}
+}
+
+func TestAPI_RenewLease_RequestValidation(t *testing.T) {
+	h := newRenewHarness(t)
+	jobID, a := h.start(3)
+	good := renewBody("worker-1", a.LeaseToken)
+	tests := []struct {
+		name     string
+		path     string
+		body     string
+		wantCode string
+	}{
+		{"malformed json", renewPath(jobID, a.AttemptID), `{"worker_id":`, "MALFORMED_JSON"},
+		{"empty body", renewPath(jobID, a.AttemptID), ``, "MALFORMED_JSON"},
+		{"missing worker id", renewPath(jobID, a.AttemptID), `{"lease_token":"x"}`, "INVALID_REQUEST"},
+		{"worker id with illegal characters", renewPath(jobID, a.AttemptID), `{"worker_id":"w/../x","lease_token":"x"}`, "INVALID_REQUEST"},
+		{"worker id too long", renewPath(jobID, a.AttemptID), `{"worker_id":"` + strings.Repeat("w", 129) + `","lease_token":"x"}`, "INVALID_REQUEST"},
+		{"job id with illegal characters", renewPath("job.bad", a.AttemptID), good, "INVALID_REQUEST"},
+		{"attempt id with illegal characters", renewPath(jobID, "att%20bad"), good, "INVALID_REQUEST"},
+		{"attempt id too long", renewPath(jobID, strings.Repeat("a", 129)), good, "INVALID_REQUEST"},
+		{"body over the 1 MiB server limit", renewPath(jobID, a.AttemptID), `{"worker_id":"worker-1","lease_token":"` + strings.Repeat("A", api.MaxRequestSizeBytes) + `"}`, "MALFORMED_JSON"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			code, body := h.post(tc.path, tc.body)
+			if code != http.StatusBadRequest || errorCode(t, body) != tc.wantCode {
+				t.Fatalf("got %d %s, want 400 %s", code, body, tc.wantCode)
+			}
+		})
+	}
+
+	t.Run("only POST is routed", func(t *testing.T) {
+		resp, err := http.Get(h.ts.URL + renewPath(jobID, a.AttemptID))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Fatalf("GET /renew = %d, want 405", resp.StatusCode)
+		}
+	})
+}
+
+// TestAPI_RenewLease_OutageMapsTo503 pins that a repository outage on the renewal path is the
+// opaque 503 with Retry-After (the worker treats 5xx as transient and renews on the next tick).
+func TestAPI_RenewLease_OutageMapsTo503(t *testing.T) {
+	repo := &renewFailingRepository{Repository: storage.NewInMemoryRepository(), err: errors.New("dial tcp 10.1.2.3:5432: connect: connection refused")}
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	ts := httptest.NewServer(api.NewServer("127.0.0.1:0", svc).Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+renewPath("job_1", "att_1"), "application/json", strings.NewReader(renewBody("worker-1", "tok")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusServiceUnavailable || resp.Header.Get("Retry-After") != "1" || errorCode(t, string(raw)) != "SERVICE_UNAVAILABLE" {
+		t.Fatalf("got %d Retry-After=%q %s, want 503 SERVICE_UNAVAILABLE with Retry-After 1", resp.StatusCode, resp.Header.Get("Retry-After"), raw)
+	}
+	if strings.Contains(string(raw), "10.1.2.3") {
+		t.Fatalf("503 body leaks the connection target: %s", raw)
+	}
+}
+
+type renewFailingRepository struct {
+	storage.Repository
+	err error
+}
+
+func (r *renewFailingRepository) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+	return nil, r.err
+}
+
+// TestAPI_PollAssignment_CarriesLeaseMetadata pins the additive poll expansion of docs/protocol.md
+// section 6.2: lease_expires_at and lease_duration_seconds, so the worker can derive its renewal
+// interval (one third of the lease) without a separate setting.
+func TestAPI_PollAssignment_CarriesLeaseMetadata(t *testing.T) {
+	h := newRenewHarness(t)
+	_, a := h.start(3)
+	if want := h.clock.Now().Add(domain.DefaultLeaseDuration); a.LeaseExpiresAt == nil || !a.LeaseExpiresAt.Equal(want) {
+		t.Fatalf("lease_expires_at = %v, want %v", a.LeaseExpiresAt, want)
+	}
+	if a.LeaseDurationSeconds != int(domain.DefaultLeaseDuration/time.Second) {
+		t.Fatalf("lease_duration_seconds = %d, want %d", a.LeaseDurationSeconds, int(domain.DefaultLeaseDuration/time.Second))
+	}
+}
+
+// TestAPI_Heartbeat_ResponseIsAckOnly pins ADR-0016: the heartbeat response carries no
+// cancellation data; cancellation travels only on the renewal response.
+func TestAPI_Heartbeat_ResponseIsAckOnly(t *testing.T) {
+	h := newRenewHarness(t)
+	jobID, _ := h.start(3)
+	if code, body := h.post("/v1/jobs/"+jobID+"/cancel", ``); code != http.StatusOK {
+		t.Fatalf("cancel: %d %s", code, body)
+	}
+	code, body := h.post("/v1/workers/worker-1/heartbeat", `{"available_slots":3}`)
+	if code != http.StatusOK || strings.TrimSpace(body) != `{"status":"ACK"}` {
+		t.Fatalf("heartbeat = %d %s, want exactly {\"status\":\"ACK\"}", code, body)
+	}
+}

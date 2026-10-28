@@ -412,6 +412,52 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RenewLeaseRequest defines the JSON schema for POST /v1/jobs/{id}/attempts/{attempt_id}/renew.
+type RenewLeaseRequest struct {
+	LeaseToken string `json:"lease_token"`
+	WorkerID   string `json:"worker_id"`
+}
+
+// HandleRenewLease extends an attempt lease and delivers cancellation (docs/protocol.md 6.1).
+// Identifier validation and the 1 MiB body limit match the result endpoint; error statuses come
+// from mapDomainErrorToHTTP so renew and result share one table (protocol 6.3). The lease token is
+// compared in constant time by the repository and is never logged.
+func (h *Handler) HandleRenewLease(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+	attemptID := r.PathValue("attempt_id")
+	if !isValidIdentifier(jobID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid job id")
+		return
+	}
+	if !isValidIdentifier(attemptID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid attempt id")
+		return
+	}
+
+	var req RenewLeaseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
+		return
+	}
+	if !isValidIdentifier(req.WorkerID) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+
+	renewal, err := h.coord.RenewLease(r.Context(), jobID, attemptID, req.LeaseToken, req.WorkerID)
+	if err != nil {
+		status, code, msg := mapDomainErrorToHTTP(err)
+		writeError(w, status, code, msg)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":           "RENEWED",
+		"lease_expires_at": renewal.LeaseExpiresAt.UTC(),
+		"cancel_requested": renewal.CancelRequested,
+	})
+}
+
 func (h *Handler) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
