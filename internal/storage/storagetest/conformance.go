@@ -2100,3 +2100,119 @@ func RunCommitAttemptConflictOrderConformance(t *testing.T, newHarness func(t *t
 		}
 	})
 }
+
+// RunRetryingJobParityConformance verifies, on both backends, how a job the sweeper put into
+// RETRYING behaves: it is listed and dispatchable (by id and by queue order) only once not_before
+// has been reached, and a cancel clears the gate, while the first cancel of a RUNNING job stamps
+// cancel_requested_at once. Wrapped by TestConformance_RetryingJob_DispatchAndCancelParity.
+func RunRetryingJobParityConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	retrying := func(t *testing.T, backoff time.Duration) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_p", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_p", "w_p")
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(backoff)})
+		if len(res.Swept) != 1 || res.Swept[0].JobState != domain.StateRetrying {
+			t.Fatalf("setup sweep = %+v", res)
+		}
+		return h, att
+	}
+	listed := func(t *testing.T, h Harness) bool {
+		t.Helper()
+		jobs, err := h.Repo.ListQueuedJobs(ctx)
+		if err != nil {
+			t.Fatalf("ListQueuedJobs failed: %v", err)
+		}
+		for _, j := range jobs {
+			if j.ID == "j_p" {
+				return true
+			}
+		}
+		return false
+	}
+
+	t.Run("before_not_before_not_listed_not_dispatchable", func(t *testing.T) {
+		h, _ := retrying(t, time.Hour)
+		if listed(t, h) {
+			t.Fatal("a RETRYING job inside its backoff is listed as dispatchable")
+		}
+		if _, err := h.Repo.DispatchJob(ctx, "j_p", "w_p"); !errors.Is(err, domain.ErrJobNotQueued) {
+			t.Fatalf("DispatchJob inside the backoff: want ErrJobNotQueued, got %v", err)
+		}
+		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_p"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("DispatchNextJob inside the backoff: want ErrNoQueuedJobs, got %v", err)
+		}
+	})
+
+	t.Run("after_not_before_listed_and_dispatchable_by_id", func(t *testing.T) {
+		h, att1 := retrying(t, 0)
+		if !listed(t, h) {
+			t.Fatal("a RETRYING job past its backoff is not listed")
+		}
+		att2, err := h.Repo.DispatchJob(ctx, "j_p", "w_p")
+		if err != nil {
+			t.Fatalf("DispatchJob past the backoff failed: %v", err)
+		}
+		if att2.AttemptNo != 2 || att2.ID == att1.ID {
+			t.Fatalf("second attempt = %+v", att2)
+		}
+		job := conformanceJob(t, h.Repo, "j_p")
+		if job.State != domain.StateRunning || job.NotBefore != nil {
+			t.Fatalf("job after dispatch = %+v", job)
+		}
+		events := conformanceEvents(t, h.Repo, "j_p")
+		last := events[len(events)-1]
+		if last.EventType != domain.JobEventDispatched || last.FromState == nil || *last.FromState != domain.StateRetrying {
+			t.Fatalf("dispatch event = %+v, want JOB_DISPATCHED from RETRYING", last)
+		}
+	})
+
+	t.Run("cancel_during_backoff_clears_the_gate", func(t *testing.T) {
+		h, _ := retrying(t, time.Hour)
+		if before := conformanceJob(t, h.Repo, "j_p"); before.NotBefore == nil {
+			t.Fatalf("setup: RETRYING job has no not_before")
+		}
+		job, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil {
+			t.Fatalf("CancelJob failed: %v", err)
+		}
+		stored := conformanceJob(t, h.Repo, "j_p")
+		if job.State != domain.StateCancelled || job.NotBefore != nil || stored.State != domain.StateCancelled || stored.NotBefore != nil || stored.CancelRequestedAt != nil {
+			t.Fatalf("cancel of a RETRYING job: returned %+v, stored %+v", job, stored)
+		}
+		if listed(t, h) {
+			t.Fatal("a cancelled RETRYING job is still listed")
+		}
+	})
+
+	t.Run("cancel_requested_at_is_stamped_once", func(t *testing.T) {
+		h := newHarness(t)
+		conformanceWorker(t, h.Repo, "w_p", 1)
+		conformanceRunningJob(t, h.Repo, "j_p", "w_p")
+		first, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil || first.State != domain.StateCancelRequested || first.CancelRequestedAt == nil {
+			t.Fatalf("first cancel = %+v, %v", first, err)
+		}
+		stored := conformanceJob(t, h.Repo, "j_p")
+		if stored.CancelRequestedAt == nil || !timesClose(*stored.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("stored cancel_requested_at %v != returned %v", stored.CancelRequestedAt, first.CancelRequestedAt)
+		}
+		second, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil || second.CancelRequestedAt == nil || !timesClose(*second.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("duplicate cancel = %+v, %v; cancel_requested_at must not move", second, err)
+		}
+		if again := conformanceJob(t, h.Repo, "j_p"); again.CancelRequestedAt == nil || !timesClose(*again.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("stored cancel_requested_at moved on the duplicate cancel: %v", again.CancelRequestedAt)
+		}
+	})
+
+	t.Run("queued_cancel_has_no_cancel_requested_at", func(t *testing.T) {
+		h := newHarness(t)
+		conformanceQueuedJob(t, h.Repo, "j_p")
+		if job, err := h.Repo.CancelJob(ctx, "j_p"); err != nil || job.CancelRequestedAt != nil {
+			t.Fatalf("cancel of a QUEUED job = %+v, %v", job, err)
+		}
+	})
+}

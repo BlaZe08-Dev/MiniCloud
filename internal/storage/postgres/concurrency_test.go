@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -309,10 +310,15 @@ func TestPostgresRepository_Concurrency_DuplicateCommitRaced(t *testing.T) {
 }
 
 // TestPostgresRepository_Concurrency_MixedOperationsStress runs 60 concurrent goroutines executing
-// an adversarial mix of DispatchJob, CommitAttempt, CancelJob, ReapStaleWorkers, and RecordHeartbeat
-// across overlapping jobs and workers. It verifies:
+// an adversarial mix of DispatchJob, DispatchNextJob, CommitAttempt, CancelJob, ReapStaleWorkers,
+// RecordHeartbeat, RenewLease, forced lease expiry and SweepExpiredLeases across overlapping jobs
+// and workers. It verifies:
 // 1. Deadlock freedom: completes within context deadline.
-// 2. State invariants: exactly one active attempt per job, at most one result per job, and available_slots never negative.
+// 2. State invariants: exactly one active attempt per job, at most one result per job, available_slots never negative,
+// no active attempt under a terminal or RETRYING job (Invariant 4), and every RETRYING job carries not_before.
+//
+// It is a probabilistic detector: a pass proves absence of the sampled failures only. The
+// deterministic proofs are the conformance tests and the sweeper lock tests.
 func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
@@ -368,8 +374,10 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 	}
 
 	var (
-		attemptsMu     sync.Mutex
-		activeAttempts []activeAttemptInfo
+		attemptsMu         sync.Mutex
+		activeAttempts     []activeAttemptInfo
+		sweptTotal         atomic.Int64
+		skippedLockedTotal atomic.Int64
 	)
 
 	var wg sync.WaitGroup
@@ -388,7 +396,7 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 					return
 				}
 
-				op := (gID + iter) % 6
+				op := (gID + iter) % 9
 				targetJobID := jobIDs[r.Intn(numJobs)]
 				targetWorkerID := workerIDs[r.Intn(numWorkers)]
 
@@ -441,6 +449,30 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 						_, _ = repo.ReapStaleWorkers(ctx, 1*time.Millisecond)
 					} else {
 						_ = repo.RecordHeartbeat(ctx, targetWorkerID, 2)
+					}
+				case 6, 7: // RenewLease / force a lease to have passed (stands in for waiting 30s)
+					var candidate activeAttemptInfo
+					hasCandidate := false
+					attemptsMu.Lock()
+					if len(activeAttempts) > 0 {
+						candidate = activeAttempts[r.Intn(len(activeAttempts))]
+						hasCandidate = true
+					}
+					attemptsMu.Unlock()
+					if hasCandidate && op == 6 {
+						_, _ = repo.RenewLease(ctx, candidate.jobID, candidate.attemptID, candidate.leaseToken, candidate.workerID)
+					} else if hasCandidate {
+						_, _ = pool.Exec(ctx, `UPDATE attempts SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE id = $1 AND state = 'RUNNING'`, candidate.attemptID)
+					}
+				case 8: // SweepExpiredLeases (zero backoff so RETRYING jobs are redispatched in the same run)
+					res, err := repo.SweepExpiredLeases(ctx, domain.SweepParams{Backoff: func(int) time.Duration { return 0 }})
+					if err != nil {
+						if ctx.Err() == nil {
+							t.Errorf("SweepExpiredLeases returned an error under load: %v", err)
+						}
+					} else {
+						sweptTotal.Add(int64(len(res.Swept)))
+						skippedLockedTotal.Add(int64(res.SkippedLocked))
 					}
 				}
 			}
@@ -530,6 +562,38 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 		_ = termRows.Scan(&jID, &aID, &jState, &aState)
 		t.Fatalf("INVARIANT VIOLATION: job %s is %s but attempt %s is still %s", jID, jState, aID, aState)
 	}
+
+	// Invariant 4 extended to leases: a RETRYING job waits for its backoff with no active attempt
+	// and always carries the not_before gate.
+	checkRetrying := fmt.Sprintf(`
+		SELECT j.id, j.not_before IS NULL, COUNT(a.id)
+		FROM %[1]s.jobs j
+		LEFT JOIN %[1]s.attempts a ON a.job_id = j.id AND a.state IN ('PENDING', 'RUNNING')
+		WHERE j.state = 'RETRYING'
+		GROUP BY j.id, j.not_before
+		HAVING j.not_before IS NULL OR COUNT(a.id) > 0;
+	`, schemaName)
+	retryRows, err := pool.Query(ctx, checkRetrying)
+	if err != nil {
+		t.Fatalf("failed to query RETRYING jobs: %v", err)
+	}
+	defer retryRows.Close()
+	if retryRows.Next() {
+		var jID string
+		var noGate bool
+		var active int
+		_ = retryRows.Scan(&jID, &noGate, &active)
+		t.Fatalf("INVARIANT VIOLATION: RETRYING job %s has missing not_before=%v or %d active attempts", jID, noGate, active)
+	}
+
+	// A swept attempt always belongs to a lease expiry: every LOST attempt closed by the sweeper
+	// carries error_class LEASE_EXPIRED; one closed by a rejected commit carries none.
+	var badClass int
+	err = pool.QueryRow(ctx, `SELECT COUNT(*) FROM attempts WHERE error_class IS NOT NULL AND error_class <> 'LEASE_EXPIRED'`).Scan(&badClass)
+	if err != nil || badClass != 0 {
+		t.Fatalf("INVARIANT VIOLATION: %d attempts carry an error_class other than LEASE_EXPIRED (err=%v)", badClass, err)
+	}
+	t.Logf("stress: %d attempts swept, %d candidates skipped on locks", sweptTotal.Load(), skippedLockedTotal.Load())
 }
 
 // TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier tests 10 concurrent workers
@@ -675,4 +739,173 @@ func TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier(t *testing.
 		_ = dupRows.Scan(&jID, &count)
 		t.Fatalf("INVARIANT VIOLATION: job %s has %d attempts (>1)", jID, count)
 	}
+}
+
+// TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace starts 24 RUNNING attempts whose
+// leases have all passed, then lets four sweepers, plus one goroutine per attempt that renews,
+// commits and cancels in a random order, contend for them. Whatever the interleaving, each attempt
+// must end in exactly one consistent outcome:
+//   - a committed attempt is COMPLETED, its job SUCCEEDED, with exactly one results row;
+//   - a swept attempt is LOST with its job FAILED (max_attempts 1) and no results row, or
+//     CANCELLED with its job CANCELLED;
+//   - an attempt that was renewed in time is still RUNNING (or CANCEL_REQUESTED job) with a live lease.
+//
+// A commit that reports success must have won (attempt COMPLETED); a commit that reports
+// ErrLeaseExpired must have lost to a sweep. No deadlock, no result row on a LOST attempt, no
+// active attempt on a terminal job.
+func TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pool, _ := setupTestPool(t)
+	repo := postgres.NewRepository(pool, postgres.WithSweepLockTimeout(2*time.Second))
+
+	const numJobs = 24
+	for w := 0; w < 6; w++ {
+		if err := repo.UpsertWorker(ctx, &domain.Worker{ID: fmt.Sprintf("w_race_%d", w), Version: "v", TotalSlots: 4, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	type live struct {
+		jobID, attemptID, token, worker string
+	}
+	atts := make([]live, 0, numJobs)
+	for i := 0; i < numJobs; i++ {
+		id := fmt.Sprintf("j_race_%d", i)
+		if err := repo.SubmitJob(ctx, &domain.Job{ID: id, TaskType: "echo", Payload: []byte(`{}`), State: domain.StateQueued, MaxAttempts: 1, TimeoutSeconds: 30}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < numJobs; i++ {
+		w := fmt.Sprintf("w_race_%d", i%6)
+		j, att, err := repo.DispatchNextJob(ctx, w)
+		if err != nil {
+			t.Fatalf("dispatch %d: %v", i, err)
+		}
+		atts = append(atts, live{j.ID, att.ID, att.LeaseToken, w})
+	}
+	if _, err := pool.Exec(ctx, `UPDATE attempts SET lease_expires_at = clock_timestamp() - interval '1 second'`); err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		wg         sync.WaitGroup
+		commitOK   sync.Map // attemptID -> true when CommitAttempt returned nil
+		commitLost sync.Map // attemptID -> true when CommitAttempt returned ErrLeaseExpired
+		stop       = make(chan struct{})
+		start      = make(chan struct{})
+	)
+	var sweeperWG sync.WaitGroup
+	for s := 0; s < 4; s++ {
+		sweeperWG.Add(1)
+		go func(s int) {
+			defer sweeperWG.Done()
+			<-start
+			time.Sleep(time.Duration(s) * time.Millisecond) // staggered, so both sweeps and early commits win
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				if _, err := repo.SweepExpiredLeases(ctx, domain.SweepParams{Limit: 5, Backoff: func(int) time.Duration { return 0 }}); err != nil && ctx.Err() == nil {
+					t.Errorf("sweeper error: %v", err)
+					return
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}(s)
+	}
+	for i, a := range atts {
+		wg.Add(1)
+		go func(i int, a live) {
+			defer wg.Done()
+			r := rand.New(rand.NewSource(int64(i) + 99))
+			<-start
+			for _, op := range r.Perm(3) {
+				time.Sleep(time.Duration(r.Intn(4)) * time.Millisecond)
+				switch op {
+				case 0:
+					_, _ = repo.RenewLease(ctx, a.jobID, a.attemptID, a.token, a.worker)
+				case 1:
+					_, err := repo.CommitAttempt(ctx, a.jobID, a.attemptID, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0, Output: "ok"})
+					switch {
+					case err == nil:
+						commitOK.Store(a.attemptID, true)
+					case errors.Is(err, domain.ErrLeaseExpired):
+						commitLost.Store(a.attemptID, true)
+					}
+				case 2:
+					if i%3 == 0 {
+						_, _ = repo.CancelJob(ctx, a.jobID)
+					}
+				}
+			}
+		}(i, a)
+	}
+	close(start)
+	wg.Wait()
+	// Let the sweepers finish reaping everything that is still expired, then stop them.
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		var expired int
+		if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM attempts WHERE state = 'RUNNING' AND lease_expires_at < clock_timestamp()`).Scan(&expired); err != nil {
+			t.Fatal(err)
+		}
+		if expired == 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	close(stop)
+	sweeperWG.Wait()
+	if ctx.Err() != nil {
+		t.Fatalf("race test exceeded its deadline, possible deadlock: %v", ctx.Err())
+	}
+
+	counts := map[string]int{}
+	for _, a := range atts {
+		var attState, jobState string
+		var results int
+		var leaseLive bool
+		err := pool.QueryRow(ctx, `
+			SELECT a.state, j.state, (SELECT COUNT(*) FROM results r WHERE r.job_id = j.id), a.lease_expires_at > clock_timestamp()
+			FROM attempts a JOIN jobs j ON j.id = a.job_id WHERE a.id = $1`, a.attemptID).Scan(&attState, &jobState, &results, &leaseLive)
+		if err != nil {
+			t.Fatal(err)
+		}
+		counts[attState+"/"+jobState]++
+		_, ok := commitOK.Load(a.attemptID)
+		_, lost := commitLost.Load(a.attemptID)
+		switch attState {
+		case "COMPLETED":
+			if jobState != "SUCCEEDED" || results != 1 {
+				t.Errorf("%s: COMPLETED attempt but job %s with %d results", a.attemptID, jobState, results)
+			}
+		case "LOST":
+			if jobState != "FAILED" || results != 0 || ok {
+				t.Errorf("%s: LOST attempt with job %s, %d results, commitReportedSuccess=%v", a.attemptID, jobState, results, ok)
+			}
+		case "CANCELLED":
+			if jobState != "CANCELLED" || results != 0 || ok {
+				t.Errorf("%s: CANCELLED attempt with job %s, %d results, commitReportedSuccess=%v", a.attemptID, jobState, results, ok)
+			}
+		case "RUNNING":
+			if (jobState != "RUNNING" && jobState != "CANCEL_REQUESTED") || results != 0 || ok || lost || !leaseLive {
+				t.Errorf("%s: RUNNING attempt with job %s, %d results, commitOK=%v commitLost=%v leaseLive=%v", a.attemptID, jobState, results, ok, lost, leaseLive)
+			}
+		default:
+			t.Errorf("%s: unexpected attempt state %s (job %s)", a.attemptID, attState, jobState)
+		}
+		if ok && attState != "COMPLETED" {
+			t.Errorf("%s: CommitAttempt reported success but the attempt is %s", a.attemptID, attState)
+		}
+		if lost && attState != "LOST" {
+			t.Errorf("%s: CommitAttempt reported ErrLeaseExpired but the attempt is %s", a.attemptID, attState)
+		}
+	}
+	var leaked int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs j JOIN attempts a ON a.job_id = j.id WHERE j.state IN ('SUCCEEDED','FAILED','CANCELLED') AND a.state IN ('PENDING','RUNNING')`).Scan(&leaked); err != nil || leaked != 0 {
+		t.Fatalf("INVARIANT VIOLATION: %d active attempts under terminal jobs (%v)", leaked, err)
+	}
+	t.Logf("race outcomes (attempt/job): %v", counts)
 }

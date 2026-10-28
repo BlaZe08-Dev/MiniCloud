@@ -122,6 +122,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 		return http.StatusNotFound, "WORKER_NOT_FOUND", err.Error()
 	case errors.Is(err, domain.ErrWorkerMismatch):
 		return http.StatusForbidden, "WORKER_MISMATCH", err.Error()
+	case errors.Is(err, domain.ErrLeaseExpired):
+		return http.StatusConflict, "LEASE_EXPIRED", err.Error()
 	case errors.Is(err, domain.ErrStaleAttempt):
 		return http.StatusConflict, "STALE_ATTEMPT_REJECTED", err.Error()
 	case errors.Is(err, domain.ErrJobAlreadyTerminal):

@@ -1002,3 +1002,7 @@ func TestInMemoryRepository_LeaseRenewalAndExpiry(t *testing.T) {
 		}
 	})
 }
+
+func TestConformance_RetryingJob_DispatchAndCancelParity(t *testing.T) {
+	storagetest.RunRetryingJobParityConformance(t, newInMemoryHarness)
+}

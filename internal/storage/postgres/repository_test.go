@@ -100,3 +100,7 @@ func TestProperty_StateMachine_ModelConformance(t *testing.T) {
 func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
 	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newPostgresHarness)
 }
+
+func TestConformance_RetryingJob_DispatchAndCancelParity(t *testing.T) {
+	storagetest.RunRetryingJobParityConformance(t, newPostgresHarness)
+}
