@@ -1,0 +1,605 @@
+================================================================================
+MINICLOUD AUDIT EVIDENCE LOG - SLICE P4-4b
+Auditor: Gemini
+Commit Reviewed: 8b3c33210ad870801e52aca6fe0ab8e553900d03
+Branch: agent/gemini/P4-4b-review (from origin/agent/claude/P4-4b)
+Date: 2026-10-28
+================================================================================
+
+--------------------------------------------------------------------------------
+SECTION 1: PREFLIGHT CHECK & REPOSITORY SETUP
+--------------------------------------------------------------------------------
+
+$ (
+  [ -f .env ] || { echo "STOP: no .env in $(pwd)" >&2; exit 1; }
+  URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-)
+  DB=$(printf '%s\n' "$URL" | sed -E 's#^.*/([^/?]+)([?].*)?$#\1#')
+  echo "worktree: $(git rev-parse --show-toplevel)"
+  echo "test URL: $(printf '%s\n' "$URL" | sed -E 's#//[^@]*@#//***@#')"
+  echo "test DB:  $DB"
+  [ -n "$DB" ] || { echo "STOP: MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; }
+  if [ "$(git rev-parse --show-toplevel)" != "$HOME/MiniCloud" ] && [ "$DB" = minicloud_test ]; then
+    echo "STOP: agent worktree points at the shared minicloud_test; fix .env (section 9)" >&2; exit 1
+  fi
+  echo "preflight OK"
+)
+worktree: /home/blazeee/MiniCloud-gemini
+test URL: postgres://***@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+test DB:  minicloud_gemini_test
+preflight OK
+rc=0
+
+$ git fetch origin
+rc=0
+
+$ git status
+On branch agent/gemini/P4-03
+Your branch is up to date with 'origin/agent/gemini/P4-03'.
+
+nothing to commit, working tree clean
+rc=0
+
+$ git switch -c agent/gemini/P4-4b-review origin/agent/claude/P4-4b
+Switched to a new branch 'agent/gemini/P4-4b-review'
+branch 'agent/gemini/P4-4b-review' set up to track 'origin/agent/claude/P4-4b'.
+rc=0
+
+$ git branch --unset-upstream
+rc=0
+
+$ git rev-parse HEAD
+8b3c33210ad870801e52aca6fe0ab8e553900d03
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 2: QUALITY GATES REPRODUCTION
+--------------------------------------------------------------------------------
+
+$ gofmt -l .
+rc=0
+
+$ go vet ./...
+rc=0
+
+$ go build ./...
+rc=0
+
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.748s
+rc=0
+
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...
+...
+=== RUN   TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres
+    sec022_probe_test.go:44: skipping postgres probe: MINICLOUD_TEST_DATABASE_URL is unset
+--- PASS: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot (0.08s)
+    --- PASS: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/memory (0.08s)
+    --- SKIP: TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot/postgres (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.287s
+rc=0
+
+Counts for DB URL unset:
+PASS 117 SKIP 34 FAIL 0
+rc=0
+
+$ make test-db
+...
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/cancelled_job_closes_attempt_cancelled (1.30s)
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/succeeded_job_closes_attempt_lost (1.43s)
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/failed_job_closes_attempt_lost (1.47s)
+=== RUN   TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex
+--- PASS: TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex (1.37s)
+=== RUN   TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool
+--- PASS: TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool (0.68s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	72.386s
+rc=0
+
+Counts for make test-db:
+Total PASS (including subtests): 146
+Top-level PASS: 41
+Total FAIL: 0
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 3: SCOPE AUDIT
+--------------------------------------------------------------------------------
+
+$ git diff --name-only origin/main..HEAD
+docs/agents/handoffs/P4-4b.md
+internal/api/api_test.go
+internal/api/handlers.go
+internal/domain/attempt.go
+internal/domain/errors.go
+internal/domain/events.go
+internal/domain/lease.go
+internal/domain/retry.go
+internal/domain/retry_test.go
+internal/domain/sweep.go
+internal/domain/sweep_test.go
+internal/storage/inmemory.go
+internal/storage/inmemory_test.go
+internal/storage/postgres/concurrency_test.go
+internal/storage/postgres/leases.go
+internal/storage/postgres/migration_000004_test.go
+internal/storage/postgres/migrations/000004_leases_retries_cancellation.sql
+internal/storage/postgres/migrator_test.go
+internal/storage/postgres/repository.go
+internal/storage/postgres/repository_test.go
+internal/storage/postgres/sweeper_test.go
+internal/storage/repository.go
+internal/storage/storagetest/conformance.go
+tests/docs/citation_allowlist.txt
+rc=0
+
+$ git diff origin/main..HEAD tests/docs/citation_allowlist.txt
+diff --git a/tests/docs/citation_allowlist.txt b/tests/docs/citation_allowlist.txt
+index 3bf84d1..22b1e1e 100644
+--- a/tests/docs/citation_allowlist.txt
++++ b/tests/docs/citation_allowlist.txt
+@@ -21,7 +21,6 @@ test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/
+ 
+ # Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+-test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
+ test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+rc=0
+
+$ git diff origin/main..HEAD internal/api/handlers.go
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 6cd51fd..a11480b 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -122,6 +122,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
+ 		return http.StatusNotFound, "WORKER_NOT_FOUND", err.Error()
+ 	case errors.Is(err, domain.ErrWorkerMismatch):
+ 		return http.StatusForbidden, "WORKER_MISMATCH", err.Error()
++	case errors.Is(err, domain.ErrLeaseExpired):
++		return http.StatusConflict, "LEASE_EXPIRED", err.Error()
+ 	case errors.Is(err, domain.ErrStaleAttempt):
+ 		return http.StatusConflict, "STALE_ATTEMPT_REJECTED", err.Error()
+ 	case errors.Is(err, domain.ErrJobAlreadyTerminal):
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 4: PRE-EXISTING TESTS MODIFIED
+--------------------------------------------------------------------------------
+
+$ git diff origin/main..HEAD internal/storage/storagetest/conformance.go (lines 1140-1165)
+@@ -1142,11 +1150,14 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int)
+ // longer RUNNING is rejected with ErrStaleAttempt while the job is still non-terminal, and that the
+ // rejection changes nothing: job state, attempt, worker slot, events and stored result stay as they
+ // were. In slice 4a no public repository path leaves a non-terminal job with a non-RUNNING current
+-// attempt, so COMPLETED, FAILED and LOST are all reached through the harness's ForceAttemptState
++// attempt, so the states below are all reached through the harness's ForceAttemptState
+ // hook. Wrapped by TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt.
+ func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+ 	ctx := context.Background()
+-	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptLost} {
++	// LOST is deliberately absent: since slice 4b a commit naming a LOST attempt returns
++	// ErrLeaseExpired (RunCommitAttemptConflictOrderConformance). Every other non-RUNNING
++	// attempt state keeps returning ErrStaleAttempt.
++	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+ 		state := state
+ 		t.Run(string(state), func(t *testing.T) {
+rc=0
+
+$ git diff origin/main..HEAD internal/storage/postgres/migrator_test.go
+@@ -300,8 +300,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// First active attempt succeeds (RUNNING)
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_act_1', 'job_active_inv', 1, 'worker_active_inv', repeat('a', 64), 'RUNNING');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_act_1', 'job_active_inv', 1, 'worker_active_inv', repeat('a', 64), 'RUNNING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err != nil {
+ 			t.Fatalf("expected first active attempt to succeed, got: %v", err)
+@@ -309,8 +309,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// Second active attempt for same job with state RUNNING must fail due to idx_attempts_active_per_job
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err == nil {
+ 			t.Fatalf("expected second RUNNING active attempt on same job to fail with unique violation, got nil")
+@@ -321,8 +321,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// Second active attempt for same job with state PENDING must ALSO fail due to idx_attempts_active_per_job
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err == nil {
+ 			t.Fatalf("expected second PENDING active attempt on same job to fail with unique violation, got nil")
+@@ -353,8 +353,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// Insert attempt 1
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_dup_1', 'job_dup_att', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_dup_1', 'job_dup_att', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err != nil {
+ 			t.Fatalf("failed to insert attempt 1: %v", err)
+@@ -362,8 +362,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// Insert duplicate attempt_no 1 for same job
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_dup_2', 'job_dup_att', 1, 'worker_active_inv', repeat('b', 64), 'FAILED');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_dup_2', 'job_dup_att', 1, 'worker_active_inv', repeat('b', 64), 'FAILED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err == nil {
+ 			t.Fatalf("expected duplicate attempt_no to fail, got nil")
+@@ -383,8 +383,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 		}
+ 
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_res_1', 'job_res_inv', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_res_1', 'job_res_inv', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err != nil {
+ 			t.Fatalf("failed to insert attempt: %v", err)
+@@ -430,8 +430,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 	t.Run("OversizedOutput_RejectedByCheckConstraint", func(t *testing.T) {
+ 		oversizedText := strings.Repeat("x", 65537)
+ 		_, err := conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, output)
+-			VALUES ('att_oversized', 'job_res_inv', 2, 'worker_active_inv', repeat('c', 64), 'COMPLETED', $1);
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, output, lease_expires_at)
++			VALUES ('att_oversized', 'job_res_inv', 2, 'worker_active_inv', repeat('c', 64), 'COMPLETED', $1, CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`, oversizedText)
+ 		if err == nil {
+ 			t.Fatalf("expected oversized output to fail, got nil")
+@@ -456,8 +456,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
+ 
+ 		// Invalid attempt state
+ 		_, err = conn.Exec(ctx, `
+-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
+-			VALUES ('att_inv_state', 'job_res_inv', 3, 'worker_active_inv', repeat('d', 64), 'NOT_A_STATE');
++			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
++			VALUES ('att_inv_state', 'job_res_inv', 3, 'worker_active_inv', repeat('d', 64), 'NOT_A_STATE', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
+ 		`)
+ 		if err == nil {
+ 			t.Fatalf("expected invalid attempt state to fail, got nil")
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 5: INDEPENDENT RE-RUN OF STRESS TESTS (-count=5)
+--------------------------------------------------------------------------------
+
+$ set -e
+  URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-)
+  MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=5 -run '^TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace$' ./internal/storage/postgres/...
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:910: race outcomes (attempt/job): map[COMPLETED/SUCCEEDED:23 LOST/FAILED:1]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (1.47s)
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:910: race outcomes (attempt/job): map[COMPLETED/SUCCEEDED:21 LOST/FAILED:3]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (1.42s)
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:910: race outcomes (attempt/job): map[COMPLETED/SUCCEEDED:23 LOST/FAILED:1]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (1.40s)
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:910: race outcomes (attempt/job): map[CANCELLED/CANCELLED:1 COMPLETED/SUCCEEDED:23]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (1.46s)
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:910: race outcomes (attempt/job): map[CANCELLED/CANCELLED:1 COMPLETED/SUCCEEDED:19 LOST/FAILED:4]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (1.40s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	8.176s
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 6: MUTATION SPOT-CHECK (8 INDEPENDENT MUTANTS IN ~/mc-mut-gemini)
+--------------------------------------------------------------------------------
+
+--- MUTANT n7: memory RenewLease LOST check removed ---
+Diff:
+diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+index 5dee284..38d431d 100644
+--- a/internal/storage/inmemory.go
++++ b/internal/storage/inmemory.go
+@@ -833,7 +833,7 @@ func (r *InMemoryRepository) RenewLease(ctx context.Context, jobID, attemptID, l
+ 		return nil, domain.ErrJobAlreadyTerminal
+ 	}
+ 	att, attExists := r.attempts[attemptID]
+-	if attExists && att.JobID == job.ID && att.State == domain.AttemptLost {
++	if attExists && att.JobID == job.ID && att.State == domain.AttemptLost && false {
+ 		return nil, domain.ErrLeaseExpired
+ 	}
+ 	if job.CurrentAttemptID != attemptID {
+Mutated run:
+--- FAIL: TestConformance_RenewLease_RejectedAfterLost (0.00s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying (0.00s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt (0.00s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt (0.00s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.033s
+rc=0
+
+--- MUTANT n8: PostgreSQL RenewLease LOST check removed ---
+Diff:
+diff --git a/internal/storage/postgres/leases.go b/internal/storage/postgres/leases.go
+index f09e948..25f3776 100644
+--- a/internal/storage/postgres/leases.go
++++ b/internal/storage/postgres/leases.go
+@@ -72,7 +72,7 @@ func (r *Repository) RenewLease(ctx context.Context, jobID, attemptID, leaseToke
+ 		}
+ 		found = false
+ 	}
+-	if found && attState == string(domain.AttemptLost) {
++	if false {
+ 		return nil, domain.ErrLeaseExpired
+ 	}
+ 	if currentAttemptID == nil || *currentAttemptID != attemptID {
+Mutated run:
+--- FAIL: TestConformance_RenewLease_RejectedAfterLost (2.42s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying (1.46s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt (0.48s)
+    --- FAIL: TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt (0.47s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.339s
+rc=0
+
+--- MUTANT b1: backoff jitter range widened above 1.5 ---
+Diff:
+diff --git a/internal/domain/retry.go b/internal/domain/retry.go
+index d2f3a22..80b5b49 100644
+--- a/internal/domain/retry.go
++++ b/internal/domain/retry.go
+@@ -72,7 +72,7 @@ func ComputeBackoff(p RetryPolicy, attemptNo int, rnd func() float64) time.Durat
+ 			} else if u > 1 {
+ 				u = 1
+ 			}
+-			factor = p.JitterMin + u*(p.JitterMax-p.JitterMin)
++			factor = p.JitterMin + u*(p.JitterMax+0.5-p.JitterMin)
+ 		}
+ 	}
+ 	return time.Duration(float64(exp) * factor)
+Mutated run:
+--- FAIL: TestDomain_ComputeBackoff_FullJitter (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt1_mid (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt2_mid (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt3_mid (0.00s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.031s
+rc=0
+
+--- MUTANT b3: 30s cap removed from backoff exponential term ---
+Diff:
+diff --git a/internal/domain/retry.go b/internal/domain/retry.go
+index d2f3a22..748c1fa 100644
+--- a/internal/domain/retry.go
++++ b/internal/domain/retry.go
+@@ -54,15 +54,8 @@ func ComputeBackoff(p RetryPolicy, attemptNo int, rnd func() float64) time.Durat
+ 
+ 	exp := p.BaseBackoff
+ 	for i := 1; i < attemptNo && exp < p.MaxBackoff; i++ {
+-		if exp > p.MaxBackoff/2 {
+-			exp = p.MaxBackoff
+-			break
+-		}
+ 		exp *= 2
+ 	}
+-	if exp > p.MaxBackoff {
+-		exp = p.MaxBackoff
+-	}
+ 
+ 	factor := (p.JitterMin + p.JitterMax) / 2
+ 	if rnd != nil {
+Mutated run:
+--- FAIL: TestDomain_ComputeBackoff_FullJitter (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt6_capped_mid (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt6_capped_low (0.00s)
+    --- FAIL: TestDomain_ComputeBackoff_FullJitter/attempt10_capped_low (0.00s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.026s
+rc=0
+
+--- MUTANT b4: SweepGraceState ignores cooldown ---
+Diff:
+diff --git a/internal/domain/sweep.go b/internal/domain/sweep.go
+index 6df2d95..047d3bc 100644
+--- a/internal/domain/sweep.go
++++ b/internal/domain/sweep.go
+@@ -36,9 +36,7 @@ func (g SweepGraceState) Suppresses(now time.Time) bool {
+ 	if now.Before(g.StartupGraceUntil) {
+ 		return true
+ 	}
+-	if now.Before(g.CooldownUntil) {
+-		return false
+-	}
++
+ 	return now.Before(g.OutageWindowUntil)
+ }
+Mutated run:
+--- FAIL: TestDomain_SweepGraceState_Suppresses (0.00s)
+    --- FAIL: TestDomain_SweepGraceState_Suppresses/cooldown_active_reaping_proceeds_despite_open_window (0.00s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.028s
+rc=0
+
+--- MUTANT g1: memory SweepExpiredLeases in-lock grace check removed ---
+Diff:
+diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+index 5dee284..8802179 100644
+--- a/internal/storage/inmemory.go
++++ b/internal/storage/inmemory.go
+@@ -921,7 +921,7 @@ func (r *InMemoryRepository) SweepExpiredLeases(ctx context.Context, params doma
+ 			res.SkippedChanged++
+ 			continue
+ 		}
+-		if params.Grace.Suppresses(now) {
++		if false && params.Grace.Suppresses(now) {
+ 			res.SuppressedByGrace++
+ 			continue
+ 		}
+Mutated run:
+--- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping (0.00s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running (0.00s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested (0.00s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job (0.00s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.031s
+rc=0
+
+--- MUTANT g2: PostgreSQL SweepExpiredLeases in-lock grace check removed ---
+Diff:
+diff --git a/internal/storage/postgres/leases.go b/internal/storage/postgres/leases.go
+index f09e948..f6ba762 100644
+--- a/internal/storage/postgres/leases.go
++++ b/internal/storage/postgres/leases.go
+@@ -268,7 +268,7 @@ func (r *Repository) sweepCandidate(ctx context.Context, c sweepCandidate, param
+ 		return nil, sweepSkippedChanged, nil
+ 	}
+ 	// The only authoritative grace check.
+-	if params.Grace.Suppresses(now) {
++	if false && params.Grace.Suppresses(now) {
+ 		return nil, sweepSuppressed, nil
+ 	}
+Mutated run:
+--- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping (1.91s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running (1.04s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested (0.42s)
+    --- FAIL: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job (0.45s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.298s
+rc=0
+
+--- MUTANT r1: PostgreSQL sweep re-check of state and lease under lock removed ---
+Diff:
+diff --git a/internal/storage/postgres/leases.go b/internal/storage/postgres/leases.go
+index f09e948..21688b5 100644
+--- a/internal/storage/postgres/leases.go
++++ b/internal/storage/postgres/leases.go
+@@ -264,7 +264,7 @@ func (r *Repository) sweepCandidate(ctx context.Context, c sweepCandidate, param
+ 
+ 	// Re-check inside the locks: a concurrent renewal or commit may have changed the attempt
+ 	// since the candidate scan.
+-	if attState != string(domain.AttemptRunning) || !leaseExpiresAt.Before(now) {
++	if false {
+ 		return nil, sweepSkippedChanged, nil
+ 	}
+ 	// The only authoritative grace check.
+Mutated run:
+--- FAIL: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck (1.09s)
+    --- FAIL: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/renewal_landed_after_the_scan (0.61s)
+    --- FAIL: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/commit_landed_after_the_scan (0.48s)
+FAIL
+rc=1
+Restored run:
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.581s
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 7: BREAK-BEFORE-FIX PROOF: COOLDOWN GRACE DECISION
+--------------------------------------------------------------------------------
+
+$ go test -v -race -run 'TestAudit_' ./internal/domain
+=== RUN   TestAudit_ComputeBackoff_EdgeCases
+--- PASS: TestAudit_ComputeBackoff_EdgeCases (0.00s)
+=== RUN   TestAudit_SweepGraceState_OwnerRule_BreakBeforeFix
+    audit_test.go:67: CONFIRMED FINDING: Suppresses(now) returned false while CooldownUntil is in future (2026-10-28 12:00:30 +0000 UTC > 2026-10-28 12:00:00 +0000 UTC). Code allows lease expiry during cooldown.
+    audit_test.go:68: BREAK: owner decision requires no expiry whenever ANY protective window is active (grace or cooldown), but got Suppresses = false
+--- FAIL: TestAudit_SweepGraceState_OwnerRule_BreakBeforeFix (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/domain	0.021s
+FAIL
+rc=1
+
+Fix applied:
+diff --git a/internal/domain/sweep.go b/internal/domain/sweep.go
+index 6df2d95..8aee40c 100644
+--- a/internal/domain/sweep.go
++++ b/internal/domain/sweep.go
+@@ -33,13 +33,10 @@ type SweepGraceState struct {
+ 
+ // Suppresses reports whether reaping must be skipped at now.
+ func (g SweepGraceState) Suppresses(now time.Time) bool {
+-	if now.Before(g.StartupGraceUntil) {
++	if now.Before(g.StartupGraceUntil) || now.Before(g.OutageWindowUntil) || now.Before(g.CooldownUntil) {
+ 		return true
+ 	}
+-	if now.Before(g.CooldownUntil) {
+-		return false
+-	}
+-	return now.Before(g.OutageWindowUntil)
++	return false
+ }
+
+$ go test -v -race -run 'TestAudit_' ./internal/domain
+=== RUN   TestAudit_ComputeBackoff_EdgeCases
+--- PASS: TestAudit_ComputeBackoff_EdgeCases (0.00s)
+=== RUN   TestAudit_SweepGraceState_OwnerRule_BreakBeforeFix
+--- PASS: TestAudit_SweepGraceState_OwnerRule_BreakBeforeFix (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.036s
+rc=0
+
+--------------------------------------------------------------------------------
+SECTION 8: DUAL-BACKEND CONFORMANCE AUDIT TESTS (MEMORY & POSTGRES)
+--------------------------------------------------------------------------------
+
+$ go test -v -race -timeout 60s -run 'TestAudit_Slice4b_Conformance_Memory' ./internal/storage
+=== RUN   TestAudit_Slice4b_Conformance_Memory
+=== RUN   TestAudit_Slice4b_Conformance_Memory/RenewLease_AuditCases
+=== RUN   TestAudit_Slice4b_Conformance_Memory/CommitAttempt_409_Order_And_Concurrent_Diagnostics
+=== RUN   TestAudit_Slice4b_Conformance_Memory/Sweep_Resolution_Details
+--- PASS: TestAudit_Slice4b_Conformance_Memory (0.00s)
+    --- PASS: TestAudit_Slice4b_Conformance_Memory/RenewLease_AuditCases (0.00s)
+    --- PASS: TestAudit_Slice4b_Conformance_Memory/CommitAttempt_409_Order_And_Concurrent_Diagnostics (0.00s)
+    --- PASS: TestAudit_Slice4b_Conformance_Memory/Sweep_Resolution_Details (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.029s
+rc=0
+
+$ MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -timeout 60s -run 'TestAudit_Slice4b_Conformance_Postgres' ./internal/storage/postgres
+=== RUN   TestAudit_Slice4b_Conformance_Postgres
+=== RUN   TestAudit_Slice4b_Conformance_Postgres/RenewLease_AuditCases
+=== RUN   TestAudit_Slice4b_Conformance_Postgres/CommitAttempt_409_Order_And_Concurrent_Diagnostics
+=== RUN   TestAudit_Slice4b_Conformance_Postgres/Sweep_Resolution_Details
+--- PASS: TestAudit_Slice4b_Conformance_Postgres (2.03s)
+    --- PASS: TestAudit_Slice4b_Conformance_Postgres/RenewLease_AuditCases (0.49s)
+    --- PASS: TestAudit_Slice4b_Conformance_Postgres/CommitAttempt_409_Order_And_Concurrent_Diagnostics (1.01s)
+    --- PASS: TestAudit_Slice4b_Conformance_Postgres/Sweep_Resolution_Details (0.53s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	3.073s
+rc=0
