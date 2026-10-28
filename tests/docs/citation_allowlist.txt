@@ -21,7 +21,7 @@ test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/
 
 # Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
-test|TestDomain_ComputeBackoff_FullJitter|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
 test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
