@@ -317,15 +317,21 @@ func IsNonRetryableReportError(statusCode int) bool {
 	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict || statusCode == http.StatusNotFound
 }
 
-// ReportResult sends the execution outcome to the coordinator.
-func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken string, exitCode int, output, errSummary string) (int, error) {
-	reportReq, _ := json.Marshal(map[string]any{
+// ReportResult sends the execution outcome to the coordinator. errorClass is the worker's
+// classification of a failed outcome (PERMANENT, TRANSIENT or UNKNOWN) and is omitted from the
+// request for a success; the coordinator validates it and never trusts it blindly.
+func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken string, exitCode int, output, errSummary string, errorClass domain.ErrorClass) (int, error) {
+	body := map[string]any{
 		"lease_token": leaseToken,
 		"worker_id":   a.cfg.WorkerID,
 		"exit_code":   exitCode,
 		"output":      output,
 		"error":       errSummary,
-	})
+	}
+	if errorClass != "" {
+		body["error_classification"] = string(errorClass)
+	}
+	reportReq, _ := json.Marshal(body)
 
 	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
@@ -534,13 +540,15 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 	if err != nil {
 		errSummary = err.Error()
 	}
+	// A failed outcome carries its class; a success carries none (ADR-0015).
+	errorClass := executor.Classify(err)
 	// deliverResult drops the result without any request when the attempt was declared lost.
-	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary)
+	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary, errorClass)
 }
 
 // deliverResult retries ReportResult with bounded backoff for at most ResultDeliveryBudget. It
 // stops at the first success, a terminal rejection, a lost lease, shutdown or the budget.
-func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, exitCode int, output, errSummary string) {
+func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, exitCode int, output, errSummary string, errorClass domain.ErrorClass) {
 	budget := a.clock.NewTimer(ResultDeliveryBudget)
 	defer budget.Stop()
 	dctx, cancel := context.WithCancel(ctx)
@@ -562,7 +570,7 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
 			slog.Warn("lease lost while delivering; dropping the result", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
 			return
 		}
-		status, reportErr = a.ReportResult(dctx, asg.JobID, asg.AttemptID, asg.LeaseToken, exitCode, output, errSummary)
+		status, reportErr = a.ReportResult(dctx, asg.JobID, asg.AttemptID, asg.LeaseToken, exitCode, output, errSummary, errorClass)
 		if reportErr == nil {
 			slog.Info("result successfully committed", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "exit_code", exitCode)
 			return

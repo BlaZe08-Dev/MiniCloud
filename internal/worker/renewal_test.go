@@ -50,12 +50,13 @@ func (b *blockTask) Execute(ctx context.Context, _ []byte) (string, error) {
 
 // fakeCoordinator serves the renew and result endpoints with per-test behaviour.
 type fakeCoordinator struct {
-	mu          sync.Mutex
-	renewCalls  int
-	resultCalls int
-	renewBodies []map[string]string
-	renew       func(n int, w http.ResponseWriter, r *http.Request)
-	result      func(n int, w http.ResponseWriter, r *http.Request)
+	mu           sync.Mutex
+	renewCalls   int
+	resultCalls  int
+	renewBodies  []map[string]string
+	resultBodies []map[string]any
+	renew        func(n int, w http.ResponseWriter, r *http.Request)
+	result       func(n int, w http.ResponseWriter, r *http.Request)
 }
 
 func (f *fakeCoordinator) renews() int  { f.mu.Lock(); defer f.mu.Unlock(); return f.renewCalls }
@@ -75,7 +76,10 @@ func (f *fakeCoordinator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.mu.Unlock()
 		h(n, w, r)
 	case len(r.URL.Path) > 7 && r.URL.Path[len(r.URL.Path)-7:] == "/result":
+		var m map[string]any
+		_ = json.Unmarshal(body, &m)
 		f.mu.Lock()
+		f.resultBodies = append(f.resultBodies, m)
 		f.resultCalls++
 		n := f.resultCalls
 		h := f.result
