@@ -1,11 +1,11 @@
 # MiniCloud
 
-MiniCloud is a learning-oriented distributed job-execution platform written in Go (standard library plus pgx v5), with PostgreSQL 16 as the durable source of truth. A central coordinator accepts computational jobs, independent worker processes pull and execute allowlisted tasks under leases, lifecycle transitions are validated by a central domain state machine, and state changes are recorded in durable storage. MiniCloud is designed to explore, implement, and measure real distributed-systems behavior—state transitions, worker coordination, leases, bounded retries, and failure recovery. It is not a production-ready cloud service, does not support multi-tenancy, is not designed to be exposed to untrusted networks, and never runs arbitrary untrusted shell commands on the host.
+MiniCloud is a learning-oriented distributed job-execution platform written in Go (standard library plus pgx v5), with PostgreSQL 16 as the durable source of truth. A central coordinator accepts computational jobs, independent worker processes pull and execute allowlisted tasks with a per-attempt lease token (worker-side lease renewal is not implemented yet; see [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md)), lifecycle transitions are validated by a central domain state machine, and state changes are recorded in durable storage. MiniCloud is designed to explore, implement, and measure real distributed-systems behavior—state transitions, worker coordination, leases, bounded retries, and failure recovery. It is not a production-ready cloud service, does not support multi-tenancy, is not designed to be exposed to untrusted networks, and never runs arbitrary untrusted shell commands on the host.
 
 ## Status
 
 - **Development Stage:** Pre-production (active V1 implementation).
-- **Phase:** V1, Phase 4 in progress (slice 4a done). See [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) for the current slice.
+- **Phase:** V1, Phase 4 in progress. The current slice and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
 - **Security Posture:** The HTTP API and worker endpoints currently lack authentication, authorization, and TLS (documented as accepted risk SEC-004 in [docs/security/findings.md](docs/security/findings.md)); network security is deferred to V3. The coordinator defaults to binding strictly on localhost (`127.0.0.1:8080`) and must not be exposed to untrusted networks.
 - **Living Status:** The authoritative implementation progress, active milestones, and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
 
@@ -17,13 +17,13 @@ The following capabilities are implemented and verified in the codebase (`cmd/`,
 - **Worker Daemon (`cmd/worker`):** Autonomous agent executing allowlisted tasks (`echo`, `sleep`, `sha256_loop`) with bounded concurrency slots and periodic heartbeats.
 - **Command-Line Interface (`cmd/mc`):** CLI tool for job submission, job status inspection, attempt history retrieval, and worker capacity monitoring.
 - **Database Migrations (`cmd/migrate`):** Forward-only embedded SQL migrator with PostgreSQL transaction advisory locking (`pg_advisory_xact_lock`) and schema checksum verification.
-- **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`SUBMITTED`, `QUEUED`, `RUNNING`, `CANCEL_REQUESTED`, `RETRYING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) and attempt states (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`); the full transition matrix is specified in [docs/state-machine.md](docs/state-machine.md) (Section 3 and Section 4).
+- **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`SUBMITTED`, `QUEUED`, `RUNNING`, `CANCEL_REQUESTED`, `RETRYING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) and attempt states (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT` (`TIMED_OUT` is reserved and not written in V1), `CANCELLED`, `LOST`); the full transition matrix is specified in [docs/state-machine.md](docs/state-machine.md) (Section 3 and Section 4).
 - **Transactional Pull Dispatch (`fifo_pull`):** Single-transaction FIFO work acquisition in PostgreSQL using `SELECT ... FOR UPDATE SKIP LOCKED` on eligible jobs with worker slot capacity checks.
 - **Health and Readiness Probes:** Liveness check at `/healthz` and database connectivity probe at `/readyz` mapping connection failures to HTTP 503 `SERVICE_UNAVAILABLE`.
 - **API Boundary Protections:** Worker ID and route parameter validation (`^[a-zA-Z0-9_-]+$`, max 128 chars), numeric bounds validation on attempts (1..20) and timeouts (1..86400s), and payload size limits (64 KiB).
 - **Outage Resilience:** Worker client exponential backoff with jitter (200 ms base, 3 s cap) on HTTP 5xx or poll errors, and automatic worker re-registration upon coordinator restart.
 
-Not implemented yet: attempt leases and expiry sweep, automatic retries and backoff, cancellation reaching a running worker, assignment-based round-robin dispatch (dispatch is `fifo_pull`; `internal/scheduler` is not used), authentication and TLS, Docker isolation, Redis transport.
+Pending slice deliverables (including worker-side lease renewal, automatic retries with backoff, and cancellation delivery to running workers) and post-V1 roadmap items are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md) and [docs/roadmap.md](docs/roadmap.md).
 
 ## Architecture
 
@@ -82,7 +82,11 @@ MiniCloud consists of four core executables and an authoritative PostgreSQL data
 
 The in-memory storage driver requires no external database container or configuration.
 
-Prerequisites: Go 1.22.2 and `make`. Run every command from the repository root. Terminals 1 and 2 stay in the foreground and log JSON; stop them with Ctrl-C when done. If port 8080 is busy, the coordinator exits with `address already in use`; change `MINICLOUD_HTTP_ADDR` and `MINICLOUD_COORDINATOR_URL` together.
+Prerequisites: Go 1.22.2 and `make`. Run every command from the repository root. Terminals 1 and 2 stay in the foreground and log JSON; stop them with Ctrl-C when done.
+
+Startup order: Start the coordinator first, wait until it is ready, then start the worker process, and finally submit jobs or inspect state with `mc`.
+
+Port-busy advice: If port 8080 is busy (`ss -tulpn | grep 8080` or `ss -ltn | grep 8080`), the coordinator logs `address already in use` and exits. The worker and `mc` default to port 8080 and will silently talk to whatever foreign process is listening there. To use a different port (such as 18080), set `MINICLOUD_HTTP_ADDR=127.0.0.1:18080` when starting the coordinator, and set `MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080` for the worker and in your `mc` shell (`export MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080`). Note that while `mc submit` supports a `--coordinator-url` flag, other `mc` subcommands (`mc get`, `mc attempts`, `mc workers`) read `MINICLOUD_COORDINATOR_URL` from the environment.
 
 Build all executables:
 
@@ -96,11 +100,19 @@ Terminal 1: Start the coordinator in the foreground:
 MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:8080 ./bin/coordinator
 ```
 
+Wait until the coordinator is ready (it logs `coordinator listening for requests`), or verify with the readiness probe:
+
+```bash
+until curl -sf http://127.0.0.1:8080/readyz >/dev/null; do sleep 0.5; done
+```
+
 Terminal 2: Start a worker process:
 
 ```bash
 MINICLOUD_COORDINATOR_URL=http://127.0.0.1:8080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker
 ```
+
+Wait for the worker to register (it logs `worker successfully registered with coordinator`) before running commands in Terminal 3.
 
 Terminal 3: Interact with the system using `mc`:
 
@@ -132,7 +144,7 @@ Job Submitted Successfully!
   Max Attempts: 3
 ```
 
-Copy the `ID:` value from the submit output; the job ID is generated per submission and yours will differ from the one shown below. Wait about a second for the worker to pick the job up, then query it (repeat if `State` is still `QUEUED` or `RUNNING`):
+Copy the `ID:` value from the submit output; the job ID is generated per submission and yours will differ from the one shown here. Wait about a second for the worker to pick the job up, then query it (repeat if `State` is still `QUEUED` or `RUNNING`):
 
 ```bash
 ./bin/mc get <job_id>
@@ -177,10 +189,10 @@ NO   ATTEMPT ID           WORKER     STATE       EXIT   STARTED
 cp .env.example .env
 ```
 
-Validate the Docker Compose configuration (note: this prints resolved environment variables, including `POSTGRES_PASSWORD`, to the terminal):
+Validate the Docker Compose configuration (the `-q` flag validates syntax without printing resolved passwords to the terminal):
 
 ```bash
-docker compose --env-file .env -f deployments/docker-compose.yml config
+docker compose --env-file .env -f deployments/docker-compose.yml config -q
 ```
 
 2. Start the PostgreSQL container:
@@ -189,22 +201,18 @@ docker compose --env-file .env -f deployments/docker-compose.yml config
 make db-up
 ```
 
-.env is read by `make` and `docker compose`, not by the binaries. Export the configuration first:
-
-```bash
-set -a; . ./.env; set +a
-```
-
 3. Run database migrations:
 
+`.env` is read by `make` and `docker compose`, not by the binaries. Do not `source` it into your interactive shell: `.env` also defines `MINICLOUD_TEST_DATABASE_URL`, and a subsequent `go test ./...` in that shell would run outage tests that stop and restart the shared PostgreSQL container. Build the executables first if not already done (`make build`), then run migrations passing only the required database URL in a subshell:
+
 ```bash
-./bin/migrate
+( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; ./bin/migrate )
 ```
 
 4. Start the coordinator with the PostgreSQL storage driver:
 
 ```bash
-MINICLOUD_STORAGE_DRIVER=postgres ./bin/coordinator
+( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; MINICLOUD_STORAGE_DRIVER=postgres ./bin/coordinator )
 ```
 
 5. Start workers and submit jobs as shown in the in-memory quick start.
@@ -222,7 +230,7 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_WORKER_TIMEOUT` | `10s` | Coordinator | `internal/config/config.go` | Liveness window before an uncommunicative worker is declared dead (>= 3x heartbeat interval) |
 | `MINICLOUD_REAPER_INTERVAL` | `5s` (`workerTimeout / 2`) | Coordinator | `internal/config/config.go` | Interval for coordinator worker liveness sweep |
 | `MINICLOUD_DEFAULT_MAX_ATTEMPTS` | `3` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not yet applied by the coordinator; the effective default is a constant of 3 in code |
-| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component yet (worker timeout clamp planned for slice 4d, tracked as SEC-012); per-job `timeout_seconds` (1..86400) is the only runtime bound today |
+| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component yet. The worker does not clamp the coordinator-supplied timeout (open finding SEC-012 in [docs/security/findings.md](docs/security/findings.md)); per-job `timeout_seconds` (1..86400) is the only runtime bound today |
 | `MINICLOUD_LOG_LEVEL` | `info` | Coordinator, Worker | `internal/config/config.go` | Parsed, but not applied; logging is fixed at `info` |
 | `MINICLOUD_DB_MAX_CONNS` | `20` | Coordinator | `internal/config/config.go` | Maximum connections in the PostgreSQL pool |
 | `MINICLOUD_DB_MIN_CONNS` | `2` | Coordinator | `internal/config/config.go` | Minimum idle connections in the PostgreSQL pool |
@@ -282,6 +290,7 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 - `POST /v1/workers/{id}/heartbeat` - Send periodic liveness ping and report available capacity slots.
 - `POST /v1/workers/{id}/poll` - Poll for next available job assignment (`fifo_pull`).
 - `POST /v1/jobs/{id}/attempts/{attempt_id}/result` - Report completion or failure of an assigned attempt.
+- `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` - Renew an active attempt lease and receive cancellation notifications.
 - `GET /v1/workers` - Operator endpoint listing registered workers.
 
 ## Project Layout
@@ -324,20 +333,20 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 - `make test`: Runs standard unit and integration tests (`go test -v ./...`).
 - `make test-race`: Runs the test suite with the Go race detector enabled (`go test -v -race ./...`).
 - `make test-docs`: Verifies documentation citations, links, and rules via `tests/docs`.
-- `make test-db`: Runs PostgreSQL persistence tests against `MINICLOUD_TEST_DATABASE_URL` in `internal/storage/postgres`.
+- `make test-db`: Runs PostgreSQL persistence tests against the `MINICLOUD_TEST_DATABASE_URL` value in `.env` in `internal/storage/postgres`.
 - `make fmt`: Automatically formats Go source code using `gofmt -s -w .`.
 - `make vet`: Executes Go static code analysis (`go vet ./...`).
 - `make demo`: Runs the automated multi-process local demo script (`scripts/demo.sh`).
 - `make clean`: Removes compiled binaries from `bin/`.
 - `make db-up`: Starts the PostgreSQL container via Docker Compose and waits for healthy status.
-- `make db-down`: Stops the shared PostgreSQL container; every dependent test run loses its database (named volumes preserved).
+- `make db-down`: Stops and removes the shared PostgreSQL container and network; every dependent test run loses its database (named volumes preserved).
 - `make db-psql`: Opens an interactive `psql` console in the database container.
 - `make db-reset-test`: Drops and recreates the shared `minicloud_test` database (the name is hardcoded, so it does not touch other databases).
 
 ### Test Guardrails and Warnings
 
 - **Test Database Isolation:** All tests requiring PostgreSQL verify that the target database name ends strictly with `_test` (checked in `internal/storage/postgres/testhelper_test.go`). If `MINICLOUD_TEST_DATABASE_URL` is unset, database tests skip cleanly.
-- **Container Interruption Warning:** With `MINICLOUD_TEST_DATABASE_URL` set in your environment, `go test ./...` (and therefore `make test` and `make test-race`) runs outage tests (`tests/integration/postgres_wiring_test.go`, `tests/integration/part_d_security_test.go`) that run `docker compose stop postgres` and `start postgres` on the shared `minicloud-postgres` container. Anything else using that database is disconnected meanwhile. For database tests use `make test-db`, which reads the URL from `.env` and runs only `internal/storage/postgres`. To run everything else, unset the variable: `env -u MINICLOUD_TEST_DATABASE_URL go test ./...`. Database tests skip when it is unset; a skipped test is not a passed test.
+- **Container Interruption Warning:** With `MINICLOUD_TEST_DATABASE_URL` set in your environment, `go test ./...` (and therefore `make test` and `make test-race`) runs outage tests (`tests/integration/postgres_wiring_test.go`, `tests/integration/part_d_security_test.go`) that run `docker compose stop postgres` and `start postgres` on the shared `minicloud-postgres` container. Anything else using that database is disconnected meanwhile. Never run `go test ./...` with the database URL set in the shell; use `make test-db`. For database tests use `make test-db`, which reads the URL from `.env` and runs only `internal/storage/postgres`. To run everything else, unset the variable: `env -u MINICLOUD_TEST_DATABASE_URL go test ./...`. Database tests skip when it is unset; a skipped test is not a passed test.
 
 ## Roadmap
 
