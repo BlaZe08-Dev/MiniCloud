@@ -63,7 +63,8 @@ test-db:
 	@set -e; \
 	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
 	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
-	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/...
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
 
 clean:
 	rm -rf $(BIN_DIR)
