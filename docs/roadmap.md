@@ -53,14 +53,14 @@ MiniCloud development is structured into three major releases. Each version buil
 
 1. **Slice 4a: Domain State Machine, Attempt Lease Primitives, In-Memory Parity & Property Test**:
    - Update `internal/domain` FSM with new transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING`), duplicate cancel idempotency, and state naming reconciliation (`AttemptCancelled`, `AttemptLost`).
-   - Implement `LeaseExpiresAt`, `RenewLease`, `SweepExpiredLeases`, and `not_before` backoff in `internal/storage.InMemoryRepository`.
+   - Add `LeaseExpiresAt`, `not_before` dispatch gating, idempotent duplicate cancel and in-memory dispatch via `DispatchNextJob` in `internal/storage.InMemoryRepository`. (In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b.)
    - Expand shared conformance suite (`internal/storage/storagetest/conformance.go`) and implement property/model-based state machine test harness.
-2. **Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation**:
+2. **Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function**:
    - Author forward-only migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `jobs.not_before`, `jobs.cancel_requested_at`, indexes, and zero-downtime constraints.
-   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s).
+   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
 3. **Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring**:
    - Add `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint as single delivery channel for cancellation (`cancel_requested: true`). Heartbeat response does not carry cancellations.
-   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s with startup grace suppression (30s).
+   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s owning the startup grace period and the outage grace and cooldown state, and passing that state to `SweepExpiredLeases`.
 4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
    - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
    - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 200).
