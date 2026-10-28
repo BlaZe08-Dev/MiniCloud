@@ -56,7 +56,7 @@ builds the rest. The other agent audits.
 ### P4-03 — Phase 4 slice 4a audit follow-up (minors, citation repair, task board)
 - Goal: close the minors left after PR #19 (P4-02 round-2 audit findings R8-01..R8-05), the two open items from the first P4-02 audit (stale backoff allowlist entry note, repair 77 pre-existing test line citations across live docs), import P4-02 audit records untouched, and update task board.
 - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-03`. Status: active.
-- Owned files: `docs/PROJECT_STATE.md`, `docs/roadmap.md`, `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03*` (when created), `docs/agents/reviews/P4-02*`, `CHANGELOG.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/security/threat-model.md`, `docs/agents/TASKS.md`.
+- Owned files: `docs/PROJECT_STATE.md`, `docs/roadmap.md`, `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md`, `docs/agents/reviews/P4-02*`, `CHANGELOG.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/security/threat-model.md`, `docs/agents/TASKS.md`.
 - Out of scope: any Go code, SQL, database migrations, `tests/` or `internal/` code, allowlist changes.
 
 ### P4-01 — Phase 4 design follow-up (round-5 minors)
