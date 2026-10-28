@@ -49,7 +49,7 @@ As planned in ADR 0004 (Version Boundaries) and ADR 0006 (Redis Streams Dispatch
 6. **Default In-Memory Implementation & Extensibility:**
    - `InMemoryQueue` implements `Queue` using standard Go slices, maps, and `sync.Mutex`.
    - `coordinator.NewService` defaults to `InMemoryQueue`, preserving complete backwards compatibility with all existing callers and tests.
-   - `coordinator.NewServiceWithQueue` allows injecting alternative transport implementations (such as Redis Streams in V2) without modifying domain or scheduling logic.
+   - `coordinator.NewServiceWithQueue` allows injecting alternative transport implementations (such as Redis Streams in V2) without modifying domain or scheduling logic. (Removed in slice 4a: memory-mode dispatch now goes through repo.DispatchNextJob; queue injection is no longer used.)
 
 ## Invariants Enforced
 - **Single Source of Truth:** Repository owns durable state and payloads; queue carries ephemeral notification/routing signals.
@@ -68,4 +68,4 @@ As planned in ADR 0004 (Version Boundaries) and ADR 0006 (Redis Streams Dispatch
 ## Alternatives Considered
 - *Full Payload in Queue Item:* Rejected because duplicating payload (up to 64 KiB) in queue and repository introduces dual-source-of-truth divergence, increases memory overhead, and violates ADR-0004/0006 boundaries.
 - *Ack Immediately on Claim:* Rejected because if a worker crashes before completing the attempt, the queue signal is lost permanently without manual reconciler recovery. Deferring Ack to result commit aligns with at-least-once execution.
-- *Mutator Method (`SetQueue`):* Rejected in favor of constructor injection (`NewServiceWithQueue`) to maintain immutable service dependencies and avoid concurrency hazards.
+- *Mutator Method (`SetQueue`):* Rejected in favor of constructor injection (`NewServiceWithQueue`) to maintain immutable service dependencies and avoid concurrency hazards. (constructor since removed in slice 4a)
