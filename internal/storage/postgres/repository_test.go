@@ -89,6 +89,14 @@ func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
 	storagetest.RunCancelRetryingImmediatelyCancelledConformance(t, newPostgresHarness)
 }
 
+func TestConformance_CommitAttempt_FailureRetryOrFail(t *testing.T) {
+	storagetest.RunCommitAttemptFailureRetryOrFailConformance(t, newPostgresHarness)
+}
+
+func TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob(t *testing.T) {
+	storagetest.RunCommitAttemptFailureOnCancelRequestedConformance(t, newPostgresHarness)
+}
+
 func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
 	storagetest.RunCommitAttemptTerminalJobConformance(t, newPostgresHarness)
 }

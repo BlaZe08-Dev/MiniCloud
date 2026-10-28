@@ -241,7 +241,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_wrong", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrWorkerMismatch) {
 			t.Fatalf("expected ErrWorkerMismatch, got %v", err)
 		}
@@ -250,7 +251,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, "invalid_lease_token", "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrStaleAttempt for wrong token, got %v", err)
 		}
@@ -259,7 +261,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", "att_wrong_id", att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrStaleAttempt) && !errors.Is(err, domain.ErrAttemptNotFound) {
 			t.Fatalf("expected ErrStaleAttempt or ErrAttemptNotFound, got %v", err)
 		}
@@ -268,7 +271,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		committedJob, err := repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "success output",
-		})
+		}, nil)
+
 		if err != nil {
 			t.Fatalf("CommitAttempt success failed: %v", err)
 		}
@@ -283,7 +287,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "again",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) && !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrJobAlreadyTerminal or ErrStaleAttempt on duplicate commit, got %v", err)
 		}
@@ -745,7 +750,7 @@ func RunCancelIdempotentCancelRequestedConformance(t *testing.T, newHarness func
 	}
 
 	// The worker's own commit must still be accepted: the job was not finalised early.
-	job, err := repo.CommitAttempt(ctx, "j_idem", att.ID, att.LeaseToken, "w_idem", domain.AttemptOutcome{ExitCode: 0, Output: "done"})
+	job, err := repo.CommitAttempt(ctx, "j_idem", att.ID, att.LeaseToken, "w_idem", domain.AttemptOutcome{ExitCode: 0, Output: "done"}, nil)
 	if err != nil {
 		t.Fatalf("worker commit after duplicate cancels must be accepted, got: %v", err)
 	}
@@ -818,7 +823,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 			att := conformanceRunningJob(t, repo, "j_term", "w_term")
 			h.ForceJobState(t, "j_term", tc.jobState)
 
-			_, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome)
+			_, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome, nil)
 			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 			}
@@ -847,7 +852,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 			}
 
 			// A retry of the same commit is rejected again: no second event, attempt untouched.
-			if _, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			if _, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome, nil); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("retried commit: expected ErrJobAlreadyTerminal, got %v", err)
 			}
 			if got := countEvents(conformanceEvents(t, repo, "j_term"), domain.JobEventDiagnosticLateResult); got != 1 {
@@ -864,12 +869,12 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		repo := h.Repo
 		conformanceWorker(t, repo, "w_done", 1)
 		att := conformanceRunningJob(t, repo, "j_done", "w_done")
-		if _, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 0, Output: "first"}); err != nil {
+		if _, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 0, Output: "first"}, nil); err != nil {
 			t.Fatalf("first commit failed: %v", err)
 		}
 		before, _ := repo.GetAttempt(ctx, att.ID)
 
-		_, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 1, Error: "replay"})
+		_, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 1, Error: "replay"}, nil)
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 		}
@@ -892,7 +897,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		h.ForceJobState(t, "j_foreign_a", domain.StateCancelled)
 
 		// Terminal job A, but the caller names job B's attempt.
-		_, err := repo.CommitAttempt(ctx, "j_foreign_a", attB.ID, attB.LeaseToken, "w_foreign", outcome)
+		_, err := repo.CommitAttempt(ctx, "j_foreign_a", attB.ID, attB.LeaseToken, "w_foreign", outcome, nil)
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 		}
@@ -913,7 +918,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		h.ForceJobState(t, "j_unknown", domain.StateCancelled)
 
 		for i := 0; i < 3; i++ {
-			_, err := repo.CommitAttempt(ctx, "j_unknown", "att_does_not_exist", "tok", "w_unknown", outcome)
+			_, err := repo.CommitAttempt(ctx, "j_unknown", "att_does_not_exist", "tok", "w_unknown", outcome, nil)
 			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 			}
@@ -1091,10 +1096,22 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 			outcome := domain.AttemptOutcome{ExitCode: 0, Output: "ok"}
 			wantAttempt, wantJob := domain.AttemptCompleted, domain.StateSucceeded
 			if rng.Intn(3) == 0 {
-				outcome = domain.AttemptOutcome{ExitCode: 1, Error: "boom"}
-				wantAttempt, wantJob = domain.AttemptFailed, domain.StateFailed
+				// A failure: PERMANENT fails the job, a retryable class retries it (every model job
+				// has attempts left, as each is dispatched once), and cancel wins over both. The hour
+				// of backoff keeps a RETRYING job out of the model's FIFO poll.
+				class := []domain.ErrorClass{domain.ClassPermanent, domain.ClassTransient, domain.ClassUnknown, ""}[rng.Intn(4)]
+				outcome = domain.AttemptOutcome{ExitCode: 1, Error: "boom", ErrorClassification: class}
+				wantAttempt = domain.AttemptFailed
+				switch {
+				case j.state == domain.StateCancelRequested:
+					wantJob = domain.StateCancelled
+				case class == domain.ClassPermanent:
+					wantJob = domain.StateFailed
+				default:
+					wantJob = domain.StateRetrying
+				}
 			}
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, outcome)
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, outcome, conformanceBackoff(time.Hour))
 			wantErr(step, "commit", err, nil)
 			a.state, j.state = wantAttempt, wantJob
 			check(step, "commit", j)
@@ -1105,7 +1122,7 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 				continue
 			}
 			a := j.current()
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, "wrong-token", a.worker, domain.AttemptOutcome{ExitCode: 0})
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, "wrong-token", a.worker, domain.AttemptOutcome{ExitCode: 0}, nil)
 			wantErr(step, "commit-stale", err, domain.ErrStaleAttempt)
 			check(step, "commit-stale", j)
 
@@ -1115,7 +1132,7 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 				continue
 			}
 			a := j.current()
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0})
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0}, nil)
 			wantErr(step, "commit-replay", err, domain.ErrJobAlreadyTerminal)
 			check(step, "commit-replay", j)
 
@@ -1129,6 +1146,9 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 			case j.state.IsTerminal():
 				wantErr(step, "cancel", err, domain.ErrJobAlreadyTerminal)
 			case j.state == domain.StateQueued:
+				wantErr(step, "cancel", err, nil)
+				j.state = domain.StateCancelled
+			case j.state == domain.StateRetrying:
 				wantErr(step, "cancel", err, nil)
 				j.state = domain.StateCancelled
 			case j.state == domain.StateRunning:
@@ -1171,7 +1191,7 @@ func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(
 			beforeEvents := len(conformanceEvents(t, repo, "j_stale"))
 			beforeSlots := conformanceSlots(t, repo, "w_stale")
 
-			_, err := repo.CommitAttempt(ctx, "j_stale", att.ID, att.LeaseToken, "w_stale", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+			_, err := repo.CommitAttempt(ctx, "j_stale", att.ID, att.LeaseToken, "w_stale", domain.AttemptOutcome{ExitCode: 0, Output: "late"}, nil)
 			if !errors.Is(err, domain.ErrStaleAttempt) {
 				t.Fatalf("commit on a %s attempt: expected ErrStaleAttempt, got %v", state, err)
 			}
@@ -1942,7 +1962,7 @@ func RunSweepGraceInputConformance(t *testing.T, newHarness func(t *testing.T) H
 func RunCommitAttemptConflictOrderConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
 	ctx := context.Background()
 	commit := func(h Harness, jobID string, att *domain.Attempt, token string) error {
-		_, err := h.Repo.CommitAttempt(ctx, jobID, att.ID, token, "w_c", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+		_, err := h.Repo.CommitAttempt(ctx, jobID, att.ID, token, "w_c", domain.AttemptOutcome{ExitCode: 0, Output: "late"}, nil)
 		return err
 	}
 	diagnostics := func(t *testing.T, h Harness, jobID string) []*domain.JobEvent {
@@ -2257,4 +2277,336 @@ func RunNowConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
 	if remaining > h.LeaseDuration+leaseTolerance || remaining < h.LeaseDuration-time.Second {
 		t.Fatalf("lease_expires_at - Now = %v, want about the lease duration %v (Now must share the lease clock)", remaining, h.LeaseDuration)
 	}
+}
+
+// ---- Slice 4d: failure classification, bounded retries, cancel wins --------------------------
+
+// commitFailure commits a failed outcome of class c for att on job jobID by workerID.
+func commitFailure(t *testing.T, repo storage.Repository, jobID string, att *domain.Attempt, workerID string, c domain.ErrorClass, backoff domain.BackoffFunc) (*domain.Job, error) {
+	t.Helper()
+	return repo.CommitAttempt(context.Background(), jobID, att.ID, att.LeaseToken, workerID,
+		domain.AttemptOutcome{ExitCode: 1, Output: "partial", Error: "boom", ErrorClassification: c}, backoff)
+}
+
+// RunCommitAttemptFailureRetryOrFailConformance verifies how a worker-reported failure is resolved
+// (ADR-0015): retryable classes go to RETRYING with not_before computed by the supplied backoff
+// function, PERMANENT and an exhausted max_attempts budget go to FAILED, and the stored attempt
+// carries the validated class. Wrapped by TestConformance_CommitAttempt_FailureRetryOrFail.
+func RunCommitAttemptFailureRetryOrFailConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	setup := func(t *testing.T, maxAttempts int) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_f", 1)
+		conformanceJobN(t, h.Repo, "j_f", maxAttempts)
+		att, err := h.Repo.DispatchJob(ctx, "j_f", "w_f")
+		if err != nil {
+			t.Fatalf("DispatchJob failed: %v", err)
+		}
+		return h, att
+	}
+
+	for _, class := range []domain.ErrorClass{domain.ClassTransient, domain.ClassUnknown, ""} {
+		class := class
+		t.Run("retryable_class_"+string(class)+"_goes_to_RETRYING_with_backoff", func(t *testing.T) {
+			h, att := setup(t, 3)
+			var asked []int
+			backoff := func(n int) time.Duration { asked = append(asked, n); return 7 * time.Second }
+			lo := h.Now(t)
+			job, err := commitFailure(t, h.Repo, "j_f", att, "w_f", class, backoff)
+			hi := h.Now(t)
+			if err != nil {
+				t.Fatalf("CommitAttempt failed: %v", err)
+			}
+			if job.State != domain.StateRetrying || job.NotBefore == nil || job.Result != nil {
+				t.Fatalf("returned job = %+v, want RETRYING with not_before and no result", job)
+			}
+			if len(asked) != 1 || asked[0] != 1 {
+				t.Fatalf("backoff asked for attempts %v, want [1] (the attempt that failed)", asked)
+			}
+			if job.NotBefore.Before(lo.Add(7*time.Second).Add(-leaseTolerance)) || job.NotBefore.After(hi.Add(7*time.Second).Add(leaseTolerance)) {
+				t.Fatalf("not_before %v not within [%v, %v] (commit time + 7s)", *job.NotBefore, lo.Add(7*time.Second), hi.Add(7*time.Second))
+			}
+			stored := conformanceJob(t, h.Repo, "j_f")
+			if stored.State != domain.StateRetrying || stored.NotBefore == nil || stored.Result != nil {
+				t.Fatalf("stored job = %+v", stored)
+			}
+			wantClass := class
+			if wantClass == "" {
+				wantClass = domain.ClassUnknown
+			}
+			a := conformanceAttempt(t, h.Repo, att.ID)
+			if a.State != domain.AttemptFailed || a.ErrorClass != wantClass || a.ExitCode != 1 || a.Error != "boom" || a.FinishedAt == nil {
+				t.Fatalf("attempt = %+v, want FAILED class %s", a, wantClass)
+			}
+			if got := conformanceSlots(t, h.Repo, "w_f"); got != 1 {
+				t.Fatalf("worker slot must be free after the failed attempt, available=%d", got)
+			}
+			events := conformanceEvents(t, h.Repo, "j_f")
+			requireEventTail(t, events, domain.JobEventRetrying)
+			ev := events[len(events)-1]
+			if ev.FromState == nil || *ev.FromState != domain.StateRunning || ev.ToState == nil || *ev.ToState != domain.StateRetrying ||
+				ev.Details["error_class"] != string(wantClass) || ev.Details["backoff_seconds"] != float64(7) && ev.Details["backoff_seconds"] != 7.0 {
+				t.Fatalf("JOB_RETRYING event = %+v", ev)
+			}
+			// Not dispatchable before not_before: the backoff is real.
+			conformanceWorker(t, h.Repo, "w_f2", 1)
+			if _, _, err := h.Repo.DispatchNextJob(ctx, "w_f2"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+				t.Fatalf("a RETRYING job inside its backoff must not dispatch, got %v", err)
+			}
+		})
+	}
+
+	t.Run("permanent_fails_at_once_and_never_asks_for_backoff", func(t *testing.T) {
+		h, att := setup(t, 3)
+		backoff := func(int) time.Duration { t.Fatalf("backoff must not be consulted for a PERMANENT failure"); return 0 }
+		job, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassPermanent, backoff)
+		if err != nil {
+			t.Fatalf("CommitAttempt failed: %v", err)
+		}
+		if job.State != domain.StateFailed || job.NotBefore != nil || job.Result == nil || job.Result.Error != "boom" {
+			t.Fatalf("job = %+v, want FAILED with the stored result", job)
+		}
+		a := conformanceAttempt(t, h.Repo, att.ID)
+		if a.State != domain.AttemptFailed || a.ErrorClass != domain.ClassPermanent {
+			t.Fatalf("attempt = %+v", a)
+		}
+		events := conformanceEvents(t, h.Repo, "j_f")
+		requireEventTail(t, events, domain.JobEventFailed)
+		ev := events[len(events)-1]
+		if ev.Details["error_class"] != string(domain.ClassPermanent) || ev.Details["attempt_no"] != float64(1) && ev.Details["attempt_no"] != 1 {
+			t.Fatalf("JOB_FAILED event details = %v", ev.Details)
+		}
+		if _, ok := ev.Details["error"]; ok {
+			t.Fatalf("a PERMANENT failure is not 'max attempts exhausted': %v", ev.Details)
+		}
+		if got := conformanceSlots(t, h.Repo, "w_f"); got != 1 {
+			t.Fatalf("worker slot must be free, available=%d", got)
+		}
+	})
+
+	t.Run("max_attempts_bounds_retries_and_each_retry_asks_for_its_own_backoff", func(t *testing.T) {
+		h, att := setup(t, 3)
+		var asked []int
+		backoff := func(n int) time.Duration { asked = append(asked, n); return 0 }
+		for n := 1; n <= 2; n++ {
+			job, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassTransient, backoff)
+			if err != nil {
+				t.Fatalf("commit #%d failed: %v", n, err)
+			}
+			if job.State != domain.StateRetrying {
+				t.Fatalf("commit #%d: state = %s, want RETRYING", n, job.State)
+			}
+			next := conformanceDispatchNext(t, h.Repo, "w_f")
+			if next.AttemptNo != n+1 {
+				t.Fatalf("redispatch #%d: attempt_no = %d, want %d", n, next.AttemptNo, n+1)
+			}
+			att = next
+		}
+		job, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassTransient, backoff)
+		if err != nil {
+			t.Fatalf("final commit failed: %v", err)
+		}
+		if job.State != domain.StateFailed || job.NotBefore != nil || job.Result == nil {
+			t.Fatalf("job = %+v, want FAILED after the third attempt", job)
+		}
+		if len(asked) != 2 || asked[0] != 1 || asked[1] != 2 {
+			t.Fatalf("backoff asked for attempts %v, want [1 2]", asked)
+		}
+		events := conformanceEvents(t, h.Repo, "j_f")
+		requireEventTail(t, events, domain.JobEventFailed)
+		ev := events[len(events)-1]
+		if ev.Details["error"] != "max attempts exhausted" || ev.Details["error_class"] != string(domain.ClassTransient) {
+			t.Fatalf("JOB_FAILED event details = %v, want error 'max attempts exhausted' and the last class", ev.Details)
+		}
+		if got := countEvents(events, domain.JobEventRetrying); got != 2 {
+			t.Fatalf("expected 2 JOB_RETRYING events, got %d", got)
+		}
+		attempts, err := h.Repo.ListAttemptsByJob(ctx, "j_f")
+		if err != nil || len(attempts) != 3 {
+			t.Fatalf("expected 3 attempts, got %d (%v)", len(attempts), err)
+		}
+		for i, a := range attempts {
+			if a.AttemptNo != i+1 {
+				t.Fatalf("ListAttemptsByJob must return attempts ordered by attempt_no: position %d has attempt_no %d", i, a.AttemptNo)
+			}
+		}
+		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_f"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("a FAILED job must not dispatch, got %v", err)
+		}
+	})
+
+	t.Run("max_attempts_1_never_retries", func(t *testing.T) {
+		h, att := setup(t, 1)
+		job, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassTransient, conformanceBackoff(0))
+		if err != nil {
+			t.Fatalf("CommitAttempt failed: %v", err)
+		}
+		if job.State != domain.StateFailed {
+			t.Fatalf("state = %s, want FAILED", job.State)
+		}
+	})
+
+	t.Run("lost_attempts_share_the_budget_with_reported_failures", func(t *testing.T) {
+		h, att := setup(t, 2)
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(0)})
+		next := conformanceDispatchNext(t, h.Repo, "w_f")
+		if next.AttemptNo != 2 {
+			t.Fatalf("attempt_no = %d, want 2", next.AttemptNo)
+		}
+		job, err := commitFailure(t, h.Repo, "j_f", next, "w_f", domain.ClassTransient, conformanceBackoff(0))
+		if err != nil {
+			t.Fatalf("CommitAttempt failed: %v", err)
+		}
+		if job.State != domain.StateFailed {
+			t.Fatalf("one LOST attempt plus one failure exhausts max_attempts 2, state = %s", job.State)
+		}
+	})
+
+	t.Run("a_retryable_failure_without_a_backoff_function_is_rejected_and_changes_nothing", func(t *testing.T) {
+		h, att := setup(t, 3)
+		if _, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassTransient, nil); !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got %v", err)
+		}
+		if got := conformanceJob(t, h.Repo, "j_f"); got.State != domain.StateRunning {
+			t.Fatalf("a rejected commit must leave the job RUNNING, got %s", got.State)
+		}
+		if got := conformanceAttemptState(t, h.Repo, att.ID); got != domain.AttemptRunning {
+			t.Fatalf("a rejected commit must leave the attempt RUNNING, got %s", got)
+		}
+	})
+
+	t.Run("worker_cannot_report_LEASE_EXPIRED_or_an_unknown_class", func(t *testing.T) {
+		h, att := setup(t, 3)
+		for _, bad := range []domain.ErrorClass{domain.ClassLeaseExpired, "BANANA", "transient"} {
+			if _, err := commitFailure(t, h.Repo, "j_f", att, "w_f", bad, conformanceBackoff(0)); !errors.Is(err, domain.ErrInvalidRequest) {
+				t.Fatalf("class %q: expected ErrInvalidRequest, got %v", bad, err)
+			}
+		}
+		if got := conformanceJob(t, h.Repo, "j_f"); got.State != domain.StateRunning {
+			t.Fatalf("rejected commits must leave the job RUNNING, got %s", got.State)
+		}
+		a := conformanceAttempt(t, h.Repo, att.ID)
+		if a.State != domain.AttemptRunning || a.ErrorClass != "" {
+			t.Fatalf("rejected commits must leave the attempt untouched: %+v", a)
+		}
+		// The attempt is still committable with a valid class afterwards.
+		if _, err := commitFailure(t, h.Repo, "j_f", att, "w_f", domain.ClassPermanent, nil); err != nil {
+			t.Fatalf("valid commit after rejections failed: %v", err)
+		}
+	})
+
+	t.Run("a_class_on_a_success_is_rejected", func(t *testing.T) {
+		h, att := setup(t, 3)
+		_, err := h.Repo.CommitAttempt(ctx, "j_f", att.ID, att.LeaseToken, "w_f",
+			domain.AttemptOutcome{ExitCode: 0, Output: "ok", ErrorClassification: domain.ClassTransient}, nil)
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got %v", err)
+		}
+		job, err := h.Repo.CommitAttempt(ctx, "j_f", att.ID, att.LeaseToken, "w_f", domain.AttemptOutcome{ExitCode: 0, Output: "ok"}, nil)
+		if err != nil || job.State != domain.StateSucceeded {
+			t.Fatalf("plain success commit = %+v, %v", job, err)
+		}
+		if a := conformanceAttempt(t, h.Repo, att.ID); a.State != domain.AttemptCompleted || a.ErrorClass != "" {
+			t.Fatalf("a successful attempt carries no error class: %+v", a)
+		}
+	})
+}
+
+// RunCommitAttemptFailureOnCancelRequestedConformance verifies ADR-0016 section 1 item 4: a failure
+// committed for an attempt whose job is CANCEL_REQUESTED yields a CANCELLED job, never RETRYING and
+// never FAILED, whatever the class and however many attempts remain. A success still wins.
+// Wrapped by TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob.
+func RunCommitAttemptFailureOnCancelRequestedConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	setup := func(t *testing.T, maxAttempts int) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		conformanceWorker(t, h.Repo, "w_cf", 1)
+		conformanceJobN(t, h.Repo, "j_cf", maxAttempts)
+		att, err := h.Repo.DispatchJob(ctx, "j_cf", "w_cf")
+		if err != nil {
+			t.Fatalf("DispatchJob failed: %v", err)
+		}
+		if job, err := h.Repo.CancelJob(ctx, "j_cf"); err != nil || job.State != domain.StateCancelRequested {
+			t.Fatalf("CancelJob = %+v, %v", job, err)
+		}
+		return h, att
+	}
+
+	for _, class := range []domain.ErrorClass{domain.ClassTransient, domain.ClassUnknown, domain.ClassPermanent, ""} {
+		class := class
+		t.Run("class_"+string(class), func(t *testing.T) {
+			h, att := setup(t, 3)
+			backoff := func(int) time.Duration { t.Fatalf("backoff must not be consulted when cancel wins"); return 0 }
+			job, err := commitFailure(t, h.Repo, "j_cf", att, "w_cf", class, backoff)
+			if err != nil {
+				t.Fatalf("CommitAttempt failed: %v", err)
+			}
+			if job.State != domain.StateCancelled || job.NotBefore != nil {
+				t.Fatalf("returned job = %+v, want CANCELLED without not_before", job)
+			}
+			stored := conformanceJob(t, h.Repo, "j_cf")
+			if stored.State != domain.StateCancelled || stored.NotBefore != nil {
+				t.Fatalf("stored job = %+v", stored)
+			}
+			wantClass := class
+			if wantClass == "" {
+				wantClass = domain.ClassUnknown
+			}
+			a := conformanceAttempt(t, h.Repo, att.ID)
+			if a.State != domain.AttemptFailed || a.ErrorClass != wantClass || a.Error != "boom" {
+				t.Fatalf("attempt = %+v, want FAILED class %s (the reported outcome)", a, wantClass)
+			}
+			if got := conformanceSlots(t, h.Repo, "w_cf"); got != 1 {
+				t.Fatalf("worker slot must be free, available=%d", got)
+			}
+			events := conformanceEvents(t, h.Repo, "j_cf")
+			requireEventTail(t, events, domain.JobEventCancelled)
+			ev := events[len(events)-1]
+			if ev.FromState == nil || *ev.FromState != domain.StateCancelRequested || ev.ToState == nil || *ev.ToState != domain.StateCancelled {
+				t.Fatalf("JOB_CANCELLED event = %+v", ev)
+			}
+			if countEvents(events, domain.JobEventRetrying) != 0 || countEvents(events, domain.JobEventFailed) != 0 {
+				t.Fatalf("cancel wins: no JOB_RETRYING or JOB_FAILED may be recorded: %v", eventTypes(events))
+			}
+			// Nothing is left to dispatch: the job is not retried.
+			if _, _, err := h.Repo.DispatchNextJob(ctx, "w_cf"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+				t.Fatalf("a CANCELLED job must not dispatch, got %v", err)
+			}
+			// A second cancel and a replayed commit are both rejected as terminal.
+			if _, err := h.Repo.CancelJob(ctx, "j_cf"); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+				t.Fatalf("cancel on CANCELLED: expected ErrJobAlreadyTerminal, got %v", err)
+			}
+			if _, err := commitFailure(t, h.Repo, "j_cf", att, "w_cf", class, nil); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+				t.Fatalf("replayed commit: expected ErrJobAlreadyTerminal, got %v", err)
+			}
+		})
+	}
+
+	t.Run("cancel_wins_on_the_last_attempt_too", func(t *testing.T) {
+		h, att := setup(t, 1)
+		job, err := commitFailure(t, h.Repo, "j_cf", att, "w_cf", domain.ClassTransient, nil)
+		if err != nil || job.State != domain.StateCancelled {
+			t.Fatalf("job = %+v, err = %v, want CANCELLED", job, err)
+		}
+	})
+
+	t.Run("a_success_on_CANCEL_REQUESTED_still_succeeds", func(t *testing.T) {
+		h, att := setup(t, 3)
+		job, err := h.Repo.CommitAttempt(ctx, "j_cf", att.ID, att.LeaseToken, "w_cf", domain.AttemptOutcome{ExitCode: 0, Output: "done"}, nil)
+		if err != nil || job.State != domain.StateSucceeded {
+			t.Fatalf("job = %+v, err = %v, want SUCCEEDED", job, err)
+		}
+	})
+
+	t.Run("LEASE_EXPIRED_is_still_rejected_while_cancel_requested", func(t *testing.T) {
+		h, att := setup(t, 3)
+		if _, err := commitFailure(t, h.Repo, "j_cf", att, "w_cf", domain.ClassLeaseExpired, nil); !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("expected ErrInvalidRequest, got %v", err)
+		}
+		if got := conformanceJob(t, h.Repo, "j_cf"); got.State != domain.StateCancelRequested {
+			t.Fatalf("job = %s, want CANCEL_REQUESTED", got.State)
+		}
+	})
 }

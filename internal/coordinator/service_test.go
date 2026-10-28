@@ -180,7 +180,7 @@ func TestService_UnhealthyWorker_CommitAccepted(t *testing.T) {
 	}
 
 	// Worker reports execution result for its still-current attempt
-	updatedJob, err := svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "hello output", "")
+	updatedJob, err := svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "hello output", "", "")
 	if err != nil {
 		t.Fatalf("expected commit from unhealthy worker to be accepted, but got: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestService_WorkerMismatch_Rejected(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(&logBuf, nil)))
 
 	// Worker 2 attempts to report result for Worker 1's attempt
-	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "rogue result", "")
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "rogue result", "", "")
 	if !errors.Is(err, domain.ErrWorkerMismatch) {
 		t.Fatalf("expected ErrWorkerMismatch, got: %v", err)
 	}
@@ -498,25 +498,25 @@ func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T) {
 		requireSlots(t, repo, "worker-1", 0)
 	}
 
-	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "out", "")
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-2", 0, "out", "", "")
 	if !errors.Is(err, domain.ErrWorkerMismatch) {
 		t.Fatalf("expected ErrWorkerMismatch, got %v", err)
 	}
 	requireUnsettled("worker mismatch")
 
-	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, "wrong-lease", "worker-1", 0, "out", "")
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, "wrong-lease", "worker-1", 0, "out", "", "")
 	if !errors.Is(err, domain.ErrStaleAttempt) {
 		t.Fatalf("expected ErrStaleAttempt, got %v", err)
 	}
 	requireUnsettled("wrong lease token")
 
-	_, err = svc.CommitResult(ctx, job.ID, "wrong-att", assignment.LeaseToken, "worker-1", 0, "out", "")
+	_, err = svc.CommitResult(ctx, job.ID, "wrong-att", assignment.LeaseToken, "worker-1", 0, "out", "", "")
 	if !errors.Is(err, domain.ErrStaleAttempt) {
 		t.Fatalf("expected ErrStaleAttempt, got %v", err)
 	}
 	requireUnsettled("wrong attempt id")
 
-	if _, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", ""); err != nil {
+	if _, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "", ""); err != nil {
 		t.Fatalf("CommitResult failed on valid report: %v", err)
 	}
 	requireJobState(t, repo, job.ID, domain.StateSucceeded)
@@ -525,7 +525,7 @@ func TestService_CommitResult_AckOnlyOnAccepted(t *testing.T) {
 	}
 	requireSlots(t, repo, "worker-1", 1)
 
-	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "")
+	_, err = svc.CommitResult(ctx, job.ID, assignment.AttemptID, assignment.LeaseToken, "worker-1", 0, "out", "", "")
 	if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 		t.Fatalf("expected ErrJobAlreadyTerminal on replay, got %v", err)
 	}
@@ -618,7 +618,7 @@ func TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released(t *testing
 	requireJobState(t, repo, job2.ID, domain.StateQueued)
 	requireAttempts(t, repo, job2.ID, 0)
 
-	if _, err := svc.CommitResult(ctx, job1.ID, first.AttemptID, first.LeaseToken, "worker-cap-test", 0, "out", ""); err != nil {
+	if _, err := svc.CommitResult(ctx, job1.ID, first.AttemptID, first.LeaseToken, "worker-cap-test", 0, "out", "", ""); err != nil {
 		t.Fatalf("CommitResult failed: %v", err)
 	}
 	second, err := svc.PollWork(ctx, "worker-cap-test")

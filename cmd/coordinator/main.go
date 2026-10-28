@@ -27,11 +27,13 @@ func newMemoryRepository(cfg *config.CoordinatorConfig) *storage.InMemoryReposit
 	return storage.NewInMemoryRepository(storage.WithLeaseDuration(cfg.LeaseDuration))
 }
 
-// configureService applies the lease and grace settings to the coordinator service. The lease
-// duration given to the repository and to the service (poll metadata) must be the same value.
-func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) {
+// configureService applies the lease, grace and default max_attempts settings to the coordinator
+// service. The lease duration given to the repository and to the service (poll metadata) must be
+// the same value. It fails when the default max_attempts is outside the range a job can hold.
+func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) error {
 	svc.SetLeaseDuration(cfg.LeaseDuration)
 	svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)
+	return svc.SetDefaultMaxAttempts(cfg.DefaultMaxAttempts)
 }
 
 // startBackground starts the worker reaper and the lease sweeper, each exactly once, and returns
@@ -139,7 +141,10 @@ func main() {
 		svc = coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
 	}
 
-	configureService(svc, cfg)
+	if err := configureService(svc, cfg); err != nil {
+		slog.Error("invalid coordinator configuration", "err", err)
+		os.Exit(1)
+	}
 	server := api.NewServer(cfg.HTTPAddr, svc)
 
 	// Start the worker reaper and the lease sweeper (once; stopped on shutdown below).

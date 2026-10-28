@@ -386,7 +386,7 @@ func TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt(t *testing.T)
 				go func(i int) {
 					defer wg.Done()
 					<-start
-					_, errs[i] = repo.CommitAttempt(ctx, "j_t", att.ID, att.LeaseToken, "w_t", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+					_, errs[i] = repo.CommitAttempt(ctx, "j_t", att.ID, att.LeaseToken, "w_t", domain.AttemptOutcome{ExitCode: 0, Output: "late"}, nil)
 				}(i)
 			}
 			close(start)
@@ -438,7 +438,7 @@ func TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex(t 
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			_, errs[i] = f.repo.CommitAttempt(ctx, "j_lo", f.att.ID, f.att.LeaseToken, "w_lo", domain.AttemptOutcome{ExitCode: 0})
+			_, errs[i] = f.repo.CommitAttempt(ctx, "j_lo", f.att.ID, f.att.LeaseToken, "w_lo", domain.AttemptOutcome{ExitCode: 0}, nil)
 		}(i)
 	}
 	close(start)

@@ -1189,7 +1189,7 @@ func TestAPI_CancelJob_SuccessReturns200(t *testing.T) {
 	}
 
 	// The worker can still commit: the duplicates did not finalise the job.
-	if _, err := svc.CommitResult(ctx, running.ID, assignment.AttemptID, assignment.LeaseToken, "w_cancel_api", 0, "ok", ""); err != nil {
+	if _, err := svc.CommitResult(ctx, running.ID, assignment.AttemptID, assignment.LeaseToken, "w_cancel_api", 0, "ok", "", ""); err != nil {
 		t.Fatalf("commit after duplicate cancels must be accepted, got %v", err)
 	}
 }

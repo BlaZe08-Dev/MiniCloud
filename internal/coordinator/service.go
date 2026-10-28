@@ -64,6 +64,10 @@ type Service struct {
 	workerTimeout time.Duration
 	leaseDuration time.Duration
 
+	// defaultMaxAttempts applies to a job submitted without max_attempts
+	// (MINICLOUD_DEFAULT_MAX_ATTEMPTS).
+	defaultMaxAttempts int
+
 	// Lease sweeper settings (sweeper.go).
 	startupGrace time.Duration
 	outageWindow time.Duration
@@ -79,15 +83,16 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		workerTimeout = 10 * time.Second
 	}
 	return &Service{
-		repo:          repo,
-		scheduler:     sched,
-		executorReg:   reg,
-		clock:         realClock{},
-		workerTimeout: workerTimeout,
-		leaseDuration: domain.DefaultLeaseDuration,
-		startupGrace:  DefaultStartupGracePeriod,
-		outageWindow:  DefaultOutageGraceWindow,
-		sweepRand:     newSweepRand(),
+		repo:               repo,
+		scheduler:          sched,
+		executorReg:        reg,
+		clock:              realClock{},
+		workerTimeout:      workerTimeout,
+		leaseDuration:      domain.DefaultLeaseDuration,
+		defaultMaxAttempts: DefaultMaxAttempts,
+		startupGrace:       DefaultStartupGracePeriod,
+		outageWindow:       DefaultOutageGraceWindow,
+		sweepRand:          newSweepRand(),
 	}
 }
 
@@ -118,6 +123,26 @@ func (s *Service) SetLeaseDuration(d time.Duration) {
 	if d > 0 {
 		s.leaseDuration = d
 	}
+}
+
+// SetDefaultMaxAttempts sets the max_attempts given to a job submitted without one
+// (MINICLOUD_DEFAULT_MAX_ATTEMPTS). A value outside MinMaxAttempts..MaxMaxAttempts is refused and
+// the current default stays.
+func (s *Service) SetDefaultMaxAttempts(n int) error {
+	if n < MinMaxAttempts || n > MaxMaxAttempts {
+		return fmt.Errorf("%w: default max_attempts must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinMaxAttempts, MaxMaxAttempts, n)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.defaultMaxAttempts = n
+	return nil
+}
+
+// DefaultMaxAttempts returns the max_attempts applied to a job submitted without one.
+func (s *Service) DefaultMaxAttempts() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.defaultMaxAttempts
 }
 
 const (
@@ -382,7 +407,7 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 // 2. Rejects stale attempts if attempt_id or lease_token does not match active attempt.
 // 3. Rejects commit if reporting worker is not the worker assigned to the attempt (WORKER_MISMATCH).
 // 4. Accepts commit from a worker marked UNHEALTHY if attempt_id, lease_token, and worker_id match.
-func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken, workerID string, exitCode int, output, errSummary string) (*domain.Job, error) {
+func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken, workerID string, exitCode int, output, errSummary, errorClass string) (*domain.Job, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -391,8 +416,17 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 		Output:   output,
 		Error:    errSummary,
 	}
+	// The class is worker input and is never trusted: only PERMANENT, TRANSIENT and UNKNOWN on a
+	// failure are accepted, an omitted class is UNKNOWN, and LEASE_EXPIRED (the sweeper's alone) is
+	// refused before anything is read or written.
+	class, err := domain.NormalizeWorkerErrorClass(domain.ErrorClass(errorClass), domain.IsFailedOutcome(outcome))
+	if err != nil {
+		slog.Warn("result rejected: invalid error classification", "job_id", jobID, "attempt_id", attemptID)
+		return nil, err
+	}
+	outcome.ErrorClassification = class
 
-	job, err := s.repo.CommitAttempt(ctx, jobID, attemptID, leaseToken, workerID, outcome)
+	job, err := s.repo.CommitAttempt(ctx, jobID, attemptID, leaseToken, workerID, outcome, s.retryBackoffLocked())
 	if err != nil {
 		if errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			slog.Warn("rejecting result for already-terminal job",
@@ -432,6 +466,7 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 		"attempt_id", attemptID,
 		"final_state", job.State,
 		"exit_code", exitCode,
+		"error_class", string(class),
 	)
 
 	return job, nil

@@ -30,7 +30,14 @@ type Repository interface {
 	SubmitJob(ctx context.Context, job *domain.Job) error
 	DispatchJob(ctx context.Context, jobID string, workerID string) (*domain.Attempt, error)
 	DispatchNextJob(ctx context.Context, workerID string) (*domain.Job, *domain.Attempt, error)
-	CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error)
+	// CommitAttempt records a worker's outcome for its RUNNING attempt. A success completes the
+	// job. A failure is resolved by domain.ResolveFailure under the job lock: cancel wins on a
+	// CANCEL_REQUESTED job, a PERMANENT class or an exhausted max_attempts budget fails the job, and
+	// otherwise the job goes to RETRYING with not_before = now + backoff(attempt_no). backoff is
+	// required for a failure that may retry (nil is rejected with ErrInvalidRequest, so no hidden
+	// randomness is used) and is ignored otherwise. The error class is validated with
+	// domain.NormalizeWorkerErrorClass; LEASE_EXPIRED is never accepted here.
+	CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome, backoff domain.BackoffFunc) (*domain.Job, error)
 	CancelJob(ctx context.Context, jobID string) (*domain.Job, error)
 
 	// Lease operations (Phase 4, ADR-0014). Time is read from the repository clock: database
