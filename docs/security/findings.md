@@ -34,6 +34,11 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-022** | Medium | Fixed in slice 4a (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; late commit rejected as terminal without closing attempt, permanently leaking worker slot. | `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (regression test, executed in slice 4a) |
 | **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
 | **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Evaluation Order | In `CommitAttempt` on a terminal job, evaluating terminal state before verifying attempt lease token closes the attempt and records a diagnostic event prior to credential checks. | `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` |
+| **SEC-025** | Low | Open (within SEC-004 until V3; executed in P4-4b review) | Storage Layer / Expiry Disclosure | In `CommitAttempt` and `RenewLease`, lease-expired check precedes token verification; because PostgreSQL attempt IDs are deterministically derivable (`att_<jobID>_<attemptNo>`), an unauthenticated caller with a job ID can probe sweep state. | Verification step: revisit token verification order and attempt ID derivation during V3 authentication hardening (ADR-0004, SEC-004). |
+| **SEC-026** | Informational | Open (confirmed by code reading in P4-4b review) | Storage Layer / Sweeper Unexpected States | Sweeper default branch skips attempts whose jobs are in unexpected states (`QUEUED`, `SUBMITTED`, `RETRYING`) without closing the attempt or freeing the worker slot; unreachable through the normal state machine API. | Verification step: review sweeper default branch in Slice 4d/Phase 4 hardening. |
+| **SEC-027** | Low | Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review) | Storage Layer / Renew Row Lock Contention | `RenewLease` takes the job row lock before validating the lease token or worker ID, allowing unauthenticated callers with a known attempt ID to serialize or delay legitimate renew requests. | Verification step: revisit at V3 together with SEC-024 under mutual TLS / authentication (source: 4c-a finding F-4c-a-1). |
+| **SEC-028** | Informational | Open (confirmed by code reading in P4-4c-a review) | Coordinator / Sweeper Multi-Node Architecture | Lease sweeper startup grace and database outage grace state is kept in-process memory, which would behave incorrectly or diverge if multiple coordinator instances run concurrently. | Verification step: revisit when horizontal coordinator scaling or shared distributed coordinator state is designed (source: 4c-a finding F-4c-a-3). |
+
 
 ---
 
@@ -427,6 +432,62 @@ FAIL
 - **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-022 remediation). The stored result of the job is never overwritten, and diagnostic event insertion is idempotent (capped at 1 per attempt by a NOT EXISTS check under the job row lock in PostgreSQL and a loop check in memory; the partial unique index idx_job_events_unique_diagnostic_late_result is planned for migration 000004 in slice 4b).
 - **Remediation**: Documented in `docs/adr/0014-lease-model-and-expiry.md` as an accepted evaluation order under SEC-004. In V3, when worker authentication/mTLS is introduced, token/credential validation will precede state inspection.
 - **Verification / Regression Test**: `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` (audit probe executed on `agent/gemini/P4-4a-review`).
+
+---
+
+### SEC-025: Lease-Expired Check Preceding Token Check Discloses Sweep State
+
+- **Finding**: In `CommitAttempt` and `RenewLease`, evaluating lease expiration occurs before validating the attempt lease token. Because PostgreSQL attempt IDs are deterministically generated as `att_<jobID>_<attemptNo>`, an unauthenticated caller with knowledge of a job ID can determine whether an attempt was swept and expired.
+- **Severity**: Low (bounded by SEC-004 accepted risk until V3)
+- **Category**: Authorization / Information Disclosure
+- **Status**: Open (within SEC-004 until V3; executed in P4-4b review, confirmed by code reading)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/storage/postgres/repository.go`)
+- **Preconditions**: An unauthenticated network caller knows or guesses a `job_id` and targets attempt number 1 (`att_<jobID>_1`).
+- **Impact**: Bounded by SEC-004. An attacker can observe when an attempt has transitioned to `LOST` by the sweeper, but cannot overwrite results or alter job state without a valid token.
+- **Remediation**: At V3, implement cryptographic or random attempt IDs (SEC-013) and enforce authentication/token validation before revealing state.
+- **Verification**: Documented and verified during Slice P4-4b review (builder findings F-4b-1 & F-4b-2, auditor finding F-4b-A4).
+
+---
+
+### SEC-026: Sweeper Default Branch Skips Unexpected Job States Without Freeing Worker Slot
+
+- **Finding**: In the lease sweeper logic (`applySweep` in `internal/storage/postgres/leases.go` and `sweepAttemptLocked` in `internal/storage/inmemory.go`), if an expired running attempt is found under a job in an unexpected state (`QUEUED`, `SUBMITTED`, or `RETRYING`), the `default:` branch returns `nil, nil` (counting `SkippedChanged`). The sweeper rolls back without marking the attempt `LOST` or releasing the allocated worker capacity slot.
+- **Severity**: Informational
+- **Category**: Storage / Sweeper Robustness
+- **Status**: Open (confirmed by code reading in P4-4b review)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`)
+- **Preconditions**: A corrupted or inconsistent database state where a job is in `QUEUED`, `SUBMITTED`, or `RETRYING` while having an active `RUNNING` attempt whose lease expired. Unreachable through the normal state machine API.
+- **Impact**: If reached via out-of-band database mutation, the attempt remains `RUNNING` and permanently occupies a worker slot.
+- **Remediation**: In Slice 4d / Phase 4 follow-up, close any expired attempt under unexpected job states as `LOST` and release the worker capacity slot.
+- **Verification**: Confirmed by code reading during P4-4b review (builder finding F-4b-3, auditor finding F-4b-A3).
+
+---
+
+### SEC-027: RenewLease Takes Job Row Lock Before Attempt Lease Token Check
+
+- **Finding**: `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` (`RenewLease`) locks the job row (`SELECT ... FOR UPDATE` in PostgreSQL or repo lock in memory) before validating the attempt lease token or worker ID.
+- **Severity**: Low (bounded by SEC-004 accepted risk until V3)
+- **Category**: Denial of Service / Lock Contention
+- **Status**: Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/api/handlers.go`)
+- **Preconditions**: An unauthenticated network caller submits rapid renew requests referencing a valid job ID and attempt ID with invalid tokens.
+- **Impact**: Unauthenticated requests acquire the row-level lock on the target job, momentarily serializing against legitimate worker renewals or result commits for that job.
+- **Remediation**: Revisit at V3 together with SEC-024 when worker authentication/mTLS is introduced, placing token/credential verification prior to acquiring database row locks.
+- **Verification**: Confirmed by code reading during P4-4c-a review (auditor finding F-4c-a-1).
+
+---
+
+### SEC-028: Outage and Startup Grace State is Process-Local
+
+- **Finding**: The coordinator's lease sweeper startup grace period and database outage grace window are maintained in process-local memory. If multiple coordinator instances are run against the shared database, each maintains independent grace state.
+- **Severity**: Informational
+- **Category**: Architecture / Multi-Coordinator Distributed State
+- **Status**: Open (confirmed by code reading in P4-4c-a review)
+- **Affected Component**: Coordinator Sweeper Service (`internal/coordinator/sweeper.go`)
+- **Preconditions**: Multiple coordinator processes running against the same database (V3 roadmap).
+- **Impact**: In V1, only a single coordinator process is supported (ADR-0004). With multiple coordinators, a newly started coordinator instance would be in startup grace while an existing coordinator is actively sweeping, or one coordinator could experience an outage window while another does not.
+- **Remediation**: Revisit when multi-coordinator high availability is designed in future milestones, persisting sweeper grace state or electing an active sweeper leader.
+- **Verification**: Confirmed by code reading during P4-4c-a review (auditor finding F-4c-a-3).
 
 ---
 
