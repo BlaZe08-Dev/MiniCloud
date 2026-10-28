@@ -183,6 +183,15 @@ func (r *rig) tick(d time.Duration, wantRenews int) {
 	waitFor(r.t, "renewal request", func() bool { return r.coord.renews() >= wantRenews })
 }
 
+// step advances the fake clock by one second during result delivery and waits until the agent is
+// quiescent again (the renewal timer, the delivery budget and the next backoff are all armed) or
+// has returned, so no timer is missed because a goroutine was still busy with an HTTP call.
+func (r *rig) step() {
+	r.t.Helper()
+	r.clk.Advance(time.Second)
+	waitFor(r.t, "agent to settle", func() bool { return r.isDone() || r.clk.Pending() >= 3 })
+}
+
 // stepUntilDone advances the fake clock in 1 s steps until the agent returns, with a hard guard
 // so an unbounded delivery loop fails the test instead of hanging it.
 func (r *rig) stepUntilDone(maxSteps int) time.Duration {
@@ -192,9 +201,7 @@ func (r *rig) stepUntilDone(maxSteps int) time.Duration {
 		if r.isDone() {
 			return r.clk.Now().Sub(start)
 		}
-		r.clk.BlockUntil(1, 50*time.Millisecond)
-		r.clk.Advance(time.Second)
-		time.Sleep(time.Millisecond)
+		r.step()
 	}
 	if !r.isDone() {
 		r.t.Fatalf("agent still running after %d simulated seconds", maxSteps)
@@ -472,9 +479,7 @@ func TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport(t *testing.T)
 	close(r.task.release)
 	waitFor(t, "first delivery attempt", func() bool { return r.coord.results() >= 1 })
 	for i := 0; i < 35 && !r.isDone(); i++ {
-		r.clk.BlockUntil(1, 50*time.Millisecond)
-		r.clk.Advance(time.Second)
-		time.Sleep(time.Millisecond)
+		r.step()
 	}
 	if r.isDone() {
 		t.Fatal("agent gave up before the delivery budget")
