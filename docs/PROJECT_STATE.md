@@ -2,13 +2,33 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `main`
-- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
+- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, P4-03, and P0-03 merged; next: slice 4d.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
-- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+- **README Refresh (P0-03, PR #24, `main` at `28560f6`):**
+  - Updated `README.md` with accurate quickstart instructions, environment variable configuration reference, ASCII architecture diagram, security posture, and verified CLI demonstration workflows.
+- **Phase 4, Slice 4c-b — Worker Lease Renewal Loop & Result Delivery Budget (P4-4c-b, PR #23, `main` at `3553c25`):**
+  - Periodic background lease renewal loop in worker client computed as `lease_duration_seconds / 3` clamped to `[1s, 10s]` (default 10s).
+  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
+  - Single-channel cooperative cancellation delivery: cancels worker execution when renewal response returns `cancel_requested: true`.
+  - 60-second time-bounded result delivery budget (`executeAndReport`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
+- **Phase 4 Documentation Pass & Citation Repair (P4-03, PR #22, `main` at `3e8ab9e`):**
+  - Repaired 78 pre-existing test line citations across live docs to stable function/symbol references.
+  - Synchronized task board and handoff records for P4-00, P4-02, and P4-03.
+  - Imported P4-02 round 1 and round 2 review records byte-identical.
+- **Phase 4, Slice 4c-a — Coordinator Lease Sweeper Wiring & Renewal Route (P4-4c-a, PR #21, `main` at `fc451c9`):**
+  - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` returning HTTP 200 `{"status":"RENEWED","cancel_requested":...}` or 409 conflict following strict protocol evaluation order.
+  - Coordinator lease sweeper background loop operating on repository clock (`Repository.Now`) with autonomous outage grace window (30s), cooldown (30s), and coordinator startup grace (30s).
+  - Additive poll assignment metadata (`lease_expires_at`, `lease_duration_seconds`).
+  - Grace configuration settings (`MINICLOUD_STARTUP_GRACE_PERIOD`, `MINICLOUD_OUTAGE_GRACE_WINDOW`) with validation rules (`grace >= lease`).
+- **Phase 4, Slice 4b — Leases, Sweeper Methods, Migration 000004 & Backoff (P4-4b, PR #20, `main` at `7e58d4a`):**
+  - Schema migration `000004_phase4_coordination.sql`: added `error_class` column on `attempts` and `results` with check constraint, `lease_expires_at` timestamp with time zone, and sweeper candidate partial index.
+  - Implemented `RenewLease` and `SweepExpiredLeases` across in-memory and PostgreSQL repositories with row locking (`jobs -> workers -> attempts`), in-lock grace suppression, and terminal job handling.
+  - Implemented pure backoff function `ComputeBackoff` in `internal/domain` with full jitter [0.5, 1.5] capped at 30s.
+- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a, PR #19, `main` at `e7403a9`):**
   - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
   - **Domain Transition Matrix Updates (Executed):** Flipped exactly two matrix cells in `allowedTransitions` table: `RETRYING -> QUEUED` becomes invalid (`false`), and `RETRYING -> RUNNING` becomes valid (`true`) for direct pull dispatch via `DispatchNextJob`. Verified by `TestJobTransitionMatrix_AllPairs`.
   - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.DispatchNextJob`, achieving full dispatch parity with PostgreSQL. Retired `NewServiceWithQueue` and historical `spyQueue` test helper, rewriting seven coordinator unit tests to assert observable domain outcomes.
