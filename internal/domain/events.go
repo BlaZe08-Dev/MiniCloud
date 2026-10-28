@@ -13,6 +13,10 @@ const (
 	JobEventFailed          JobEventType = "JOB_FAILED"
 	JobEventCancelled       JobEventType = "JOB_CANCELLED"
 	JobEventCancelRequested JobEventType = "JOB_CANCEL_REQUESTED"
+	JobEventRetrying        JobEventType = "JOB_RETRYING"
+
+	// JobEventLeaseExpired records an attempt closed by the lease sweeper.
+	JobEventLeaseExpired JobEventType = "LEASE_EXPIRED"
 
 	// JobEventDiagnosticLateResult records a result rejected because its job was already
 	// terminal (state-machine.md event catalogue).

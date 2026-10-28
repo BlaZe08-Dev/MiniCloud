@@ -23,6 +23,10 @@ var (
 	ErrJobNotQueued          = errors.New("job is not in QUEUED state")
 	ErrWorkerTaskUnsupported = errors.New("worker does not support task type")
 	ErrWorkerNoCapacity      = errors.New("worker has no available capacity")
+
+	// ErrLeaseExpired is returned when a renewal or commit names an attempt that the lease
+	// sweeper already marked LOST (ADR-0014).
+	ErrLeaseExpired = errors.New("attempt lease expired and was marked lost")
 )
 
 // InvalidStateTransitionError is returned when a requested state transition violates the state machine.

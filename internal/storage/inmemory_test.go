@@ -2,6 +2,7 @@ package storage_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -642,7 +643,45 @@ func newInMemoryHarness(t *testing.T) storagetest.Harness {
 				t.Fatalf("UpdateAttempt(%s) failed: %v", attemptID, err)
 			}
 		},
+		LeaseDuration: domain.DefaultLeaseDuration,
+		Now:           func(t *testing.T) time.Time { return time.Now().UTC() },
+		SetLeaseExpiry: func(t *testing.T, attemptID string, offset time.Duration) {
+			t.Helper()
+			att, err := repo.GetAttempt(context.Background(), attemptID)
+			if err != nil {
+				t.Fatalf("GetAttempt(%s) failed: %v", attemptID, err)
+			}
+			expiry := time.Now().UTC().Add(offset)
+			att.LeaseExpiresAt = &expiry
+			if err := repo.UpdateAttempt(context.Background(), att); err != nil {
+				t.Fatalf("UpdateAttempt(%s) failed: %v", attemptID, err)
+			}
+		},
 	}
+}
+
+func TestConformance_Dispatch_StampsLease(t *testing.T) {
+	storagetest.RunDispatchLeaseConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_RenewLease_AcceptUntilSwept(t *testing.T) {
+	storagetest.RunRenewLeaseAcceptUntilSweptConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_RenewLease_RejectedAfterLost(t *testing.T) {
+	storagetest.RunRenewLeaseRejectedAfterLostConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_SweepExpiredLeases_RetryOrFail(t *testing.T) {
+	storagetest.RunSweepRetryOrFailConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping(t *testing.T) {
+	storagetest.RunSweepGraceInputConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_ConflictEvaluationOrder(t *testing.T) {
+	storagetest.RunCommitAttemptConflictOrderConformance(t, newInMemoryHarness)
 }
 
 func TestConformance_CancelJob_IdempotentCancelRequested(t *testing.T) {
@@ -769,4 +808,201 @@ func TestProperty_StateMachine_ModelConformance(t *testing.T) {
 
 func TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt(t *testing.T) {
 	storagetest.RunCommitAttemptNonRunningAttemptConformance(t, newInMemoryHarness)
+}
+
+// TestInMemoryRepository_LeaseRenewalAndExpiry drives leases, renewal, expiry and the sweep with
+// an injected clock: every instant is repository time, never the wall clock.
+func TestInMemoryRepository_LeaseRenewalAndExpiry(t *testing.T) {
+	ctx := context.Background()
+	t0 := time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
+
+	type fixture struct {
+		clock *retryTestClock
+		repo  *storage.InMemoryRepository
+		att   *domain.Attempt
+	}
+	newFixture := func(t *testing.T, opts ...storage.InMemoryOption) fixture {
+		t.Helper()
+		clock := &retryTestClock{now: t0}
+		repo := storage.NewInMemoryRepository(append([]storage.InMemoryOption{storage.WithClock(clock)}, opts...)...)
+		if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w1", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, LastHeartbeatAt: t0}); err != nil {
+			t.Fatal(err)
+		}
+		if err := repo.SubmitJob(ctx, &domain.Job{ID: "j1", TaskType: "echo", Payload: []byte(`{}`), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30, CreatedAt: t0}); err != nil {
+			t.Fatal(err)
+		}
+		_, att, err := repo.DispatchNextJob(ctx, "w1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fixture{clock, repo, att}
+	}
+	sweep := func(t *testing.T, f fixture, p domain.SweepParams) *domain.SweepResult {
+		t.Helper()
+		if p.Backoff == nil {
+			p.Backoff = func(int) time.Duration { return 0 }
+		}
+		res, err := f.repo.SweepExpiredLeases(ctx, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+	lease := func(t *testing.T, f fixture) time.Time {
+		t.Helper()
+		a, err := f.repo.GetAttempt(ctx, f.att.ID)
+		if err != nil || a.LeaseExpiresAt == nil {
+			t.Fatalf("GetAttempt: %+v %v", a, err)
+		}
+		return *a.LeaseExpiresAt
+	}
+
+	t.Run("dispatch_stamps_repository_now_plus_default_30s", func(t *testing.T) {
+		f := newFixture(t)
+		if got := lease(t, f); !got.Equal(t0.Add(30 * time.Second)) {
+			t.Fatalf("lease = %v, want %v", got, t0.Add(30*time.Second))
+		}
+	})
+
+	t.Run("lease_duration_option_applies_and_ignores_non_positive", func(t *testing.T) {
+		if got := lease(t, newFixture(t, storage.WithLeaseDuration(5*time.Second))); !got.Equal(t0.Add(5 * time.Second)) {
+			t.Fatalf("lease with 5s option = %v", got)
+		}
+		if got := lease(t, newFixture(t, storage.WithLeaseDuration(0))); !got.Equal(t0.Add(30 * time.Second)) {
+			t.Fatalf("zero option changed the default: %v", got)
+		}
+		if got := lease(t, newFixture(t, storage.WithLeaseDuration(-time.Second))); !got.Equal(t0.Add(30 * time.Second)) {
+			t.Fatalf("negative option changed the default: %v", got)
+		}
+	})
+
+	t.Run("dispatch_job_path_stamps_lease_too", func(t *testing.T) {
+		clock := &retryTestClock{now: t0}
+		repo := storage.NewInMemoryRepository(storage.WithClock(clock))
+		_ = repo.UpsertWorker(ctx, &domain.Worker{ID: "w1", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, LastHeartbeatAt: t0})
+		_ = repo.SubmitJob(ctx, &domain.Job{ID: "j1", TaskType: "echo", Payload: []byte(`{}`), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30})
+		att, err := repo.DispatchJob(ctx, "j1", "w1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if att.LeaseExpiresAt == nil || !att.LeaseExpiresAt.Equal(t0.Add(30*time.Second)) {
+			t.Fatalf("DispatchJob lease = %v", att.LeaseExpiresAt)
+		}
+	})
+
+	t.Run("expiry_is_strictly_after_the_lease_instant", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(30 * time.Second) // exactly at lease_expires_at
+		if res := sweep(t, f, domain.SweepParams{}); res.Candidates != 0 {
+			t.Fatalf("an attempt whose lease ends exactly now was swept: %+v", res)
+		}
+		f.clock.now = t0.Add(30*time.Second + time.Nanosecond)
+		if res := sweep(t, f, domain.SweepParams{}); len(res.Swept) != 1 {
+			t.Fatalf("an attempt one nanosecond past its lease was not swept: %+v", res)
+		}
+	})
+
+	t.Run("periodic_renewal_keeps_the_attempt_alive_until_renewals_stop", func(t *testing.T) {
+		f := newFixture(t)
+		for i, at := range []time.Duration{10 * time.Second, 20 * time.Second} {
+			f.clock.now = t0.Add(at)
+			got, err := f.repo.RenewLease(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1")
+			if err != nil {
+				t.Fatalf("renewal %d: %v", i, err)
+			}
+			if want := f.clock.now.Add(30 * time.Second); !got.LeaseExpiresAt.Equal(want) || got.CancelRequested {
+				t.Fatalf("renewal %d = %+v, want expiry %v", i, got, want)
+			}
+		}
+		// Original lease would have ended at +30s; the last renewal moved it to +50s.
+		f.clock.now = t0.Add(45 * time.Second)
+		if res := sweep(t, f, domain.SweepParams{}); res.Candidates != 0 {
+			t.Fatalf("renewed attempt swept at +45s: %+v", res)
+		}
+		f.clock.now = t0.Add(50*time.Second + time.Nanosecond)
+		res := sweep(t, f, domain.SweepParams{})
+		if len(res.Swept) != 1 || res.Swept[0].AttemptState != domain.AttemptLost {
+			t.Fatalf("attempt not swept after renewals stopped: %+v", res)
+		}
+	})
+
+	t.Run("unswept_expired_attempt_still_renews_and_commits", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(31 * time.Second)
+		got, err := f.repo.RenewLease(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1")
+		if err != nil || !got.LeaseExpiresAt.Equal(f.clock.now.Add(30*time.Second)) {
+			t.Fatalf("renewal of an expired, unswept attempt = %+v, %v", got, err)
+		}
+		f.clock.now = t0.Add(5 * time.Minute)
+		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{ExitCode: 0, Output: "ok"}); err != nil {
+			t.Fatalf("commit of an expired, unswept attempt rejected: %v", err)
+		}
+	})
+
+	t.Run("swept_attempt_is_never_resurrected", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(time.Minute)
+		sweep(t, f, domain.SweepParams{Backoff: func(int) time.Duration { return time.Hour }})
+		if _, err := f.repo.RenewLease(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1"); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("renew after sweep = %v", err)
+		}
+		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{}); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("commit after sweep = %v", err)
+		}
+		if a, _ := f.repo.GetAttempt(ctx, f.att.ID); a.State != domain.AttemptLost {
+			t.Fatalf("attempt = %s", a.State)
+		}
+	})
+
+	t.Run("backoff_not_before_is_repository_time_and_gates_redispatch", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(time.Minute)
+		sweep(t, f, domain.SweepParams{Backoff: func(int) time.Duration { return 4 * time.Second }})
+		job, _ := f.repo.GetJob(ctx, "j1")
+		if job.NotBefore == nil || !job.NotBefore.Equal(f.clock.now.Add(4*time.Second)) {
+			t.Fatalf("not_before = %v, want %v", job.NotBefore, f.clock.now.Add(4*time.Second))
+		}
+		f.clock.now = f.clock.now.Add(4*time.Second - time.Nanosecond)
+		if _, _, err := f.repo.DispatchNextJob(ctx, "w1"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("dispatch 1ns before not_before = %v", err)
+		}
+		f.clock.now = f.clock.now.Add(time.Nanosecond)
+		if _, att2, err := f.repo.DispatchNextJob(ctx, "w1"); err != nil || att2.AttemptNo != 2 {
+			t.Fatalf("dispatch at not_before = %+v, %v", att2, err)
+		}
+	})
+
+	t.Run("grace_is_evaluated_on_the_repository_clock", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(45 * time.Second)
+		grace := domain.SweepGraceState{StartupGraceUntil: t0.Add(60 * time.Second)}
+		if res := sweep(t, f, domain.SweepParams{Grace: grace}); res.SuppressedByGrace != 1 || len(res.Swept) != 0 {
+			t.Fatalf("sweep inside grace = %+v", res)
+		}
+		f.clock.now = t0.Add(60 * time.Second) // grace ends exactly now
+		if res := sweep(t, f, domain.SweepParams{Grace: grace}); len(res.Swept) != 1 {
+			t.Fatalf("sweep when grace ends = %+v", res)
+		}
+	})
+
+	t.Run("cancel_requested_renewal_does_not_move_the_lease_so_the_sweeper_cancels", func(t *testing.T) {
+		f := newFixture(t)
+		f.clock.now = t0.Add(10 * time.Second)
+		if _, err := f.repo.CancelJob(ctx, "j1"); err != nil {
+			t.Fatal(err)
+		}
+		got, err := f.repo.RenewLease(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1")
+		if err != nil || !got.CancelRequested || !got.LeaseExpiresAt.Equal(t0.Add(30*time.Second)) {
+			t.Fatalf("renewal on CANCEL_REQUESTED = %+v, %v", got, err)
+		}
+		f.clock.now = t0.Add(30*time.Second + time.Nanosecond)
+		res := sweep(t, f, domain.SweepParams{})
+		if len(res.Swept) != 1 || res.Swept[0].JobState != domain.StateCancelled {
+			t.Fatalf("sweep = %+v, want the CANCEL_REQUESTED job cancelled once the unextended lease lapsed", res)
+		}
+	})
+}
+
+func TestConformance_RetryingJob_DispatchAndCancelParity(t *testing.T) {
+	storagetest.RunRetryingJobParityConformance(t, newInMemoryHarness)
 }

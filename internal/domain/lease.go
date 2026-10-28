@@ -6,7 +6,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"time"
 )
+
+// DefaultLeaseDuration is the attempt lease length (ADR-0014: 30 s, MINICLOUD_LEASE_DURATION).
+const DefaultLeaseDuration = 30 * time.Second
 
 // NewLeaseToken generates a cryptographically secure, URL-safe lease token
 // containing at least 32 bytes (256 bits) of entropy from crypto/rand.

@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1190,5 +1191,89 @@ func TestAPI_CancelJob_SuccessReturns200(t *testing.T) {
 	// The worker can still commit: the duplicates did not finalise the job.
 	if _, err := svc.CommitResult(ctx, running.ID, assignment.AttemptID, assignment.LeaseToken, "w_cancel_api", 0, "ok", ""); err != nil {
 		t.Fatalf("commit after duplicate cancels must be accepted, got %v", err)
+	}
+}
+
+type apiTestClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *apiTestClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *apiTestClock) Advance(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.now = c.now.Add(d)
+}
+
+// TestAPI_CommitResult_AfterLeaseSweep_Returns409LeaseExpired: a result reported for an attempt the
+// sweeper already marked LOST is HTTP 409 LEASE_EXPIRED (protocol 6.3, priority 2), not 500 and
+// not the generic STALE_ATTEMPT_REJECTED; a result for a terminal job stays JOB_ALREADY_TERMINAL.
+func TestAPI_CommitResult_AfterLeaseSweep_Returns409LeaseExpired(t *testing.T) {
+	clock := &apiTestClock{now: time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)}
+	repo := storage.NewInMemoryRepository(storage.WithClock(clock))
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	ts := httptest.NewServer(api.NewServer("127.0.0.1:0", svc).Handler())
+	defer ts.Close()
+
+	post := func(path, body string) (int, string) {
+		t.Helper()
+		resp, err := http.Post(ts.URL+path, "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST %s failed: %v", path, err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(raw)
+	}
+	if code, body := post("/v1/workers/register", `{"id":"worker-1","version":"v","total_slots":1,"supported_tasks":["echo"]}`); code != http.StatusOK {
+		t.Fatalf("register: %d %s", code, body)
+	}
+	code, body := post("/v1/jobs", `{"task_type":"echo","payload":{"message":"x"},"max_attempts":1}`)
+	if code != http.StatusCreated {
+		t.Fatalf("submit: %d %s", code, body)
+	}
+	var job domain.Job
+	_ = json.Unmarshal([]byte(body), &job)
+	code, body = post("/v1/workers/worker-1/poll", ``)
+	if code != http.StatusOK {
+		t.Fatalf("poll: %d %s", code, body)
+	}
+	var poll struct {
+		Assignment coordinator.WorkAssignment `json:"assignment"`
+	}
+	_ = json.Unmarshal([]byte(body), &poll)
+	a := poll.Assignment
+	report := `{"lease_token":"` + a.LeaseToken + `","worker_id":"worker-1","exit_code":0,"output":"late"}`
+	resultPath := "/v1/jobs/" + job.ID + "/attempts/" + a.AttemptID + "/result"
+
+	// Lease lapses and the sweeper reaps the attempt. max_attempts is 1, so the job FAILS.
+	clock.Advance(domain.DefaultLeaseDuration + time.Second)
+	if res, err := repo.SweepExpiredLeases(context.Background(), domain.SweepParams{Backoff: func(int) time.Duration { return 0 }}); err != nil || len(res.Swept) != 1 {
+		t.Fatalf("sweep = %+v, %v", res, err)
+	}
+	if code, body := post(resultPath, report); code != http.StatusConflict || !strings.Contains(body, "JOB_ALREADY_TERMINAL") {
+		t.Fatalf("late result on the FAILED job: %d %s, want 409 JOB_ALREADY_TERMINAL (terminal job is evaluated first)", code, body)
+	}
+
+	// Second job with retries left: the job is RETRYING, so the swept attempt is what is rejected.
+	_ = repo.SubmitJob(context.Background(), &domain.Job{ID: "job-retry", TaskType: "echo", Payload: []byte(`{}`), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30, CreatedAt: clock.Now()})
+	_, att, err := repo.DispatchNextJob(context.Background(), "worker-1")
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	clock.Advance(domain.DefaultLeaseDuration + time.Second)
+	if res, err := repo.SweepExpiredLeases(context.Background(), domain.SweepParams{Backoff: func(int) time.Duration { return time.Hour }}); err != nil || len(res.Swept) != 1 {
+		t.Fatalf("second sweep = %+v, %v", res, err)
+	}
+	late := `{"lease_token":"` + att.LeaseToken + `","worker_id":"worker-1","exit_code":0,"output":"late"}`
+	code, body = post("/v1/jobs/job-retry/attempts/"+att.ID+"/result", late)
+	if code != http.StatusConflict || !strings.Contains(body, `"LEASE_EXPIRED"`) {
+		t.Fatalf("late result on a swept attempt: %d %s, want 409 LEASE_EXPIRED", code, body)
 	}
 }
