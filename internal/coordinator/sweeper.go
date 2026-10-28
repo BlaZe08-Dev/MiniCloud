@@ -43,6 +43,12 @@ func (s *Service) SetSweepRandom(rnd func() float64) {
 	}
 }
 
+// retryBackoffLocked is the job-retry backoff shared by the lease sweeper and the result path: the
+// ADR-0015 policy (domain.ComputeBackoff) over the service's random source. The caller holds s.mu.
+func (s *Service) retryBackoffLocked() domain.BackoffFunc {
+	return domain.DefaultRetryPolicy().BackoffFunc(s.sweepRand)
+}
+
 // LeaseSweeper owns the sweeper's grace state and advances it tick by tick (ADR-0014, D-R3-01).
 // The repository only reads that state inside its row locks; it never advances it.
 //
@@ -84,7 +90,7 @@ func (s *Service) NewLeaseSweeper(interval time.Duration) *LeaseSweeper {
 		interval:     interval,
 		startupGrace: s.startupGrace,
 		window:       s.outageWindow,
-		backoff:      domain.DefaultRetryPolicy().BackoffFunc(s.sweepRand),
+		backoff:      s.retryBackoffLocked(),
 	}
 }
 

@@ -398,8 +398,8 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 		req.WorkerID,
 		req.ExitCode,
 		req.Output,
-		req.Error,
-	)
+		req.Error, "")
+
 	if err != nil {
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)
