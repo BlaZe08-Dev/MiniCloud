@@ -1,0 +1,1327 @@
+# P4-05 audit evidence (audit clone /tmp/audit-p405; every block is real redirected output)
+
+$ git rev-parse --short HEAD; git rev-parse --short origin/main; git merge-base origin/main HEAD; git log --oneline -8
+ddfd4b0
+f13d97f
+28560f6b972d1b59fa85fcab77585a1ce13c963c
+ddfd4b0 docs(handoff): add round 2 fixes and verified green gate outputs for P4-05
+e7ddc6a docs(protocol): add ATTEMPT_NOT_FOUND to recognized 404 error codes
+92ee96f docs(reviews): unimport P0-03 review records pending citation checker scoping
+587c446 docs(handoff): add P4-05 docs pass handoff
+86b20a3 docs(tasks): use handoff wildcard convention and quote link in TASKS follow-up
+f3e5716 docs: update PROJECT_STATE, TASKS, and CHANGELOG true on main
+749dc70 docs: record design-doc clarifications for slices 4a-4c
+9d8ae7f docs(security): register findings SEC-025 through SEC-028
+[rc=0]
+
+$ git branch -r | grep -E "P4-4b-review|P4-4c-a-review|P4-4c-b-review|P4-03-review|P0-03-review"
+  origin/agent/claude/P0-03-review
+  origin/agent/claude/P0-03-review-2
+  origin/agent/claude/P0-03-review-3
+  origin/agent/claude/P4-03-review
+  origin/agent/claude/P4-03-review-2
+  origin/agent/gemini/P4-4b-review
+  origin/agent/gemini/P4-4c-a-review
+  origin/agent/gemini/P4-4c-b-review
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4b-review:docs/agents/reviews/P4-4b.md | cmp - docs/agents/reviews/P4-4b.md && echo IDENTICAL gemini/P4-4b-review P4-4b.md; git show origin/agent/gemini/P4-4b-review:docs/agents/reviews/P4-4b.md | sha256sum; sha256sum docs/agents/reviews/P4-4b.md
+IDENTICAL gemini/P4-4b-review P4-4b.md
+71ac19d1add977e2a4dbf61a53dd0d58ba8ed09aaf9dab51c854352fa8b918b7  -
+71ac19d1add977e2a4dbf61a53dd0d58ba8ed09aaf9dab51c854352fa8b918b7  docs/agents/reviews/P4-4b.md
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4b-review:docs/agents/reviews/P4-4b-evidence.txt | cmp - docs/agents/reviews/P4-4b-evidence.txt && echo IDENTICAL gemini/P4-4b-review P4-4b-evidence.txt; git show origin/agent/gemini/P4-4b-review:docs/agents/reviews/P4-4b-evidence.txt | sha256sum; sha256sum docs/agents/reviews/P4-4b-evidence.txt
+IDENTICAL gemini/P4-4b-review P4-4b-evidence.txt
+4e2d44736342e84b366ea50c8bcf6dac3f1b8cd959ad557d74bd7cbd7b9002d4  -
+4e2d44736342e84b366ea50c8bcf6dac3f1b8cd959ad557d74bd7cbd7b9002d4  docs/agents/reviews/P4-4b-evidence.txt
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4c-a-review:docs/agents/reviews/P4-4c-a.md | cmp - docs/agents/reviews/P4-4c-a.md && echo IDENTICAL gemini/P4-4c-a-review P4-4c-a.md; git show origin/agent/gemini/P4-4c-a-review:docs/agents/reviews/P4-4c-a.md | sha256sum; sha256sum docs/agents/reviews/P4-4c-a.md
+IDENTICAL gemini/P4-4c-a-review P4-4c-a.md
+8dfadddc543d0bdc3df1fc017ae37c52bf9bc8fcdca1e3483057a7c33e3a511d  -
+8dfadddc543d0bdc3df1fc017ae37c52bf9bc8fcdca1e3483057a7c33e3a511d  docs/agents/reviews/P4-4c-a.md
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4c-a-review:docs/agents/reviews/P4-4c-a-evidence.txt | cmp - docs/agents/reviews/P4-4c-a-evidence.txt && echo IDENTICAL gemini/P4-4c-a-review P4-4c-a-evidence.txt; git show origin/agent/gemini/P4-4c-a-review:docs/agents/reviews/P4-4c-a-evidence.txt | sha256sum; sha256sum docs/agents/reviews/P4-4c-a-evidence.txt
+IDENTICAL gemini/P4-4c-a-review P4-4c-a-evidence.txt
+29933ac6c5972630c98a36d77f0d38b0f07627ac89e563a69626651bcb6a6e9a  -
+29933ac6c5972630c98a36d77f0d38b0f07627ac89e563a69626651bcb6a6e9a  docs/agents/reviews/P4-4c-a-evidence.txt
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4c-b-review:docs/agents/reviews/P4-4c-b.md | cmp - docs/agents/reviews/P4-4c-b.md && echo IDENTICAL gemini/P4-4c-b-review P4-4c-b.md; git show origin/agent/gemini/P4-4c-b-review:docs/agents/reviews/P4-4c-b.md | sha256sum; sha256sum docs/agents/reviews/P4-4c-b.md
+IDENTICAL gemini/P4-4c-b-review P4-4c-b.md
+bf56b445bbb2c764e00fe9c8f630bff4917e32842119106810bf81740c13bcbf  -
+bf56b445bbb2c764e00fe9c8f630bff4917e32842119106810bf81740c13bcbf  docs/agents/reviews/P4-4c-b.md
+[rc=0]
+
+$ git show origin/agent/gemini/P4-4c-b-review:docs/agents/reviews/P4-4c-b-evidence.txt | cmp - docs/agents/reviews/P4-4c-b-evidence.txt && echo IDENTICAL gemini/P4-4c-b-review P4-4c-b-evidence.txt; git show origin/agent/gemini/P4-4c-b-review:docs/agents/reviews/P4-4c-b-evidence.txt | sha256sum; sha256sum docs/agents/reviews/P4-4c-b-evidence.txt
+IDENTICAL gemini/P4-4c-b-review P4-4c-b-evidence.txt
+e0085318cd0dedf50c81da52a8fcea27d0cde97794bb82f2a01704b791f5900f  -
+e0085318cd0dedf50c81da52a8fcea27d0cde97794bb82f2a01704b791f5900f  docs/agents/reviews/P4-4c-b-evidence.txt
+[rc=0]
+
+$ git show origin/agent/claude/P4-03-review:docs/agents/reviews/P4-03.md | cmp - docs/agents/reviews/P4-03.md && echo IDENTICAL claude/P4-03-review P4-03.md; git show origin/agent/claude/P4-03-review:docs/agents/reviews/P4-03.md | sha256sum; sha256sum docs/agents/reviews/P4-03.md
+IDENTICAL claude/P4-03-review P4-03.md
+1fbafafe076118c04e7d054e6626f44fe35f56a02b83951eca163b8fd9ddfb5a  -
+1fbafafe076118c04e7d054e6626f44fe35f56a02b83951eca163b8fd9ddfb5a  docs/agents/reviews/P4-03.md
+[rc=0]
+
+$ git show origin/agent/claude/P4-03-review:docs/agents/reviews/P4-03-evidence.txt | cmp - docs/agents/reviews/P4-03-evidence.txt && echo IDENTICAL claude/P4-03-review P4-03-evidence.txt; git show origin/agent/claude/P4-03-review:docs/agents/reviews/P4-03-evidence.txt | sha256sum; sha256sum docs/agents/reviews/P4-03-evidence.txt
+IDENTICAL claude/P4-03-review P4-03-evidence.txt
+e18a3582d92805f6d797a4e83939c4154213ea6958436c797d5e8346b70c09a1  -
+e18a3582d92805f6d797a4e83939c4154213ea6958436c797d5e8346b70c09a1  docs/agents/reviews/P4-03-evidence.txt
+[rc=0]
+
+$ git show origin/agent/claude/P4-03-review-2:docs/agents/reviews/P4-03-round2.md | cmp - docs/agents/reviews/P4-03-round2.md && echo IDENTICAL claude/P4-03-review-2 P4-03-round2.md; git show origin/agent/claude/P4-03-review-2:docs/agents/reviews/P4-03-round2.md | sha256sum; sha256sum docs/agents/reviews/P4-03-round2.md
+IDENTICAL claude/P4-03-review-2 P4-03-round2.md
+329009335bc37bd7f991a9aa8fe8829edf96e14ddcbf09b0206c576752b93e6a  -
+329009335bc37bd7f991a9aa8fe8829edf96e14ddcbf09b0206c576752b93e6a  docs/agents/reviews/P4-03-round2.md
+[rc=0]
+
+$ git show origin/agent/claude/P4-03-review-2:docs/agents/reviews/P4-03-round2-evidence.txt | cmp - docs/agents/reviews/P4-03-round2-evidence.txt && echo IDENTICAL claude/P4-03-review-2 P4-03-round2-evidence.txt; git show origin/agent/claude/P4-03-review-2:docs/agents/reviews/P4-03-round2-evidence.txt | sha256sum; sha256sum docs/agents/reviews/P4-03-round2-evidence.txt
+IDENTICAL claude/P4-03-review-2 P4-03-round2-evidence.txt
+226731f02f5c1896699fd3062ec1de3edc084aed7c956e47a31a1c7bc6b875b4  -
+226731f02f5c1896699fd3062ec1de3edc084aed7c956e47a31a1c7bc6b875b4  docs/agents/reviews/P4-03-round2-evidence.txt
+[rc=0]
+
+$ git diff origin/main...HEAD -- docs/security/findings.md
+diff --git a/docs/security/findings.md b/docs/security/findings.md
+index 8dec617..31f1ada 100644
+--- a/docs/security/findings.md
++++ b/docs/security/findings.md
+@@ -34,6 +34,11 @@ For findings of **Medium** severity and above, the full structured report format
+ | **SEC-022** | Medium | Fixed in slice 4a (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; late commit rejected as terminal without closing attempt, permanently leaking worker slot. | `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (regression test, executed in slice 4a) |
+ | **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
+ | **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Evaluation Order | In `CommitAttempt` on a terminal job, evaluating terminal state before verifying attempt lease token closes the attempt and records a diagnostic event prior to credential checks. | `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` |
++| **SEC-025** | Low | Open (within SEC-004 until V3; executed in P4-4b review) | Storage Layer / Expiry Disclosure | In `CommitAttempt` and `RenewLease`, lease-expired check precedes token verification; because PostgreSQL attempt IDs are deterministically derivable (`att_<jobID>_<attemptNo>`), an unauthenticated caller with a job ID can probe sweep state. | Verification step: revisit token verification order and attempt ID derivation during V3 authentication hardening (ADR-0004, SEC-004). |
++| **SEC-026** | Informational | Open (confirmed by code reading in P4-4b review) | Storage Layer / Sweeper Unexpected States | Sweeper default branch skips attempts whose jobs are in unexpected states (`QUEUED`, `SUBMITTED`, `RETRYING`) without closing the attempt or freeing the worker slot; unreachable through the normal state machine API. | Verification step: review sweeper default branch in Slice 4d/Phase 4 hardening. |
++| **SEC-027** | Low | Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review) | Storage Layer / Renew Row Lock Contention | `RenewLease` takes the job row lock before validating the lease token or worker ID, allowing unauthenticated callers with a known attempt ID to serialize or delay legitimate renew requests. | Verification step: revisit at V3 together with SEC-024 under mutual TLS / authentication (source: 4c-a finding F-4c-a-1). |
++| **SEC-028** | Informational | Open (confirmed by code reading in P4-4c-a review) | Coordinator / Sweeper Multi-Node Architecture | Lease sweeper startup grace and database outage grace state is kept in-process memory, which would behave incorrectly or diverge if multiple coordinator instances run concurrently. | Verification step: revisit when horizontal coordinator scaling or shared distributed coordinator state is designed (source: 4c-a finding F-4c-a-3). |
++
+ 
+ ---
+ 
+@@ -430,6 +435,62 @@ FAIL
+ 
+ ---
+ 
++### SEC-025: Lease-Expired Check Preceding Token Check Discloses Sweep State
++
++- **Finding**: In `CommitAttempt` and `RenewLease`, evaluating lease expiration occurs before validating the attempt lease token. Because PostgreSQL attempt IDs are deterministically generated as `att_<jobID>_<attemptNo>`, an unauthenticated caller with knowledge of a job ID can determine whether an attempt was swept and expired.
++- **Severity**: Low (bounded by SEC-004 accepted risk until V3)
++- **Category**: Authorization / Information Disclosure
++- **Status**: Open (within SEC-004 until V3; executed in P4-4b review, confirmed by code reading)
++- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/storage/postgres/repository.go`)
++- **Preconditions**: An unauthenticated network caller knows or guesses a `job_id` and targets attempt number 1 (`att_<jobID>_1`).
++- **Impact**: Bounded by SEC-004. An attacker can observe when an attempt has transitioned to `LOST` by the sweeper, but cannot overwrite results or alter job state without a valid token.
++- **Remediation**: At V3, implement cryptographic or random attempt IDs (SEC-013) and enforce authentication/token validation before revealing state.
++- **Verification**: Documented and verified during Slice P4-4b review (builder findings F-4b-1 & F-4b-2, auditor finding F-4b-A4).
++
++---
++
++### SEC-026: Sweeper Default Branch Skips Unexpected Job States Without Freeing Worker Slot
++
++- **Finding**: In the lease sweeper logic (`applySweep` in `internal/storage/postgres/leases.go` and `sweepAttemptLocked` in `internal/storage/inmemory.go`), if an expired running attempt is found under a job in an unexpected state (`QUEUED`, `SUBMITTED`, or `RETRYING`), the `default:` branch returns `nil, nil` (counting `SkippedChanged`). The sweeper rolls back without marking the attempt `LOST` or releasing the allocated worker capacity slot.
++- **Severity**: Informational
++- **Category**: Storage / Sweeper Robustness
++- **Status**: Open (confirmed by code reading in P4-4b review)
++- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`)
++- **Preconditions**: A corrupted or inconsistent database state where a job is in `QUEUED`, `SUBMITTED`, or `RETRYING` while having an active `RUNNING` attempt whose lease expired. Unreachable through the normal state machine API.
++- **Impact**: If reached via out-of-band database mutation, the attempt remains `RUNNING` and permanently occupies a worker slot.
++- **Remediation**: In Slice 4d / Phase 4 follow-up, close any expired attempt under unexpected job states as `LOST` and release the worker capacity slot.
++- **Verification**: Confirmed by code reading during P4-4b review (builder finding F-4b-3, auditor finding F-4b-A3).
++
++---
++
++### SEC-027: RenewLease Takes Job Row Lock Before Attempt Lease Token Check
++
++- **Finding**: `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` (`RenewLease`) locks the job row (`SELECT ... FOR UPDATE` in PostgreSQL or repo lock in memory) before validating the attempt lease token or worker ID.
++- **Severity**: Low (bounded by SEC-004 accepted risk until V3)
++- **Category**: Denial of Service / Lock Contention
++- **Status**: Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review)
++- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/api/handlers.go`)
++- **Preconditions**: An unauthenticated network caller submits rapid renew requests referencing a valid job ID and attempt ID with invalid tokens.
++- **Impact**: Unauthenticated requests acquire the row-level lock on the target job, momentarily serializing against legitimate worker renewals or result commits for that job.
++- **Remediation**: Revisit at V3 together with SEC-024 when worker authentication/mTLS is introduced, placing token/credential verification prior to acquiring database row locks.
++- **Verification**: Confirmed by code reading during P4-4c-a review (auditor finding F-4c-a-1).
++
++---
++
++### SEC-028: Outage and Startup Grace State is Process-Local
++
++- **Finding**: The coordinator's lease sweeper startup grace period and database outage grace window are maintained in process-local memory. If multiple coordinator instances are run against the shared database, each maintains independent grace state.
++- **Severity**: Informational
++- **Category**: Architecture / Multi-Coordinator Distributed State
++- **Status**: Open (confirmed by code reading in P4-4c-a review)
++- **Affected Component**: Coordinator Sweeper Service (`internal/coordinator/sweeper.go`)
++- **Preconditions**: Multiple coordinator processes running against the same database (V3 roadmap).
++- **Impact**: In V1, only a single coordinator process is supported (ADR-0004). With multiple coordinators, a newly started coordinator instance would be in startup grace while an existing coordinator is actively sweeping, or one coordinator could experience an outage window while another does not.
++- **Remediation**: Revisit when multi-coordinator high availability is designed in future milestones, persisting sweeper grace state or electing an active sweeper leader.
++- **Verification**: Confirmed by code reading during P4-4c-a review (auditor finding F-4c-a-3).
++
++---
++
+ ## Part D Security Testing Verification Summary
+ 
+ The Part D security verification tests were implemented and executed against PostgreSQL on `milestone/3d-postgres-wiring`:
+[rc=0]
+
+$ git diff origin/main...HEAD --numstat -- docs/security/findings.md; git diff origin/main...HEAD -- docs/security/findings.md | grep -E "^-[^-]" 
+61	0	docs/security/findings.md
+[rc=1]
+
+$ grep -n "SEC-029" -r docs CHANGELOG.md | head -20
+docs/agents/handoffs/P4-4c-b.md:257:No new finding was edited into `docs/security/findings.md` (not owned). Next free number is SEC-029; the three findings above are labelled F-4c-b-N for the docs pass to number.
+docs/agents/handoffs/P4-4c-b.md:463:- F-4c-b-2 (Info) and F-4c-b-3 (Info) are unchanged and listed for the docs pass (round 1 section above); next free finding number SEC-029, `findings.md` not edited.
+docs/agents/handoffs/P4-05.md:16:  - Registered findings `SEC-025`, `SEC-026`, `SEC-027`, and `SEC-028` in the summary register table and added detailed finding entries. Next free SEC finding number is `SEC-029`.
+docs/agents/handoffs/P4-05.md:25:  - `docs/agents/TASKS.md`: Updated touch points (next free SEC number `SEC-029`); updated Active table to P4-05; updated task details for P0-03 (merged in PR #24), P4-4c-b (merged in PR #23), P4-03 (merged in PR #22); applied R9-5 fix to P4-03 goal citation count (`77 listed, 78 removed; see the P4-03 handoff`); added P4-05 specification; updated Done table; added Follow-ups section with F-4c-a-A1, F-4c-a-A2, and review records citation checker scoping.
+docs/agents/handoffs/P4-05.md:130:  - Verified touch point reservations in `docs/agents/TASKS.md` (next free migration 000005, next free finding SEC-029).
+docs/agents/TASKS.md:17:| `docs/security/findings.md` | none | Released; next free SEC number SEC-029 |
+[rc=0]
+
+$ ls internal/storage/inmemory.go internal/storage/postgres/leases.go internal/storage/postgres/repository.go internal/coordinator/sweeper.go internal/api/handlers.go
+internal/api/handlers.go
+internal/coordinator/sweeper.go
+internal/storage/inmemory.go
+internal/storage/postgres/leases.go
+internal/storage/postgres/repository.go
+[rc=0]
+
+$ grep -n "F-4b-1\|F-4b-2\|F-4b-3\|F-4b-A3\|F-4b-A4" docs/agents/reviews/P4-4b.md | cut -c1-400
+149:- **F-4b-1 (Informational, within SEC-004)**: Evaluated and **confirmed**. Because `LOST` is evaluated at Priority 2 before `lease_token` validation at Priority 3, an unauthenticated caller knowing only `(job_id, attempt_id)` can query whether an attempt was swept to `LOST` and trigger one diagnostic event.
+150:- **F-4b-2 (Low)**: Evaluated and **confirmed**. In `internal/storage/postgres/repository.go` func `DispatchJob` and func `DispatchNextJob`, attempt IDs are generated as `fmt.Sprintf("att_%s_%d", jobID, nextAttemptNo)`. Since attempt numbers start at 1, attempt IDs are trivially derivable from the `job_id`.
+151:- **F-4b-3 (Low)**: Evaluated and **confirmed**. In `internal/storage/postgres/leases.go` func `applySweep` and `internal/storage/inmemory.go` func `sweepAttemptLocked`, the `default:` branch returns `nil, nil` for jobs in `QUEUED`, `SUBMITTED`, or `RETRYING`. The sweeper rolls back and counts `SkippedChanged`, leaving the attempt `RUNNING` and permanently occupying a worker capacity slot.
+162:| **F-4b-A3** | Minor | `internal/storage/postgres/leases.go` func `applySweep` and `internal/storage/inmemory.go` func `sweepAttemptLocked` | confirmed by code reading | Confirming builder finding F-4b-3: An expired `RUNNING` attempt under a `QUEUED`, `SUBMITTED`, or `RETRYING` job hits `default: return nil, nil`, rolling back without closing the attempt or freeing the worker capacity slot. |
+163:| **F-4b-A4** | Informational | `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/leases.go` func `RenewLease` | executed | Confirming builder findings F-4b-1 & F-4b-2: Because `LOST` is evaluated before token verification and attempt IDs are deterministically derivable (`att_<jobID>_<attemptNo>`), an unauthenticated caller with only a `job_id` can observe swee
+[rc=0]
+
+$ grep -n "F-4c-a-1\|F-4c-a-2\|F-4c-a-3\|F-4c-a-A" docs/agents/reviews/P4-4c-a.md | cut -c1-500
+29:### F-4c-a-A1: Silent false-green risk in Makefile test-db target if target integration test is missing or renamed
+40:### F-4c-a-A2: Top-level invocation of startBackground in main() is not exercised by tests
+51:- **F-4c-a-1 (Renew takes row lock before token comparison)**:
+53:- **F-4c-a-3 (Grace state is process-local; multi-coordinator limitation)**:
+[rc=0]
+
+$ grep -n "SEC-013\|SEC-025\|SEC-026\|SEC-027\|SEC-028" docs/agents/reviews/P4-4b.md docs/agents/reviews/P4-4c-a.md docs/agents/reviews/P4-4c-b.md | cut -c1-300
+[rc=0]
+
+$ grep -n "SEC-013" docs/security/findings.md | head -5 | cut -c1-300
+25:| **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go` func `generateID`). | Verifica
+187:### SEC-013: Monotonic Sequence Counter Exposed in Job and Attempt IDs
+447:- **Remediation**: At V3, implement cryptographic or random attempt IDs (SEC-013) and enforce authentication/token validation before revealing state.
+534:- `TestCoordinator_IDLeakage`: Future verification test for SEC-013 (coordinator sequential ID exposure).
+[rc=0]
+
+$ grep -n "func applySweep" -A75 internal/storage/postgres/leases.go | grep -n "default:\|return nil, nil\|case domain\|switch\|SkippedChanged" 
+56:354-	switch {
+[rc=0]
+
+$ grep -n "func (r \*Repository) RenewLease" -A60 internal/storage/postgres/leases.go | grep -n -i "for update\|token\|Compare\|ErrLeaseExpired\|ErrStaleAttempt\|WorkerMismatch\|lockJob\|BeginTx"
+1:34:func (r *Repository) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+12:45-	err = tx.QueryRow(ctx, `SELECT state, current_attempt_id FROM jobs WHERE id = $1 FOR UPDATE;`, jobID).Scan(&jobStateStr, &currentAttemptID)
+27:60-		leaseTokenHash string
+31:64-		SELECT state, worker_id, lease_token_hash, lease_expires_at
+34:67-		FOR UPDATE;`, attemptID, jobID).Scan(&attState, &attWorkerID, &leaseTokenHash, &leaseExpiresAt)
+43:76-		return nil, domain.ErrLeaseExpired
+46:79-		return nil, domain.ErrStaleAttempt
+52:85-		return nil, domain.ErrStaleAttempt
+54:87-	providedHash := domain.HashLeaseToken(leaseToken)
+55:88-	if subtle.ConstantTimeCompare([]byte(leaseTokenHash), []byte(providedHash)) != 1 {
+56:89-		return nil, domain.ErrStaleAttempt
+59:92-		return nil, &domain.WorkerMismatchError{AssignedWorker: attWorkerID, ReportingWorker: workerID}
+[rc=0]
+
+$ grep -n "func (s \*InMemoryStore) sweepAttemptLocked\|func.*sweepAttemptLocked" -A60 internal/storage/inmemory.go | grep -n "default:\|return nil, nil\|case "
+37:980-	case job.State.IsTerminal():
+46:989-	case job.State == domain.StateCancelRequested:
+60:1003-	case job.State == domain.StateRunning && att.AttemptNo < job.MaxAttempts:
+[rc=0]
+
+$ grep -n "state" internal/coordinator/sweeper.go | head -20
+46:// LeaseSweeper owns the sweeper's grace state and advances it tick by tick (ADR-0014, D-R3-01).
+47:// The repository only reads that state inside its row locks; it never advances it.
+59:	state sweepState
+98:// and counted by the grace state; it never stops the loop.
+116:// result and is not. On a failed tick the state is not advanced except for the failure flag, so
+121:		w.state.failedSince = true
+124:	if !w.state.startupSet {
+125:		w.state.startupSet = true
+126:		w.state.startupUntil = now.Add(w.startupGrace)
+129:	next, opened := w.advance(w.state, now)
+141:		w.state.failedSince = true
+148:	w.state = next
+157:// advance computes the state for a successful tick at database time now: it arms the cooldown once
+183:			"attempt_state", o.AttemptState,
+184:			"job_state", o.JobState,
+192:		slog.Warn("lease sweeper: candidates changed state outside every sweep rule",
+[rc=0]
+
+$ grep -n "att_%s_%d" internal/storage/postgres/*.go
+internal/storage/postgres/repository.go:704:	attemptID := fmt.Sprintf("att_%s_%d", jobID, nextAttemptNo)
+internal/storage/postgres/repository.go:951:	attemptID := fmt.Sprintf("att_%s_%d", job.ID, nextAttemptNo)
+[rc=0]
+
+$ sed -n "340,470p" internal/storage/postgres/leases.go | grep -n "case \|default\|return nil, nil\|switch" 
+15:	switch {
+16:	case jobState.IsTerminal():
+29:	case jobState == domain.StateCancelRequested:
+46:	case jobState == domain.StateRunning && attemptNo < maxAttempts:
+71:	case jobState == domain.StateRunning:
+91:	default:
+92:		return nil, nil
+[rc=0]
+
+$ sed -n "975,1080p" internal/storage/inmemory.go | grep -n "case \|default\|return nil, nil\|switch"
+5:	switch {
+6:	case job.State.IsTerminal():
+15:	case job.State == domain.StateCancelRequested:
+29:	case job.State == domain.StateRunning && att.AttemptNo < job.MaxAttempts:
+49:	case job.State == domain.StateRunning:
+64:	default:
+65:		return nil, nil
+[rc=0]
+
+$ grep -n "SkippedChanged" internal/storage/postgres/leases.go internal/storage/inmemory.go internal/domain/*.go | head
+internal/storage/postgres/leases.go:124:	sweepSkippedChanged
+internal/storage/postgres/leases.go:194:		case sweepSkippedChanged:
+internal/storage/postgres/leases.go:195:			res.SkippedChanged++
+internal/storage/postgres/leases.go:268:		return nil, sweepSkippedChanged, nil
+internal/storage/postgres/leases.go:280:		return nil, sweepSkippedChanged, nil
+internal/storage/inmemory.go:916:			res.SkippedChanged++
+internal/storage/inmemory.go:921:			res.SkippedChanged++
+internal/storage/inmemory.go:933:			res.SkippedChanged++
+internal/domain/sweep.go:76:	// SkippedChanged counts candidates the in-lock re-check found already resolved or renewed.
+internal/domain/sweep.go:77:	SkippedChanged int
+[rc=0]
+
+$ grep -rn "SEC-029" docs CHANGELOG.md | cut -c1-220
+docs/agents/handoffs/P4-4c-b.md:257:No new finding was edited into `docs/security/findings.md` (not owned). Next free number is SEC-029; the three findings above are labelled F-4c-b-N for the docs pass to number.
+docs/agents/handoffs/P4-4c-b.md:463:- F-4c-b-2 (Info) and F-4c-b-3 (Info) are unchanged and listed for the docs pass (round 1 section above); next free finding number SEC-029, `findings.md` not edited.
+docs/agents/handoffs/P4-05.md:16:  - Registered findings `SEC-025`, `SEC-026`, `SEC-027`, and `SEC-028` in the summary register table and added detailed finding entries. Next free SEC finding number is `SEC-029`.
+docs/agents/handoffs/P4-05.md:25:  - `docs/agents/TASKS.md`: Updated touch points (next free SEC number `SEC-029`); updated Active table to P4-05; updated task details for P0-03 (merged in PR #24), P4-4c-b (merged in PR 
+docs/agents/handoffs/P4-05.md:130:  - Verified touch point reservations in `docs/agents/TASKS.md` (next free migration 000005, next free finding SEC-029).
+docs/agents/TASKS.md:17:| `docs/security/findings.md` | none | Released; next free SEC number SEC-029 |
+[rc=0]
+
+$ grep -n -i "next free\|total findings\|SEC-02[0-9]" docs/security/findings.md | head -30 | cut -c1-120
+32:| **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documenta
+33:| **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation docu
+34:| **SEC-022** | Medium | Fixed in slice 4a (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on
+35:| **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator T
+36:| **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Eva
+37:| **SEC-025** | Low | Open (within SEC-004 until V3; executed in P4-4b review) | Storage Layer / Expiry Disclosure | 
+38:| **SEC-026** | Informational | Open (confirmed by code reading in P4-4b review) | Storage Layer / Sweeper Unexpected
+39:| **SEC-027** | Low | Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review) | Storage Layer / R
+40:| **SEC-028** | Informational | Open (confirmed by code reading in P4-4c-a review) | Coordinator / Sweeper Multi-Node
+258:### SEC-020: Documentation Citation Drift and Nonexistent Citations
+277:### SEC-021: Whole-Line Exemption Scoping in Documentation Citation Checker (Rule C)
+302:### SEC-022: Duplicate CancelJob Leaks Worker Slot Permanently via Premature Finalization
+319:=== E1. SEC-022 probe (executed): MINICLOUD_REVIEW_PROBE=1 go test -race -count=1 -v -run TestReviewP400_SEC022 ./te
+395:### SEC-023: TestMigrator_PreExistingInvalidRow_ValidationFails Missing _test Database Name Guard
+420:### SEC-024: Evaluation of Terminal Job State Precedes Attempt Lease Token Check in CommitAttempt
+432:- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the strand
+438:### SEC-025: Lease-Expired Check Preceding Token Check Discloses Sweep State
+452:### SEC-026: Sweeper Default Branch Skips Unexpected Job States Without Freeing Worker Slot
+466:### SEC-027: RenewLease Takes Job Row Lock Before Attempt Lease Token Check
+475:- **Remediation**: Revisit at V3 together with SEC-024 when worker authentication/mTLS is introduced, placing token/
+480:### SEC-028: Outage and Startup Grace State is Process-Local
+[rc=0]
+
+$ git diff origin/main...HEAD -- docs/adr docs/state-machine.md docs/protocol.md docs/phase4-plan.md
+diff --git a/docs/adr/0014-lease-model-and-expiry.md b/docs/adr/0014-lease-model-and-expiry.md
+index ce77828..e899a58 100644
+--- a/docs/adr/0014-lease-model-and-expiry.md
++++ b/docs/adr/0014-lease-model-and-expiry.md
+@@ -48,8 +48,8 @@ Blueprint Sections 4, 5 ("Job Lifecycle and Consistency Model", pages 5–6), an
+ MiniCloud enforces explicit timing hierarchies across worker health, leases, and task execution:
+ - **Worker Heartbeat Interval**: Default 2 seconds (`MINICLOUD_HEARTBEAT_INTERVAL`).
+ - **Worker Liveness Timeout**: Default 10 seconds (5 x heartbeat interval, `MINICLOUD_WORKER_TIMEOUT`).
+-- **Attempt Lease Duration**: Default **30 seconds** (`MINICLOUD_LEASE_DURATION`). (Accepted by owner).
+-- **Worker Renewal Interval**: Default **10 seconds** (1/3 of lease duration). A healthy worker attempts renewal at t = 10s and t = 20s, tolerating up to two consecutive transient network failures before the 30-second lease lapses. (Accepted by owner).
++- **Attempt Lease Duration**: Default **30 seconds** (`MINICLOUD_LEASE_DURATION`). There is no minimum lease in configuration (owner decision).
++- **Worker Renewal Interval**: Computed as `lease_duration_seconds / 3`, clamped to `[1s, 10s]` (defaulting to 10 seconds when absent or 0). A healthy worker attempts renewal at 1/3 and 2/3 of the lease duration, tolerating transient network failures before the lease lapses. When transient renewal errors occur, the worker retries with bounded backoff capped at one interval (a deliberate deviation from waiting for the "next interval"; authorised by the orchestrator in the planning session). (Accepted by owner).
+ - **Coordinator Sweeper Cadence**: Ticker interval **5 seconds**, batch size **50** attempts per sweep (`MINICLOUD_SWEEPER_INTERVAL`, `MINICLOUD_SWEEPER_BATCH_SIZE`). (Accepted by owner).
+ - **No Separate Attempt-Level Timeout in V1**: Task `timeout_seconds` governs maximum execution runtime across the entire job. In V1, there is no separate per-attempt execution timeout; the 30-second lease boundary governs attempt liveness. (Accepted by owner).
+ - **Cooperative Context Cancellation in V1**: Execution termination in V1 relies on cooperative Go context cancellation (`context.Context`). Hard process killing is deferred to V3 Docker container execution isolation (ADR-0005). (Accepted by owner).
+@@ -180,15 +180,15 @@ jobs -> workers -> attempts -> results -> job_events
+ - **Configuration Names & Validation Rules**:
+   - `MINICLOUD_STARTUP_GRACE_PERIOD`: Time to suppress sweeper reaping after coordinator boot (default: `30s`).
+   - `MINICLOUD_OUTAGE_GRACE_WINDOW`: Time to suppress sweeper reaping after database recovery (default: `30s`).
+-  - **Validation Rule**: Both `MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW` MUST be greater than or equal to the attempt lease duration (`MINICLOUD_LEASE_DURATION`, default `30s`). If either grace window is configured strictly less than the lease duration (e.g., `10s < 30s`), config validation rejects the startup with `ErrInvalidGraceConfiguration`.
++  - **Validation Rule**: Both `MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW` MUST be greater than or equal to the attempt lease duration (`MINICLOUD_LEASE_DURATION`, default `30s`). If either grace window is configured strictly less than the lease duration (e.g., `10s < 30s`), config validation rejects the startup with `ErrInvalidGraceConfiguration`. There is no minimum lease in configuration (owner decision).
+ - **Interaction with Phase 3 Tests**:
+   - In `TestPostgresWiring_CoordinatorRestartRecovery`, Coordinator 1 is killed and Coordinator 2 starts up while a worker executes an 800ms task. With startup grace (30s), Coordinator 2's sweeper does not reap the attempt; the surviving worker commits with HTTP 200 COMMITTED, exactly preserving the Phase 3 contract.
+   - In `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`, the database container is stopped for 1.5s. Outage grace protects the attempt while the worker retries its commit upon database restoration.
+ - **Worker-Side Result Delivery Pairing During Outages**:
+-  Coordinator-side grace periods must be paired with worker-side delivery resilience. If a task completes execution during a coordinator or database outage, the worker's result delivery loop (`internal/worker/client.go:324-355`) retries `ReportResult` with capped jittered backoff (500ms base to 5.0s cap) and concurrently continues issuing lease renewals every 10s until the coordinator recovers. This ensures that in scenarios with extended coordinator downtime (e.g. 45s), work that finished mid-downtime is not discarded by the worker before the coordinator and its startup grace window become available.
++  Coordinator-side grace periods must be paired with worker-side delivery resilience. If a task completes execution during a coordinator or database outage, the worker's result delivery loop (`internal/worker/client.go:324-355`) retries `ReportResult` with capped jittered backoff (500ms base to 5.0s cap) and concurrently continues issuing lease renewals until the coordinator recovers, operating under a 60-second time-bounded delivery budget (`executeAndReport`). This ensures that in scenarios with extended coordinator downtime (e.g. 45s), work that finished mid-downtime is not discarded by the worker before the coordinator and its startup grace window become available.
+ - **Impact on Existing Tests & Owner Approval Candidates**:
+   - Zero existing test assertions are weakened. Existing integration tests run with restarts/outages of 200ms–1.5s, well within the 30s grace window.
+-  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `executeAndReport` from 5 attempts to a 60-second time-bounded loop with capped jittered backoff and ongoing lease renewal is an additive durability improvement submitted for owner approval in Slice 4c.
++  - Candidates for Owner Approval: Micro-lease tests use a small lease with an equally small grace (e.g. 500ms lease with 500ms startup and outage grace) to satisfy the validation rule (`grace >= lease`). Expanding `executeAndReport` to a 60-second time-bounded loop with ongoing lease renewal provides delivery durability (authorised by the orchestrator in the planning session).
+ - **Planned Grace Verification Tests**:
+   - `TestPostgresRepository_Sweeper_OutageGraceDetection_SuppressesReap` (planned test).
+   - `TestPostgresRepository_Sweeper_StartupGrace_SuppressesReap` (planned test).
+diff --git a/docs/adr/0015-retry-policy-and-failure-classification.md b/docs/adr/0015-retry-policy-and-failure-classification.md
+index 6f4d578..acefa3c 100644
+--- a/docs/adr/0015-retry-policy-and-failure-classification.md
++++ b/docs/adr/0015-retry-policy-and-failure-classification.md
+@@ -3,7 +3,7 @@
+ ## Status
+ Accepted by Owner (2026-10-26)
+ - **Accepted Owner Decisions**:
+-  - Exponential backoff with base 1 s, cap 30 s, full jitter ([0.5, 1.5]), default `max_attempts` 3 (range 1..20).
++  - Exponential backoff with base 1 s, cap 30 s (effective maximum backoff delay 45 s after jitter in [0.5, 1.5]), default `max_attempts` 3 (range 1..20).
+   - 4 failure classification values (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`) with `UNKNOWN` defaulting to retryable.
+   - Validation-style failures of allowlisted tasks are permanent (`PERMANENT`).
+   - Success (exit code 0) is `AttemptCompleted` and not a failure classification.
+@@ -92,7 +92,7 @@ The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSI
+   When an attempt fails with a retryable classification and `attempt_no < max_attempts`:
+   backoff = min(max_backoff, base_backoff * 2^(attempt_no-1)) * jitter
+   - `base_backoff`: Default 1.0 second. (Accepted by owner).
+-  - `max_backoff`: Default 30.0 seconds. (Accepted by owner).
++  - `max_backoff`: Default 30.0 seconds cap applied BEFORE the jitter factor in [0.5, 1.5]; thus the effective maximum backoff delay is 45 s. (Authorised by the orchestrator in the planning session; accepted).
+   - `jitter`: Uniform pseudo-random multiplier between [0.5, 1.5] (full jitter). (Accepted by owner).
+ - **Database Timestamp Assignment**:
+   `jobs.not_before = clock_timestamp() + make_interval(secs => backoff_seconds)`.
+diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+index ff0117a..3d07748 100644
+--- a/docs/phase4-plan.md
++++ b/docs/phase4-plan.md
+@@ -167,7 +167,9 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+ 
+ ---
+ 
+-### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
++### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring (Complete)
++*Status*: Complete. Implemented and merged in two parts: Slice 4c-a (coordinator side: sweeper cadence, dual grace periods, renew route, background sweeper loop wiring) and Slice 4c-b (worker side: periodic renewal loop, lease-loss abort, cancel delivery, bounded delivery budget).
++
+ - **Scope**:
+   - HTTP API (`internal/api`):
+     - Dedicated `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint.
+@@ -226,6 +228,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+ 
+ ### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
+ - **Scope**:
++  - Slice 4d covers failure classification, bounded automatic retries end to end, cancel-wins and failure presentation (CLI and API presenting failure reasons and attempts used).
++  - Note: The SEC-012 worker timeout clamp is a separate small task scheduled AFTER slice 4d (orchestrator decision).
+   - Implement failure classification:
+     - Success (exit code 0) is `AttemptCompleted` without error classification.
+     - Validation failures of allowlisted tasks (`echo`, `sleep`, `sha256_loop`) are `ClassPermanent`.
+@@ -238,6 +242,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+     - Preempted executor returns `context.Canceled`.
+     - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt`, permitted by `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). No existing test in the test suite asserts the old outcome (`StateCancelRequested` is tested in `internal/domain/transition_test.go` and `internal/storage/storagetest/conformance.go`). The coordinator requires no special cancel acknowledgement wire signal.
+   - Resolve cancellation races (cancel vs completion, cancel vs lease expiry, duplicate cancels).
++  - Failure presentation: present failure reason and attempts used via coordinator API and `mc` CLI.
++
+ - **Exit Criteria**:
+   - Transient failures retry up to `max_attempts` with verified backoff delay.
+   - Permanent failures transition immediately to `FAILED` without retrying.
+diff --git a/docs/protocol.md b/docs/protocol.md
+index 5c3c059..2688e32 100644
+--- a/docs/protocol.md
++++ b/docs/protocol.md
+@@ -466,12 +466,19 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
+ 
+ | Priority | Condition | HTTP Status | Error Code | Diagnostic Event Written? | Worker Action |
+ |---|---|---|---|:---:|---|
+-| 1 | Target Job is already in a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
+-| 2 | Attempt state is `LOST` (swept by coordinator lease sweeper) | 409 Conflict | `LEASE_EXPIRED` | Yes (`DIAGNOSTIC_LATE_RESULT`) | Final: Worker halts execution, frees capacity slot, does not report result |
+-| 3 | Attempt state is not `RUNNING`, attempt superseded, or lease token mismatch (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
++| 1 | Target Job is already in a terminal state (`SUCCEEDED`, `FAILED`, `CANCELLED`) | 409 Conflict | `JOB_ALREADY_TERMINAL` | Yes on commit (`DIAGNOSTIC_LATE_RESULT`); None on renew | Final: Worker halts execution, frees capacity slot, does not report result |
++| 2 | Attempt state is `LOST` (swept by coordinator lease sweeper) | 409 Conflict | `LEASE_EXPIRED` | Yes on commit (`DIAGNOSTIC_LATE_RESULT`); None on renew | Final: Worker halts execution, frees capacity slot, does not report result |
++| 3 | Attempt state is not `RUNNING`, attempt superseded, lease token mismatch, or unknown attempt ID (`domain.ErrStaleAttempt`) | 409 Conflict | `STALE_ATTEMPT_REJECTED` | No | Final: Worker halts execution, frees capacity slot, does not report result |
+ | 4 | Reporting worker ID does not match assigned worker | 403 Forbidden | `WORKER_MISMATCH` | No | Final: Worker halts execution, does not report result |
+ | 5 | Reporting worker does not exist | 404 Not Found | `WORKER_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
+-| 6 | Target job or attempt does not exist | 404 Not Found | `JOB_NOT_FOUND` / `ATTEMPT_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
++| 6 | Target job does not exist | 404 Not Found | `JOB_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
++
++*Note on Diagnostic Events and Renewal Rejections*: Renewal rejections (`POST /renew`) write no event to `job_events` under any circumstance; diagnostic events (`DIAGNOSTIC_LATE_RESULT`) are written exclusively on result commits (`POST /result`). An unknown attempt ID on renew returns 409 `STALE_ATTEMPT_REJECTED`, exactly as for commit (authorised by the orchestrator in the planning session).
++
++*Worker Action on Renewal Responses*:
++- **403 Forbidden (`WORKER_MISMATCH`) and Recognised 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`)**: Treated as lease-lost for the worker. The worker halts execution immediately, cancels context, frees its capacity slot, and does not report a result.
++- **Unrecognised or Empty 404 Body**: Indicates an older coordinator lacking the `/renew` route. The worker logs a warning once, disables renewals for that attempt, and keeps running to completion without renewals, reporting the outcome via `POST /result`.
++- **409 Conflict (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`)**: Final rejection; the worker halts execution, frees slot, and does not report result.
+ 
+ *Terminal Job Result Rejection Behavior (D-R3-02)*: When a commit (including a retry of a commit that already succeeded) on an already-terminal job is rejected with 409 `JOB_ALREADY_TERMINAL`, the stored result from the initial commit is the single stored result; the retry is rejected; and the worker treats the 409 as final. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). If the attempt was `RUNNING`, it sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise, frees the worker capacity slot, and records a diagnostic event (`DIAGNOSTIC_LATE_RESULT`). (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
+ 
+@@ -483,6 +490,7 @@ When committing a result on a job in `CANCEL_REQUESTED`:
+ 
+ The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and consolidated into `JOB_ALREADY_TERMINAL` (when job is terminal) or `STALE_ATTEMPT_REJECTED` (when attempt is not running).
+ 
++
+ ---
+ 
+ ### 6.4 Backwards Compatibility Matrix & Deployment Policy
+diff --git a/docs/state-machine.md b/docs/state-machine.md
+index 9d94436..0d7a4d0 100644
+--- a/docs/state-machine.md
++++ b/docs/state-machine.md
+@@ -165,7 +165,6 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
+ | `JOB_SUBMITTED` | Client / API | Job accepted via `POST /v1/jobs`. | `{"task_type": "...", "max_attempts": 3}` |
+ | `JOB_QUEUED` | Coordinator | Job placed into scheduling pool. | `{}` |
+ | `JOB_DISPATCHED` | Worker / Poller | Job claimed via `repo.DispatchNextJob`. | `{"worker_id": "...", "attempt_no": 1, "policy": "fifo_pull"}` |
+-| `LEASE_RENEWED` | Worker / Agent | Worker renewed attempt lease via `/renew`. | `{"attempt_id": "...", "worker_id": "...", "new_expires_at": "..."}` |
+ | `LEASE_EXPIRED` | Sweeper | Coordinator swept expired attempt. | `{"attempt_id": "...", "worker_id": "...", "expired_at": "..."}` |
+ | `JOB_RETRYING` | Coordinator | Retryable failure scheduled for backoff. | `{"attempt_no": 1, "not_before": "...", "backoff_seconds": 2.5}` |
+ | `JOB_CANCEL_REQUESTED` | Client / API | Client requested cancellation for running job. | `{"requested_at": "..."}` |
+@@ -174,6 +173,9 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
+ | `JOB_FAILED` | Worker / Sweeper | Worker committed permanent error or budget exhausted. | `{"worker_id": "...", "exit_code": 1, "error": "..."}` |
+ | `DIAGNOSTIC_LATE_RESULT` | Worker | Expired worker attempted commit after lease lapse. | `{"reporting_worker": "...", "attempt_id": "...", "rejected": true}` |
+ 
++*Note on Lease Renewals*: A renewal records no event in `job_events`, and rejected renewals write nothing (preventing unbounded audit table growth; authorised by the orchestrator in the planning session).
++
++
+ ---
+ 
+ ## 6. Critical Distributed Invariants
+[rc=0]
+
+$ sed -n "1,60p" docs/agents/TASKS.md
+# Task board
+
+Owner merges. Orchestrator writes specs. One builder per task. A file owned by an
+active task may not be edited by any other task.
+
+Builder rule (AGENTS.md section 7): Claude Code builds complex and hard tasks; Gemini
+builds the rest. The other agent audits.
+
+## Reserved shared touch points
+
+| Resource | Held by | Notes |
+|---|---|---|
+| Next migration number | none | Next free migration number 000005 (000004 merged in PR #20) |
+| `go.mod` / `go.sum` | none | |
+| `internal/domain` | none | |
+| `internal/storage/storagetest` | none | Shared conformance suite |
+| `docs/security/findings.md` | none | Released; next free SEC number SEC-029 |
+
+## Active
+
+| ID | Title | Builder | Auditor | Branch | Status |
+|---|---|---|---|---|---|
+| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+
+### P0-01 — Two-agent workflow files
+- Goal: commit the agent rules so both agents read the same file.
+- Builder: Claude Code. Auditor: Orchestrator review. Branch: `agent/claude/P0-01`. Status: merged in PR #16.
+- Owned files: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `docs/agents/**`,
+  `tests/docs/citations_test.go` (only to add `AGENTS.md` and `docs/agents/` to its
+  scan scope, if needed), `Makefile` (only if a per-worktree database target is needed).
+- Acceptance:
+  - Every rule from the old 88-line `GEMINI.md` that still applies is present in
+    `AGENTS.md` (handoff lists each old section and where it went, or why dropped).
+  - Section 9 of `AGENTS.md` holds verified commands to create and use per-worktree
+    test databases, with real output from running `make test-db` (or the documented
+    equivalent) against `minicloud_test_claude`.
+  - `make test-docs` passes and covers `AGENTS.md`.
+  - All gates pass with counts equal to `main` (no test changed).
+- Out of scope: any Go code outside `tests/docs`, any design doc, `PROJECT_STATE.md`,
+  `CHANGELOG.md` (the owner adds the changelog line at merge).
+
+### P0-03 — README refresh
+- Goal: refresh repository `README.md` with current project state, architecture, and roadmap alignment.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P0-03`. Status: merged in PR #24.
+- Owned files: `README.md`, `docs/agents/handoffs/P0-03*` (when created).
+- Out of scope: any Go code, database migrations, design docs.
+- Spec written by the P4-03 builder from the branch diff; orchestrator to confirm.
+
+### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
+- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExpiry (planned test).
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4b`. Status: merged in PR #20.
+- Owned files: `internal/storage/**` (in-memory and PostgreSQL repositories, the Repository interface, storagetest), `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
+- Out of scope: sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop, delivery retry budget (slice 4c); cooperative cancel and failure classification (slice 4d).
+
+### P4-4c-a — Phase 4 slice 4c-a (coordinator lease sweeper wiring, renew route, restart grace)
+- Goal: Coordinator lease renewal route, sweeper loop wiring, grace configuration and metrics, and restart grace integration.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-a`. Status: merged in PR #21.
+- Owned files: `internal/coordinator/**`, `internal/api/**`, `internal/config/**`, `internal/storage/**`, `tests/integration/postgres_restart_grace_test.go`, `docs/agents/handoffs/P4-4c-a*` (when created).
+
+### P4-4c-b — Phase 4 slice 4c-b (worker lease renewal & delivery)
+[rc=0]
+
+$ grep -n "P4-05" docs/agents/TASKS.md | cut -c1-300
+23:| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+71:### P4-05 — Phase 4 docs pass after slices 4a–4c
+73:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-05`. Status: active.
+74:- Owned files: `docs/**` (design docs ONLY for listed clarifications), `CHANGELOG.md`, `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md`, `docs/security/findings.md`, `docs/agents/handoffs/P4-05*`, `docs/agents/reviews/**`.
+[rc=0]
+
+$ git log --merges --format="%h %p | %s" origin/main | head -14
+f13d97f 28560f6 d733a98 | Merge pull request #25 from BlaZe08-Dev/agent/claude/P4-4d
+28560f6 3553c25 bc1b5f0 | Merge pull request #24 from BlaZe08-Dev/agent/gemini/P0-03
+62a5c16 f0e6cea 3553c25 | Merge origin/main into agent/gemini/P0-03
+3553c25 3e8ab9e 6268073 | Merge pull request #23 from BlaZe08-Dev/agent/claude/P4-4c-b
+3e8ab9e fc451c9 66303ba | Merge pull request #22 from BlaZe08-Dev/agent/gemini/P4-03
+0fac9d4 e42acd0 fc451c9 | Merge origin/main into agent/gemini/P0-03
+5558b11 c0f5c7b fc451c9 | Merge origin/main into agent/gemini/P4-03
+fc451c9 7e58d4a 85b2246 | Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+7e58d4a e7403a9 8b3c332 | Merge pull request #20 from BlaZe08-Dev/agent/claude/P4-4b
+e7403a9 d28a3d1 d441c3e | Merge pull request #19 from BlaZe08-Dev/agent/gemini/P4-02
+44eeaa8 8183a59 d28a3d1 | Merge remote-tracking branch 'origin/main' into agent/gemini/P4-02
+d28a3d1 f6c7ec8 fde4ca7 | Merge pull request #18 from BlaZe08-Dev/agent/gemini/P4-01
+f6c7ec8 a9453fc a9efa6e | Merge pull request #17 from BlaZe08-Dev/docs/phase4-design
+c55e3a9 1afa976 a9453fc | Merge remote-tracking branch 'origin/main' into docs/phase4-design
+[rc=0]
+
+$ git log --oneline origin/main | head -25
+f13d97f Merge pull request #25 from BlaZe08-Dev/agent/claude/P4-4d
+d733a98 docs(handoff): P4-4d failure classification, bounded retries, cancel wins, failure presentation
+57953c4 test(coordinator): transient failure then success completes the job (P4-4d)
+6e045cd fix(storage): in-memory ListAttemptsByJob orders by attempt_no like PostgreSQL (P4-4d)
+28560f6 Merge pull request #24 from BlaZe08-Dev/agent/gemini/P0-03
+2ae3eaa feat(mc): present failure reason and attempts used; submit defers max_attempts to the coordinator (P4-4d)
+78b8619 feat(worker): classify failed outcomes and report error_classification (P4-4d)
+bc1b5f0 docs(readme): address round-3 audit findings R3-1 through R3-8
+7fca79f feat(executor): classify failed outcomes as PERMANENT, TRANSIENT or UNKNOWN (P4-4d)
+e7c810d feat(config): validate MINICLOUD_DEFAULT_MAX_ATTEMPTS in 1..20 and wire it into the coordinator service (P4-4d)
+8bf833e feat(api): accept error_classification on results; default max_attempts from the coordinator (P4-4d)
+fc62368 feat(coordinator): validate and pass the worker error class, shared retry backoff, configurable default max_attempts (P4-4d)
+7f616fa feat(storage): classified failures retry with backoff, permanent fails, cancel wins (P4-4d)
+cc56b93 refactor(storage): CommitAttempt takes a backoff function (behaviour unchanged, P4-4d)
+7766890 feat(domain): failure class validation and retry/cancel resolution (P4-4d)
+62a5c16 Merge origin/main into agent/gemini/P0-03
+3553c25 Merge pull request #23 from BlaZe08-Dev/agent/claude/P4-4c-b
+3e8ab9e Merge pull request #22 from BlaZe08-Dev/agent/gemini/P4-03
+f0e6cea docs(handoff): update P0-03 handoff for round 2 with audit resolutions and execution evidence
+3a04340 docs(readme): address round-2 audit findings for quickstart, configuration, and staleness
+0fac9d4 Merge origin/main into agent/gemini/P0-03
+66303ba docs(agents): resolve audit findings F-1 through F-6 for P4-03
+6268073 docs(handoff): P4-4c-b round 2 (interval ceiling, production wiring proof, real-binary smoke run)
+ce3e6c7 feat(worker): clamp renewal interval to 10 s; test the production Agent.Run path starts renewals (P4-4c-b round 2)
+068c70f docs(handoff): P4-4c-b worker lease renewal, abort, cancel delivery and result budget
+[rc=0]
+
+$ git diff origin/main...HEAD -- docs/PROJECT_STATE.md CHANGELOG.md
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 8c54694..a8e280a 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+ ## [Unreleased]
+ 
+ ### Added
++- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03; registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR-0015, state-machine.md, protocol.md, and phase4-plan.md; updated PROJECT_STATE, TASKS, and CHANGELOG true on main.
++- **P0-03 (README refresh, PR #24):** Refreshed repository `README.md` with verified quickstart instructions, environment variable configuration reference, architecture diagram, security posture, and CLI workflows.
++- **Phase 4, Slice 4c-b — Worker Lease Renewal Loop & Result Delivery Budget (P4-4c-b, PR #23):**
++  - Periodic background lease renewal loop in worker client computed as `lease_duration_seconds / 3` clamped to `[1s, 10s]` (default 10s).
++  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
++  - Single-channel cooperative cancellation delivery: cancels worker execution when renewal response returns `cancel_requested: true`.
++  - 60-second time-bounded result delivery budget (`executeAndReport`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
++- **P4-03 (docs, PR #22):** Repaired 78 pre-existing test line citations across live docs to stable function/symbol references, synchronized task board and handoff records, imported P4-02 round 1 and round 2 audit records.
++- **Phase 4, Slice 4c-a — Coordinator Lease Sweeper Wiring & Renewal Route (P4-4c-a, PR #21):**
++  - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` returning renewal status and cooperative cancel flag.
++  - Coordinator lease sweeper background loop operating on repository clock (`Repository.Now`) with autonomous outage grace window (30s), cooldown (30s), and coordinator startup grace (30s).
++  - Additive poll assignment metadata (`lease_expires_at`, `lease_duration_seconds`).
++  - Grace configuration settings (`MINICLOUD_STARTUP_GRACE_PERIOD`, `MINICLOUD_OUTAGE_GRACE_WINDOW`) with validation rules (`grace >= lease`).
++- **Phase 4, Slice 4b — Leases, Sweeper Methods, Migration 000004 & Backoff (P4-4b, PR #20):**
++  - Schema migration `000004_phase4_coordination.sql`: added `error_class` column on `attempts` and `results` with check constraint, `lease_expires_at` timestamp with time zone, and sweeper candidate partial index.
++  - Implemented `RenewLease` and `SweepExpiredLeases` across in-memory and PostgreSQL repositories with row locking (`jobs -> workers -> attempts`), in-lock grace suppression, and terminal job handling.
++  - Implemented pure backoff function `ComputeBackoff` in `internal/domain` with full jitter [0.5, 1.5] capped at 30s.
+ - **P4-02 (docs):** Repaired 4a-drifted line citations in live docs to function and section references, applied the 4b/4c slice split to docs/phase4-plan.md, registered SEC-024, added six audit-record names to the citation allowlist, imported the P4-01 and P4-4a audits.
+ - **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+   - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+diff --git a/docs/PROJECT_STATE.md b/docs/PROJECT_STATE.md
+index c2f1d65..1d00899 100644
+--- a/docs/PROJECT_STATE.md
++++ b/docs/PROJECT_STATE.md
+@@ -2,13 +2,33 @@
+ 
+ ## 1. Current Phase & Milestone
+ - **Current Branch:** `main`
+-- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
++- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, P4-03, and P0-03 merged; next: slice 4d.
+ - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
+ 
+ ---
+ 
+ ## 2. Done
+-- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
++- **README Refresh (P0-03, PR #24, `main` at `28560f6`):**
++  - Updated `README.md` with accurate quickstart instructions, environment variable configuration reference, ASCII architecture diagram, security posture, and verified CLI demonstration workflows.
++- **Phase 4, Slice 4c-b — Worker Lease Renewal Loop & Result Delivery Budget (P4-4c-b, PR #23, `main` at `3553c25`):**
++  - Periodic background lease renewal loop in worker client computed as `lease_duration_seconds / 3` clamped to `[1s, 10s]` (default 10s).
++  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
++  - Single-channel cooperative cancellation delivery: cancels worker execution when renewal response returns `cancel_requested: true`.
++  - 60-second time-bounded result delivery budget (`executeAndReport`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
++- **Phase 4 Documentation Pass & Citation Repair (P4-03, PR #22, `main` at `3e8ab9e`):**
++  - Repaired 78 pre-existing test line citations across live docs to stable function/symbol references.
++  - Synchronized task board and handoff records for P4-00, P4-02, and P4-03.
++  - Imported P4-02 round 1 and round 2 review records byte-identical.
++- **Phase 4, Slice 4c-a — Coordinator Lease Sweeper Wiring & Renewal Route (P4-4c-a, PR #21, `main` at `fc451c9`):**
++  - Dedicated renewal endpoint `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` returning HTTP 200 `{"status":"RENEWED","cancel_requested":...}` or 409 conflict following strict protocol evaluation order.
++  - Coordinator lease sweeper background loop operating on repository clock (`Repository.Now`) with autonomous outage grace window (30s), cooldown (30s), and coordinator startup grace (30s).
++  - Additive poll assignment metadata (`lease_expires_at`, `lease_duration_seconds`).
++  - Grace configuration settings (`MINICLOUD_STARTUP_GRACE_PERIOD`, `MINICLOUD_OUTAGE_GRACE_WINDOW`) with validation rules (`grace >= lease`).
++- **Phase 4, Slice 4b — Leases, Sweeper Methods, Migration 000004 & Backoff (P4-4b, PR #20, `main` at `7e58d4a`):**
++  - Schema migration `000004_phase4_coordination.sql`: added `error_class` column on `attempts` and `results` with check constraint, `lease_expires_at` timestamp with time zone, and sweeper candidate partial index.
++  - Implemented `RenewLease` and `SweepExpiredLeases` across in-memory and PostgreSQL repositories with row locking (`jobs -> workers -> attempts`), in-lock grace suppression, and terminal job handling.
++  - Implemented pure backoff function `ComputeBackoff` in `internal/domain` with full jitter [0.5, 1.5] capped at 30s.
++- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a, PR #19, `main` at `e7403a9`):**
+   - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+   - **Domain Transition Matrix Updates (Executed):** Flipped exactly two matrix cells in `allowedTransitions` table: `RETRYING -> QUEUED` becomes invalid (`false`), and `RETRYING -> RUNNING` becomes valid (`true`) for direct pull dispatch via `DispatchNextJob`. Verified by `TestJobTransitionMatrix_AllPairs`.
+   - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.DispatchNextJob`, achieving full dispatch parity with PostgreSQL. Retired `NewServiceWithQueue` and historical `spyQueue` test helper, rewriting seven coordinator unit tests to assert observable domain outcomes.
+[rc=0]
+
+$ grep -n -i "LeaseDuration\|SweeperInterval\|SweeperBatch\|StartupGrace\|OutageGrace\|Cooldown" internal/config/config.go | head -40
+32:	// LeaseDuration is the attempt lease length (ADR-0014, default 30s).
+33:	LeaseDuration time.Duration
+34:	// SweeperInterval is the lease sweeper cadence (default 5s).
+35:	SweeperInterval time.Duration
+36:	// StartupGracePeriod suppresses lease reaping after coordinator start (default 30s).
+37:	StartupGracePeriod time.Duration
+38:	// OutageGraceWindow is the length of the reaping suppression, and of the cooldown that
+40:	OutageGraceWindow time.Duration
+87:		LeaseDuration:      getDurationEnv("MINICLOUD_LEASE_DURATION", 30*time.Second),
+88:		SweeperInterval:    getDurationEnv("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
+89:		StartupGracePeriod: getDurationEnv("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
+90:		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
+135:	if cfg.LeaseDuration <= 0 {
+138:	if cfg.SweeperInterval <= 0 {
+141:	if cfg.StartupGracePeriod < cfg.LeaseDuration {
+142:		return nil, fmt.Errorf("%w: MINICLOUD_STARTUP_GRACE_PERIOD (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.StartupGracePeriod, cfg.LeaseDuration)
+144:	if cfg.OutageGraceWindow < cfg.LeaseDuration {
+145:		return nil, fmt.Errorf("%w: MINICLOUD_OUTAGE_GRACE_WINDOW (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.OutageGraceWindow, cfg.LeaseDuration)
+[rc=0]
+
+$ grep -rn "OutageCooldown\|CooldownDuration\|cooldown" internal/coordinator/sweeper.go | head -12
+27:// length of the cooldown that follows a window). The values are validated against the lease
+68:	cooldownUntil time.Time
+135:			CooldownUntil:     next.cooldownUntil,
+157:// advance computes the state for a successful tick at database time now: it arms the cooldown once
+159:// triggered one and neither a window nor a cooldown is active. The trigger is consumed either way.
+162:	if !st.windowUntil.IsZero() && !now.Before(st.windowUntil) && st.cooldownUntil.Before(st.windowUntil) {
+163:		st.cooldownUntil = st.windowUntil.Add(w.window)
+168:	if trigger && !now.Before(st.windowUntil) && !now.Before(st.cooldownUntil) {
+[rc=0]
+
+$ grep -n "recognizedNotFound\|renewInterval\|RenewInterval\|maxRenew\|minRenew\|deliveryBudget\|DeliveryBudget\|time.Minute\|60 \* time\|baseDelay\|maxDelay\|500 \* time\|5 \* time\|JOB_NOT_FOUND\|WORKER_MISMATCH\|StatusForbidden\|StatusNotFound" internal/worker/client.go | head -50
+30:	// ResultDeliveryBudget bounds how long a finished result is retried (protocol 6.1, R-11).
+31:	ResultDeliveryBudget = 60 * time.Second
+35:	deliveryBackoffMax  = 5 * time.Second
+103:			Timeout: 15 * time.Second,
+238:	if resp.StatusCode == http.StatusNotFound {
+269:	if resp.StatusCode == http.StatusNotFound {
+314:// (e.g. 403 Forbidden for WORKER_MISMATCH, 404 Not Found for missing job/attempt on restarted coordinator,
+317:	return statusCode == http.StatusForbidden || statusCode == http.StatusConflict || statusCode == http.StatusNotFound
+375:// recognizedNotFound are the 404 codes of protocol 6.3 that mean the attempt is gone.
+376:var recognizedNotFound = map[string]bool{"JOB_NOT_FOUND": true, "ATTEMPT_NOT_FOUND": true, "WORKER_NOT_FOUND": true}
+411:	case resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusForbidden:
+413:	case resp.StatusCode == http.StatusNotFound:
+414:		if recognizedNotFound[errorCode(raw)] {
+541:// deliverResult retries ReportResult with bounded backoff for at most ResultDeliveryBudget. It
+544:	budget := a.clock.NewTimer(ResultDeliveryBudget)
+593:			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "budget", ResultDeliveryBudget, "status", status, "err", reportErr)
+[rc=0]
+
+$ grep -rn "LEASE_RENEWED" --include=* . 2>/dev/null | grep -v "^./docs/agents/reviews\|^./.git/" | cut -c1-200
+./docs/agents/handoffs/P4-05.md:19:  - `docs/state-machine.md`: Removed `LEASE_RENEWED` event row from Section 5 audit event vocabulary table; added note clarifying that lease renewals and renewal rej
+./docs/agents/handoffs/P4-4b.md:28:- **D4 `RenewLease` records no event.** `docs/state-machine.md` section 5 lists `LEASE_RENEWED`, but neither ADR-0014, protocol 6.1 nor the plan's 4b scope asks the 
+./docs/agents/handoffs/P4-4b.md:122:- **Q-4 `LEASE_RENEWED` event** (D4): confirm no event per renewal, or specify a bounded form.
+./docs/agents/handoffs/P4-00.md:20:  - Table next states for `CANCEL_REQUESTED`: `CANCELLED`, `SUCCEEDED`, `FAILED` (state-machine.md section 1); removed worker acknowledgement phrase wording. Transit
+./docs/agents/handoffs/P4-00.md:80:| R2-10 | D-R2-10 | RESOLVED | Yes | `docs/state-machine.md` (sections 2, 3, 5), `docs/schema.md` (sweeper), `docs/phase4-plan.md` (Slice 4b), `docs/adr/0014-lease-m
+[rc=0]
+
+$ grep -rn "ATTEMPT_NOT_FOUND" internal cmd docs --include=*.go --include=*.md | grep -v "docs/agents/reviews" | cut -c1-180
+internal/api/handlers.go:120:		return http.StatusNotFound, "ATTEMPT_NOT_FOUND", err.Error()
+internal/worker/renewal_test.go:341:		{"404 ATTEMPT_NOT_FOUND", 404, "ATTEMPT_NOT_FOUND"},
+internal/worker/client.go:376:var recognizedNotFound = map[string]bool{"JOB_NOT_FOUND": true, "ATTEMPT_NOT_FOUND": true, "WORKER_NOT_FOUND": true}
+docs/agents/handoffs/P4-4c-b.md:11:  - Verdicts per protocol 6.1: 200 + `cancel_requested` cancels the task context and stops renewing, the outcome is still reported; 409 (any code
+docs/agents/handoffs/P4-4c-b.md:82:    --- FAIL: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_ATTEMPT_NOT_FOUND (5.00s)
+docs/agents/handoffs/P4-4c-b.md:271:   Only a recognised not-found code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`) is terminal (abort, no result). Proof: `TestWorke
+docs/agents/handoffs/P4-05.md:20:  - `docs/protocol.md`: In Section 6.3, documented that renewal rejections write no diagnostic event; unknown attempt ID on renew returns 409 `STAL
+docs/agents/handoffs/P4-05.md:151:| Fix 2 (Recognised 404 Codes) | Added `ATTEMPT_NOT_FOUND` to the Section 6.3 worker renewal action bullet in `docs/protocol.md:479`, aligning the
+docs/agents/handoffs/P4-4b.md:29:- **D5 Renewal evaluation order mirrors commit** (protocol 6.3): terminal job, then LOST attempt of this job (`ErrLeaseExpired`), then superseded /
+docs/agents/handoffs/P4-4b.md:123:- **Q-5 unknown attempt id on renewal** (D5): 409 stale (as commit) or 404 `ATTEMPT_NOT_FOUND`? 4c's worker treats both as terminal; the differenc
+docs/agents/handoffs/P4-00.md:12:  - `0014-lease-model-and-expiry.md`: Corrected Blueprint citations to Section 5 ("Job Lifecycle and Consistency Model", pages 5–6) and Section 1
+docs/agents/handoffs/P4-00.md:18:  - Renewal response status unified to `status: "RENEWED"` (protocol.md section 5.2). Corrected terminal job states to `SUCCEEDED`, `FAILED`, `CANC
+docs/agents/handoffs/P4-00.md:51:| R-10 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/protocol.md` (sections 5.3 and 6.3), `docs/failure-model.md` 
+docs/phase4-plan.md:186:      - 404: inspect body. If recognized not-found code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`), terminal rejection: abort task and do no
+docs/failure-model.md:65:   - HTTP 404 Not Found (recognized envelope `JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`, or legacy un-enveloped 404)
+docs/failure-model.md:68:   - Terminal 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`), 403 (`WORKER_MISMATCH`), and recognized 404 (`JOB_NOT_FOUND`, `ATTEM
+docs/adr/0014-lease-model-and-expiry.md:101:  - **404 Handling**: The worker checks the response body error envelope. If the response contains a recognized JSON error code (`JOB_NO
+docs/protocol.md:415:  - *Recognized code* (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`): Terminal rejection. The worker halts execution, aborts context, and does not 
+docs/protocol.md:479:- **403 Forbidden (`WORKER_MISMATCH`) and Recognised 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`)**: Treated as lease-lost for the worker. Th
+[rc=0]
+
+$ grep -n "BaseBackoff\|MaxBackoff\|0.5\|1.5\|Jitter" internal/domain/retry.go | head -20
+8:// RetryPolicy holds the job-retry backoff parameters of ADR-0015.
+10:	BaseBackoff        time.Duration
+11:	MaxBackoff         time.Duration
+12:	JitterMin          float64
+13:	JitterMax          float64
+17:// DefaultRetryPolicy returns the accepted ADR-0015 parameters: base 1 s, cap 30 s, jitter factor
+18:// in [0.5, 1.5], default max_attempts 3.
+21:		BaseBackoff:        time.Second,
+22:		MaxBackoff:         30 * time.Second,
+23:		JitterMin:          0.5,
+24:		JitterMax:          1.5,
+38:// ComputeBackoff returns min(MaxBackoff, BaseBackoff * 2^(attemptNo-1)) * jitter, where jitter is
+39:// drawn uniformly from [JitterMin, JitterMax] using rnd, a source of values in [0, 1). The cap
+40:// applies to the exponential term before the jitter, as ADR-0015 writes the formula, so the longest
+41:// possible delay is MaxBackoff * JitterMax (45 s by default).
+45:// never push the result out of [JitterMin, JitterMax]. An attemptNo below 1 is treated as 1. A
+48:	if p.BaseBackoff <= 0 || p.MaxBackoff <= 0 {
+55:	exp := p.BaseBackoff
+56:	for i := 1; i < attemptNo && exp < p.MaxBackoff; i++ {
+57:		if exp > p.MaxBackoff/2 {
+[rc=0]
+
+$ grep -n "ErrAttemptNotFound" internal/storage/inmemory.go internal/storage/postgres/*.go internal/api/handlers.go internal/coordinator/*.go | grep -v _test | cut -c1-170
+internal/storage/inmemory.go:226:		return nil, domain.ErrAttemptNotFound
+internal/storage/inmemory.go:239:		return domain.ErrAttemptNotFound
+internal/storage/inmemory.go:637:		return nil, domain.ErrAttemptNotFound
+internal/storage/inmemory.go:843:		return nil, domain.ErrAttemptNotFound
+internal/storage/postgres/leases.go:82:		return nil, domain.ErrAttemptNotFound
+internal/storage/postgres/repository.go:278:			return nil, domain.ErrAttemptNotFound
+internal/storage/postgres/repository.go:1138:			return nil, domain.ErrAttemptNotFound
+internal/api/handlers.go:119:	case errors.Is(err, domain.ErrAttemptNotFound):
+[rc=0]
+
+$ grep -n "func renewalInterval\|renewalInterval\|leaseDurationSeconds\|/ 3\|/3\|10 \* time.Second\|time.Second$" internal/worker/*.go | grep -v _test | cut -c1-200
+internal/worker/client.go:26:	DefaultRenewalInterval = 10 * time.Second
+internal/worker/client.go:29:	MinRenewalInterval = time.Second
+internal/worker/client.go:31:	ResultDeliveryBudget = 60 * time.Second
+internal/worker/client.go:33:	renewBackoffBase    = time.Second
+internal/worker/client.go:35:	deliveryBackoffMax  = 5 * time.Second
+internal/worker/client.go:138:	// 3. Work polling loop
+internal/worker/client.go:141:	maxBackoff := 3 * time.Second
+internal/worker/client.go:354:// renewalInterval is one third of the lease duration the coordinator advertised in the poll
+internal/worker/client.go:358:func renewalInterval(a *coordinator.WorkAssignment) time.Duration {
+internal/worker/client.go:362:	return min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)
+internal/worker/client.go:523:		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)
+internal/worker/client.go:530:	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
+[rc=0]
+
+$ grep -n "renew" -i internal/worker/client.go | sed -n 1,60p | cut -c1-190
+24:	// DefaultRenewalInterval is the renewal interval when the assignment carries no lease duration
+26:	DefaultRenewalInterval = 10 * time.Second
+27:	// MinRenewalInterval floors the interval derived from a very short advertised lease so a
+28:	// misconfigured coordinator cannot make the worker hammer the renew endpoint.
+29:	MinRenewalInterval = time.Second
+33:	renewBackoffBase    = time.Second
+58:// Clock abstracts the timers the agent waits on (renewal interval, delivery backoff and budget) so
+354:// renewalInterval is one third of the lease duration the coordinator advertised in the poll
+355:// assignment (protocol 6.2), clamped to [MinRenewalInterval, DefaultRenewalInterval] so a long or
+356:// hostile advertised lease cannot make the worker renew rarely; the default applies when the
+358:func renewalInterval(a *coordinator.WorkAssignment) time.Duration {
+360:		return DefaultRenewalInterval
+362:	return min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)
+365:type renewVerdict int
+368:	renewOK        renewVerdict = iota // lease extended, keep going
+369:	renewCancel                        // 200 with cancel_requested: cancel the task, stop renewing, report
+370:	renewLost                          // coordinator declared the attempt lost: abort, report nothing
+371:	renewDisable                       // endpoint missing or request rejected as malformed: stop renewing, keep running
+372:	renewTransient                     // transport error, 5xx or anything unexpected: keep running, retry
+378:// renewOnce sends one renewal and classifies the answer (protocol 6.1 "Worker Renewal Response
+380:func (a *Agent) renewOnce(ctx context.Context, asg *coordinator.WorkAssignment, timeout time.Duration) renewVerdict {
+382:	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", a.cfg.CoordinatorURL, asg.JobID, asg.AttemptID)
+387:		return renewTransient
+392:		slog.Warn("lease renewal transport error", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "err", err)
+393:		return renewTransient
+404:			slog.Warn("lease renewal answered 200 with an unreadable body", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+405:			return renewTransient
+408:			return renewCancel
+410:		return renewOK
+412:		return renewLost
+415:			return renewLost
+417:		slog.Warn("coordinator has no renew endpoint (404 without a recognised error code); running to completion without renewals",
+419:		return renewDisable
+421:		slog.Error("coordinator rejected the lease renewal as malformed; running to completion without renewals",
+423:		return renewDisable
+425:		slog.Warn("lease renewal failed, will retry", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", resp.StatusCode)
+426:		return renewTransient
+460:// renewLoop renews the lease until ctx ends or the coordinator's answer ends renewal. Transient
+463:func (a *Agent) renewLoop(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, interval time.Duration, cancelTask context.CancelFunc) {
+474:		switch a.renewOnce(ctx, asg, interval) {
+475:		case renewOK:
+477:		case renewCancel:
+481:		case renewLost:
+486:		case renewDisable:
+488:		case renewTransient:
+493:			wait = min(ComputeBackoffWithJitter(failures, renewBackoffBase, interval), interval)
+504:// ExecuteAndReport runs one claimed assignment and delivers its outcome. A renewal goroutine keeps
+518:	renewCtx, stopRenew := context.WithCancel(ctx)
+523:		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)
+526:		stopRenew()
+[rc=0]
+
+$ grep -n "func (.*) CommitAttempt" -A40 internal/storage/postgres/repository.go | grep -n "ErrAttemptNotFound\|ErrStaleAttempt\|ErrNoRows" | head
+32:1068-		if errors.Is(err, pgx.ErrNoRows) {
+[rc=0]
+
+$ awk "/^func \(r \*Repository\) RenewLease/{p=1} p&&/job_events|insertEvent|recordLate|appendEvent/{print FILENAME\":\"NR\": \"\$0} p&&/^}/{exit}" internal/storage/postgres/leases.go; echo "(postgres RenewLease event writes above; empty = none)"
+(postgres RenewLease event writes above; empty = none)
+[rc=0]
+
+$ awk "/RenewLease\(ctx/{p=1} p&&/events|recordLate|appendEvent/{print NR\": \"\$0} p&&/^}/{exit}" internal/storage/inmemory.go; echo "(inmemory RenewLease event writes above; empty = none)"
+(inmemory RenewLease event writes above; empty = none)
+[rc=0]
+
+$ grep -rn "func.*\(Test\|test\).*Renew.*\(NoEvent\|Event\)" internal tests | head -5
+[rc=0]
+
+$ sed -n 484,500p internal/worker/client.go; sed -n 541,560p internal/worker/client.go
+			cancelTask()
+			return
+		case renewDisable:
+			return
+		case renewTransient:
+			if ctx.Err() != nil {
+				return
+			}
+			failures++
+			wait = min(ComputeBackoffWithJitter(failures, renewBackoffBase, interval), interval)
+		}
+	}
+}
+
+// isTerminalDelivery reports a rejection the coordinator will never answer differently: the 409
+// family, 403, 404 and a deterministic 400 (protocol 6.3, R-11).
+func isTerminalDelivery(status int) bool {
+// deliverResult retries ReportResult with bounded backoff for at most ResultDeliveryBudget. It
+// stops at the first success, a terminal rejection, a lost lease, shutdown or the budget.
+func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, exitCode int, output, errSummary string) {
+	budget := a.clock.NewTimer(ResultDeliveryBudget)
+	defer budget.Stop()
+	dctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var expired atomic.Bool
+	go func() {
+		select {
+		case <-budget.C():
+			expired.Store(true)
+			cancel()
+		case <-dctx.Done():
+		}
+	}()
+
+	var status int
+	var reportErr error
+	for n := 1; ; n++ {
+[rc=0]
+
+$ grep -n "deliveryBackoffBase\|deliveryBackoffMax\|renewBackoffBase" internal/worker/client.go | head
+33:	renewBackoffBase    = time.Second
+34:	deliveryBackoffBase = 200 * time.Millisecond
+35:	deliveryBackoffMax  = 5 * time.Second
+493:			wait = min(ComputeBackoffWithJitter(failures, renewBackoffBase, interval), interval)
+577:		t := a.clock.NewTimer(ComputeBackoffWithJitter(n, deliveryBackoffBase, deliveryBackoffMax))
+[rc=0]
+
+$ grep -rn "func .*xecuteAndReport" internal/worker/client.go
+507:func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
+[rc=0]
+
+$ grep -rn "LeaseDurationSeconds" internal --include=*.go | grep -v _test | cut -c1-200
+internal/worker/client.go:359:	if a.LeaseDurationSeconds <= 0 {
+internal/worker/client.go:362:	return min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)
+internal/coordinator/service.go:51:	// LeaseExpiresAt and LeaseDurationSeconds are the additive lease metadata of protocol 6.2:
+internal/coordinator/service.go:54:	LeaseDurationSeconds int        `json:"lease_duration_seconds,omitempty"`
+internal/coordinator/service.go:374:		LeaseDurationSeconds: int(s.leaseDuration / time.Second),
+[rc=0]
+
+$ grep -rn "StartupGracePeriod\|OutageGraceWindow" tests internal --include=*_test.go | grep -i "millisecond" | head -10 | cut -c1-220
+[rc=0]
+
+$ git show origin/main:docs/adr/0014-lease-model-and-expiry.md | grep -n "500ms\|micro" | cut -c1-260
+188:  Coordinator-side grace periods must be paired with worker-side delivery resilience. If a task completes execution during a coordinator or database outage, the worker's result delivery loop (`internal/worker/client.go:324-355`) retries `ReportResult` with
+191:  - Candidates for Owner Approval: If future tests explicitly configure short micro-leases (e.g. 500ms lease) to test fast expiry, they must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s` or wait for the grace window to elapse. Expanding `execute
+[rc=0]
+
+$ grep -rn -i "minimum lease\|no minimum\|min.*lease" docs --include=*.md | grep -v "docs/agents/handoffs/P4-05\|docs/adr/0014" | cut -c1-260 | head
+docs/agents/reviews/P4-4c-b.md:18:6. Result delivery bounded by a strict 60 s retry budget (`ResultDeliveryBudget`) on the injected clock, retrying with exponential backoff and jitter, cutting off in-flight requests at expiry, continuing renewals while deliver
+docs/agents/reviews/P4-4c-b.md:49:| **F-4c-b-A1** | Nit | `internal/worker/client.go:renewalInterval` | executed | For advertised leases under 3 s (e.g. 1 s or 2 s leases in edge-case testing), `renewalInterval` floors the interval at 1 s (`MinRenewalInterval`
+docs/agents/reviews/P4-4c-b.md:77:   - Verified that HTTP 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`), HTTP 403 (`WORKER_MISMATCH`), and HTTP 404 with recognized error codes (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`)
+docs/agents/reviews/P4-4c-b.md:90:   - Loop exits immediately upon terminal status codes (400 Bad Request, 403 Forbidden, 404 Not Found, 409 Conflict), lease-lost signal, or agent shutdown.
+docs/agents/reviews/P4-4c-b.md:141:| **m-spot-5** | Interval ceiling removed (`min(..., 10s)` removed) | FAIL (exit 1) | PASS (exit 0) | `TestWorker_Renewal_IntervalDerivedFromAssignment`, `TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithi
+docs/agents/reviews/P4-02.md:107:| R-14 (line 55) | "Old state names replaced across ADR-0014 and phase4-plan." | Configuration **names** differed (`MINICLOUD_DEFAULT_LEASE_DURATION` vs `MINICLOUD_LEASE_DURATION`, `MINICLOUD_SWEEPER_INTERVAL` vs `MINICLOUD_LEA
+docs/agents/reviews/P4-02.md:113:  - R-14: `Configuration names unified: MINICLOUD_LEASE_DURATION and MINICLOUD_SWEEPER_INTERVAL are the only spellings in ADR-0014 and phase4-plan.`
+docs/agents/reviews/P4-02.md:154:- SEC-024 (Informational, Open, within SEC-004) is missing from `docs/PROJECT_STATE.md` section 7; add `  - **SEC-024 (Informational, Open, within SEC-004):** CommitAttempt on a terminal job evaluates job terminality before the
+docs/agents/reviews/P4-4c-a.md:71:   - Verified that 409 conflict responses evaluate in protocol priority order: terminal job returns `JOB_ALREADY_TERMINAL`, swept/LOST attempt returns `LEASE_EXPIRED`, superseded or token mismatch returns `STALE_ATTEMPT_REJECT
+docs/agents/reviews/P4-4a.md:49:| **R-4a-02** | Informational | `internal/storage/inmemory.go:595`, `internal/storage/postgres/repository.go:965` | executed | Attack 4(a) confirms that on terminal jobs, `CommitAttempt` inspects neither `lease_token` nor `worke
+[rc=0]
+
+$ grep -rn -i "planning session\|authoris" docs/agents/handoffs/P4-4c-b.md docs/agents/handoffs/P4-4c-a.md docs/agents/handoffs/P4-4b.md | cut -c1-260 | head
+docs/agents/handoffs/P4-4c-b.md:21:2. **Transient renewal retry cadence.** The plan says "retry renewal next interval". The task asked for the existing bounded backoff and no hammering, so the retry wait is bounded exponential backoff, base 1 s, capped at the 
+docs/agents/handoffs/P4-4c-b.md:454:- Authorisations above are the orchestrator's decisions in the round 2 message, not owner decisions recorded in a design doc.
+docs/agents/handoffs/P4-4c-a.md:222:Every authorisation below was authorised by the orchestrator in the planning session; the owner accepts it by merging. None of it is recorded here as an owner decision.
+docs/agents/handoffs/P4-4c-a.md:225:- **Q1 resolved.** Editing `cmd/coordinator/main.go` (and a test for it) was authorised by the orchestrator in the planning session; the owner accepts it by merging. Done, see below.
+docs/agents/handoffs/P4-4c-a.md:226:- **Q2 resolved.** F-4b-A1 was withdrawn (authorised by the orchestrator in the planning session; the owner accepts it by merging). My reading stands: reaping proceeds during the cooldown and startup grace wins over the cool
+docs/agents/handoffs/P4-4c-a.md:227:- **Q3 resolved.** The strict rule (grace at least the lease) stays; micro-lease tests set the lease and the grace both small (authorised by the orchestrator in the planning session; the owner accepts it by merging). The wir
+docs/agents/handoffs/P4-4c-a.md:229:- **Gate gap (item 5)** resolved by a minimal edit of the `test-db` target, authorised by the orchestrator in the planning session; the owner accepts it by merging.
+docs/agents/handoffs/P4-4c-a.md:236:**New deviations**: `cmd/**` and the `Makefile` edited with the authorisation above (both outside my original ownership list). `make test-db` now also runs `./tests/integration/` with the anchored pattern; this is wider than
+[rc=0]
+
+$ grep -rn "bounded backoff\|capped at one\|renewBackoff\|retry.*interval" docs/agents/handoffs/P4-4c-b.md | cut -c1-260 | head -6
+12:  - Transient renewal failures retry after `min(ComputeBackoffWithJitter(failures, 1 s, interval), interval)`, back to the interval after one success. They never abort the attempt.
+21:2. **Transient renewal retry cadence.** The plan says "retry renewal next interval". The task asked for the existing bounded backoff and no hammering, so the retry wait is bounded exponential backoff, base 1 s, capped at the interval (0.5 s at the very leas
+229:- **Q2 (retry cadence, deviation 2).** Confirm bounded backoff (at most one interval) for transient renewal failures instead of waiting a whole interval; the plan and protocol 6.1 say "next interval".
+242:- A4 *The retry loops must not become a DoS tool.* Renewal retry waits at least 0.5 s and at most one interval; delivery retries back off to about 3.2 s (the existing 16x multiplier cap; the 5 s ceiling is never reached) and stop at 60 s. **executed**: the
+272:2. **Retry cadence accepted.** Deviation from the plan wording for the docs pass: plan 4c and protocol 6.1 say a transient renewal failure is retried "next interval"; the worker retries after bounded exponential backoff, base 1 s, jitter factor in [0.5, 1]
+451:- Plan 4c "retry renewal next interval" is replaced by bounded backoff capped at one interval (decision 2).
+[rc=0]
+
+$ grep -n "SEC-012" docs/security/findings.md | head -3 | cut -c1-300
+24:| **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 2
+182:### SEC-012: Worker Execution Timeout Not Clamped Above
+533:- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+[rc=0]
+
+$ grep -n "F-4c-b-[123]" docs/agents/handoffs/P4-4c-b.md | cut -c1-330 | head -8
+24:5. **No upper bound on the interval.** Floor 1 s, no ceiling: a coordinator advertising `lease_duration_seconds` of 86400 gets one renewal per 8 h. The coordinator is trusted (SEC-004); see F-4c-b-1.
+231:- **Q4 (interval ceiling).** Should the worker clamp the renewal interval to a maximum (for example the default 10 s) so a coordinator that advertises a very long lease cannot make the worker renew too rarely? The design is silent; I left it unclamped (F-4c-b-1).
+253:- **F-4c-b-1 (Low, within SEC-004).** The renewal interval is one third of whatever `lease_duration_seconds` the coordinator advertises, with a 1 s floor and no ceiling. A coordinator (or an attacker answering as one) that advertises a very long lease makes the worker renew rarely; if the real lease is shorter, the attempt i
+254:- **F-4c-b-2 (Info).** After `cancel_requested` the worker stops renewing but still reports a result on an unextended lease, so a slow result delivery (up to 60 s) can outlive the lease and race the sweeper, which reaps a `CANCEL_REQUESTED` job as `CANCELLED`. Outcome is safe (the late commit gets 409, the worker stops), des
+255:- **F-4c-b-3 (Info).** A result can be in flight when the lease is declared lost; the worker cannot recall it. The coordinator rejects it (invariant 3). Evidence: **inferred**.
+263:Status: all five decisions applied, gates green. Round 1 text above is kept as written; where round 2 changes it, round 2 wins (deviation 5 and F-4c-b-1 are superseded, Q1 to Q4 are answered below).
+273:3. **Interval ceiling (F-4c-b-1 FIXED).** `renewalInterval` is `clamp(lease_duration_seconds / 3, 1 s, 10 s)`; absent or zero duration gives 10 s. Break before fix: the new cases failed first (output below). Tests: the two new cases of `TestWorker_Renewal_IntervalDerivedFromAssignment` (3600 s and 31 s leases give 10 s) and 
+462:- F-4c-b-1 is **fixed** (ceiling): a coordinator advertising a very long lease no longer lowers the renewal rate below once per 10 s. Evidence: **executed**, the two clamp tests and the ceiling mutation.
+[rc=0]
+
+$ grep -rn "F-4c-b" docs/agents/TASKS.md docs/PROJECT_STATE.md docs/security/findings.md CHANGELOG.md docs/agents/handoffs/P4-05.md | head
+[rc=0]
+
+$ git log --oneline origin/main..HEAD
+ddfd4b0 docs(handoff): add round 2 fixes and verified green gate outputs for P4-05
+e7ddc6a docs(protocol): add ATTEMPT_NOT_FOUND to recognized 404 error codes
+92ee96f docs(reviews): unimport P0-03 review records pending citation checker scoping
+587c446 docs(handoff): add P4-05 docs pass handoff
+86b20a3 docs(tasks): use handoff wildcard convention and quote link in TASKS follow-up
+f3e5716 docs: update PROJECT_STATE, TASKS, and CHANGELOG true on main
+749dc70 docs: record design-doc clarifications for slices 4a-4c
+9d8ae7f docs(security): register findings SEC-025 through SEC-028
+4a3b275 docs(reviews): import review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03
+[rc=0]
+
+$ git cat-file -t 587c446; wc -l docs/agents/TASKS.md; sed -n 113p docs/agents/TASKS.md | cut -c1-120; sed -n 471p docs/protocol.md | cut -c1-150; sed -n 476p docs/protocol.md | cut -c1-150; sed -n 5p docs/PROJECT_STATE.md | cut -c1-140; sed -n 21p docs/agents/TASKS.md | cut -c1-140
+commit
+113 docs/agents/TASKS.md
+- **Review records citation checker scoping**: Review records from remote audit branches `agent/claude/P0-03-review-2` (
+| 3 | Attempt state is not `RUNNING`, attempt superseded, lease token mismatch, or unknown attempt ID (`domain.ErrStaleAttempt`) | 409 Conflict | `STA
+*Note on Diagnostic Events and Renewal Rejections*: Renewal rejections (`POST /renew`) write no event to `job_events` under any circumstance; diagnost
+- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, P4-03, and P0-03 merged; next: slice 4d.
+| ID | Title | Builder | Auditor | Branch | Status |
+[rc=0]
+
+$ git diff origin/main...HEAD --name-only | grep -v "^docs/\|^CHANGELOG.md" ; echo "(non-docs/changelog paths above; empty = none)"; git diff origin/main...HEAD -- . ":!docs" ":!CHANGELOG.md" | wc -c; git diff origin/main...HEAD --name-only -- tests; git diff origin/main...HEAD --stat -- tests/docs tests/docs/citation_allowlist.txt | wc -l
+(non-docs/changelog paths above; empty = none)
+0
+0
+[rc=0]
+
+$ git diff origin/main...HEAD --name-only | awk -F/ "{print \$1}" | sort | uniq -c
+      1 CHANGELOG.md
+     19 docs
+[rc=0]
+
+$ env | grep -c MINICLOUD_TEST_DATABASE_URL; ls -a | grep -c "^.env$"; git status --short | wc -l; go version
+0
+0
+0
+go version go1.22.2 linux/amd64
+[rc=0]
+
+$ test -z "$(gofmt -l .)" && echo GOFMT_OK || gofmt -l .
+GOFMT_OK
+[rc=0]
+
+$ go vet ./... && echo VET_OK
+VET_OK
+[rc=0]
+
+$ go build ./... && echo BUILD_OK
+BUILD_OK
+[rc=0]
+
+$ env -u MINICLOUD_TEST_DATABASE_URL make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.696s
+[rc=0]
+
+$ echo "go test -v -race -count=1 ./... (env -u MINICLOUD_TEST_DATABASE_URL) on ddfd4b0, full log /tmp/p405ev/gate-v-head.log"; grep -E "^(ok|FAIL|--- FAIL)" /tmp/p405ev/gate-v-head.log; echo "PASS $(grep -c "^--- PASS" /tmp/p405ev/gate-v-head.log) SKIP $(grep -c "^--- SKIP" /tmp/p405ev/gate-v-head.log) FAIL $(grep -c "^--- FAIL" /tmp/p405ev/gate-v-head.log)"
+go test -v -race -count=1 ./... (env -u MINICLOUD_TEST_DATABASE_URL) on ddfd4b0, full log /tmp/p405ev/gate-v-head.log
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.728s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.032s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.960s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.032s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.231s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.421s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.124s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.035s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.031s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.509s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.120s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	5.935s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.038s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	13.375s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	6.423s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.046s
+PASS 172 SKIP 35 FAIL 0
+[rc=0]
+
+$ git checkout -q -b scratch-merge-main ddfd4b0 && git -c user.name=auditor -c user.email=a@example.invalid merge --no-edit origin/main; echo MERGE_RC=$?; git status --short | head -20
+Merge made by the 'ort' strategy.
+ cmd/coordinator/main.go                            |  13 +-
+ cmd/coordinator/main_test.go                       |  21 ++
+ cmd/mc/failure.go                                  |  58 +++
+ cmd/mc/failure_test.go                             |  82 +++++
+ cmd/mc/main.go                                     |  49 ++-
+ docs/agents/handoffs/P4-4d.md                      | 209 +++++++++++
+ internal/api/api_test.go                           |   2 +-
+ internal/api/failure_test.go                       | 276 +++++++++++++++
+ internal/api/handlers.go                           |   9 +-
+ internal/config/config.go                          |   5 +-
+ internal/config/config_test.go                     |  31 ++
+ internal/coordinator/retry_test.go                 | 241 +++++++++++++
+ internal/coordinator/service.go                    |  57 ++-
+ internal/coordinator/service_test.go               |  16 +-
+ internal/coordinator/sweeper.go                    |   8 +-
+ internal/coordinator/sweeper_test.go               |   4 +-
+ internal/domain/failure.go                         |  59 ++++
+ internal/domain/failure_test.go                    | 100 ++++++
+ internal/executor/classify.go                      |  33 ++
+ internal/executor/classify_test.go                 |  88 +++++
+ internal/storage/inmemory.go                       |  86 +++--
+ internal/storage/inmemory_test.go                  |  27 +-
+ internal/storage/postgres/concurrency_test.go      |   7 +-
+ internal/storage/postgres/migration_000004_test.go |   2 +-
+ internal/storage/postgres/repository.go            | 137 +++++---
+ internal/storage/postgres/repository_test.go       |   8 +
+ internal/storage/postgres/security_test.go         |  18 +-
+ internal/storage/postgres/sweeper_test.go          |   4 +-
+ internal/storage/repository.go                     |   9 +-
+ internal/storage/storagetest/conformance.go        | 390 ++++++++++++++++++++-
+ internal/worker/classification_test.go             |  83 +++++
+ internal/worker/client.go                          |  22 +-
+ internal/worker/client_test.go                     |   2 +-
+ internal/worker/renewal_test.go                    |  16 +-
+ 34 files changed, 2015 insertions(+), 157 deletions(-)
+ create mode 100644 cmd/mc/failure.go
+ create mode 100644 cmd/mc/failure_test.go
+ create mode 100644 docs/agents/handoffs/P4-4d.md
+ create mode 100644 internal/api/failure_test.go
+ create mode 100644 internal/coordinator/retry_test.go
+ create mode 100644 internal/domain/failure.go
+ create mode 100644 internal/domain/failure_test.go
+ create mode 100644 internal/executor/classify.go
+ create mode 100644 internal/executor/classify_test.go
+ create mode 100644 internal/worker/classification_test.go
+MERGE_RC=0
+[rc=0]
+
+$ git diff --stat 28560f6 origin/main -- docs CHANGELOG.md README.md
+ docs/agents/handoffs/P4-4d.md | 209 ++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 209 insertions(+)
+[rc=0]
+
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.652s
+[rc=0]
+
+$ echo "merged tree (scratch-merge-main = ddfd4b0 + origin/main f13d97f); full log /tmp/p405ev/gate-v-merged.log"; git rev-parse --short HEAD; grep -E "^(ok|FAIL|--- FAIL)" /tmp/p405ev/gate-v-merged.log; echo "PASS $(grep -c "^--- PASS" /tmp/p405ev/gate-v-merged.log) SKIP $(grep -c "^--- SKIP" /tmp/p405ev/gate-v-merged.log) FAIL $(grep -c "^--- FAIL" /tmp/p405ev/gate-v-merged.log)"
+merged tree (scratch-merge-main = ddfd4b0 + origin/main f13d97f); full log /tmp/p405ev/gate-v-merged.log
+16d276c
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.648s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	1.027s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.032s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.707s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.033s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.202s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.174s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.114s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.046s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.100s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.500s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.126s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	6.918s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.029s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	20.456s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	11.746s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.075s
+PASS 195 SKIP 35 FAIL 0
+[rc=0]
+
+$ git checkout -q -B scratch-mut ddfd4b0 && git rev-parse --short HEAD && git status --short | wc -l
+ddfd4b0
+0
+[rc=0]
+
+$ printf "\nMutation A: see `docs/no-such-file-p405.md` for details.\n" >> docs/agents/handoffs/P4-05.md; make test-docs 2>&1 | head -12; git checkout -- docs/agents/handoffs/P4-05.md; git status --short | wc -l
+bash: line 1: docs/no-such-file-p405.md: No such file or directory
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.667s
+0
+[rc=0]
+
+$ printf "\nMutation B: verified by `TestNoSuchTestP405_Fake` in `internal/api/api_test.go`.\n" >> docs/security/findings.md; make test-docs 2>&1 | head -12; git checkout -- docs/security/findings.md; git status --short | wc -l
+bash: line 1: TestNoSuchTestP405_Fake: command not found
+bash: line 1: internal/api/api_test.go: Permission denied
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.768s
+0
+[rc=0]
+
+$ printf "\nMutation C: see `internal/storage/postgres/leases.go:99999`.\n" >> docs/agents/TASKS.md; make test-docs 2>&1 | head -12; git checkout -- docs/agents/TASKS.md; git status --short | wc -l
+bash: line 1: internal/storage/postgres/leases.go:99999: No such file or directory
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.861s
+0
+[rc=0]
+
+$ make test-docs; git status --short | wc -l
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.635s
+0
+[rc=0]
+
+$ Q8 mutations (scripted via /tmp/p405ev/mut.sh; earlier backtick-in-double-quote attempt applied nothing and is superseded)
+
+$ /tmp/p405ev/mut.sh docs/agents/handoffs/P4-05.md "Mutation A: see \`docs/no-such-file-p405.md\` for details."
+--- appended to docs/agents/handoffs/P4-05.md: Mutation A: see `docs/no-such-file-p405.md` for details.
+go test ./tests/docs
+--- FAIL: TestCitations (0.62s)
+    --- FAIL: TestCitations/RuleA_RepoPaths (0.07s)
+        citations_test.go:713: docs/agents/handoffs/P4-05.md:241: [RuleA] cited path "docs/no-such-file-p405.md" does not exist in repository
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.622s
+FAIL
+make: *** [Makefile:22: test-docs] Error 1
+make rc=2
+files modified after revert: 0
+[rc=0]
+
+$ /tmp/p405ev/mut.sh docs/security/findings.md "Mutation B: verified by \`TestNoSuchTestP405_Fake\` in \`internal/api/api_test.go\`."
+--- appended to docs/security/findings.md: Mutation B: verified by `TestNoSuchTestP405_Fake` in `internal/api/api_test.go`.
+go test ./tests/docs
+--- FAIL: TestCitations (0.70s)
+    --- FAIL: TestCitations/RuleC_TestIdentifiers (0.30s)
+        citations_test.go:727: docs/security/findings.md:560: [RuleC] cited test "TestNoSuchTestP405_Fake" does not exist
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.701s
+FAIL
+make: *** [Makefile:22: test-docs] Error 1
+make rc=2
+files modified after revert: 0
+[rc=0]
+
+$ /tmp/p405ev/mut.sh docs/agents/TASKS.md "Mutation C: see \`internal/storage/postgres/leases.go:99999\`."
+--- appended to docs/agents/TASKS.md: Mutation C: see `internal/storage/postgres/leases.go:99999`.
+go test ./tests/docs
+--- FAIL: TestCitations (0.61s)
+    --- FAIL: TestCitations/RuleB_LineAnchors (0.22s)
+        citations_test.go:720: docs/agents/TASKS.md:115: [RuleB] line citation internal/storage/postgres/leases.go:99999 exceeds file line count (435)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.618s
+FAIL
+make: *** [Makefile:22: test-docs] Error 1
+make rc=2
+files modified after revert: 0
+[rc=0]
+
+$ /tmp/p405ev/mut.sh docs/adr/0014-lease-model-and-expiry.md "Mutation D: see \`internal/worker/client.go:1-99999\`."
+--- appended to docs/adr/0014-lease-model-and-expiry.md: Mutation D: see `internal/worker/client.go:1-99999`.
+go test ./tests/docs
+--- FAIL: TestCitations (0.63s)
+    --- FAIL: TestCitations/RuleB_LineAnchors (0.23s)
+        citations_test.go:720: docs/adr/0014-lease-model-and-expiry.md:263: [RuleB] line citation internal/worker/client.go:1 exceeds file line count (597)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.632s
+FAIL
+make: *** [Makefile:22: test-docs] Error 1
+make rc=2
+files modified after revert: 0
+[rc=0]
+
+$ make test-docs; git status --short | wc -l
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.630s
+0
+[rc=0]
+
+$ echo "[state: detached ddfd4b0]"; git rev-parse --short HEAD; git status --short | wc -l
+[state: detached ddfd4b0]
+ddfd4b0
+0
+[rc=0]
+
+$ grep -n "P0-03" CHANGELOG.md | head -3 | cut -c1-200; grep -n "import review records" docs/agents/TASKS.md | cut -c1-260; ls docs/agents/reviews | grep -c "P0-03"
+11:- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03; registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR
+12:- **P0-03 (README refresh, PR #24):** Refreshed repository `README.md` with verified quickstart instructions, environment variable configuration reference, architecture diagram, security posture, a
+72:- Goal: import review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03; register findings SEC-025 through SEC-028; record design-doc clarifications for slices 4a-4c (ADR-0014, ADR-0015, state-machine.md, protocol.md, phase4-plan.md); update PROJECT_STA
+2
+[rc=0]
+
+$ grep -n "P4-05" docs/agents/TASKS.md | head -3 | cut -c1-200; sed -n 21,23p docs/agents/TASKS.md
+23:| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+71:### P4-05 — Phase 4 docs pass after slices 4a–4c
+73:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-05`. Status: active.
+| ID | Title | Builder | Auditor | Branch | Status |
+|---|---|---|---|---|---|
+| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+[rc=0]
+
+$ grep -n "500ms base\|client.go:324-355" docs/adr/0014-lease-model-and-expiry.md | cut -c1-120; sed -n 30,36p internal/worker/client.go; sed -n 575,578p internal/worker/client.go
+188:  Coordinator-side grace periods must be paired with worker-side delivery resilience. If a task completes execution 
+	// ResultDeliveryBudget bounds how long a finished result is retried (protocol 6.1, R-11).
+	ResultDeliveryBudget = 60 * time.Second
+
+	renewBackoffBase    = time.Second
+	deliveryBackoffBase = 200 * time.Millisecond
+	deliveryBackoffMax  = 5 * time.Second
+)
+		slog.Warn("transient error reporting result to coordinator, retrying",
+			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "err", reportErr, "attempt", n)
+		t := a.clock.NewTimer(ComputeBackoffWithJitter(n, deliveryBackoffBase, deliveryBackoffMax))
+		select {
+[rc=0]
+
+$ grep -n "Jobs assigned to dead workers\|^## 8\|Date:\|PASS: 90\|Proposed Phase 4 Sub-Slices\|Phase 4 Lease Expiry & Requeue" docs/PROJECT_STATE.md | cut -c1-200; grep -c "SEC-025\|SEC-026\|SEC-027\|SEC-028\|SEC-023" docs/PROJECT_STATE.md
+192:## 4. Proposed Phase 4 Sub-Slices & Exit Criteria (Design Specification Revision)
+255:5. **Phase 4 Lease Expiry & Requeue:** Unacknowledged in-flight queue items and dead workers' `RUNNING` jobs are handled in Phase 4 (leases and automated requeue).
+282:  - Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
+287:## 8. Last Verified Commands & Actual Results
+288:- **Date:** 2026-10-28 (go version, gofmt, go vet, make test-docs and the final count line from the P4-02 tree; per-package race timings are the 2026-10-26 P4-01 output; make test-db was not run i
+320:PASS: 90, SKIP: 28, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
+0
+[rc=1]
+
+$ grep -n "SEC-029" docs/agents/handoffs/P4-4d.md | cut -c1-200; git show origin/main:docs/agents/handoffs/P4-4d.md | grep -c "SEC-029"; git show origin/main:docs/security/findings.md | grep -c "SEC-029"
+grep: docs/agents/handoffs/P4-4d.md: No such file or directory
+1
+0
+[rc=1]
+
+$ grep -n "F-4c-b-2\|F-4c-b-3" docs/agents/handoffs/P4-4c-b.md | cut -c1-140; grep -rln "F-4c-b-2\|F-4c-b-3" docs CHANGELOG.md | grep -v "reviews/P4-4c-b"
+254:- **F-4c-b-2 (Info).** After `cancel_requested` the worker stops renewing but still reports a result on an unextended lease, so a slow r
+255:- **F-4c-b-3 (Info).** A result can be in flight when the lease is declared lost; the worker cannot recall it. The coordinator rejects i
+463:- F-4c-b-2 (Info) and F-4c-b-3 (Info) are unchanged and listed for the docs pass (round 1 section above); next free finding number SEC-0
+docs/agents/handoffs/P4-4c-b.md
+[rc=0]
+
+$ grep -n "403, 404, 409" CHANGELOG.md docs/PROJECT_STATE.md | cut -c1-160
+CHANGELOG.md:15:  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
+CHANGELOG.md:43:  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry loop wit
+docs/PROJECT_STATE.md:15:  - Immediate context cancellation and task abort on lease loss or renewal rejection (403, 404, 409).
+docs/PROJECT_STATE.md:45:  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry
+[rc=0]
+
+$ git show 587c446:docs/agents/handoffs/P4-05.md | grep -n "587c446\|Honesty" | head -3; git log --format=%h -n1 587c446
+587c446
+[rc=0]
+
+$ git checkout -q --detach 587c446 && git rev-parse --short HEAD && ls docs/agents/reviews | grep -c "P0-03-round"; make test-docs 2>&1 | grep -c "\[RuleA\]"; make test-docs 2>&1 | tail -3
+587c446
+4
+7
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.779s
+FAIL
+make: *** [Makefile:22: test-docs] Error 1
+[rc=0]
+
+$ git checkout -q --detach ddfd4b0 && git rev-parse --short HEAD && git status --short | wc -l
+ddfd4b0
+0
+[rc=0]
