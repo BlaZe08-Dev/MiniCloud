@@ -16,12 +16,12 @@ Accepted by Owner (2026-10-26)
 ## Context
 
 ### Verified Baseline: Existing Cancellation Behavior
-MiniCloud currently implements cancellation atomically in storage via `repo.CancelJob`:
+Before slice 4a (baseline at f6c7ec8) MiniCloud implemented cancellation atomically in storage via `repo.CancelJob`:
 - Existing code in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob` behaves identically:
   1. If job is terminal (`SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`): returns `domain.ErrJobAlreadyTerminal` (mapped to HTTP 409).
   2. If job is in `QUEUED`: transitions job immediately to `CANCELLED` (audit event `JobEventCancelled`).
   3. If job is in `RUNNING`: transitions job to `CANCEL_REQUESTED` (audit event `JobEventCancelRequested`), leaving the active attempt unmodified in `RUNNING`.
-  4. If job is in any other non-terminal state (which currently includes `CANCEL_REQUESTED` or future `RETRYING`): the `else` branch transitions the job directly to `CANCELLED` (audit event `JobEventCancelled`).
+  4. If job is in any other non-terminal state (which then included `CANCEL_REQUESTED` or future `RETRYING`): the `else` branch transitions the job directly to `CANCELLED` (audit event `JobEventCancelled`).
 - **Correction of Prior Misdescription**: Prior design drafts incorrectly claimed that cancelling a `RUNNING` job moved it directly to `CANCELLED` and marked the attempt `FAILED`. That description was erroneous. In reality, `CancelJob` already sets `CANCEL_REQUESTED` on first call for `RUNNING` jobs and leaves the attempt in `RUNNING`.
 - **The Gap Today**: Workers learn nothing about cancellation:
   1. The heartbeat response is static `{"status": "ACK"}`.
@@ -42,7 +42,7 @@ Blueprint Section 5 ("Job Lifecycle and Consistency Model", pages 5–6), Sectio
 ### 1. Behavior Changes Introduced by Phase 4 Design
 The Phase 4 design introduces four concrete behavioral changes to the existing cancellation implementation:
 1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**:
-   - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
+   - *Behavior before slice 4a*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
    - *New Behavior*: A duplicate cancel on a `CANCEL_REQUESTED` job is an idempotent no-op performed directly in the repository `CancelJob` method under the job row lock (in PostgreSQL) or mutex (in-memory). It returns the existing job state with HTTP 200 `CANCEL_REQUESTED` (with the same body as the first cancellation request) and does not insert duplicate audit events or invoke FSM transitions. In Slice 4a, `CommitAttempt` on a terminal job closes the attempt (only if the attempt is still `RUNNING`) and frees the worker capacity slot in the same transaction as the rejection, writing a diagnostic event and returning 409 `JOB_ALREADY_TERMINAL`.
 2. **Cancellation During `RETRYING`**:
    - When a job is in `RETRYING` awaiting backoff, `CancelJob` immediately transitions it to `CANCELLED` (terminal), clears `not_before`, and removes it from dispatch eligibility.
@@ -147,7 +147,7 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
     - If job is in terminal `CANCELLED` (or `SUCCEEDED`/`FAILED`): Return HTTP `409 Conflict` with `code: "JOB_ALREADY_TERMINAL"`.
 - **Existing Test Impact**:
   - Existing tests `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` test duplicate cancel on terminal `QUEUED -> CANCELLED`, asserting `ErrJobAlreadyTerminal`. Neither test asserts duplicate cancel on `CANCEL_REQUESTED`.
-  - Conformance plan adds `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) to verify in-memory and PostgreSQL parity for duplicate cancel on `CANCEL_REQUESTED`.
+  - Conformance plan adds `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a) to verify in-memory and PostgreSQL parity for duplicate cancel on `CANCEL_REQUESTED`.
 
 ---
 
