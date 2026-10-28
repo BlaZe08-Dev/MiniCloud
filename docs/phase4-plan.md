@@ -40,7 +40,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
        - The existing test `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` asserts that calling `repo.CancelJob` a second time on a terminal `CANCELLED` job returns `domain.ErrJobAlreadyTerminal`.
        - Slice 4a changes duplicate-cancel behavior on non-terminal `CANCEL_REQUESTED` jobs (the job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes (HTTP 200 continues to be returned for all valid cancellation requests). No existing test in the test suite asserts a second-cancel response on `CANCEL_REQUESTED`.
        - *Impact*: Zero existing tests are broken by making duplicate cancel on `CANCEL_REQUESTED` an idempotent no-op returning HTTP 200.
-       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
+       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` (added in slice 4a to `internal/storage/storagetest/conformance.go`).
   2. *FSM Transition Matrix Updates (`TestJobTransitionMatrix_AllPairs` in `internal/domain/transition_test.go`)*:
      - Exactly two matrix cells change validity (marked "candidate for owner approval"):
        - `RETRYING -> QUEUED`: was valid in initial matrix (`true`), becomes invalid (`false`) (candidate for owner approval; jobs in `RETRYING` do not transition back to `QUEUED`, they dispatch directly `RETRYING -> RUNNING` via `DispatchNextJob`).
@@ -49,13 +49,13 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
      - *Impact*: `TestJobTransitionMatrix_AllPairs` cell assertions for the two flipped cells are updated in Slice 4a.
   3. *HTTP API Cancel Status Code Parity (Unchanged from Today)*:
      - All cancellation requests for valid jobs (`QUEUED`, `RETRYING`, `RUNNING`, or duplicate cancels on `CANCEL_REQUESTED`) return HTTP 200 `OK`. Status codes are completely unchanged from today. There is no HTTP 202 `Accepted`, no ADR-0004 exception, and no `duplicate` response field.
-     - Planned test: `TestAPI_CancelJob_SuccessReturns200`.
+     - Test: `TestAPI_CancelJob_SuccessReturns200` (executed in slice 4a).
   4. *In-Memory Retry Dispatch & Coordinator Rewiring (R-05, D-R2-01 & R3-09)*:
      - `RETRYING` jobs dispatch through `repo.DispatchNextJob` in both modes. The memory-mode coordinator (`PollWork` in `internal/coordinator/service.go` func `PollWork`) is rewired to call `repo.DispatchNextJob` in slice 4a, achieving full dispatch parity with PostgreSQL.
      - *Coordinator Queue Operations & Constructor Fate*:
        - When DB dispatch replaces queue operations in Slice 4a, queue operations (`s.queue.Enqueue`, `s.queue.Ack`) are completely removed from `SubmitJob`, `CommitResult`, and `CancelJob` in `internal/coordinator/service.go` with the memory-dispatch rewire.
        - `NewServiceWithQueue` in `internal/coordinator/service.go` and its queue parameter are retired (deleted per D3; `tests/integration/multi_worker_batch_test.go` func `TestThreeWorkerBatch_Integration` constructs via `NewService`).
-       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `newTestService`), `internal/api/api_test.go` (helper `newTestServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
+       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `setupTestCoordinator`), `internal/api/api_test.go` (helpers `setupTestServer` and `setupErrorServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
      - *Integration Tests using Memory Driver*:
        - `tests/integration/local_core_test.go` (`TestLocalCore_MultiProcessIntegration`) and `tests/integration/multi_worker_batch_test.go` (`TestThreeWorkerBatch_Integration`): use memory repository and coordinator. When `RETRYING` jobs exist, memory coordinator now properly claims them via `DispatchNextJob` without stranding them.
        - `internal/api/api_test.go` (helper `setupTestServer`): uses memory coordinator. `ClaimWork` routes through `DispatchNextJob`, so dispatch behavior and attempt tracking match postgres repository.
@@ -74,9 +74,9 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
      - With the 30s startup and outage grace windows, surviving workers commit within the grace window, keeping test assertions valid without weakening any existing test assertion.
   6. *RETRYING Cancellation Conformance*:
      - When a job is in `RETRYING`, cancel immediately transitions the job to `CANCELLED` (terminal), clearing `not_before` and recording a `JOB_CANCELLED` event.
-     - Planned test: `TestConformance_CancelJob_RetryingImmediatelyCancelled`.
+     - Test: `TestConformance_CancelJob_RetryingImmediatelyCancelled` (executed in slice 4a).
 - **Scope**:
-  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` CHECK constraint `chk_attempts_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
   - Update `internal/domain`:
     - Add `AttemptOutcome.ErrorClassification` (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`). Exit code 0 is `AttemptCompleted` without error class. Validation failures of allowlisted tasks are `ClassPermanent`.
     - Add `Attempt.LeaseExpiresAt`, `Job.NotBefore`, `Job.CancelRequestedAt`.
@@ -111,7 +111,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 
 ---
 
-### Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation
+### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
 - **Scope**:
   - Author embedded migration `000004_leases_retries_cancellation.sql` (proposed):
     - Columns: `attempts.lease_expires_at` (with temporary default for historical row backfill, dropped immediately after), `attempts.error_class` (strictly checked for `'PERMANENT'`, `'TRANSIENT'`, `'UNKNOWN'`, `'LEASE_EXPIRED'`), `attempts.last_error`, `jobs.not_before`, `jobs.cancel_requested_at`.
@@ -146,7 +146,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - Zero deadlocks under concurrent mixed operations stress test (`-race -count=20`), with Invariant 4 (No Active Attempt After Terminal State, [fault-injection-plan.md](fault-injection-plan.md#L141)) strictly verified.
   - **Mutation Proofs (Mandatory)**:
     - Bypassing row lock or re-check in `SweepExpiredLeases` must fail `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test).
-    - Removing startup grace check in sweeper (driven by passing grace-state input to `SweepExpiredLeases`) must cause sweeper grace tests to fail; coordinator-level restart grace is tested in 4c.
+    - Removing the in-lock grace check in `SweepExpiredLeases` (driven by the grace-state input) must fail `TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping` (planned test).
+    - Mutating the jitter factor outside [0.5, 1.5] or removing the 30 s cap in the pure backoff function must fail `TestDomain_ComputeBackoff_FullJitter` (planned test).
     - Mutating terminal job attempt closing in `CommitAttempt` must cause `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test) to fail.
 - **Gating Tests**:
   - `TestMigrator_FreshMigrate`
@@ -160,6 +161,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - `TestConformance_RenewLease_AcceptUntilSwept` (planned test)
   - `TestConformance_RenewLease_RejectedAfterLost` (planned test)
   - `TestConformance_SweepExpiredLeases_RetryOrFail` (planned test)
+  - `TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping` (planned test)
 - **Risks & Mitigations**:
   - Sweeper lock contention with active workers. *Mitigation:* Small batches (LIMIT 50) and strict lock order `jobs -> workers -> attempts`.
 
@@ -197,6 +199,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Mutating worker renewal response handler to ignore `cancel_requested: true` must cause cooperative cancellation test to fail.
     - Disabling worker abort upon renewal rejection must cause worker zombie isolation test to fail.
     - Mutating outage gap threshold or cooldown must cause outage grace recovery tests to fail.
+    - Removing the startup grace period from the sweeper loop must cause `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test) and `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test) to fail.
 - **Gating Tests**:
   - `TestAPI_RenewLease_SuccessAndStaleRejection` (planned test)
   - `TestAgent_PeriodicLeaseRenewal_Success` (planned test)
@@ -229,7 +232,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Worker classifies abnormal terminations (OOM, SIGKILL, context deadline).
     - Allowed `error_class` values: `PERMANENT`, `TRANSIENT`, `UNKNOWN` (defaults to `UNKNOWN`).
     - `LOST` attempts consume 1 attempt of `max_attempts` budget (`LEASE_EXPIRED`).
-  - Implement exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, and calculate `jobs.not_before`.
+  - Reuse the pure backoff function built in slice 4b (`internal/domain`) to calculate `jobs.not_before` for classified retries; no second implementation.
   - Cooperative cancellation:
     - Worker agent attaches `context.WithCancel` to executor context.
     - Preempted executor returns `context.Canceled`.
@@ -242,7 +245,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - Zero jobs stranded in `CANCEL_REQUESTED`.
   - **Mutation Proofs (Mandatory)**:
     - Mutating classification of allowlisted task validation error to `ClassTransient` must cause failure classification test to fail.
-    - Mutating jitter formula to exceed [0.5, 1.5] bounds must cause jitter distribution test to fail.
+    - Mutating the retry path to bypass the 4b backoff function must cause `TestCoordinator_RetryBackoffWithJitter` (planned test) to fail.
 - **Gating Tests**:
   - `TestCoordinator_RetryBackoffWithJitter` (planned test)
   - `TestWorker_CooperativeCancellation_ContextPreemption` (planned test)
@@ -267,7 +270,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - `TestFault_Heartbeat_DelayedOrDuplicated` (planned test)
     - `TestFault_Task_TimeoutAndPoisonRepeat` (planned test)
     - `TestFault_Cancellation_RaceWithCompletion` (planned test)
-  - Execute property-based state machine test harness (`TestProperty_StateMachine_ModelConformance` (planned test)) for >= 1,000 iterations.
+  - Execute property-based state machine test harness (`TestProperty_StateMachine_ModelConformance` (executed in slice 4a)) for >= 1,000 iterations.
   - Perform formal security review per [ADR 0012](adr/0012-security-and-adversarial-testing-workflow.md):
     - Update `docs/security/findings.md` and `docs/security/threat-model.md`.
     - Validate that late results never overwrite newer results.
