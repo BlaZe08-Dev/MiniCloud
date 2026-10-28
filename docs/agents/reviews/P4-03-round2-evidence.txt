@@ -1,0 +1,1043 @@
+
+=== [env] ===
+$ git rev-parse HEAD; git branch --show-current; echo "URL=[$MINICLOUD_TEST_DATABASE_URL]"; ls .env 2>&1; git rev-parse origin/main; git log --oneline origin/main..HEAD
+66303ba946adaacbb3d96215334c51cd3a000652
+agent/claude/P4-03-review-2
+URL=[]
+ls: cannot access '.env': No such file or directory
+fc451c9e6cb6a68d7e3e8382123f44e15a13fdfd
+66303ba docs(agents): resolve audit findings F-1 through F-6 for P4-03
+5558b11 Merge origin/main into agent/gemini/P4-03
+c0f5c7b docs(agents): add handoff for task P4-03
+63eefa3 docs(agents): update task board for P4-03, P4-4b, and P0-03
+f2d6df6 docs: repair 77 pre-existing test line citations across live docs
+676f8fd docs(agents): import P4-02 round 1 and round 2 audit records
+135d1bf docs(agents): apply audit findings R8-03 and R8-05 to P4-02 handoff
+b84157a docs: apply audit findings R8-01, R8-02, and R8-04
+(rc=0)
+
+=== [f1-authoris] ===
+$ git grep -n -i 'authoris' -- docs/ ; true
+docs/agents/handoffs/P4-03.md:105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(added per the orchestrator's instruction in the planning session; the owner accepts it by merging)". In `docs/agents/handoffs/P4-03.md`, replaced the "Owner Authorisation Record" bullet with "Roadmap edit authority (unverified)" using the same prescribed wording. Verified with `git grep -n 'R7-03' -- docs` that no false authorisation claim remains. |
+docs/agents/handoffs/P4-03.md:131:docs/agents/reviews/P4-02.md:212:2. `docs/roadmap.md` needs the owner's authorisation to be edited (R7-03).
+docs/agents/handoffs/P4-03.md:133:Zero remaining false authorisation claims across all docs.
+docs/agents/handoffs/P4-4c-a.md:222:Every authorisation below was authorised by the orchestrator in the planning session; the owner accepts it by merging. None of it is recorded here as an owner decision.
+docs/agents/handoffs/P4-4c-a.md:225:- **Q1 resolved.** Editing `cmd/coordinator/main.go` (and a test for it) was authorised by the orchestrator in the planning session; the owner accepts it by merging. Done, see below.
+docs/agents/handoffs/P4-4c-a.md:226:- **Q2 resolved.** F-4b-A1 was withdrawn (authorised by the orchestrator in the planning session; the owner accepts it by merging). My reading stands: reaping proceeds during the cooldown and startup grace wins over the cooldown. Nothing in 4b changed.
+docs/agents/handoffs/P4-4c-a.md:227:- **Q3 resolved.** The strict rule (grace at least the lease) stays; micro-lease tests set the lease and the grace both small (authorised by the orchestrator in the planning session; the owner accepts it by merging). The wiring tests use a 40 ms lease and a 40 ms startup grace. The ADR wording is for the docs pass.
+docs/agents/handoffs/P4-4c-a.md:229:- **Gate gap (item 5)** resolved by a minimal edit of the `test-db` target, authorised by the orchestrator in the planning session; the owner accepts it by merging.
+docs/agents/handoffs/P4-4c-a.md:236:**New deviations**: `cmd/**` and the `Makefile` edited with the authorisation above (both outside my original ownership list). `make test-db` now also runs `./tests/integration/` with the anchored pattern; this is wider than the "coordinator package" you named and is the only way to make the restart-grace test part of the gate without running the outage test.
+docs/agents/reviews/P4-02-round2.md:109:- `docs/agents/TASKS.md` P4-02 Owned files: append `, `docs/roadmap.md``. If the owner did not authorise the roadmap edit, revert `docs/roadmap.md` to its `33c31ed` content instead; I cannot see decision 2, so this part is **inferred**, not checked.
+docs/agents/reviews/P4-02.md:77:- `docs/roadmap.md` is **not** in the P4-02 owned-files list. The builder had to stop and write the question in the handoff (AGENTS.md section 3 rule 1); it wrote "Open questions: None". Action: ask the owner to authorise `docs/roadmap.md` for P4-02 (or do it at merge) and apply the text below.
+docs/agents/reviews/P4-02.md:212:2. `docs/roadmap.md` needs the owner's authorisation to be edited (R7-03).
+(rc=0)
+
+=== [f1-authoriz] ===
+$ git grep -n -i 'authoriz' -- docs/ ; true
+docs/PROJECT_STATE.md:28:  - **Security Findings Register (SEC-022):** Documented finding SEC-022 (Medium, executed): duplicate `CancelJob` on `CANCEL_REQUESTED` moves job directly to `CANCELLED` via fallback `else` branch, confirmed by code reading in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), with authorized fix in Slice 4a as idempotent no-op returning HTTP 200.
+docs/PROJECT_STATE.md:60:- **Phase 3, Slice 3d — Authorized Security Hardening (SEC-003, SEC-007, SEC-008, SEC-009, SEC-011, SEC-014) (`milestone/3d-postgres-queue`):**
+docs/PROJECT_STATE.md:253:- **Open Security Findings (Not Authorized Yet / In Backlog):**
+docs/adr/0012-security-and-adversarial-testing-workflow.md:16:- **Merged Code & Discovered Defects**: When testing already-merged components or running adversarial evaluations, the full sequence ($\text{Understand} \to \text{Threat Model} \to \text{Attack} \to \text{Observe} \to \text{Report} \to \text{Recommend} \to \text{Fix} \to \text{Retest}$) is mandatory. Fixes must not be implemented until the finding is documented and authorized.
+docs/adr/0012-security-and-adversarial-testing-workflow.md:42:- **Authentication & Transport Security**: As documented in [ADR 0004](0004-version-boundaries-and-compatibility.md), the absence of HTTP API authentication, authorization, and TLS is an explicitly accepted architectural gap for V1 (cataloged as SEC-004).
+docs/agents/handoffs/P4-00.md:42:| R-01 | RESOLVED | No | `docs/security/findings.md` (SEC-022) and `docs/phase4-plan.md` (Slice 4a) | Raised SEC-022 to Medium (executed); authorized 3-part fix scope in Slice 4a (idempotent HTTP 200 cancel, terminal commit attempt slot reclamation returning 409, and regression probe). |
+docs/agents/handoffs/P4-02.md:53:  - *Assumption*: Evaluating terminal job state prior to credential checks could leak unauthorized mutation or unbounded events.
+docs/agents/handoffs/P4-03.md:120:docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:121:docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/handoffs/P4-03.md:125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/reviews/P4-00-round2-evidence.txt:145:docs/agents/handoffs/P4-00.md:48:| R-01 | `docs/security/findings.md`, `docs/security/threat-model.md`, `docs/adr/0016-cancellation-semantics.md`, `docs/phase4-plan.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md` | Raised SEC-022 to Medium (executed); authorized 3-part fix scope in Slice 4a (idempotent 202 cancel, terminal commit closes attempt + frees slot, regression probe). |
+docs/agents/reviews/P4-00-round2-evidence.txt:1609:116:    - Remediation: (a) Handle `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"`; (b) in `CommitAttempt` on a terminal job, close the attempt and free the worker slot in the same transaction as the rejection, write diagnostic event, and return HTTP 409 (authorized in Slice 4a).
+docs/agents/reviews/P4-00-round2-evidence.txt:1634:52:- **Phase 3, Slice 3d — Authorized Security Hardening (SEC-003, SEC-007, SEC-008, SEC-009, SEC-011, SEC-014) (`milestone/3d-postgres-queue`):**
+docs/agents/reviews/P4-00-round2-evidence.txt:1651:245:- **Open Security Findings (Not Authorized Yet / In Backlog):**
+docs/agents/reviews/P4-00-round3-evidence.txt:721:CHANGELOG.md:21:  - **Security Finding SEC-022 (`docs/security/findings.md`, `docs/security/threat-model.md`, `docs/phase4-plan.md`):** Recorded SEC-022 (Medium, executed): duplicate `CancelJob` on `CANCEL_REQUESTED` moves job directly to `CANCELLED` via fallback `else` branch, confirmed by code reading in `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), with authorized fix in Slice 4a as idempotent no-op returning HTTP 200.
+docs/agents/reviews/P4-00-round3-evidence.txt:727:docs/PROJECT_STATE.md:21:  - **Security Findings Register (SEC-022):** Documented finding SEC-022 (Medium, executed): duplicate `CancelJob` on `CANCEL_REQUESTED` moves job directly to `CANCELLED` via fallback `else` branch, confirmed by code reading in `internal/storage/inmemory.go:658-683` and `internal/storage/postgres/repository.go:1135-1215` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), with authorized fix in Slice 4a as idempotent no-op returning HTTP 200. Verified by planned test `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+docs/agents/reviews/P4-00-round3-evidence.txt:781:docs/phase4-plan.md:31:  1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
+docs/agents/reviews/P4-00-round3-evidence.txt:980:docs/adr/0012-security-and-adversarial-testing-workflow.md:16:- **Merged Code & Discovered Defects**: When testing already-merged components or running adversarial evaluations, the full sequence ($\text{Understand} \to \text{Threat Model} \to \text{Attack} \to \text{Observe} \to \text{Report} \to \text{Recommend} \to \text{Fix} \to \text{Retest}$) is mandatory. Fixes must not be implemented until the finding is documented and authorized.
+docs/agents/reviews/P4-00-round3-evidence.txt:1131:CHANGELOG.md:21: and `internal/storage/postgres/repository.go:1135-1215` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), with authorized fix in Slice 4a as idempote
+docs/agents/reviews/P4-00-round3-evidence.txt:1132:docs/PROJECT_STATE.md:21: and `internal/storage/postgres/repository.go:1135-1215` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (planned test), with authorized fix in Slice 4a as idempote
+docs/agents/reviews/P4-00-round4-evidence.txt:528:docs/phase4-plan.md:33:     - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
+docs/agents/reviews/P4-00-round4-evidence.txt:661:31	  1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
+docs/agents/reviews/P4-00-round4-evidence.txt:663:33	     - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
+docs/agents/reviews/P4-00-round4-evidence.txt:1927:381	- **Authorized Fix (Scheduled for Slice 4a)**:
+docs/agents/reviews/P4-00-round5-evidence.txt:89:      - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
+docs/agents/reviews/P4-00-round5-evidence.txt:576:    33|      - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
+docs/agents/reviews/P4-00.md:329:  `docs/protocol.md:144-146`, `docs/security/findings.md` SEC-022 "Authorized Fix".
+docs/agents/reviews/P4-02-evidence.txt:998:docs/security/threat-model.md | 48 | internal/storage/postgres/security_test.go:192 | CHECK | encl=TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits run=None text=// replayed commits, and unauthorized workers cannot breach 
+docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/reviews/P4-02-round2.md:39:| R7-16 | minor | **partly closed** | RuleB sentence applied; the scan now has a command and I re-ran it (rc=1) ([r714-scan-run]); the hash is `a3590bd`, not the tip (R8-05); the open question was replaced by "None. (... authorized and resolved by owner decision 2)" instead of my sentence, and "Known gaps" is still "None for P4-02" (R8-03). |
+docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/reviews/P4-4a.md:12:Slice P4-4a implements the core state machine reconciliation, Phase 4 domain fields, in-memory repository dispatch rewiring via `repo.DispatchNextJob`, and the authorized fix for defect **SEC-022** (duplicate `CancelJob` on `CANCEL_REQUESTED` leaking worker capacity slots upon late attempt commits).
+docs/agents/reviews/P4-4a.md:19:5. **Existing-Test Changes**: The 7 rewritten coordinator tests properly transition from testing internal queue spy mocks (`Queue.Ack`/`Release`) to asserting observable domain and repository outcomes. FSM matrix changes in `transition_test.go` accurately match the two authorized cell flips.
+docs/failure-model.md:32:| **FS-12** | **Unauthorized worker reports result for an attempt** | Coordinator checks `attempt.WorkerID == reportingWorkerID`. Mismatches rejected with HTTP 403 `WORKER_MISMATCH`. Worker client treats 403 as non-retryable. | Phase 2 | Enforced centrally at API and storage boundaries. |
+docs/phase4-plan.md:31:  1. *Cancellation Duplicate-Call Parity & SEC-022 Authorized Fix Scope*:
+docs/phase4-plan.md:33:     - *Phase 4 Behavior Change (SEC-022 Authorized Fix)*:
+docs/security/findings.md:16:| **SEC-004** | Medium | Accepted Risk (V1) | HTTP API & Workers | HTTP API and worker endpoints lack authentication and authorization; open to local network. | Deferred to V3 (ADR-0004, ADR-0012); mitigated by `127.0.0.1` bind default. Verification step: future V3 mTLS/auth suite. |
+docs/security/findings.md:63:- **Finding**: All coordinator HTTP endpoints (`GET /healthz`, `GET /readyz`, `POST /v1/jobs`, `GET /v1/jobs/{id}`, `GET /v1/jobs/{id}/attempts`, `POST /v1/jobs/{id}/cancel`, `GET /v1/workers`, `POST /v1/workers/register`, `POST /v1/workers/{id}/heartbeat`, `POST /v1/workers/{id}/poll`, `POST /v1/jobs/{id}/attempts/{attempt_id}/result`) lack authentication and authorization.
+docs/security/findings.md:68:  1. Submit a job without authorization headers:
+docs/security/findings.md:382:- **Authorized Fix (Scheduled for Slice 4a)**:
+docs/security/findings.md:410:- **Recommended Fix**: Fix is NOT authorized yet; adding the same `_test` suffix check as `TestMigrator_FreshMigrate` and other test helpers is a later small task.
+docs/security/findings.md:419:- **Category**: Authorization / API Evaluation Order
+docs/security/security-testing.md:11:1. **Application Security Engineer**: Audits input validation, API contracts, boundary sanitization, authorization enforcement, secret handling, and error response leakage.
+docs/security/security-testing.md:12:2. **Authorized Penetration Tester**: Deliberately probes for exploit primitives, authentication bypasses, state corruption, SQL injection, parameter tampering, and request smuggling within authorized local environments.
+docs/security/security-testing.md:21:$$\text{Understand} \longrightarrow \text{Threat Model} \longrightarrow \text{Attack} \longrightarrow \text{Observe} \longrightarrow \text{Report} \longrightarrow \text{Recommend} \longrightarrow \text{Fix (Authorized)} \longrightarrow \text{Retest}$$
+docs/security/security-testing.md:29:7. **Fix (Only When Authorized)**: Implement remediation only after reporting. In an active slice, fix and disclose; for merged code, obtain authorization before modifying implementation.
+docs/security/test-plan.md:95:| **Worker Authentication Enforcement** | Unauthenticated worker attempting to poll jobs or send heartbeats (SEC-004). | Request rejected with HTTP 401 Unauthorized; requires valid TLS cert or token. | **designed, not executed** |
+docs/security/test-plan.md:96:| **Client API Authorization** | Submitting job cancellation or inspection without authorized tenant token. | Request rejected with HTTP 403 Forbidden; tenant isolation verified. | **designed, not executed** |
+docs/security/threat-model.md:116:    - Remediation: (a) Handle `CANCEL_REQUESTED` as an idempotent no-op returning HTTP 200 with `state: "CANCEL_REQUESTED"` and message `"cancellation processed"`; (b) in `CommitAttempt` on a terminal job, close the attempt strictly if still in `RUNNING` and free the worker slot in the same transaction as the rejection, write diagnostic event, and return HTTP 409 (authorized in Slice 4a; the single stored result stands and worker treats 409 as final).
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:10:- Authorized Penetration Tester
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:17:Think like an attacker when testing, but operate only within my own project, local test environments, or explicitly authorized systems.
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:36:**Understand → Threat Model → Attack → Observe → Report → Recommend → Fix (only when authorized) → Retest**
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:73:- Unauthorized job submission or execution.
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:74:- Authentication and authorization bypass.
+docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md:202:Unless I explicitly authorize remediation:
+(rc=0)
+
+=== [f1-R7-03] ===
+$ git grep -n 'R7-03' -- docs/ ; true
+docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(added per the orchestrator's instruction in the planning session; the owner accepts it by merging)". In `docs/agents/handoffs/P4-03.md`, replaced the "Owner Authorisation Record" bullet with "Roadmap edit authority (unverified)" using the same prescribed wording. Verified with `git grep -n 'R7-03' -- docs` that no false authorisation claim remains. |
+docs/agents/handoffs/P4-03.md:112:### Verification of F-1: `git grep -n 'R7-03' -- docs`
+docs/agents/handoffs/P4-03.md:113:Command run: `git grep -n 'R7-03' -- docs`
+docs/agents/handoffs/P4-03.md:116:docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:117:docs/agents/reviews/P4-02-round2-evidence.txt:26:1cf36e4 docs(roadmap): apply R7-03, R7-11 to Phase 4 sub-slices
+docs/agents/handoffs/P4-03.md:118:docs/agents/reviews/P4-02-round2-evidence.txt:27:6fa9749 docs: apply R7-01, R7-02, R7-03, R7-04, R7-11, R7-12 to docs/PROJECT_STATE.md
+docs/agents/handoffs/P4-03.md:119:docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:120:docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:121:docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/handoffs/P4-03.md:122:docs/agents/reviews/P4-02-round2.md:26:| R7-03 | blocker | **partly closed** | Every line I specified is applied verbatim: `PROJECT_STATE.md:182-184`, `:189`, `:192`, `roadmap.md:56`, `:60` (appended sentence), `:63`. Residual: lines I did not list still carry the old split (`PROJECT_STATE.md:193`, `:208`, `:211`, `roadmap.md:60` first half, `:65`) -> R8-02. Also `docs/roadmap.md` is outside the P4-02 owned files (R8-03). |
+docs/agents/handoffs/P4-03.md:123:docs/agents/reviews/P4-02-round2.md:42:Count: closed 14, partly closed 3 (R7-03, R7-12, R7-16), not closed 0, new error introduced 0.
+docs/agents/handoffs/P4-03.md:124:docs/agents/reviews/P4-02-round2.md:83:| R8-02 | minor | `PROJECT_STATE.md:193`, `:204` (4c exit), `:208`, `:211`; `roadmap.md:60`, `:65` | executed | Split residue in lines I did not list in R7-03: 4b still owes the startup grace mutation proof and the roadmap's 4b bullet owns the 30 s grace periods; 4d still "implements" backoff and jitter distribution |
+docs/agents/handoffs/P4-03.md:125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/handoffs/P4-03.md:126:docs/agents/reviews/P4-02.md:37:| (f) "Deviations: none" and "Current Branch" | The handoff does list deviations, but omits two real ones (stale last-commit hash, `docs/roadmap.md` left unchanged although the split contradicts it). "Current Branch" is `agent/gemini/P4-02` and "Merging with P4-02" is stale after merge | R7-03, R7-12, R7-16 |
+docs/agents/handoffs/P4-03.md:127:docs/agents/reviews/P4-02.md:45:| R7-03 | blocker | `docs/PROJECT_STATE.md:180-192`, `docs/roadmap.md:54-60` | executed, confirmed by code reading | Owner split not applied: 4a still lists in-memory leases, renewals, sweeper, retry backoff |
+docs/agents/handoffs/P4-03.md:128:docs/agents/reviews/P4-02.md:73:### R7-03 (blocker) The owner's slice split is not applied in `PROJECT_STATE.md` section 4 or `docs/roadmap.md`
+docs/agents/handoffs/P4-03.md:129:docs/agents/reviews/P4-02.md:174:- "Open questions: None" and "Known gaps: None" omit the `docs/roadmap.md` conflict (R7-03). Replace with `Open question: docs/roadmap.md slice 4a/4b/4c bullets still carry the pre-split scope; file is not owned by P4-02.`
+docs/agents/handoffs/P4-03.md:130:docs/agents/reviews/P4-02.md:192:9. **TASKS, CHANGELOG, PROJECT_STATE:** corrections are R7-01, R7-02, R7-03, R7-10, R7-12. Verified true: matrix cells flipped (exactly two), `NewServiceWithQueue` and `spyQueue` gone from code, seven rewritten coordinator tests exist, P4-01 merged as PR #18 at `d28a3d1`, `make test-db` PASS 70 (4a audit).
+docs/agents/handoffs/P4-03.md:131:docs/agents/reviews/P4-02.md:212:2. `docs/roadmap.md` needs the owner's authorisation to be edited (R7-03).
+docs/agents/reviews/P4-02-round2-evidence.txt:26:1cf36e4 docs(roadmap): apply R7-03, R7-11 to Phase 4 sub-slices
+docs/agents/reviews/P4-02-round2-evidence.txt:27:6fa9749 docs: apply R7-01, R7-02, R7-03, R7-04, R7-11, R7-12 to docs/PROJECT_STATE.md
+docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/reviews/P4-02-round2.md:26:| R7-03 | blocker | **partly closed** | Every line I specified is applied verbatim: `PROJECT_STATE.md:182-184`, `:189`, `:192`, `roadmap.md:56`, `:60` (appended sentence), `:63`. Residual: lines I did not list still carry the old split (`PROJECT_STATE.md:193`, `:208`, `:211`, `roadmap.md:60` first half, `:65`) -> R8-02. Also `docs/roadmap.md` is outside the P4-02 owned files (R8-03). |
+docs/agents/reviews/P4-02-round2.md:42:Count: closed 14, partly closed 3 (R7-03, R7-12, R7-16), not closed 0, new error introduced 0.
+docs/agents/reviews/P4-02-round2.md:83:| R8-02 | minor | `PROJECT_STATE.md:193`, `:204` (4c exit), `:208`, `:211`; `roadmap.md:60`, `:65` | executed | Split residue in lines I did not list in R7-03: 4b still owes the startup grace mutation proof and the roadmap's 4b bullet owns the 30 s grace periods; 4d still "implements" backoff and jitter distribution |
+docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/reviews/P4-02.md:37:| (f) "Deviations: none" and "Current Branch" | The handoff does list deviations, but omits two real ones (stale last-commit hash, `docs/roadmap.md` left unchanged although the split contradicts it). "Current Branch" is `agent/gemini/P4-02` and "Merging with P4-02" is stale after merge | R7-03, R7-12, R7-16 |
+docs/agents/reviews/P4-02.md:45:| R7-03 | blocker | `docs/PROJECT_STATE.md:180-192`, `docs/roadmap.md:54-60` | executed, confirmed by code reading | Owner split not applied: 4a still lists in-memory leases, renewals, sweeper, retry backoff |
+docs/agents/reviews/P4-02.md:73:### R7-03 (blocker) The owner's slice split is not applied in `PROJECT_STATE.md` section 4 or `docs/roadmap.md`
+docs/agents/reviews/P4-02.md:174:- "Open questions: None" and "Known gaps: None" omit the `docs/roadmap.md` conflict (R7-03). Replace with `Open question: docs/roadmap.md slice 4a/4b/4c bullets still carry the pre-split scope; file is not owned by P4-02.`
+docs/agents/reviews/P4-02.md:192:9. **TASKS, CHANGELOG, PROJECT_STATE:** corrections are R7-01, R7-02, R7-03, R7-10, R7-12. Verified true: matrix cells flipped (exactly two), `NewServiceWithQueue` and `spyQueue` gone from code, seven rewritten coordinator tests exist, P4-01 merged as PR #18 at `d28a3d1`, `make test-db` PASS 70 (4a audit).
+docs/agents/reviews/P4-02.md:212:2. `docs/roadmap.md` needs the owner's authorisation to be edited (R7-03).
+(rc=0)
+
+=== [f1-roadmap-diff] ===
+$ git diff origin/main...HEAD -- docs/roadmap.md
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index eaf474e..efcc9fa 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -57,12 +57,12 @@ MiniCloud development is structured into three major releases. Each version buil
+    - Expand shared conformance suite (`internal/storage/storagetest/conformance.go`) and implement property/model-based state machine test harness.
+ 2. **Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function**:
+    - Author forward-only migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `jobs.not_before`, `jobs.cancel_requested_at`, indexes, and zero-downtime constraints.
+-   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
++   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock (the 30 s startup and outage grace periods are owned by slice 4c). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
+ 3. **Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring**:
+    - Add `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint as single delivery channel for cancellation (`cancel_requested: true`). Heartbeat response does not carry cancellations.
+    - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s owning the startup grace period and the outage grace and cooldown state, and passing that state to `SweepExpiredLeases`.
+ 4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
+-   - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
++   - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and reuse of the slice 4b backoff function for retry scheduling.
+    - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 200).
+ 5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
+    - Execute all 10 blueprint fault scenarios (FS-01 through FS-10) in `tests/integration/` per [docs/fault-injection-plan.md](fault-injection-plan.md).
+(rc=0)
+
+=== [f1-owner-decision] ===
+$ git grep -n -i 'owner decision' -- docs/ ; true
+docs/PROJECT_STATE.md:182:  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.
+docs/adr/0009-postgres-persistence-and-driver.md:52:## Owner Decision & Staged Conditions
+docs/adr/0010-migrations-policy.md:62:## Owner Decision & Staged Conditions
+docs/adr/0011-postgres-dispatch-and-recovery.md:96:| **Owner Decision** | **Leading Design for Post-Phase 4 Assignment Slice** (Deferred). | **REJECTED.** | **ACCEPTED for Phase 3 (Slices 3a–3e).** |
+docs/adr/0011-postgres-dispatch-and-recovery.md:217:### 2.8 Owner Decision & Post-Phase 4 Roadmap Staging
+docs/adr/0011-postgres-dispatch-and-recovery.md:219:**Owner Decision:** The repository owner has **ACCEPTED Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`)** for Phase 3 and Slices 3a–3e.
+docs/adr/0011-postgres-dispatch-and-recovery.md:319:## Owner Decisions & Action Items
+docs/adr/0014-lease-model-and-expiry.md:5:- **Accepted Owner Decisions**:
+docs/adr/0015-retry-policy-and-failure-classification.md:5:- **Accepted Owner Decisions**:
+docs/adr/0015-retry-policy-and-failure-classification.md:25:5. Backoff incorporates randomized jitter (an owner decision; the blueprint itself does not mention jitter) to prevent thundering herds and retry storms against the coordinator and database.
+docs/adr/0016-cancellation-semantics.md:5:- **Accepted Owner Decisions**:
+docs/adr/0016-cancellation-semantics.md:35:- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicate cancels).
+docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a commit on a non-running attempt returns `domain.ErrStaleAttempt` in `internal/storage/inmemory.go` (`CommitAttempt`) and `internal/storage/postgres/repository.go` (`CommitAttempt`), which `internal/api/handlers.go` (`mapDomainErrorToHTTP`) already maps to HTTP 409 `STALE_ATTEMPT_REJECTED`. It does not surface as HTTP 500. The non-running attempt error was removed from all design documents, evaluation tables, slice assignments, and planned tests.
+docs/agents/handoffs/P4-00.md:131:- **Owner Decisions (D-R2-01..D-R2-10, D-R3-01..D-R3-06, D-R4-01..D-R4-05)**:
+docs/agents/handoffs/P4-00.md:132:  Owner decisions D-R2..D-R4 were applied (see round-5 R5-01 for the residual list), and the documentation test suite passes cleanly under `make test-docs`.
+docs/agents/handoffs/P4-02.md:6:- `docs/agents/reviews/P4-00-round2.md`, `docs/agents/reviews/P4-00-round3.md`: Rewrote 4 failing Rule B citations in frozen review files to `path (line N at the audited commit)` per owner decision item 4, eliminating line anchor violations while keeping historical review records byte-identical elsewhere.
+docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-02.md:25:- **Owner Decision Item 4 (Frozen Review File Citations)**: RuleB honours a path| allowlist entry for a whole file, but RuleF rejects any such entry as stale while the file exists, so no allowlist entry can exempt a line citation to an existing file; verified in a scratch copy. Therefore, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
+docs/agents/handoffs/P4-02.md:26:- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split (added per the orchestrator's instruction in the planning session; the owner accepts it by merging).
+docs/agents/handoffs/P4-02.md:49:None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.
+docs/agents/handoffs/P4-03.md:116:docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:119:docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:120:docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:121:docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/handoffs/P4-03.md:125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/handoffs/P4-4a.md:5:**Status: fix pass 1 applied (owner decisions below). Build complete; `make test-docs` still fails only on stale line citations in documents this task may not edit; a docs-only follow-up, P4-02 (builder Gemini, based on this branch's final tip), repairs them.** All Go tests pass. Exact input for P4-02: `docs/agents/handoffs/P4-4a-citation-drift.txt` (mechanical table of every doc citation of a file changed by this branch, plus the verbatim list `make test-docs` reports) and the "Plan wording for the owner-decided scope moves" section below.
+docs/agents/handoffs/P4-4a.md:25:- **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and the two grace timers, with gating test `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test). Not built here, by owner decision: `RenewLease` moves to slice 4b (lands with migration 000004 and the PostgreSQL implementation); `SweepExpiredLeases`, the grace timers and `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) move to slice 4c. Reasons they could not be built in 4a: they need `storage.Repository` interface additions that the PostgreSQL repository must implement, its `lease_expires_at` column does not exist until migration 000004, and the sweeper needs 4d's backoff. Domain fields (`Attempt.LeaseExpiresAt`, `Job.NotBefore`, `Job.CancelRequestedAt`) and `not_before` evaluation in memory dispatch are done. The exact plan text for the move is in the next section.
+docs/agents/handoffs/P4-4a.md:40:   `- (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)`
+docs/agents/handoffs/P4-4a.md:77:| `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) | **not executed, not built** (D1: moved to slice 4c by owner decision) |
+docs/agents/handoffs/P4-4a.md:113:### Blocker B1: `make test-docs` fails after this change (owner decision 1)
+docs/agents/handoffs/P4-4a.md:115:`TestCitations/RuleB_LineAnchors` reports 9 citations in documents outside this task's owned files that point past the end of files this task had to shrink (`internal/coordinator/service.go` 524 -> 410 lines, `internal/coordinator/service_test.go` 807 -> 676 lines). Owner decision: no padding, no edits to design documents; P4-02 (Gemini, docs only, based on this branch's final tip) repairs them. The list is the same set as before the fix pass (only the file length in the parenthesis moved from 418 to 410 because the constructor was retired); it is in `docs/agents/handoffs/P4-4a-citation-drift.txt` section 1, verbatim, and in Appendix D. Section 2 of that file is the mechanical table of all 971 citations of files changed by this branch: 29 are now beyond the end of the file, and 531 show different text at the cited line than at `origin/main`. The beyond-end rows are what the checker catches; the rest is silent drift that P4-02 must judge. Script: `~/mc-tools-claude/citedrift.py` (outside the repo), run as `python3 ~/mc-tools-claude/citedrift.py . origin/main HEAD`; it matches `path:N`, `path:N-M` and `path#LN` forms for files changed by the branch and does not match bare file names.
+docs/agents/handoffs/P4-4a.md:1055:- D1: in-memory lease renewal, sweeper and grace timers are not built; moved by owner decision (RenewLease to 4b; sweeper, grace timers and the lease test to 4c).
+docs/agents/handoffs/P4-4a.md:1064:Resolved by owner decisions: scope of the in-memory lease work (D1), test-docs (B1), `NewServiceWithQueue` (D3), terminal-check-before-token-check (S1), 4b/4c sweeper split (plan wording above).
+docs/agents/handoffs/P4-4a.md:1072:- S1. **Terminal-job close: what the caller must present, check order, effect of a wrong value (owner decision 3: confirmed intended, Informational, inside SEC-004; code unchanged).** From the code (in-memory `CommitAttempt` and `rejectTerminalCommitLocked`; PostgreSQL `CommitAttempt` and `rejectTerminalCommit`):
+docs/agents/handoffs/P4-4c-a.md:9:- `internal/storage`: `Repository` gains `Now(ctx) (time.Time, error)` (owner decision Q-1). In-memory returns its injected clock; PostgreSQL runs `SELECT clock_timestamp()` and maps errors with `mapPgError`. Shared conformance `RunNowConformance` (`storagetest`).
+docs/agents/handoffs/P4-4c-a.md:222:Every authorisation below was authorised by the orchestrator in the planning session; the owner accepts it by merging. None of it is recorded here as an owner decision.
+docs/agents/reviews/P4-00-round2-evidence.txt:146:docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/reviews/P4-00-round2-evidence.txt:155:docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/reviews/P4-00-round2-evidence.txt:164:docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/reviews/P4-00-round2-evidence.txt:165:docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/reviews/P4-00-round2-evidence.txt:173:docs/agents/handoffs/P4-00.md:64:| R-17 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-17: no duplicate response field; duplicate cancel on CANCEL_REQUESTED returns HTTP 200 with same body. |
+docs/agents/reviews/P4-00-round2-evidence.txt:174:docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/reviews/P4-00-round2-evidence.txt:181:docs/agents/handoffs/P4-00.md:63:| R-16 | `docs/adr/0016-cancellation-semantics.md`, `docs/protocol.md` | Owner decision overrides R-16: every cancel response is HTTP 200 (status codes unchanged from today; no HTTP 202; no ADR-0004 exception). |
+docs/agents/reviews/P4-00-round2-evidence.txt:182:docs/agents/handoffs/P4-00.md:85:  - Owner decision (overrides R-16 and R-17): every cancel response is HTTP 200. No new status code, no ADR-0004 exception, no `duplicate` response field. A duplicate cancel on a job in `CANCEL_REQUESTED` returns HTTP 200 with the same body as the first one (`state: "CANCEL_REQUESTED"`, `message: "cancellation processed"`) and changes nothing. Cancel status codes remain completely unchanged from today.
+docs/agents/reviews/P4-00-round2-evidence.txt:188:docs/PROJECT_STATE.md:5:- **Current Milestone:** Phase 4 Design Specification Revision — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e revised with Owner Decisions Accepted).
+docs/agents/reviews/P4-00-round2-evidence.txt:189:docs/adr/0016-cancellation-semantics.md:5:- **Accepted Owner Decisions**:
+docs/agents/reviews/P4-00-round2.md:7:(`docs/agents/reviews/P4-00.md`, R-01 to R-24) and the part-3 owner decision on cancel. I edited no
+docs/agents/reviews/P4-00-round2.md:13:There is no blocker. The cancel contract now matches the code and the owner decision. SEC-022 is
+docs/agents/reviews/P4-00-round2.md:65:| R-15 | RESOLVED | `docs/protocol.md:114-151`, `docs/adr/0016-cancellation-semantics.md:66-73` | Superseded by the owner decision: always 200, with the same body for a duplicate. 400 and 503 are listed. The `COMPLETED` naming at `docs/protocol.md:148` is R2-04. |
+docs/agents/reviews/P4-00-round2.md:85:- Leftovers that contradict the owner decision: `docs/security/test-plan.md:56`, and
+docs/agents/reviews/P4-00-round2.md:153:  context. That contradicts the owner decision "No separate `CANCEL_REQUESTED` deadline (the lease
+docs/agents/reviews/P4-00-round2.md:216:### R2-06 (minor) Cancel-contract leftovers that contradict the owner decision
+docs/agents/reviews/P4-00-round2.md:237:  - "Owner override R-01 ... R-12" presents every fix as an owner override. No owner decision is
+docs/agents/reviews/P4-00-round3-evidence.txt:33:8a5ae4b docs(security): align test-plan.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:34:20dc325 docs(phase4): align phase 4 plan with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:35:248a204 docs(failure-model): align failure model with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:36:2b9f1f5 docs(state-machine): align state machine spec with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:37:ba7053f docs(protocol): align protocol.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:38:1d67332 docs(schema): align schema.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:39:ec15039 docs(adr): align ADR-0016 with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:40:12a7ed4 docs(adr): align ADR-0015 with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:50:8a5ae4b docs(security): align test-plan.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:51:20dc325 docs(phase4): align phase 4 plan with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:52:248a204 docs(failure-model): align failure model with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:53:2b9f1f5 docs(state-machine): align state machine spec with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:54:ba7053f docs(protocol): align protocol.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:55:1d67332 docs(schema): align schema.md with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:56:ec15039 docs(adr): align ADR-0016 with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:57:12a7ed4 docs(adr): align ADR-0015 with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:58:9fed497 docs(adr): align ADR-0014 with round-2 audit findings and owner decisions
+docs/agents/reviews/P4-00-round3-evidence.txt:722:CHANGELOG.md:25:  - **ADR 0016 (Job Cancellation Semantics, Cooperative Worker Termination, and Race Resolution):** Architectural Decision Record specifying single-channel cooperative cancellation delivery via dedicated renewal responses (`cancel_requested: true`), removal of `cancelled_job_ids` from worker heartbeats, bounded delivery latency (10s), worker task abort and result suppression upon lease loss, immediate cancellation for `QUEUED` jobs, two-phase cooperative cancellation for `RUNNING` jobs (`CANCEL_REQUESTED`), idempotent duplicate cancel no-op returning HTTP 200, immediate cancellation during `RETRYING`, and resolution via sweeper or commit path. Owner decisions marked ACCEPTED.
+docs/agents/reviews/P4-00-round3-evidence.txt:725:CHANGELOG.md:33:  - **Roadmap Updated (`docs/roadmap.md`):** Updated Section 4 Phase 4 sub-slices with accepted owner decisions, grace design, single cancellation channel, and sweeper re-check.
+docs/agents/reviews/P4-00-round3-evidence.txt:726:docs/PROJECT_STATE.md:5:- **Current Milestone:** Phase 4 Design Specification Revision — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e revised with Owner Decisions Accepted).
+docs/agents/reviews/P4-00-round3-evidence.txt:745:docs/adr/0016-cancellation-semantics.md:35:- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicate cancels).
+docs/agents/reviews/P4-00-round3-evidence.txt:954:  - **ADR 0015 (Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery):** Architectural Decision Record specifying bounded retries up to `max_attempts` (1..20, default 3), exponential backoff base 1s, cap 30s, full jitter [0.5, 1.5] stored in `jobs.not_before`, 3-tier failure classification taxonomy with unknown errors defaulting to retryable, exit code 0 treated as `AttemptCompleted` without error class, validation failures of allowlisted tasks classified as permanent, `LOST` attempts consuming 1 attempt of budget, direct `RETRYING -> RUNNING` transition via pull dispatch query without intermediate database write to `QUEUED`, and in-memory retry parity. Owner decisions marked ACCEPTED.
+docs/agents/reviews/P4-00-round3.md:7:(`docs/agents/reviews/P4-00-round2.md`), round 1 (`docs/agents/reviews/P4-00.md`), the owner decisions
+docs/agents/reviews/P4-00-round4-evidence.txt:20:69b3864 docs(agents): update P4-00 handoff with round-3 resolutions and owner decisions (D-R3-03)
+docs/agents/reviews/P4-00-round4-evidence.txt:39:CHANGELOG.md:23:  - **ADR 0014 (Attempt Lease Model, Renewal Protocol, and Expiry Sweeper):** Architectural Decision Record specifying RUNNING attempt leases with database-clock authority (`lease_expires_at TIMESTAMPTZ`), dedicated renewal endpoint (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`), 30s lease / 10s renewal / 5s sweeper cadence, coordinator background expiry sweeper enforcing deadlock-free canonical lock order (`jobs -> workers -> attempts`), row-locked sweeper re-check under lock, dual grace mechanisms (30s coordinator startup grace, 30s database outage grace) protecting Phase 3 surviving-worker commit guarantees (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), and Option 2 late-commit acceptance while RUNNING with strict rejection (HTTP 409 `STALE_ATTEMPT_REJECTED`) and diagnostic events once reaped to `LOST`. Owner decisions marked ACCEPTED.
+docs/agents/reviews/P4-00-round4-evidence.txt:1015:CHANGELOG.md:23:  - **ADR 0014 (Attempt Lease Model, Renewal Protocol, and Expiry Sweeper):** Architectural Decision Record specifying RUNNING attempt leases with database-clock authority (`lease_expires_at TIMESTAMPTZ`), dedicated renewal endpoint (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`), 30s lease / 10s renewal / 5s sweeper cadence, coordinator background expiry sweeper enforcing deadlock-free canonical lock order (`jobs -> workers -> attempts`), row-locked sweeper re-check under lock, dual grace mechanisms (30s coordinator startup grace, 30s database outage grace) protecting Phase 3 surviving-worker commit guarantees (`TestPostgresWiring_CoordinatorRestartRecovery`, `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`), and Option 2 late-commit acceptance while RUNNING with strict rejection (HTTP 409 `STALE_ATTEMPT_REJECTED`) and diagnostic events once reaped to `LOST`. Owner decisions marked ACCEPTED.
+docs/agents/reviews/P4-00-round4-evidence.txt:2360:docs/adr/0016-cancellation-semantics.md:35:- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicate cancels).
+docs/agents/reviews/P4-00-round4-evidence.txt:3269:handoff:113	  All owner decisions have been implemented in full across all design documents and verified with `make test-docs`.
+docs/agents/reviews/P4-00-round4.md:5:and owner decisions (D-R3-03)`). Review branch: `agent/claude/P4-00-review-4`, based on `69b3864`.
+docs/agents/reviews/P4-00-round4.md:8:(`docs/agents/reviews/P4-00-round3.md`) and the owner decisions D-R3-01, D-R3-02, D-R3-03 and D-R3-06.
+docs/agents/reviews/P4-00-round4.md:220:  - `:113` says all owner decisions were "verified with `make test-docs`". The checker validates
+docs/agents/reviews/P4-00-round5-evidence.txt:23:6ee7336 docs(plan): update phase4-plan.md with owner decisions D-R4-02, D-R4-04, D-R4-05
+docs/agents/reviews/P4-00-round5-evidence.txt:330:    35| - Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicat
+docs/agents/reviews/P4-00-round5-evidence.txt:709:    35| - Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicat
+docs/agents/reviews/P4-00-round5-evidence.txt:910:    35| - Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicat
+docs/agents/reviews/P4-00-round5.md:8:evidence file), checked against round 4 (`docs/agents/reviews/P4-00-round4.md`) and the owner decisions
+docs/agents/reviews/P4-00-round5.md:113:- "All owner decisions have been implemented in full" (`:123`): not fully. D-R4-01 asked for one
+docs/agents/reviews/P4-00-round5.md:286:- `:123` says all owner decisions are "implemented in full". D-R4-01's one-token rule is not fully met
+docs/agents/reviews/P4-00.md:15:accepted owner decisions are treated as settled. Findings question only how consistently they are
+docs/agents/reviews/P4-00.md:295:  owner decisions rather than the blueprint. Justify `RETRYING -> RUNNING` as a departure from
+docs/agents/reviews/P4-01-evidence.txt:346:132:  All owner decisions have been implemented in full across all design documents, and the documentation test suite passes cleanly under `make test-docs`
+docs/agents/reviews/P4-01-evidence.txt:429:HEAD:docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a comm
+docs/agents/reviews/P4-01-evidence.txt:441:HEAD:docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a comm
+docs/agents/reviews/P4-01.md:138:| 132 | owner decisions | "All owner decisions have been implemented in full across all design documents ..." | **Round 5 said this was not fully true** (R5-01, `:123` item). Carried over unchanged. |
+docs/agents/reviews/P4-01.md:149:  that backs them; change 132 to "Owner decisions D-R2..D-R4 were applied; see round-5 R5-01 for the residual
+docs/agents/reviews/P4-02-evidence.txt:274:docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and
+docs/agents/reviews/P4-02-evidence.txt:275:docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | - **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and
+docs/agents/reviews/P4-02-evidence.txt:286:docs/agents/handoffs/P4-4a.md | test-planned-only | TestInMemoryRepository_LeaseRenewalAndExpiry | | `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) | **not executed, not built** (D1: moved to slice 4c by owner decision) |
+docs/agents/reviews/P4-02-evidence.txt:1126:+    - (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)
+docs/agents/reviews/P4-02-round2-evidence.txt:101:+  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.
+docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/reviews/P4-02-round2-evidence.txt:375:-- **Owner Decision Item 4 (Frozen Review File Citations)**: Because `citations_test.go` does not have a line-level allowlist mechanism, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
+docs/agents/reviews/P4-02-round2-evidence.txt:377:+- **Owner Decision Item 4 (Frozen Review File Citations)**: RuleB honours a path| allowlist entry for a whole file, but RuleF rejects any such entry as stale while the file exists, so no allowlist entry can exempt a line citation to an existing file; verified in a scratch copy. Therefore, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
+docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/reviews/P4-02-round2-evidence.txt:565:docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in th
+docs/agents/reviews/P4-02-round2-evidence.txt:590:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a commit on a non-running attempt returns `domain.ErrStaleAttempt` in `internal/storage/inmemory.go` (`CommitAttempt`) and `internal/storage/postgres/repository.go` (`CommitAttempt`), which `internal/api/handlers.go` (`mapDomainErrorToHTTP`) already maps to HTTP 409 `STALE_ATTEMPT_REJECTED`. It does not surface as
+docs/agents/reviews/P4-02-round2.md:39:| R7-16 | minor | **partly closed** | RuleB sentence applied; the scan now has a command and I re-ran it (rc=1) ([r714-scan-run]); the hash is `a3590bd`, not the tip (R8-05); the open question was replaced by "None. (... authorized and resolved by owner decision 2)" instead of my sentence, and "Known gaps" is still "None for P4-02" (R8-03). |
+docs/agents/reviews/P4-02-round2.md:84:| R8-03 | minor | `docs/agents/handoffs/P4-02.md` ("Known gaps", "Open questions"); `TASKS.md:57-60` | executed, inferred | Open items not recorded; `roadmap.md` edit rests on "owner decision 2" that I cannot verify and is not in the owned files |
+docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+docs/agents/reviews/P4-02.md:79:  - `docs/PROJECT_STATE.md:182`: `  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.`
+docs/agents/reviews/P4-4a.md:21:7. **Handoff Claims vs Reality**: Verified verbatim. All gates pass (`gofmt`, `vet`, `build`, DB-unset suite, `make test-db`). The known blocker B1 (`make test-docs` line-anchor drift on shrank coordinator files) matches the documented drift list exactly and is deferred to P4-02 per owner decision.
+docs/agents/reviews/P4-4a.md:49:| **R-4a-02** | Informational | `internal/storage/inmemory.go:595`, `internal/storage/postgres/repository.go:965` | executed | Attack 4(a) confirms that on terminal jobs, `CommitAttempt` inspects neither `lease_token` nor `worker_id` before invoking `rejectTerminalCommit` to close RUNNING attempts. Calling commit with a bogus token or worker ID on the active attempt successfully marks it CANCELLED or LOST and frees the worker capacity slot. This is confirmed intended per owner decision 3 and falls within accepted SEC-004 informational scope. | Document clearly in Slice 4b/4c sweeper documentation that attempt cleanup on terminal jobs is unconditional by attempt ID. |
+docs/agents/reviews/P4-4a.md:50:| **R-4a-03** | Minor | `docs/agents/handoffs/P4-4a-citation-drift.txt` | executed | `make test-docs` fails 9 line citations (Rule B) because `internal/coordinator/service.go` and `service_test.go` shrank. Handled per owner decision: deferred to task P4-02 for doc anchor updates. | P4-02 (Gemini) will update all 9 line anchors across phase4-plan, handoffs, and findings. |
+docs/phase4-plan.md:85:    - (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)
+(rc=0)
+
+=== [f1-replacement] ===
+$ git grep -n "orchestrator's instruction" -- docs/ ; true
+docs/agents/handoffs/P4-02.md:26:- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split (added per the orchestrator's instruction in the planning session; the owner accepts it by merging).
+docs/agents/handoffs/P4-03.md:9:- `docs/agents/handoffs/P4-02.md`: Applied R8-03 and R8-05 (corrected branch commit line to name commit before handoff update; noted exclusion dropping TASKS.md in scan line; updated attacks tried to note two obsolete symbols and no scripted check of taxonomy names; recorded open items for 77 test citations and stale backoff allowlist entry; recorded follow-on task P4-4b scope; updated roadmap scope alignment note: added per the orchestrator's instruction in the planning session; the owner accepts it by merging).
+docs/agents/handoffs/P4-03.md:18:- **Roadmap edit authority (unverified)**: `docs/roadmap.md` was edited in P4-02 to align slice descriptions with ADR-0014 and `docs/phase4-plan.md` (added per the orchestrator's instruction in the planning session; the owner accepts it by merging). `docs/roadmap.md` is now listed in the P4-02 owned files in `docs/agents/TASKS.md`; the owner accepts it by merging.
+docs/agents/handoffs/P4-03.md:105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(added per the orchestrator's instruction in the planning session; the owner accepts it by merging)". In `docs/agents/handoffs/P4-03.md`, replaced the "Owner Authorisation Record" bullet with "Roadmap edit authority (unverified)" using the same prescribed wording. Verified with `git grep -n 'R7-03' -- docs` that no false authorisation claim remains. |
+(rc=0)
+
+=== [f1-p402-diff] ===
+$ git diff origin/main...HEAD -- docs/agents/handoffs/P4-02.md
+diff --git a/docs/agents/handoffs/P4-02.md b/docs/agents/handoffs/P4-02.md
+index 2636c44..5d4d923 100644
+--- a/docs/agents/handoffs/P4-02.md
++++ b/docs/agents/handoffs/P4-02.md
+@@ -1,6 +1,6 @@
+ # Handoff P4-02
+ 
+-Branch / last commit: `agent/gemini/P4-02` / `a3590bd` (`docs(agents): apply R7-14 to P4-01 handoff`)
++Branch / last commit: `agent/gemini/P4-02` / last commit before this handoff update: `a3590bd`
+ 
+ What changed (by package):
+ - `docs/agents/reviews/P4-00-round2.md`, `docs/agents/reviews/P4-00-round3.md`: Rewrote 4 failing Rule B citations in frozen review files to `path (line N at the audited commit)` per owner decision item 4, eliminating line anchor violations while keeping historical review records byte-identical elsewhere.
+@@ -23,7 +23,7 @@ What changed (by package):
+ Design decisions and deviations from the design doc (with reasons):
+ - **Decision D-P4-02-01 (tests/docs/citation_allowlist.txt)**: Added 6 owner-approved entries to `tests/docs/citation_allowlist.txt` for audit attack tests named in P4-4a audit review (`tests/review/audit_attacks_test.go`, `TestDomain_ComputeBackoff_FullJitter` [planned test named without a label in the P4-4a audit record], `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken`, `TestAudit_Point4b_ConcurrentCancels`, `TestAudit_Point4c_CommitRacingCancel`, `TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount`). This was the single permitted edit outside `docs/` and `CHANGELOG.md`.
+ - **Owner Decision Item 4 (Frozen Review File Citations)**: RuleB honours a path| allowlist entry for a whole file, but RuleF rejects any such entry as stale while the file exists, so no allowlist entry can exempt a line citation to an existing file; verified in a scratch copy. Therefore, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
+-- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
++- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split (added per the orchestrator's instruction in the planning session; the owner accepts it by merging).
+ - **Strict Docs-Only Scope**: Zero Go code or SQL changes were introduced; all tests pass without changes.
+ 
+ Tests added (name, file, what property it guards, mutation proof):
+@@ -38,18 +38,20 @@ Commands run + real output (gofmt, vet, build, test-docs, test -race counts, tes
+ - `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 90, SKIP 28, FAIL 0.
+ - `make test-db`: skipped (docs-only task, code identical to slice 4a tip; audited at 8183a59 as PASS 70, SKIP 0, FAIL 0).
+ - `git diff --name-only origin/agent/claude/P4-4a..HEAD | grep -v -E '^(docs/|CHANGELOG.md|tests/docs/citation_allowlist.txt)'`: empty (rc=1).
+-- `grep -rn "ErrAttemptNotRunning\|AttemptNotRunning" docs CHANGELOG.md | grep -v "docs/agents/"`: clean (exit code 1, zero matches in live docs).
++- `grep -rn "ErrAttemptNotRunning\|AttemptNotRunning" docs CHANGELOG.md | grep -v "docs/agents/"`: clean (exit code 1, zero matches in live docs); the exclusion also drops docs/agents/TASKS.md, which does not contain the symbol (checked with the same grep without the exclusion).
+ 
+ Known gaps / TODOs:
+-- None for P4-02. Follow-on task P4-4b implements PostgreSQL parity and migration 000004.
++- Open item, not fixed here: 77 line citations (path:N) to test files in live docs name the wrong test; each was already wrong at origin/main (P4-02 review, section 6).
++- Open item: the allowlist entry test|TestDomain_ComputeBackoff_FullJitter becomes stale when slice 4b adds the test; slice 4b must remove it.
++- Follow-on task P4-4b implements slice 4b (migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases, pure backoff function).
+ 
+ Open questions for the orchestrator:
+-None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
++None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.
+ 
+ Security review (assumptions challenged, attacks tried, not tested, findings with evidence labels):
+ - Assumptions challenged:
+   - *Assumption*: Evaluating terminal job state prior to credential checks could leak unauthorized mutation or unbounded events.
+     - *Result*: Proven bounded by SEC-004 and idempotent diagnostic event deduplication. Registered as informational finding SEC-024 (evaluated and executed in P4-4a audit).
+-- Attacks tried: Full static citation validation across all documents, Rules A–F verified with zero violations. Checked for obsolete error strings and legacy taxonomy names across all active docs.
++- Attacks tried: Full static citation validation across all documents, Rules A–F verified with zero violations. Checked for the two obsolete symbol names with the command under "Commands run"; no scripted check of taxonomy names.
+ - Not tested: Database persistence (unaffected by doc updates).
+ - Findings: SEC-024 registered in `docs/security/findings.md` as Informational (within SEC-004 accepted risk).
+(rc=0)
+
+=== [f1-tasks-p402] ===
+$ git grep -n 'roadmap.md' -- docs/agents/TASKS.md; git diff origin/main...HEAD -- docs/agents/TASKS.md
+docs/agents/TASKS.md:70:- Owned files: `docs/PROJECT_STATE.md`, `docs/roadmap.md`, `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md`, `docs/agents/reviews/P4-02*`, `CHANGELOG.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/security/threat-model.md`, `docs/agents/TASKS.md`.
+docs/agents/TASKS.md:87:- Owned files: `docs/phase4-plan.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/adr/**`, `docs/security/**`, `docs/agents/**`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `tests/docs/citation_allowlist.txt`, `docs/roadmap.md`.
+diff --git a/docs/agents/TASKS.md b/docs/agents/TASKS.md
+index 7ceaa2a..3ba7b60 100644
+--- a/docs/agents/TASKS.md
++++ b/docs/agents/TASKS.md
+@@ -10,7 +10,7 @@ builds the rest. The other agent audits.
+ 
+ | Resource | Held by | Notes |
+ |---|---|---|
+-| Next migration number | 000004 | Held by slice P4-4b; reserved for the Phase 4 Postgres slice (4b) |
++| Next migration number | none | Next free migration number 000005 (000004 merged in PR #20) |
+ | `go.mod` / `go.sum` | none | |
+ | `internal/domain` | none | |
+ | `internal/storage/storagetest` | none | Shared conformance suite |
+@@ -20,13 +20,13 @@ builds the rest. The other agent audits.
+ 
+ | ID | Title | Builder | Auditor | Branch | Status |
+ |---|---|---|---|---|---|
+-| P0-01 | Two-agent workflow files | Claude Code | Orchestrator review | agent/claude/P0-01 | ready |
+-| P4-4a | Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire) | Claude Code | Gemini | agent/claude/P4-4a | audited, approve with minors (Gemini, docs/agents/reviews/P4-4a.md); merges together with P4-02 |
+-| P4-02 | Phase 4 slice 4a doc updates and follow-up (minors) | Gemini | Claude Code | agent/gemini/P4-02 | active |
+-| P4-4b | Phase 4 slice 4b (migration 000004, PostgreSQL parity) | Claude Code | Gemini | agent/claude/P4-4b | queued |
++| P0-03 | README refresh | Gemini | Claude Code | agent/gemini/P0-03 | changes required (review on agent/claude/P0-03-review) |
++| P4-4c-b | Phase 4 slice 4c-b (worker lease renewal & delivery) | Claude Code | Gemini | agent/claude/P4-4c-b | built, audit pending (Gemini) |
++| P4-03 | Phase 4 slice 4a audit follow-up (minors, citation repair, task board) | Gemini | Claude Code | agent/gemini/P4-03 | active |
+ 
+ ### P0-01 — Two-agent workflow files
+ - Goal: commit the agent rules so both agents read the same file.
++- Builder: Claude Code. Auditor: Orchestrator review. Branch: `agent/claude/P0-01`. Status: merged in PR #16.
+ - Owned files: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `docs/agents/**`,
+   `tests/docs/citations_test.go` (only to add `AGENTS.md` and `docs/agents/` to its
+   scan scope, if needed), `Makefile` (only if a per-worktree database target is needed).
+@@ -41,6 +41,35 @@ builds the rest. The other agent audits.
+ - Out of scope: any Go code outside `tests/docs`, any design doc, `PROJECT_STATE.md`,
+   `CHANGELOG.md` (the owner adds the changelog line at merge).
+ 
++### P0-03 — README refresh
++- Goal: refresh repository `README.md` with current project state, architecture, and roadmap alignment.
++- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P0-03`. Status: changes required (review on agent/claude/P0-03-review; fix-up round pending).
++- Owned files: `README.md`, `docs/agents/handoffs/P0-03*` (when created).
++- Out of scope: any Go code, database migrations, design docs.
++- Spec written by the P4-03 builder from the branch diff; orchestrator to confirm.
++
++### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
++- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExpiry (planned test).
++- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4b`. Status: merged in PR #20.
++- Owned files: `internal/storage/**` (in-memory and PostgreSQL repositories, the Repository interface, storagetest), `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
++- Out of scope: sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop, delivery retry budget (slice 4c); cooperative cancel and failure classification (slice 4d).
++
++### P4-4c-a — Phase 4 slice 4c-a (coordinator lease sweeper wiring, renew route, restart grace)
++- Goal: Coordinator lease renewal route, sweeper loop wiring, grace configuration and metrics, and restart grace integration.
++- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-a`. Status: merged in PR #21.
++- Owned files: `internal/coordinator/**`, `internal/api/**`, `internal/config/**`, `internal/storage/**`, `tests/integration/postgres_restart_grace_test.go`, `docs/agents/handoffs/P4-4c-a*` (when created).
++
++### P4-4c-b — Phase 4 slice 4c-b (worker lease renewal & delivery)
++- Goal: Periodic lease renewal loop in worker client, context cancellation on renew, task abort on expired/revoked lease, result delivery budget and backoff retry.
++- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-b`. Status: built, audit pending (Gemini).
++- Owned files: `internal/worker/**`, `tests/**`, `docs/agents/handoffs/P4-4c-b*` (when created).
++
++### P4-03 — Phase 4 slice 4a audit follow-up (minors, citation repair, task board)
++- Goal: close the minors left after PR #19 (P4-02 round-2 audit findings R8-01..R8-05), the two open items from the first P4-02 audit (stale backoff allowlist entry note, repair 78 pre-existing test line citations across live docs), import P4-02 audit records untouched, and update task board.
++- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-03`. Status: active.
++- Owned files: `docs/PROJECT_STATE.md`, `docs/roadmap.md`, `docs/agents/handoffs/P4-00.md`, `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md`, `docs/agents/reviews/P4-02*`, `CHANGELOG.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/security/threat-model.md`, `docs/agents/TASKS.md`.
++- Out of scope: any Go code, SQL, database migrations, `tests/` or `internal/` code, allowlist changes.
++
+ ### P4-01 — Phase 4 design follow-up (round-5 minors)
+ - Goal: fix the two minor findings of the round-5 audit of P4-00, bring the round-5 review onto main, and register the next two tasks on the task board.
+ - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-01`. Status: merged in PR #18.
+@@ -48,25 +77,24 @@ builds the rest. The other agent audits.
+ 
+ ### P4-4a — Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire)
+ - Goal: Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire).
+-- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4a`. Status: audited, approve with minors.
++- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4a`. Status: merged in PR #19.
+ - Owned files: internal/domain/**, internal/storage/** (in-memory and postgres repositories, storagetest), internal/coordinator/**, internal/api/** only if the plan requires it, tests/** (including tests/review/sec022_probe_test.go and tests/docs/citation_allowlist.txt entry removal), docs/security/findings.md (SEC-022 status line only), docs/agents/handoffs/P4-4a.md.
+ - Out of scope: any migration, docs/phase4-plan.md and all other design docs, CHANGELOG.md and PROJECT_STATE.md, docs/agents/TASKS.md.
+ 
+ ### P4-02 — Phase 4 slice 4a doc updates and follow-up (minors)
+ - Goal: repair line citations and drift, update Phase 4 plan with 4a/4b/4c scope split, register SEC-024, resolve P4-01 audit minors, update task board and changelog.
+-- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-02`. Status: in progress.
+-- Owned files: `docs/phase4-plan.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/adr/**`, `docs/security/**`, `docs/agents/**`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `tests/docs/citation_allowlist.txt`.
++- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-02`. Status: merged in PR #19.
++- Owned files: `docs/phase4-plan.md`, `docs/protocol.md`, `docs/state-machine.md`, `docs/adr/**`, `docs/security/**`, `docs/agents/**`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `tests/docs/citation_allowlist.txt`, `docs/roadmap.md`.
+ - Out of scope: any code under `internal/`, `cmd/`, `tests/` (except `tests/docs/citation_allowlist.txt`), any database migrations.
+ 
+-### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
+-- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExpiry (planned test).
+-- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4b`. Status: queued.
+-- Owned files: `internal/storage/**` (in-memory and PostgreSQL repositories, the Repository interface, storagetest), `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
+-- Out of scope: sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop, delivery retry budget (slice 4c); cooperative cancel and failure classification (slice 4d).
+-
+ ## Done
+ 
+ | ID | Title | Merged in |
+ |---|---|---|
++| P0-01 | Two-agent workflow files | PR #16, merge commit a9453fc |
+ | P4-00 | Phase 4 design close-out | PR #17, merge commit f6c7ec8 |
+ | P4-01 | Phase 4 design follow-up (round-5 minors) | PR #18, merge commit d28a3d1 |
++| P4-4a | Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire) | PR #19, merge commit e7403a9 |
++| P4-02 | Phase 4 slice 4a doc updates and follow-up (minors) | PR #19, merge commit e7403a9 |
++| P4-4b | Phase 4 slice 4b (migration 000004, PostgreSQL parity) | PR #20, merge commit 7e58d4a |
++| P4-4c-a | Phase 4 slice 4c-a (lease renewal route, sweeper wiring, restart grace) | PR #21, merge commit fc451c9 |
+(rc=0)
+
+=== [f2-script] ===
+$ cat /tmp/claude-1000/-home-blazeee-MiniCloud-claude/9869bb69-69dc-472f-837c-d667d97848ec/scratchpad/count.py
+import re,subprocess,sys
+files=["CHANGELOG.md","docs/PROJECT_STATE.md","docs/security/findings.md","docs/security/test-plan.md","docs/security/threat-model.md"]
+pat=re.compile(r'[A-Za-z0-9_./-]+\.go:\d+(?:-\d+)?')
+def show(rev,f): return subprocess.run(["git","show",f"{rev}:{f}"],capture_output=True,text=True).stdout
+tot=0
+for f in files:
+    a=pat.findall(show("fc451c9",f)); b=pat.findall(show("HEAD",f))
+    from collections import Counter
+    ca,cb=Counter(a),Counter(b)
+    lost=sum((ca-cb).values()); gained=sum((cb-ca).values())
+    print(f"{f}: base={len(a)} head={len(b)} lost={lost} gained={gained}")
+    tot+=lost
+print("TOTAL lost",tot)
+(rc=0)
+
+=== [f2-count] ===
+$ python3 -I /tmp/claude-1000/-home-blazeee-MiniCloud-claude/9869bb69-69dc-472f-837c-d667d97848ec/scratchpad/count.py
+CHANGELOG.md: base=6 head=2 lost=4 gained=0
+docs/PROJECT_STATE.md: base=36 head=20 lost=16 gained=0
+docs/security/findings.md: base=113 head=82 lost=31 gained=0
+docs/security/test-plan.md: base=32 head=19 lost=13 gained=0
+docs/security/threat-model.md: base=58 head=44 lost=14 gained=0
+TOTAL lost 78
+(rc=0)
+
+=== [f2-agree] ===
+$ git grep -n -E '\b(77|78|16|15)\b' -- docs/agents/handoffs/P4-03.md CHANGELOG.md docs/PROJECT_STATE.md | grep -i -E 'citation|repair|remov' | cut -c1-420
+CHANGELOG.md:44:  - Enforces six citation rules: Rule A (existing repository paths), Rule B (line anchors within file line bounds), Rule C (test identifiers exist in repository test suites parsed via `go/parser`), Rule D (prohibits `file:` triple slash URI schemes and legacy `/api` route prefixes), Rule E (ADR citations exist without gaps), and Rule F (allowlist entry formatting, non-empty justifications >= 15 chars,
+docs/PROJECT_STATE.md:37:    - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons (>= 15 characters), and strict non-staleness check.
+docs/agents/handoffs/P4-03.md:6:- `docs/PROJECT_STATE.md`: Applied R8-01 (clarified date line with P4-02 context, stripped docs test timing, noted `make test-db` PASS 70 carried over from 4a audit at 8183a59); applied R8-02 (clarified slice 4b exit criteria to in-lock grace check, slice 4c exit criteria to startup grace mutation proof, slice 4d scope to slice 4b backoff reuse, and slice 4d exit criteria to bypassing 
+docs/agents/handoffs/P4-03.md:9:- `docs/agents/handoffs/P4-02.md`: Applied R8-03 and R8-05 (corrected branch commit line to name commit before handoff update; noted exclusion dropping TASKS.md in scan line; updated attacks tried to note two obsolete symbols and no scripted check of taxonomy names; recorded open items for 77 test citations and stale backoff allowlist entry; recorded follow-on task P4-4b scope; updated
+docs/agents/handoffs/P4-03.md:20:- **Test citation line number removal**: As instructed in Step 5 and recommended in the P4-02 audit (section 6), the pre-existing test line citations across live docs were converted to file paths without line numbers (`path/to/file_test.go`). The P4-02 list contained 77 entries with one false positive (the line-40 token for the worker rejection test beside the line-16 token in `docs/P
+docs/agents/handoffs/P4-03.md:55:  - Executed automated check verifying 78/78 pre-existing test line citations corrected.
+docs/agents/handoffs/P4-03.md:66:  - 78 test citations (open item from P4-02 audit, resolved): 78 pre-existing line citations across `CHANGELOG.md` (4), `docs/PROJECT_STATE.md` (16), `docs/security/findings.md` (31), `docs/security/test-plan.md` (13), `docs/security/threat-model.md` (14) repaired to file paths without line numbers.
+docs/agents/handoffs/P4-03.md:106:| F-P4-03-2 | minor | `docs/agents/handoffs/P4-03.md`, `docs/PROJECT_STATE.md` | executed | Re-derived the exact citation count from the repository diff against `origin/main`: 78 substitutions across the 5 files (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). The extra 
+docs/agents/handoffs/P4-03.md:109:| F-P4-03-5 | nit | `docs/agents/handoffs/P4-03.md` | executed | Corrected package counts to `15 packages ok, 4 without test files` for the round 1 gate; clarified commit `e7403a9` containing slice 4a tip `8183a59`; clarified sections 2 and 7 for PROJECT_STATE citation changes; recorded round 1 gate commit hash `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`. |
+docs/agents/handoffs/P4-03.md:180:REMOVED total: 78
+(rc=0)
+
+=== [f2-line16] ===
+$ git diff fc451c9 HEAD -- docs/PROJECT_STATE.md | grep -n 'client_test.go' | cut -c1-500
+9:-  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry behavior for finished but unreported tasks: capped jittered backoff (500ms base to 5.0s cap), ongoing background lease renewal during reporting, stopping on non-retryable rejection (403, 404, 409) or cumulative bound (lease + grace = 60s). Inspected existing tests pinning behavior (`internal/worker/client_test.go:16` `TestIsNonRetryableReportError`, `internal
+10:+  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry behavior for finished but unreported tasks: capped jittered backoff (500ms base to 5.0s cap), ongoing background lease renewal during reporting, stopping on non-retryable rejection (403, 404, 409) or cumulative bound (lease + grace = 60s). Inspected existing tests pinning behavior (`internal/worker/client_test.go` `TestIsNonRetryableReportError`, `internal/w
+(rc=0)
+
+=== [f2-all-mentions] ===
+$ git grep -n -E '\b(77|78)\b' -- docs/agents/handoffs/P4-03.md docs/agents/handoffs/P4-02.md docs/agents/TASKS.md CHANGELOG.md docs/PROJECT_STATE.md | cut -c1-700
+docs/agents/TASKS.md:68:- Goal: close the minors left after PR #19 (P4-02 round-2 audit findings R8-01..R8-05), the two open items from the first P4-02 audit (stale backoff allowlist entry note, repair 78 pre-existing test line citations across live docs), import P4-02 audit records untouched, and update task board.
+docs/agents/handoffs/P4-02.md:44:- Open item, not fixed here: 77 line citations (path:N) to test files in live docs name the wrong test; each was already wrong at origin/main (P4-02 review, section 6).
+docs/agents/handoffs/P4-03.md:9:- `docs/agents/handoffs/P4-02.md`: Applied R8-03 and R8-05 (corrected branch commit line to name commit before handoff update; noted exclusion dropping TASKS.md in scan line; updated attacks tried to note two obsolete symbols and no scripted check of taxonomy names; recorded open items for 77 test citations and stale backoff allowlist entry; recorded follow-on task P4-4b scope; updated roadmap scope alignment note: added per the orchestrator's instruction in the planning session; the owner accepts it by merging).
+docs/agents/handoffs/P4-03.md:20:- **Test citation line number removal**: As instructed in Step 5 and recommended in the P4-02 audit (section 6), the pre-existing test line citations across live docs were converted to file paths without line numbers (`path/to/file_test.go`). The P4-02 list contained 77 entries with one false positive (the line-40 token for the worker rejection test beside the line-16 token in `docs/PROJECT_STATE.md`); removing both tokens on that line resulted in 78 total removals (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). Only the citations that named the
+docs/agents/handoffs/P4-03.md:55:  - Executed automated check verifying 78/78 pre-existing test line citations corrected.
+docs/agents/handoffs/P4-03.md:66:  - 78 test citations (open item from P4-02 audit, resolved): 78 pre-existing line citations across `CHANGELOG.md` (4), `docs/PROJECT_STATE.md` (16), `docs/security/findings.md` (31), `docs/security/test-plan.md` (13), `docs/security/threat-model.md` (14) repaired to file paths without line numbers.
+docs/agents/handoffs/P4-03.md:106:| F-P4-03-2 | minor | `docs/agents/handoffs/P4-03.md`, `docs/PROJECT_STATE.md` | executed | Re-derived the exact citation count from the repository diff against `origin/main`: 78 substitutions across the 5 files (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). The extra substitution in `docs/PROJECT_STATE.md` was the line-16 token on line 25 (`internal/worker/client_test.go:16`) beside the listed line-40 token. Corrected the handoff counts from 77 and 15 to 78 and 16. |
+docs/agents/handoffs/P4-03.md:180:REMOVED total: 78
+(rc=0)
+
+=== [f2-p403-lines] ===
+$ sed -n '18,22p;53,57p;64,68p;176,182p' docs/agents/handoffs/P4-03.md
+- **Roadmap edit authority (unverified)**: `docs/roadmap.md` was edited in P4-02 to align slice descriptions with ADR-0014 and `docs/phase4-plan.md` (added per the orchestrator's instruction in the planning session; the owner accepts it by merging). `docs/roadmap.md` is now listed in the P4-02 owned files in `docs/agents/TASKS.md`; the owner accepts it by merging.
+- **Wildcard convention for uncreated handoff files in `docs/agents/TASKS.md`**: `RuleA` of `TestCitations` enforces that every cited repository path exists in the filesystem. To prevent `RuleA` failures on uncreated files while registering active tasks, `docs/agents/handoffs/P0-03*` (when created), `docs/agents/handoffs/P4-4c-b*` (when created), and `docs/agents/handoffs/P4-03*` (when created) use the glob wildcard convention already established by P4-4b (`docs/agents/handoffs/P4-4b* (when created)`).
+- **Test citation line number removal**: As instructed in Step 5 and recommended in the P4-02 audit (section 6), the pre-existing test line citations across live docs were converted to file paths without line numbers (`path/to/file_test.go`). The P4-02 list contained 77 entries with one false positive (the line-40 token for the worker rejection test beside the line-16 token in `docs/PROJECT_STATE.md`); removing both tokens on that line resulted in 78 total removals (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). Only the citations that named the wrong test (plus the adjacent line-16 token, 78 tokens total) were converted; 91 remaining line citations in live docs name the right test (49 at the function line, 25 inside it, 17 one or two lines above it) and are left as they are. All 22 unique test names on modified lines were verified to exist with `git grep -n`. Removing line numbers prevents line drift across future development while preserving verified test identifier names (`RuleC`) and valid repository file paths (`RuleA`).
+- **Deviations in method**: The citation edits in round 1 were performed using an uncommitted one-off script (`path:line` and `path:line-line` replaced by `path` on the listed lines); `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits; the gates in "Commands run" for round 1 were run 1 time at commit `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`; the output of the round 1 "automated check" was not preserved.
+- **Strict Docs-Only Scope**: Zero Go code, SQL, or allowlist entries were touched. All tests pass with zero modification to production or test code.
+- Attacks tried:
+  - Verified all 22 unique test names exist as real `func Test...` declarations using `git grep -n`.
+  - Executed automated check verifying 78/78 pre-existing test line citations corrected.
+  - Ran `make test-docs` verifying Rules A–F across all documentation files.
+  - Verified zero non-doc/non-changelog diff against `origin/main` (`git diff --name-only origin/main..HEAD | grep -v -E '^(docs/|CHANGELOG.md)'` exited with code 1).
+  - R8-04 (minor, resolved): Planned labels on executed slice 4a tests in `docs/agents/handoffs/P4-00.md` updated.
+  - R8-05 (nit, resolved): P4-02 handoff commit hash, scan line note, and attacks tried description corrected.
+  - 78 test citations (open item from P4-02 audit, resolved): 78 pre-existing line citations across `CHANGELOG.md` (4), `docs/PROJECT_STATE.md` (16), `docs/security/findings.md` (31), `docs/security/test-plan.md` (13), `docs/security/threat-model.md` (14) repaired to file paths without line numbers.
+
+---
+'
+```
+Output (verbatim):
+```
+REMOVED total: 78
+  CHANGELOG.md: 4
+  docs/PROJECT_STATE.md: 16
+(rc=0)
+
+=== [f2-changelog-state] ===
+$ git grep -n -i -E 'P4-03|citation' -- CHANGELOG.md docs/PROJECT_STATE.md | cut -c1-300 | head -20
+CHANGELOG.md:11:- **P4-02 (docs):** Repaired 4a-drifted line citations in live docs to function and section references, applied the 4b/4c slice split to docs/phase4-plan.md, registered SEC-024, added six audit-record names to the citation allowlist, imported the P4-01 and P4-4a audits.
+CHANGELOG.md:17:  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, FAIL 0. D
+CHANGELOG.md:23:  - **Citation Checker Scope (`tests/docs/citations_test.go`):** Added `AGENTS.md` to root documentation files scanned by `CollectDocFiles` in `tests/docs/citations_test.go`.
+CHANGELOG.md:42:- **Automated Documentation Citation Checker (`tests/docs/citations_test.go`, `tests/docs/citation_allowlist.txt`, `Makefile: test-docs`):**
+CHANGELOG.md:43:  - Implemented standard library static documentation citation verifier validating paths, line anchors, test identifiers, URI schemes, ADR citations, and allowlist freshness across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`.
+CHANGELOG.md:44:  - Enforces six citation rules: Rule A (existing repository paths), Rule B (line anchors within file line bounds), Rule C (test identifiers exist in repository test suites parsed via `go/parser`), Rule D (prohibits `file:` triple slash URI schemes and legacy `/api` route prefixes), 
+CHANGELOG.md:47:  - Documented security findings SEC-020 (Documentation Citation Drift and Nonexistent Citations) and SEC-021 (Whole-Line Exemption Scoping in Rule C Citation Checker; verified across four executed mutation cases, with residual limitation documented for same-clause self-labeling).
+CHANGELOG.md:69:  - `docs/security/threat-model.md`: Comprehensive component threat matrix (CLI, HTTP API, coordinator, worker protocol, scheduler, state machine, PostgreSQL, executor, config/secrets, logs/metrics, and deferred components) with assets, trust boundaries, threats, mitigations, citatio
+docs/PROJECT_STATE.md:16:  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, 
+docs/PROJECT_STATE.md:22:  - **Citation Checker Scope (`tests/docs/citations_test.go`):** Added `AGENTS.md` to root documentation files scanned by `CollectDocFiles` in `tests/docs/citations_test.go`.
+docs/PROJECT_STATE.md:30:- **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
+docs/PROJECT_STATE.md:31:  - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
+docs/PROJECT_STATE.md:36:    - Rule E: ADR citations must reference valid ADR numbers with zero gap sequence.
+docs/PROJECT_STATE.md:37:    - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons (>= 15 characters), and strict non-staleness check.
+docs/PROJECT_STATE.md:41:  - **Security Findings Register:** Documented `SEC-020` (Documentation Citation Drift and Nonexistent Citations) and `SEC-021` (Whole-Line Exemption Scoping in Rule C Citation Checker; verified across four executed mutation cases, with residual limitation documented for sam
+docs/PROJECT_STATE.md:69:  - **Threat Model:** Created [docs/security/threat-model.md](security/threat-model.md) analyzing assets, trust boundaries, threats, mitigations, and citations across 12 components, and incorporating unconfirmed read-only code review findings.
+docs/PROJECT_STATE.md:251:  - **SEC-020 (Low, Confirmed, Remediated by Tooling):** Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitatio
+docs/PROJECT_STATE.md:252:  - **SEC-021 (Informational, Confirmed by owner mutation; remediated for unrelated names; residual limitation documented):** Rule C's exemption keywords initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells 
+(rc=0)
+
+=== [t4-tasks-status] ===
+$ grep -n -i -E 'status|^#{1,4} |PR #|merge commit|built|active|ready|queued|done' docs/agents/TASKS.md | cut -c1-330
+1:# Task board
+4:active task may not be edited by any other task.
+9:## Reserved shared touch points
+13:| Next migration number | none | Next free migration number 000005 (000004 merged in PR #20) |
+19:## Active
+21:| ID | Title | Builder | Auditor | Branch | Status |
+24:| P4-4c-b | Phase 4 slice 4c-b (worker lease renewal & delivery) | Claude Code | Gemini | agent/claude/P4-4c-b | built, audit pending (Gemini) |
+25:| P4-03 | Phase 4 slice 4a audit follow-up (minors, citation repair, task board) | Gemini | Claude Code | agent/gemini/P4-03 | active |
+27:### P0-01 — Two-agent workflow files
+29:- Builder: Claude Code. Auditor: Orchestrator review. Branch: `agent/claude/P0-01`. Status: merged in PR #16.
+44:### P0-03 — README refresh
+46:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P0-03`. Status: changes required (review on agent/claude/P0-03-review; fix-up round pending).
+51:### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
+53:- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4b`. Status: merged in PR #20.
+57:### P4-4c-a — Phase 4 slice 4c-a (coordinator lease sweeper wiring, renew route, restart grace)
+59:- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-a`. Status: merged in PR #21.
+62:### P4-4c-b — Phase 4 slice 4c-b (worker lease renewal & delivery)
+64:- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-b`. Status: built, audit pending (Gemini).
+67:### P4-03 — Phase 4 slice 4a audit follow-up (minors, citation repair, task board)
+68:- Goal: close the minors left after PR #19 (P4-02 round-2 audit findings R8-01..R8-05), the two open items from the first P4-02 audit (stale backoff allowlist entry note, repair 78 pre-existing test line citations across live docs), import P4-02 audit records untouched, and update task board.
+69:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-03`. Status: active.
+73:### P4-01 — Phase 4 design follow-up (round-5 minors)
+75:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-01`. Status: merged in PR #18.
+78:### P4-4a — Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire)
+80:- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4a`. Status: merged in PR #19.
+81:- Owned files: internal/domain/**, internal/storage/** (in-memory and postgres repositories, storagetest), internal/coordinator/**, internal/api/** only if the plan requires it, tests/** (including tests/review/sec022_probe_test.go and tests/docs/citation_allowlist.txt entry removal), docs/security/findings.md (SEC-022 status
+84:### P4-02 — Phase 4 slice 4a doc updates and follow-up (minors)
+86:- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-02`. Status: merged in PR #19.
+90:## Done
+94:| P0-01 | Two-agent workflow files | PR #16, merge commit a9453fc |
+95:| P4-00 | Phase 4 design close-out | PR #17, merge commit f6c7ec8 |
+96:| P4-01 | Phase 4 design follow-up (round-5 minors) | PR #18, merge commit d28a3d1 |
+97:| P4-4a | Phase 4 slice 4a (domain FSM, in-memory parity, SEC-022 fix, memory-mode dispatch rewire) | PR #19, merge commit e7403a9 |
+98:| P4-02 | Phase 4 slice 4a doc updates and follow-up (minors) | PR #19, merge commit e7403a9 |
+99:| P4-4b | Phase 4 slice 4b (migration 000004, PostgreSQL parity) | PR #20, merge commit 7e58d4a |
+100:| P4-4c-a | Phase 4 slice 4c-a (lease renewal route, sweeper wiring, restart grace) | PR #21, merge commit fc451c9 |
+(rc=0)
+
+=== [t4-main-log] ===
+$ git log --oneline --first-parent -25 origin/main
+fc451c9 Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+7e58d4a Merge pull request #20 from BlaZe08-Dev/agent/claude/P4-4b
+e7403a9 Merge pull request #19 from BlaZe08-Dev/agent/gemini/P4-02
+d28a3d1 Merge pull request #18 from BlaZe08-Dev/agent/gemini/P4-01
+f6c7ec8 Merge pull request #17 from BlaZe08-Dev/docs/phase4-design
+a9453fc Merge pull request #16 from BlaZe08-Dev/agent/claude/P0-01
+5a989d7 Merge pull request #15 from BlaZe08-Dev/docs/citation-check
+c72879e Merge pull request #14 from BlaZe08-Dev/milestone/3d-postgres-wiring
+5852c96 Merge pull request #13 from BlaZe08-Dev/milestone/3d-postgres-queue
+266d09c Merge pull request #12 from BlaZe08-Dev/milestone/3d-postgres-queue
+dde9ad2 Merge pull request #11 from BlaZe08-Dev/docs/security-instructions
+ba9f6ef Merge pull request #10 from BlaZe08-Dev/docs/security-instructions
+2c25a3c Merge pull request #9 from BlaZe08-Dev/milestone/3c-postgres-repository
+ba984e6 Merge pull request #8 from BlaZe08-Dev/milestone/3b-migrations-and-schema
+4c444be Merge pull request #7 from BlaZe08-Dev/milestone/3a-repository-atomicity
+effde87 Merge pull request #6 from BlaZe08-Dev/docs/phase3-design
+7084e26 Merge pull request #5 from BlaZe08-Dev/docs/phase3-design
+8763113 Merge pull request #4 from BlaZe08-Dev/milestone/2b-dispatch-interface
+a636ba0 Merge pull request #3 from BlaZe08-Dev/milestone/2-independent-workers
+b6fdbd4 Merge pull request #2 from BlaZe08-Dev/docs/version-boundaries
+78f2aa2 Merge pull request #1 from BlaZe08-Dev/milestone/1-local-core
+2fb7958 docs: establish Phase 0 architecture, state machine, and context layer
+f5a4968 docs: add MiniCloud blueprint and instructions
+(rc=0)
+
+=== [t4-merges] ===
+$ git log --merges --oneline -12 origin/main --format='%h %p %s'
+fc451c9 7e58d4a 85b2246 Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+7e58d4a e7403a9 8b3c332 Merge pull request #20 from BlaZe08-Dev/agent/claude/P4-4b
+e7403a9 d28a3d1 d441c3e Merge pull request #19 from BlaZe08-Dev/agent/gemini/P4-02
+44eeaa8 8183a59 d28a3d1 Merge remote-tracking branch 'origin/main' into agent/gemini/P4-02
+d28a3d1 f6c7ec8 fde4ca7 Merge pull request #18 from BlaZe08-Dev/agent/gemini/P4-01
+f6c7ec8 a9453fc a9efa6e Merge pull request #17 from BlaZe08-Dev/docs/phase4-design
+c55e3a9 1afa976 a9453fc Merge remote-tracking branch 'origin/main' into docs/phase4-design
+a9453fc 5a989d7 98242fe Merge pull request #16 from BlaZe08-Dev/agent/claude/P0-01
+5a989d7 c72879e 08a5246 Merge pull request #15 from BlaZe08-Dev/docs/citation-check
+c72879e 5852c96 65e3a50 Merge pull request #14 from BlaZe08-Dev/milestone/3d-postgres-wiring
+5852c96 266d09c 173406d Merge pull request #13 from BlaZe08-Dev/milestone/3d-postgres-queue
+266d09c dde9ad2 44bc76e Merge pull request #12 from BlaZe08-Dev/milestone/3d-postgres-queue
+(rc=0)
+
+=== [t4-hashes] ===
+$ for h in a9453fc 7e58d4a fc451c9 e7403a9 8183a59; do git cat-file -t $h && git log -1 --format='%h %p | %s' $h; git merge-base --is-ancestor $h origin/main && echo 'ancestor of origin/main'; done
+commit
+a9453fc 5a989d7 98242fe | Merge pull request #16 from BlaZe08-Dev/agent/claude/P0-01
+ancestor of origin/main
+commit
+7e58d4a e7403a9 8b3c332 | Merge pull request #20 from BlaZe08-Dev/agent/claude/P4-4b
+ancestor of origin/main
+commit
+fc451c9 7e58d4a 85b2246 | Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+ancestor of origin/main
+commit
+e7403a9 d28a3d1 d441c3e | Merge pull request #19 from BlaZe08-Dev/agent/gemini/P4-02
+ancestor of origin/main
+commit
+8183a59 bcafba0 | docs(handoff): P4-4a add-on 2: R6-01 test, 4b/4c sweeper split wording, backoff answer
+ancestor of origin/main
+(rc=0)
+
+=== [t4-branches] ===
+$ git branch -r; git log -1 --format='%h %ci %s' origin/agent/claude/P4-4c-b; git log -1 --format='%h %ci %s' origin/agent/claude/P4-4b 2>&1; git log -1 --format='%h %ci %s' origin/agent/gemini/P0-03; git log -1 --format='%h %ci %s' origin/agent/claude/P0-03-review-2
+  origin/HEAD -> origin/main
+  origin/agent/claude/P0-03-review
+  origin/agent/claude/P0-03-review-2
+  origin/agent/claude/P4-00-review
+  origin/agent/claude/P4-02-review
+  origin/agent/claude/P4-02-review-2
+  origin/agent/claude/P4-03-review
+  origin/agent/claude/P4-4c-b
+  origin/agent/gemini/P0-03
+  origin/agent/gemini/P4-03
+  origin/agent/gemini/P4-4a-review
+  origin/agent/gemini/P4-4b-review
+  origin/agent/gemini/P4-4c-a-review
+  origin/main
+  origin/milestone/1-local-core
+  origin/milestone/2-independent-workers
+  origin/milestone/2b-dispatch-interface
+  origin/milestone/3a-repository-atomicity
+  origin/milestone/3b-migrations-and-schema
+  origin/milestone/3c-postgres-repository
+  origin/milestone/3d-postgres-queue
+  origin/milestone/3d-postgres-wiring
+6268073 2026-10-28 19:56:32 +0530 docs(handoff): P4-4c-b round 2 (interval ceiling, production wiring proof, real-binary smoke run)
+fatal: ambiguous argument 'origin/agent/claude/P4-4b': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+e42acd0 2026-10-28 18:43:20 +0530 docs(handoff): update P0-03 handoff with review resolutions and execution evidence
+7c8f130 2026-10-28 19:00:47 +0530 docs(review): P0-03 round 2 audit of README refresh
+(rc=0)
+
+=== [t4-p003-r2] ===
+$ git show origin/agent/claude/P0-03-review-2:docs/agents/reviews/P0-03-round2.md | head -12 | cut -c1-500; git log --oneline origin/main..origin/agent/gemini/P0-03 | head; git merge-base --is-ancestor origin/agent/gemini/P0-03 origin/main && echo merged || echo 'P0-03 not merged'
+# Review P0-03, round 2
+
+Commit reviewed: `e42acd0076be3392922680dbc1342812eb50ae61` (branch `agent/gemini/P0-03`; README last changed in `ea08ea5`, handoff in `e42acd0`). Merge-base with `origin/main`: `e7403a9` (slice 4a merge). `origin/main` is now `7e58d4a` (slice 4b merged). Auditor: Claude, branch `agent/claude/P0-03-review-2`. Round 1: `docs/agents/reviews/P0-03.md` (F-P0-03-1..14). Raw output: `docs/agents/reviews/P0-03-round2-evidence.txt`; "ev NN" below is the `=== NN-... ===` header in that file.
+
+Verdict: **NOT APPROVED, narrowly.** 11 of the 14 round-1 findings are fixed and re-verified against the code, and the remaining 3 are partly fixed. The fix-up added one major problem (the `.env` sourcing step primes the shared-container outage trap), one unsupported claim (SEC-012 "planned for slice 4d"), and several statements that are false or will be stale against `main` at `7e58d4a`. Four small edits make it approvable (must-fix list at the end).
+
+Method notes: fresh `gh`/https clone to `~/mc-readme-audit2` (ev 00), no `.env` copied, no `MINICLOUD_*` variable in the environment (ev 18), no database touched, no `docker`, `go test` run only with `MINICLOUD_TEST_DATABASE_URL` unset. **Disclosure:** at the start, port 8080 was already held by a coordinator that is not mine (pid 264576, started from `/home/blazeee/MiniCloud`, ev 11). I did not stop it. My first quickstart run therefore talked to that process: my `mc submit` created one echo jo
+
+## 1. Round-1 findings re-checked
+
+Label key: executed = I ran it (evidence cited); code = confirmed by code reading; inferred = reasoning only.
+
+e42acd0 docs(handoff): update P0-03 handoff with review resolutions and execution evidence
+ea08ea5 docs: resolve audit findings F-1 through F-12 and F-14 in README
+5eb510f docs(review): import Claude review and evidence for P0-03
+521be86 docs(agents): create P0-03 handoff record
+567c731 docs: refresh README with accurate architecture, quickstart, and configuration
+P0-03 not merged
+(rc=0)
+
+=== [t4-4cb] ===
+$ git log --oneline origin/main..origin/agent/claude/P4-4c-b | wc -l; git ls-tree -r --name-only origin/agent/claude/P4-4c-b | grep -i 'handoffs/P4-4c-b'; sed -n 62,66p docs/agents/TASKS.md | cut -c1-400; git ls-tree -r --name-only HEAD | grep -E 'handoffs/P4-4c-b|handoffs/P0-03'
+10
+docs/agents/handoffs/P4-4c-b.md
+### P4-4c-b — Phase 4 slice 4c-b (worker lease renewal & delivery)
+- Goal: Periodic lease renewal loop in worker client, context cancellation on renew, task abort on expired/revoked lease, result delivery budget and backoff retry.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4c-b`. Status: built, audit pending (Gemini).
+- Owned files: `internal/worker/**`, `tests/**`, `docs/agents/handoffs/P4-4c-b*` (when created).
+
+(rc=1)
+
+=== [s6-names] ===
+$ git diff --name-only origin/main...HEAD
+CHANGELOG.md
+docs/PROJECT_STATE.md
+docs/agents/TASKS.md
+docs/agents/handoffs/P4-00.md
+docs/agents/handoffs/P4-02.md
+docs/agents/handoffs/P4-03.md
+docs/agents/reviews/P4-02-evidence.txt
+docs/agents/reviews/P4-02-round2-evidence.txt
+docs/agents/reviews/P4-02-round2.md
+docs/agents/reviews/P4-02.md
+docs/roadmap.md
+docs/security/findings.md
+docs/security/test-plan.md
+docs/security/threat-model.md
+(rc=0)
+
+=== [s6-nondocs] ===
+$ git diff origin/main...HEAD -- ':!docs' ':!CHANGELOG.md'; echo diff-bytes=$(git diff origin/main...HEAD -- ':!docs' ':!CHANGELOG.md' | wc -c); git diff --name-only origin/main...HEAD | grep -v -E '^(docs/|CHANGELOG.md$)'; echo grep-rc=$?
+diff-bytes=0
+grep-rc=1
+(rc=0)
+
+=== [g-env] ===
+$ go version; env | grep -c MINICLOUD_TEST_DATABASE_URL
+go version go1.22.2 linux/amd64
+0
+(rc=1)
+
+=== [g-gofmt] ===
+$ gofmt -l .; echo gofmt-done
+gofmt-done
+(rc=0)
+
+=== [g-vet] ===
+$ go vet ./...
+(rc=0)
+
+=== [g-build] ===
+$ go build ./...
+(rc=0)
+
+=== [g-testdocs] ===
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.115s
+(rc=0)
+
+=== [g-count] ===
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./... > gate-v.log 2>&1; count lines
+PASS 151 SKIP 35 FAIL 0
+packages ok: 16
+no test files: 3
+FAIL lines: 0
+--- package result lines ---
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/mc	[no test files]
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/worker	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.572s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.036s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.738s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.034s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.157s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.173s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.093s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.030s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.026s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.603s
+?   	github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.120s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.563s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.035s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	11.967s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	7.572s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.051s
+
+=== [p5-pkgcounts] ===
+$ grep -n -i -E 'packages? ok|without test|no test files|[0-9]+ ok|PASS [0-9]+|151|SKIP' docs/agents/handoffs/P4-03.md | cut -c1-600
+6:- `docs/PROJECT_STATE.md`: Applied R8-01 (clarified date line with P4-02 context, stripped docs test timing, noted `make test-db` PASS 70 carried over from 4a audit at 8183a59); applied R8-02 (clarified slice 4b exit criteria to in-lock grace check, slice 4c exit criteria to startup grace mutation proof, slice 4d scope to slice 4b backoff reuse, and slice 4d exit criteria to bypassing slice 4b backoff function); repaired 16 test line citations in sections 2 and 7 (15 from the P4-02 list plus the correct line-16 token on the worker result-delivery bullet, which sits beside a false positive of
+33:- `env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...`: clean (exit code 0; 15 packages ok, 4 without test files).
+34:- `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 90 SKIP 28 FAIL 0 (exit code 0).
+35:- `make test-db`: skipped (docs-only task, code identical to origin/main e7403a9, which contains the slice 4a tip 8183a59; audited at `8183a59` as PASS 70, SKIP 0, FAIL 0; instruction explicitly forbade running with `MINICLOUD_TEST_DATABASE_URL` set).
+109:| F-P4-03-5 | nit | `docs/agents/handoffs/P4-03.md` | executed | Corrected package counts to `15 packages ok, 4 without test files` for the round 1 gate; clarified commit `e7403a9` containing slice 4a tip `8183a59`; clarified sections 2 and 7 for PROJECT_STATE citation changes; recorded round 1 gate commit hash `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`. |
+130:docs/agents/reviews/P4-02.md:192:9. **TASKS, CHANGELOG, PROJECT_STATE:** corrections are R7-01, R7-02, R7-03, R7-10, R7-12. Verified true: matrix cells flipped (exactly two), `NewServiceWithQueue` and `spyQueue` gone from code, seven rewritten coordinator tests exist, P4-01 merged as PR #18 at `d28a3d1`, `make test-db` PASS 70 (4a audit).
+219:?   	github.com/BlaZe08-Dev/Minicloud/cmd/mc	[no test files]
+220:?   	github.com/BlaZe08-Dev/Minicloud/cmd/worker	[no test files]
+231:?   	github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest	[no test files]
+239:Output: 16 packages ok, 3 without test files, rc=0.
+244:$ echo "PASS $(grep -c '^--- PASS' /tmp/gate-v.log) SKIP $(grep -c '^--- SKIP' /tmp/gate-v.log) FAIL $(grep -c '^--- FAIL' /tmp/gate-v.log)"
+245:PASS 151 SKIP 35 FAIL 0
+247:Output: `PASS 151 SKIP 35 FAIL 0`, rc=0.
+250:Skipped per hard safety instructions: strictly docs-only pass, `MINICLOUD_TEST_DATABASE_URL` was never set.
+(rc=0)
+
+=== [p5-linenums] ===
+$ grep -n -E '(\.go|\.md|\.txt):[0-9]+|\bline [0-9]+|lines [0-9]+' docs/agents/handoffs/P4-03.md | cut -c1-400
+105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(added per the orchestrator's instruction in the planning session; the owner accepts it by merging)". In `docs/agents/handoffs/P4-03.md`, repl
+106:| F-P4-03-2 | minor | `docs/agents/handoffs/P4-03.md`, `docs/PROJECT_STATE.md` | executed | Re-derived the exact citation count from the repository diff against `origin/main`: 78 substitutions across the 5 files (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). The extra substituti
+116:docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+117:docs/agents/reviews/P4-02-round2-evidence.txt:26:1cf36e4 docs(roadmap): apply R7-03, R7-11 to Phase 4 sub-slices
+118:docs/agents/reviews/P4-02-round2-evidence.txt:27:6fa9749 docs: apply R7-01, R7-02, R7-03, R7-04, R7-11, R7-12 to docs/PROJECT_STATE.md
+119:docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+120:docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+121:docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+122:docs/agents/reviews/P4-02-round2.md:26:| R7-03 | blocker | **partly closed** | Every line I specified is applied verbatim: `PROJECT_STATE.md:182-184`, `:189`, `:192`, `roadmap.md:56`, `:60` (appended sentence), `:63`. Residual: lines I did not list still carry the old split (`PROJECT_STATE.md:193`, `:208`, `:211`, `roadmap.md:60` first half, `:65`) -> R8-02. Also `docs/roadmap.md` is outside t
+123:docs/agents/reviews/P4-02-round2.md:42:Count: closed 14, partly closed 3 (R7-03, R7-12, R7-16), not closed 0, new error introduced 0.
+124:docs/agents/reviews/P4-02-round2.md:83:| R8-02 | minor | `PROJECT_STATE.md:193`, `:204` (4c exit), `:208`, `:211`; `roadmap.md:60`, `:65` | executed | Split residue in lines I did not list in R7-03: 4b still owes the startup grace mutation proof and the roadmap's 4b bullet owns the 30 s grace periods; 4d still "implements" backoff and jitter distribution |
+125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+126:docs/agents/reviews/P4-02.md:37:| (f) "Deviations: none" and "Current Branch" | The handoff does list deviations, but omits two real ones (stale last-commit hash, `docs/roadmap.md` left unchanged although the split contradicts it). "Current Branch" is `agent/gemini/P4-02` and "Merging with P4-02" is stale after merge | R7-03, R7-12, R7-16 |
+127:docs/agents/reviews/P4-02.md:45:| R7-03 | blocker | `docs/PROJECT_STATE.md:180-192`, `docs/roadmap.md:54-60` | executed, confirmed by code reading | Owner split not applied: 4a still lists in-memory leases, renewals, sweeper, retry backoff |
+128:docs/agents/reviews/P4-02.md:73:### R7-03 (blocker) The owner's slice split is not applied in `PROJECT_STATE.md` section 4 or `docs/roadmap.md`
+129:docs/agents/reviews/P4-02.md:174:- "Open questions: None" and "Known gaps: None" omit the `docs/roadmap.md` conflict (R7-03). Replace with `Open question: docs/roadmap.md slice 4a/4b/4c bullets still carry the pre-split scope; file is not owned by P4-02.`
+130:docs/agents/reviews/P4-02.md:192:9. **TASKS, CHANGELOG, PROJECT_STATE:** corrections are R7-01, R7-02, R7-03, R7-10, R7-12. Verified true: matrix cells flipped (exactly two), `NewServiceWithQueue` and `spyQueue` gone from code, seven rewritten coordinator tests exist, P4-01 merged as PR #18 at `d28a3d1`, `make test-db` PASS 70 (4a audit).
+131:docs/agents/reviews/P4-02.md:212:2. `docs/roadmap.md` needs the owner's authorisation to be edited (R7-03).
+(rc=0)
+
+=== [p8-unverified] ===
+$ grep -n -i -B1 -A3 'unverified' docs/agents/handoffs/P4-03.md | cut -c1-500
+17-Design decisions and deviations from the design doc (with reasons):
+18:- **Roadmap edit authority (unverified)**: `docs/roadmap.md` was edited in P4-02 to align slice descriptions with ADR-0014 and `docs/phase4-plan.md` (added per the orchestrator's instruction in the planning session; the owner accepts it by merging). `docs/roadmap.md` is now listed in the P4-02 owned files in `docs/agents/TASKS.md`; the owner accepts it by merging.
+19-- **Wildcard convention for uncreated handoff files in `docs/agents/TASKS.md`**: `RuleA` of `TestCitations` enforces that every cited repository path exists in the filesystem. To prevent `RuleA` failures on uncreated files while registering active tasks, `docs/agents/handoffs/P0-03*` (when created), `docs/agents/handoffs/P4-4c-b*` (when created), and `docs/agents/handoffs/P4-03*` (when created) use the glob wildcard convention already established by P4-4b (`docs/agents/handoffs/P4-4b* (when c
+20-- **Test citation line number removal**: As instructed in Step 5 and recommended in the P4-02 audit (section 6), the pre-existing test line citations across live docs were converted to file paths without line numbers (`path/to/file_test.go`). The P4-02 list contained 77 entries with one false positive (the line-40 token for the worker rejection test beside the line-16 token in `docs/PROJECT_STATE.md`); removing both tokens on that line resulted in 78 total removals (4 in `CHANGELOG.md`, 16 in
+21-- **Deviations in method**: The citation edits in round 1 were performed using an uncommitted one-off script (`path:line` and `path:line-line` replaced by `path` on the listed lines); `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits; the gates in "Commands run" for round 1 were run 1 time at commit `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`; the output of the round 1 "automated check" was not preserved.
+--
+104-|---|---|---|---|---|
+105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(added per the orchestrator's instruction in the planning session; the owner accepts it by merging)". In `docs/agents/handoffs/P4-03.md`, replaced the "Owner Authorisation Record" bullet with "Roadmap edit authority (unverified)" using the sa
+106-| F-P4-03-2 | minor | `docs/agents/handoffs/P4-03.md`, `docs/PROJECT_STATE.md` | executed | Re-derived the exact citation count from the repository diff against `origin/main`: 78 substitutions across the 5 files (4 in `CHANGELOG.md`, 16 in `docs/PROJECT_STATE.md`, 31 in `docs/security/findings.md`, 13 in `docs/security/test-plan.md`, 14 in `docs/security/threat-model.md`). The extra substitution in `docs/PROJECT_STATE.md` was the line-16 token on line 25 (`internal/worker/client_test.go:16`)
+107-| F-P4-03-3 | minor | `docs/agents/handoffs/P4-03.md` | confirmed by code reading | Explicitly disclosed in "Design decisions and deviations": (1) an uncommitted one-off script performed the citation edits, (2) `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits, (3) round 1 gates ran at commit `c0f5c7b753004b095631b4c7b1112c00b3cc4a28` for 1 run, and (4) the output of the round 1 "automated check" was not preserved. |
+108-| F-P4-03-4 | minor | `docs/agents/TASKS.md` | executed | Updated all task statuses to match the current merged tree (`origin/main` at `fc451c9`): P0-01 is Done (merged in PR #16, commit `a9453fc`); P4-4b is Done (merged in PR #20, commit `7e58d4a`); P4-4c-a is Done (merged in PR #21, commit `fc451c9`); P0-03 is CHANGES REQUIRED (review on `agent/claude/P0-03-review`, fix-up pending) and annotated with `Spec written by the P4-03 builder from the branch diff; orchestrator to confirm.`; regist
+(rc=0)
+
+=== [p3-disclose] ===
+$ grep -n -i -E 'uncommitted|one step|one-step|run [0-9]+ time|c0f5c7b|66303ba|not preserved|Open questions' docs/agents/handoffs/P4-03.md | cut -c1-500
+3:Branch / last commit: `agent/gemini/P4-03` / last commit before this handoff update: `c0f5c7b` (`docs: resolve P4-02 audit minors, import records, and repair test line citations`)
+21:- **Deviations in method**: The citation edits in round 1 were performed using an uncommitted one-off script (`path:line` and `path:line-line` replaced by `path` on the listed lines); `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits; the gates in "Commands run" for round 1 were run 1 time at commit `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`; the output of the round 1 "automated check" was not preserved.
+28:Commit for round 1 gates: `c0f5c7b753004b095631b4c7b1112c00b3cc4a28` (run 1 time):
+46:Open questions for the orchestrator:
+107:| F-P4-03-3 | minor | `docs/agents/handoffs/P4-03.md` | confirmed by code reading | Explicitly disclosed in "Design decisions and deviations": (1) an uncommitted one-off script performed the citation edits, (2) `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits, (3) round 1 gates ran at commit `c0f5c7b753004b095631b4c7b1112c00b3cc4a28` for 1 run, and (4) the output of the round 1 "automated check" was not preserved. |
+109:| F-P4-03-5 | nit | `docs/agents/handoffs/P4-03.md` | executed | Corrected package counts to `15 packages ok, 4 without test files` for the round 1 gate; clarified commit `e7403a9` containing slice 4a tip `8183a59`; clarified sections 2 and 7 for PROJECT_STATE citation changes; recorded round 1 gate commit hash `c0f5c7b753004b095631b4c7b1112c00b3cc4a28`. |
+125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.`
+129:docs/agents/reviews/P4-02.md:174:- "Open questions: None" and "Known gaps: None" omit the `docs/roadmap.md` conflict (R7-03). Replace with `Open question: docs/roadmap.md slice 4a/4b/4c bullets still carry the pre-split scope; file is not owned by P4-02.`
+(rc=0)
+
+=== [p8-unv2] ===
+$ grep -n -i -E 'unverified items|Unverified|Round 2|round 2|commit.*round' docs/agents/handoffs/P4-03.md | cut -c1-260
+10:- `docs/agents/reviews/P4-02.md`, `docs/agents/reviews/P4-02-evidence.txt`, `docs/agents/reviews/P4-02-round2.md`, `docs/agents/reviews/P4-02-round2-evidence.txt`: Imported P4-02 round 1 and round 2 audit records untouched from `origin/agent/claude/P4-02-re
+15:- `docs/agents/TASKS.md`: Added `docs/roadmap.md` to P4-02 owned files (R8-03); moved P0-01 to Done (PR #16, merge commit `a9453fc`); moved P4-4a and P4-02 to Done (PR #19, merge commit `e7403a9`); moved P4-4b to Done (PR #20, merge commit `7e58d4a`); moved
+18:- **Roadmap edit authority (unverified)**: `docs/roadmap.md` was edited in P4-02 to align slice descriptions with ADR-0014 and `docs/phase4-plan.md` (added per the orchestrator's instruction in the planning session; the owner accepts it by merging). `docs/r
+21:- **Deviations in method**: The citation edits in round 1 were performed using an uncommitted one-off script (`path:line` and `path:line-line` replaced by `path` on the listed lines); `docs/agents/TASKS.md` was rewritten in one step instead of per-row edits
+28:Commit for round 1 gates: `c0f5c7b753004b095631b4c7b1112c00b3cc4a28` (run 1 time):
+70:## Round 2 (Fix-up round following Claude Code audit on agent/claude/P4-03-review)
+105:| F-P4-03-1 | major | `docs/agents/handoffs/P4-02.md`, `docs/agents/handoffs/P4-03.md` | executed | Removed false claim of "owner's explicit authorisation (R7-03)" from line 26 of `docs/agents/handoffs/P4-02.md` and replaced it with prescribed wording: "(a
+107:| F-P4-03-3 | minor | `docs/agents/handoffs/P4-03.md` | confirmed by code reading | Explicitly disclosed in "Design decisions and deviations": (1) an uncommitted one-off script performed the citation edits, (2) `docs/agents/TASKS.md` was rewritten in one s
+109:| F-P4-03-5 | nit | `docs/agents/handoffs/P4-03.md` | executed | Corrected package counts to `15 packages ok, 4 without test files` for the round 1 gate; clarified commit `e7403a9` containing slice 4a tip `8183a59`; clarified sections 2 and 7 for PROJECT_S
+188:### Round 2 Gate Outputs (verbatim)
+(rc=0)
+
+=== [p5-lines] ===
+$ sed -n '24,50p;96,103p;132,140p;236,252p' docs/agents/handoffs/P4-03.md | cut -c1-500
+Tests added (name, file, what property it guards, mutation proof):
+None. Pure documentation and task-tracking update.
+
+Commands run + real output (gofmt, vet, build, test-docs, test -race counts, test-db):
+Commit for round 1 gates: `c0f5c7b753004b095631b4c7b1112c00b3cc4a28` (run 1 time):
+- `gofmt -l .`: clean (exit code 0).
+- `go vet ./...`: clean (exit code 0).
+- `go build ./...`: clean (exit code 0).
+- `make test-docs`: PASS (ok `github.com/BlaZe08-Dev/Minicloud/tests/docs`).
+- `env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...`: clean (exit code 0; 15 packages ok, 4 without test files).
+- `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 90 SKIP 28 FAIL 0 (exit code 0).
+- `make test-db`: skipped (docs-only task, code identical to origin/main e7403a9, which contains the slice 4a tip 8183a59; audited at `8183a59` as PASS 70, SKIP 0, FAIL 0; instruction explicitly forbade running with `MINICLOUD_TEST_DATABASE_URL` set).
+- `git diff --name-only origin/main..HEAD | grep -v -E '^(docs/|CHANGELOG.md)'`: empty (exit code 1).
+
+Known gaps / TODOs:
+- Follow-up task (out of scope for P4-03, F-P4-03-6): 91 remaining line-number citations to test files in live docs name the right test (49 at the function line, 25 inside it, 17 one or two lines above it); converting them to function names is deferred to a future pass.
+- Open item: the allowlist entry `test|TestDomain_ComputeBackoff_FullJitter` in `tests/docs/citation_allowlist.txt` was removed when slice 4b was merged in PR #20.
+- Slice 4b is merged in PR #20 (commit `7e58d4a`).
+- Slice 4c-a is merged in PR #21 (commit `fc451c9`).
+- Slice 4c-b is built on branch `agent/claude/P4-4c-b` (commit `ce3e6c7`, audit pending).
+- Task P0-03 (`README.md` refresh) is on branch `agent/gemini/P0-03` with audit verdict CHANGES REQUIRED.
+
+Open questions for the orchestrator:
+None.
+
+Security review (assumptions challenged, attacks tried, not tested, findings with evidence labels):
+- Assumptions challenged:
+docs/security/test-plan.md
+docs/security/threat-model.md
+```
+Zero non-doc and zero non-review files modified (all 14 files are under `docs/` or `CHANGELOG.md`).
+
+### Audit findings resolution
+
+| ID | Severity | Location | Label | Resolution |
+```
+Zero remaining false authorisation claims across all docs.
+
+### Verification of F-2: Citation Count Derivation
+Derivation command run:
+```bash
+python3 -c '
+import re, subprocess, difflib
+
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.745s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.098s
+```
+Output: 16 packages ok, 3 without test files, rc=0.
+
+#### 6. Test counts (`env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`)
+```bash
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./... > /tmp/gate-v.log 2>&1
+$ echo "PASS $(grep -c '^--- PASS' /tmp/gate-v.log) SKIP $(grep -c '^--- SKIP' /tmp/gate-v.log) FAIL $(grep -c '^--- FAIL' /tmp/gate-v.log)"
+PASS 151 SKIP 35 FAIL 0
+```
+Output: `PASS 151 SKIP 35 FAIL 0`, rc=0.
+
+#### 7. `make test-db`
+Skipped per hard safety instructions: strictly docs-only pass, `MINICLOUD_TEST_DATABASE_URL` was never set.
+(rc=0)
+
+=== [f1-p402-8] ===
+$ sed -n '5,9p' docs/agents/handoffs/P4-02.md | cut -c1-300
+What changed (by package):
+- `docs/agents/reviews/P4-00-round2.md`, `docs/agents/reviews/P4-00-round3.md`: Rewrote 4 failing Rule B citations in frozen review files to `path (line N at the audited commit)` per owner decision item 4, eliminating line anchor violations while keeping historical review records byte-identical else
+- `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and transition matrix sections. Applied Phase 4 scope split (4b gets `RenewLease`/`SweepExpiredLeases` with row lock, `TestInMemoryRepository_LeaseRenewalAndExpiry
+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+- `docs/security/findings.md`, `docs/security/threat-model.md`: Repaired drifted line citations in findings register and threat model. Registered informational finding SEC-024 (evaluation order in `CommitAttempt` on terminal job precedes token validation; accepted under SEC-004). Applied audit corre
+(rc=0)
+
+=== [t4-p4cb-handoff] ===
+$ git show origin/agent/claude/P4-4c-b:docs/agents/handoffs/P4-4c-b.md | head -8 | cut -c1-300
+# Handoff P4-4c-b
+
+Branch / last commit: `agent/claude/P4-4c-b`, stacked on `agent/claude/P4-4c-a` (head `85b2246`, under audit, not merged). The last code commit is listed by `git log` on the branch; the handoff commit follows it. `main` untouched. Nothing merged.
+
+## What changed (by package)
+
+- `internal/worker/client.go`
+  - `Clock` / `Timer` interfaces (timers only; worker wall-clock time is never read, ADR-0014), `Agent.SetClock`. Production uses `time.NewTimer`.
+(rc=0)
+
+=== [p8-grep] ===
+$ git grep -n -i 'unverified items' -- . ; echo rc=$?; sed -n '70,76p;186,196p' docs/agents/handoffs/P4-03.md | cut -c1-400
+rc=1
+## Round 2 (Fix-up round following Claude Code audit on agent/claude/P4-03-review)
+
+### Base-commit statement
+Merged `origin/main` (`fc451c9`, PR #21 merge) into `agent/gemini/P4-03` with a merge commit.
+Merge-base with `origin/main`:
+```
+$ git merge-base origin/main HEAD
+```
+
+### Round 2 Gate Outputs (verbatim)
+
+#### 1. `gofmt -l .`
+```bash
+$ test -z "$(gofmt -l .)" || { gofmt -l .; echo "GOFMT FAILED"; }
+```
+Output: empty, rc=0.
+
+#### 2. `go vet ./...`
+(rc=0)
+
+=== [k-allowlist] ===
+$ git grep -n 'ComputeBackoff' -- tests/docs/citation_allowlist.txt; echo allowlist-rc=$?; git grep -n -E 'func TestDomain_ComputeBackoff' -- internal | head -3
+allowlist-rc=1
+internal/domain/retry_test.go:30:func TestDomain_ComputeBackoff_FullJitter(t *testing.T) {
+internal/domain/retry_test.go:91:func TestDomain_ComputeBackoff_NonPositiveAttemptTreatedAsFirst(t *testing.T) {
+internal/domain/retry_test.go:101:func TestDomain_ComputeBackoff_RandomSourceIsClampedAndOptional(t *testing.T) {
+(rc=0)
+
+=== [k-p402-8-owner] ===
+$ git grep -n -i 'owner decision' -- docs ':!docs/agents/reviews' | cut -c1-260
+docs/PROJECT_STATE.md:182:  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to s
+docs/adr/0009-postgres-persistence-and-driver.md:52:## Owner Decision & Staged Conditions
+docs/adr/0010-migrations-policy.md:62:## Owner Decision & Staged Conditions
+docs/adr/0011-postgres-dispatch-and-recovery.md:96:| **Owner Decision** | **Leading Design for Post-Phase 4 Assignment Slice** (Deferred). | **REJECTED.** | **ACCEPTED for Phase 3 (Slices 3a–3e).** |
+docs/adr/0011-postgres-dispatch-and-recovery.md:217:### 2.8 Owner Decision & Post-Phase 4 Roadmap Staging
+docs/adr/0011-postgres-dispatch-and-recovery.md:219:**Owner Decision:** The repository owner has **ACCEPTED Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`)** for Phase 3 and Slices 3a–3e.
+docs/adr/0011-postgres-dispatch-and-recovery.md:319:## Owner Decisions & Action Items
+docs/adr/0014-lease-model-and-expiry.md:5:- **Accepted Owner Decisions**:
+docs/adr/0015-retry-policy-and-failure-classification.md:5:- **Accepted Owner Decisions**:
+docs/adr/0015-retry-policy-and-failure-classification.md:25:5. Backoff incorporates randomized jitter (an owner decision; the blueprint itself does not mention jitter) to prevent thundering herds and retry storms against the coordinator and database.
+docs/adr/0016-cancellation-semantics.md:5:- **Accepted Owner Decisions**:
+docs/adr/0016-cancellation-semantics.md:35:- Duplicate cancels on `CANCEL_REQUESTED` must be safe and idempotent (an owner decision; the blueprint is silent on duplicate cancels).
+docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a commit on a non-running attempt returns
+docs/agents/handoffs/P4-00.md:131:- **Owner Decisions (D-R2-01..D-R2-10, D-R3-01..D-R3-06, D-R4-01..D-R4-05)**:
+docs/agents/handoffs/P4-00.md:132:  Owner decisions D-R2..D-R4 were applied (see round-5 R5-01 for the residual list), and the documentation test suite passes cleanly under `make test-docs`.
+docs/agents/handoffs/P4-02.md:6:- `docs/agents/reviews/P4-00-round2.md`, `docs/agents/reviews/P4-00-round3.md`: Rewrote 4 failing Rule B citations in frozen review files to `path (line N at the audited commit)` per owner decision item 4, eliminating line ancho
+docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-02.md:25:- **Owner Decision Item 4 (Frozen Review File Citations)**: RuleB honours a path| allowlist entry for a whole file, but RuleF rejects any such entry as stale while the file exists, so no allowlist entry can exempt a line citati
+docs/agents/handoffs/P4-02.md:26:- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split (added per the orchestrator's instruction in the planning sessio
+docs/agents/handoffs/P4-02.md:49:None. docs/roadmap.md is not in the P4-02 owned files in docs/agents/TASKS.md; its edit relies on owner decision 2.
+docs/agents/handoffs/P4-03.md:116:docs/agents/handoffs/P4-02.md:8:- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:119:docs/agents/reviews/P4-02-round2-evidence.txt:354:+- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
+docs/agents/handoffs/P4-03.md:120:docs/agents/reviews/P4-02-round2-evidence.txt:378:+- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner de
+docs/agents/handoffs/P4-03.md:121:docs/agents/reviews/P4-02-round2-evidence.txt:390:+None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+docs/agents/handoffs/P4-03.md:125:docs/agents/reviews/P4-02-round2.md:108:- "Open questions": replace `None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).` with `None. docs/roadmap.md is not in the P
+docs/agents/handoffs/P4-4a.md:5:**Status: fix pass 1 applied (owner decisions below). Build complete; `make test-docs` still fails only on stale line citations in documents this task may not edit; a docs-only follow-up, P4-02 (builder Gemini, based on this bra
+docs/agents/handoffs/P4-4a.md:25:- **D1 (scope not built; owner decision 2 recorded).** The plan's Slice 4a Scope also lists in-memory `RenewLease`, `SweepExpiredLeases` and the two grace timers, with gating test `TestInMemoryRepository_LeaseRenewalAndExpiry` 
+docs/agents/handoffs/P4-4a.md:40:   `- (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)`
+docs/agents/handoffs/P4-4a.md:77:| `TestInMemoryRepository_LeaseRenewalAndExpiry` (planned test) | **not executed, not built** (D1: moved to slice 4c by owner decision) |
+docs/agents/handoffs/P4-4a.md:113:### Blocker B1: `make test-docs` fails after this change (owner decision 1)
+docs/agents/handoffs/P4-4a.md:115:`TestCitations/RuleB_LineAnchors` reports 9 citations in documents outside this task's owned files that point past the end of files this task had to shrink (`internal/coordinator/service.go` 524 -> 410 lines, `internal/coordin
+docs/agents/handoffs/P4-4a.md:1055:- D1: in-memory lease renewal, sweeper and grace timers are not built; moved by owner decision (RenewLease to 4b; sweeper, grace timers and the lease test to 4c).
+docs/agents/handoffs/P4-4a.md:1064:Resolved by owner decisions: scope of the in-memory lease work (D1), test-docs (B1), `NewServiceWithQueue` (D3), terminal-check-before-token-check (S1), 4b/4c sweeper split (plan wording above).
+docs/agents/handoffs/P4-4a.md:1072:- S1. **Terminal-job close: what the caller must present, check order, effect of a wrong value (owner decision 3: confirmed intended, Informational, inside SEC-004; code unchanged).** From the code (in-memory `CommitAttempt` 
+docs/agents/handoffs/P4-4c-a.md:9:- `internal/storage`: `Repository` gains `Now(ctx) (time.Time, error)` (owner decision Q-1). In-memory returns its injected clock; PostgreSQL runs `SELECT clock_timestamp()` and maps errors with `mapPgError`. Shared conformanc
+docs/agents/handoffs/P4-4c-a.md:222:Every authorisation below was authorised by the orchestrator in the planning session; the owner accepts it by merging. None of it is recorded here as an owner decision.
+docs/phase4-plan.md:85:    - (Moved out of Slice 4a by owner decision: in-memory `RenewLease` and `SweepExpiredLeases`, with the in-lock grace check, move to Slice 4b; the sweeper loop and its grace/cooldown window state move to Slice 4c.)
+(rc=0)
+
+=== [post-test-docs] ===
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.579s
+(rc=0)
+
+=== [scope-final] ===
+$ git status --short; git diff --cached --name-only
+AM docs/agents/reviews/P4-03-round2-evidence.txt
+A  docs/agents/reviews/P4-03-round2.md
+docs/agents/reviews/P4-03-round2-evidence.txt
+docs/agents/reviews/P4-03-round2.md
+(rc=0)

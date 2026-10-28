@@ -1,0 +1,1132 @@
+AUDIT ROUND 3 evidence, P0-03. Clone over HTTPS (SSH publickey denied in this environment).
+
+=== 00a - setup ===
+$ git rev-parse HEAD; git branch -vv | head -3; git log --oneline -8; git merge-base origin/main HEAD; git rev-parse origin/main; env | grep -c "^MINICLOUD_"; ls -a | grep -c "^.env$"; ss -ltn | grep -E ":(8080|18080)\b"; echo ss-done
+f0e6cea91ae7a2e69be1e3015056923c4abf5afe
+* agent/claude/P0-03-review-3 f0e6cea docs(handoff): update P0-03 handoff for round 2 with audit resolutions and execution evidence
+  main                        3e8ab9e [origin/main] Merge pull request #22 from BlaZe08-Dev/agent/gemini/P4-03
+f0e6cea docs(handoff): update P0-03 handoff for round 2 with audit resolutions and execution evidence
+3a04340 docs(readme): address round-2 audit findings for quickstart, configuration, and staleness
+0fac9d4 Merge origin/main into agent/gemini/P0-03
+fc451c9 Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+85b2246 docs(handoff): P4-4c-a drop a line-number citation
+983e173 docs(handoff): P4-4c-a round 2, sweeper wiring, test-db gate, resolutions
+095e175 test(coordinator): stop awaits in-flight sweep, reaper is started by the same wiring (P4-4c-a)
+1287188 feat(coordinator): wire lease sweeper and lease config into the binary; test-db also runs the coordinator package (P4-4c-a)
+fc451c9e6cb6a68d7e3e8382123f44e15a13fdfd
+3e8ab9e90f8a6776074ecfe6f18e723f4a92c798
+0
+0
+ss-done
+[rc=0]
+
+=== 01 - scope ===
+$ git diff --name-only origin/main...HEAD; echo ---two-dot count; git diff --name-only origin/main..HEAD | wc -l
+README.md
+docs/agents/handoffs/P0-03.md
+docs/agents/reviews/P0-03-evidence.txt
+docs/agents/reviews/P0-03.md
+---two-dot count
+18
+[rc=0]
+
+=== 02 - dry-run merge ===
+$ git merge --no-commit --no-ff origin/main; echo merge_rc=$?; git status --short | head; git merge --abort; echo abort_rc=$?; git status --short | wc -l; git rev-parse --short HEAD
+Automatic merge went well; stopped before committing as requested
+merge_rc=0
+M  CHANGELOG.md
+M  docs/PROJECT_STATE.md
+M  docs/agents/TASKS.md
+M  docs/agents/handoffs/P4-00.md
+M  docs/agents/handoffs/P4-02.md
+A  docs/agents/handoffs/P4-03.md
+A  docs/agents/reviews/P4-02-evidence.txt
+A  docs/agents/reviews/P4-02-round2-evidence.txt
+A  docs/agents/reviews/P4-02-round2.md
+A  docs/agents/reviews/P4-02.md
+abort_rc=0
+1
+f0e6cea
+[rc=0]
+
+=== 03 - env trap grep ===
+$ git grep -n -i -E 'set -a|set -o allexport|\. \./\.env|source .*\.env|eval .*\.env|export \$\(' README.md docs/agents/handoffs/P0-03.md; echo grep_rc=$?
+docs/agents/handoffs/P0-03.md:93:  set -o allexport; . "$DOT_ENV"; set +o allexport
+grep_rc=0
+[rc=0]
+
+=== 04 - other env words in README ===
+$ grep -n -i -E 'allexport|\.env|env-file|export' README.md
+89:Port-busy advice: If port 8080 is busy (`ss -tulpn | grep 8080` or `ss -ltn | grep 8080`), the coordinator logs `address already in use` and exits. The worker and `mc` default to port 8080 and will silently talk to whatever foreign process is listening there. To use a different port (such as 18080), set `MINICLOUD_HTTP_ADDR=127.0.0.1:18080` when starting the coordinator, and set `MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080` for the worker and in your `mc` shell (`export MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080`). Note that while `mc submit` supports a `--coordinator-url` flag, other `mc` subcommands (`mc get`, `mc attempts`, `mc workers`) read `MINICLOUD_COORDINATOR_URL` from the environment.
+186:1. Copy `.env.example` to `.env` and set local credentials:
+189:cp .env.example .env
+195:docker compose --env-file .env -f deployments/docker-compose.yml config -q
+206:`.env` is read by `make` and `docker compose`, not by the binaries. Do not `source` it into your interactive shell: `.env` also defines `MINICLOUD_TEST_DATABASE_URL`, and a subsequent `go test ./...` in that shell would run outage tests that stop and restart the shared PostgreSQL container. Build the executables first if not already done (`make build`), then run migrations passing only the required database URL in a subshell:
+209:( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; ./bin/migrate )
+215:( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; MINICLOUD_STORAGE_DRIVER=postgres ./bin/coordinator )
+247:- `POSTGRES_PASSWORD` (required in `.env`)
+336:- `make test-db`: Runs PostgreSQL persistence tests against the `MINICLOUD_TEST_DATABASE_URL` value in `.env` in `internal/storage/postgres`.
+349:- **Container Interruption Warning:** With `MINICLOUD_TEST_DATABASE_URL` set in your environment, `go test ./...` (and therefore `make test` and `make test-race`) runs outage tests (`tests/integration/postgres_wiring_test.go`, `tests/integration/part_d_security_test.go`) that run `docker compose stop postgres` and `start postgres` on the shared `minicloud-postgres` container. Anything else using that database is disconnected meanwhile. Never run `go test ./...` with the database URL set in the shell; use `make test-db`. For database tests use `make test-db`, which reads the URL from `.env` and runs only `internal/storage/postgres`. To run everything else, unset the variable: `env -u MINICLOUD_TEST_DATABASE_URL go test ./...`. Database tests skip when it is unset; a skipped test is not a passed test.
+[rc=0]
+
+=== 05 - fake .env test (README lines extracted with awk, stub binaries print env; fake .env contents below) ===
+$ cat .env
+POSTGRES_PASSWORD=ab&cd
+MINICLOUD_DATABASE_URL=postgres://u:ab&cd@127.0.0.1:5433/minicloud?sslmode=disable&x=1
+MINICLOUD_TEST_DATABASE_URL=postgres://u:p@127.0.0.1:5433/minicloud_test?sslmode=disable
+$ cat pgcmds.txt
+( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; ./bin/migrate )
+( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; MINICLOUD_STORAGE_DRIVER=postgres ./bin/coordinator )
+$ env -i PATH=$PATH HOME=$HOME bash drive.sh   (stubs in ./bin, cwd = fake dir)
+parent before: TEST=<unset> DB=<unset>
+--- running: ( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; ./bin/migrate )
+[./bin/migrate] DATABASE_URL=postgres://u:ab&cd@127.0.0.1:5433/minicloud?sslmode=disable&x=1
+[./bin/migrate] TEST_URL=<unset>
+[./bin/migrate] DRIVER=unset
+--- running: ( export MINICLOUD_DATABASE_URL="$(grep -E '^MINICLOUD_DATABASE_URL=' .env | cut -d= -f2-)"; MINICLOUD_STORAGE_DRIVER=postgres ./bin/coordinator )
+[./bin/coordinator] DATABASE_URL=postgres://u:ab&cd@127.0.0.1:5433/minicloud?sslmode=disable&x=1
+[./bin/coordinator] TEST_URL=<unset>
+[./bin/coordinator] DRIVER=postgres
+parent after: TEST=<unset> DB=<unset> POSTGRES_PASSWORD=<unset>
+[rc=0]
+
+=== 06A - quickstart extracted from README fenced blocks, variant A, port 18080 (only edit: 8080->18080; servers backgrounded; <job_id> replaced) ===
+$ /tmp/claude-1000/-home-blazeee-MiniCloud-claude/2515cb7e-d52d-4912-8d1c-026a9141b22c/scratchpad/qs_run.sh A
+### block1: make build
+rc=0
+### block2 (coordinator, '&' appended, output to log): MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18080 ./bin/coordinator
+coordinator real PID=389645 comm=coordinator
+### block3 (README readiness loop, wrapped in 'timeout 20' only so a failure cannot hang): until curl -sf http://127.0.0.1:18080/readyz >/dev/null; do sleep 0.5; done
+rc=0
+### block4 (worker, '&' appended): MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker
+worker real PID=389662 comm=worker
+### block5: ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               15:38:17         [echo sleep sha256_loop]
+rc=0
+### block6: ./bin/mc submit --task echo --payload '{"message":"hello minicloud"}'
+rc=0
+Job Submitted Successfully!
+  ID:           job_1_c738e0b20e0a
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+(job id copied by script: job_1_c738e0b20e0a)
+### block7 (<job_id> replaced by copied ID), IMMEDIATELY after submit, no sleep: ./bin/mc get job_1_c738e0b20e0a
+Job Details:
+  ID:           job_1_c738e0b20e0a
+  Task:         echo
+  State:        QUEUED
+  Attempt ID:   
+  Created At:   2026-10-28T15:38:17Z
+  Updated At:   2026-10-28T15:38:17Z
+rc=0
+### block7 again after README's 'about a second' (sleep 1)
+Job Details:
+  ID:           job_1_c738e0b20e0a
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_4d0b6d0ac437
+  Created At:   2026-10-28T15:38:17Z
+  Updated At:   2026-10-28T15:38:17Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello minicloud"}}
+rc=0
+### block8: ./bin/mc attempts job_1_c738e0b20e0a
+Attempts for Job job_1_c738e0b20e0a (1 total):
+NO   ATTEMPT ID           WORKER     STATE       EXIT   STARTED
+1    att_1_4d0b6d0ac437   worker-1   COMPLETED   0      15:38:17
+rc=0
+### cleanup: killing recorded PIDs 389662 389645
+[rc=0]
+
+=== 06B - quickstart extracted from README fenced blocks, variant B, port 18080 (only edit: 8080->18080; servers backgrounded; <job_id> replaced) ===
+$ /tmp/claude-1000/-home-blazeee-MiniCloud-claude/2515cb7e-d52d-4912-8d1c-026a9141b22c/scratchpad/qs_run.sh B
+### block1: make build
+rc=0
+### block2 (coordinator, '&' appended, output to log): MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18080 ./bin/coordinator
+coordinator real PID=389991 comm=coordinator
+### block3 (README readiness loop, wrapped in 'timeout 20' only so a failure cannot hang): until curl -sf http://127.0.0.1:18080/readyz >/dev/null; do sleep 0.5; done
+rc=0
+### block4 (worker, '&' appended): MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker
+worker real PID=390008 comm=worker
+(variant B: waited for registration log line, as README prose says)
+### block5: ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               15:38:20         [echo sleep sha256_loop]
+rc=0
+### block6: ./bin/mc submit --task echo --payload '{"message":"hello minicloud"}'
+rc=0
+Job Submitted Successfully!
+  ID:           job_1_b2d19092be3a
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+(job id copied by script: job_1_b2d19092be3a)
+### block7 (<job_id> replaced by copied ID), IMMEDIATELY after submit, no sleep: ./bin/mc get job_1_b2d19092be3a
+Job Details:
+  ID:           job_1_b2d19092be3a
+  Task:         echo
+  State:        QUEUED
+  Attempt ID:   
+  Created At:   2026-10-28T15:38:20Z
+  Updated At:   2026-10-28T15:38:20Z
+rc=0
+### block7 again after README's 'about a second' (sleep 1)
+Job Details:
+  ID:           job_1_b2d19092be3a
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_519304af947b
+  Created At:   2026-10-28T15:38:20Z
+  Updated At:   2026-10-28T15:38:20Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello minicloud"}}
+rc=0
+### block8: ./bin/mc attempts job_1_b2d19092be3a
+Attempts for Job job_1_b2d19092be3a (1 total):
+NO   ATTEMPT ID           WORKER     STATE       EXIT   STARTED
+1    att_1_519304af947b   worker-1   COMPLETED   0      15:38:20
+rc=0
+### cleanup: killing recorded PIDs 390008 389991
+[rc=0]
+
+=== 07 - race probe: variant A (README commands only, no registration wait) x8, count of 'mc workers' results ===
+--- run 1
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 2
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 3
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 4
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 5
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 6
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 7
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+--- run 8
+Registered Workers (1 total):
+  State:        QUEUED
+  State:        QUEUED
+  State:        SUCCEEDED
+leftover processes:
+pgrep_rc=1
+ss_rc=1
+
+=== 08 - Gemini's /tmp/test_quickstart.sh (not in repo): identity and differences ===
+$ ls -l --time-style=full-iso /tmp/test_quickstart.sh; sha256sum /tmp/test_quickstart.sh; grep -n -E "8080|18080|healthz|readyz|sleep|awk|timeout|registered|COORDINATOR_URL" /tmp/test_quickstart.sh; echo ---handoff strings absent from script?; for s in "Coordinator is ready" "Worker registered successfully" "Extracted job_id" "18080" "readyz" "Cleanup: killing" "PID"; do printf "%s: " "$s"; grep -c -- "$s" /tmp/test_quickstart.sh; done
+-rwxrwxr-x 1 blazeee blazeee 1806 2026-10-28 18:39:03.224129448 +0530 /tmp/test_quickstart.sh
+86374db042822c865742da802bcc46ed98e4d477dae416751b28c87fb8abe3b7  /tmp/test_quickstart.sh
+14:  echo "Checking ports 8080 and 8085 with ss -tulpn:"
+15:  ss -tulpn | grep -E ':808[05]' || echo "Ports 8080 and 8085 are free."
+22:echo "=== 2. Start the coordinator in the foreground (backgrounded for script with timeout) ==="
+23:MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:8080 timeout 30 ./bin/coordinator > /tmp/coord.log 2>&1 &
+26:# Wait for coordinator /healthz
+28:  if curl -s http://127.0.0.1:8080/healthz | grep -q '"status":"ok"'; then
+31:  sleep 0.1
+34:echo "=== 3. Start a worker process (backgrounded for script with timeout) ==="
+35:MINICLOUD_COORDINATOR_URL=http://127.0.0.1:8080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 timeout 30 ./bin/worker > /tmp/worker.log 2>&1 &
+39:sleep 0.5
+41:echo "=== 4. Check registered workers (./bin/mc workers) ==="
+48:JOB_ID=$(echo "$SUBMIT_OUT" | awk '/ID:/ {print $2; exit}')
+52:sleep 1
+---handoff strings absent from scripts
+Coordinator is ready: 0
+Worker registered successfully: 0
+Extracted job_id: 0
+18080: 0
+readyz: 0
+Cleanup: killing: 0
+PID: 8
+[rc=0]
+
+=== 09 - config: names, defaults, usage ===
+$ grep -n -E "MINICLOUD_[A-Z_]+" internal/config/config.go | head -60
+54:	hbInterval := getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
+55:	workerTimeout := getDurationEnv("MINICLOUD_WORKER_TIMEOUT", 10*time.Second)
+62:	reaperInterval := getDurationEnv("MINICLOUD_REAPER_INTERVAL", defaultReaperInterval)
+64:	storageDriver := strings.ToLower(getEnv("MINICLOUD_STORAGE_DRIVER", "memory"))
+68:	dbURL := getEnv("MINICLOUD_DATABASE_URL", "")
+69:	dbMaxConns := getIntEnv("MINICLOUD_DB_MAX_CONNS", 20)
+70:	dbMinConns := getIntEnv("MINICLOUD_DB_MIN_CONNS", 2)
+71:	dbQueryTimeout := getDurationEnv("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
+74:		HTTPAddr:           getEnv("MINICLOUD_HTTP_ADDR", "127.0.0.1:8080"),
+78:		DefaultMaxAttempts: getIntEnv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
+79:		MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+80:		LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
+87:		LeaseDuration:      getDurationEnv("MINICLOUD_LEASE_DURATION", 30*time.Second),
+88:		SweeperInterval:    getDurationEnv("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
+89:		StartupGracePeriod: getDurationEnv("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
+90:		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
+94:		return nil, fmt.Errorf("MINICLOUD_HTTP_ADDR cannot be empty")
+97:		return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
+100:		return nil, fmt.Errorf("MINICLOUD_WORKER_TIMEOUT must be positive")
+103:		return nil, fmt.Errorf("MINICLOUD_WORKER_TIMEOUT (%v) must be at least 3x MINICLOUD_HEARTBEAT_INTERVAL (%v)", cfg.WorkerTimeout, cfg.HeartbeatInterval)
+106:		return nil, fmt.Errorf("MINICLOUD_REAPER_INTERVAL must be positive")
+109:		return nil, fmt.Errorf("MINICLOUD_REAPER_INTERVAL (%v) must not exceed MINICLOUD_WORKER_TIMEOUT (%v)", cfg.ReaperInterval, cfg.WorkerTimeout)
+112:		return nil, fmt.Errorf("MINICLOUD_DEFAULT_MAX_ATTEMPTS must be positive")
+115:		return nil, fmt.Errorf("MINICLOUD_MAX_JOB_RUNTIME must be positive")
+118:		return nil, fmt.Errorf("MINICLOUD_STORAGE_DRIVER must be either 'memory' or 'postgres' (got %q)", cfg.StorageDriver)
+121:		return nil, fmt.Errorf("MINICLOUD_DATABASE_URL cannot be empty when storage driver is 'postgres'")
+124:		return nil, fmt.Errorf("MINICLOUD_DB_MAX_CONNS must be positive")
+127:		return nil, fmt.Errorf("MINICLOUD_DB_MIN_CONNS cannot be negative")
+130:		return nil, fmt.Errorf("MINICLOUD_DB_MIN_CONNS (%d) must not exceed MINICLOUD_DB_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBMaxConns)
+133:		return nil, fmt.Errorf("MINICLOUD_DB_QUERY_TIMEOUT must be positive")
+136:		return nil, fmt.Errorf("MINICLOUD_LEASE_DURATION must be positive")
+139:		return nil, fmt.Errorf("MINICLOUD_SWEEPER_INTERVAL must be positive")
+142:		return nil, fmt.Errorf("%w: MINICLOUD_STARTUP_GRACE_PERIOD (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.StartupGracePeriod, cfg.LeaseDuration)
+145:		return nil, fmt.Errorf("%w: MINICLOUD_OUTAGE_GRACE_WINDOW (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.OutageGraceWindow, cfg.LeaseDuration)
+154:		WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
+155:		CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
+156:		TotalSlots:        getIntEnv("MINICLOUD_WORKER_SLOTS", 4),
+157:		HeartbeatInterval: getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second),
+158:		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+162:		return nil, fmt.Errorf("MINICLOUD_COORDINATOR_URL cannot be empty")
+165:		return nil, fmt.Errorf("MINICLOUD_WORKER_SLOTS must be positive, got %d", cfg.TotalSlots)
+168:		return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
+[rc=0]
+
+=== 10 - mc coordinator URL handling ===
+$ grep -n -E "COORDINATOR_URL|coordinator-url|getCoordinatorURL" cmd/mc/main.go; echo ---worker; grep -n -E "COORDINATOR_URL|WORKER_ID|WORKER_SLOTS|CoordinatorURL|WorkerID" cmd/worker/main.go internal/config/config.go
+17:func getCoordinatorURL() string {
+18:	if url := os.Getenv("MINICLOUD_COORDINATOR_URL"); url != "" {
+59:  MINICLOUD_COORDINATOR_URL   Coordinator HTTP API base URL (default: http://127.0.0.1:8080)`)
+68:	coordURL := fs.String("coordinator-url", getCoordinatorURL(), "Coordinator URL")
+122:	coordURL := getCoordinatorURL()
+166:	coordURL := getCoordinatorURL()
+207:	coordURL := getCoordinatorURL()
+---worker
+cmd/worker/main.go:30:	if cfg.WorkerID == "" {
+cmd/worker/main.go:32:		cfg.WorkerID = fmt.Sprintf("worker_%s_%d", hostname, os.Getpid())
+cmd/worker/main.go:35:	slog.Info("starting MiniCloud worker process...", "worker_id", cfg.WorkerID)
+internal/config/config.go:45:	WorkerID          string
+internal/config/config.go:46:	CoordinatorURL    string
+internal/config/config.go:154:		WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
+internal/config/config.go:155:		CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
+internal/config/config.go:156:		TotalSlots:        getIntEnv("MINICLOUD_WORKER_SLOTS", 4),
+internal/config/config.go:161:	if cfg.CoordinatorURL == "" {
+internal/config/config.go:162:		return nil, fmt.Errorf("MINICLOUD_COORDINATOR_URL cannot be empty")
+internal/config/config.go:165:		return nil, fmt.Errorf("MINICLOUD_WORKER_SLOTS must be positive, got %d", cfg.TotalSlots)
+[rc=0]
+
+=== 11 - routes and /readyz ===
+$ grep -n -E "HandleFunc|\.Handle\(|/readyz|/healthz|renew" internal/api/server.go; echo ---log strings; grep -rn -E "coordinator listening for requests|worker successfully registered with coordinator" cmd internal | grep -v _test
+57:	s.mux.HandleFunc("GET /healthz", s.handler.HandleHealthz)
+58:	s.mux.HandleFunc("GET /readyz", s.handler.HandleReadyz)
+61:	s.mux.HandleFunc("POST /v1/jobs", s.handler.HandleSubmitJob)
+62:	s.mux.HandleFunc("GET /v1/jobs/{id}", s.handler.HandleGetJob)
+63:	s.mux.HandleFunc("GET /v1/jobs/{id}/attempts", s.handler.HandleListAttempts)
+64:	s.mux.HandleFunc("POST /v1/jobs/{id}/cancel", s.handler.HandleCancelJob)
+65:	s.mux.HandleFunc("GET /v1/workers", s.handler.HandleListWorkers)
+68:	s.mux.HandleFunc("POST /v1/workers/register", s.handler.HandleRegisterWorker)
+69:	s.mux.HandleFunc("POST /v1/workers/{id}/heartbeat", s.handler.HandleWorkerHeartbeat)
+70:	s.mux.HandleFunc("POST /v1/workers/{id}/poll", s.handler.HandlePollWork)
+71:	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/result", s.handler.HandleReportResult)
+72:	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/renew", s.handler.HandleRenewLease)
+---log strings
+cmd/coordinator/main.go:150:		slog.Info("coordinator listening for requests", "addr", cfg.HTTPAddr)
+internal/worker/client.go:168:	slog.Info("worker successfully registered with coordinator", "worker_id", a.cfg.WorkerID)
+[rc=0]
+
+=== 12 - timeout_seconds bounds and other runtime bounds ===
+$ grep -rn -i -E "TimeoutSeconds|timeout_seconds" internal/api/*.go internal/worker/*.go internal/coordinator/*.go docs/security/field-limits.md | grep -v _test | head -40; echo ---MaxJobRuntime; grep -rn "MaxJobRuntime\|MAX_JOB_RUNTIME" --include=*.go . | grep -v _test; echo ---DefaultMaxAttempts/LogLevel; grep -rn "LogLevel\|cfg.DefaultMaxAttempts\|\.DefaultMaxAttempts" --include=*.go . | grep -v _test | head
+internal/api/handlers.go:170:// If timeout_seconds is omitted or null, it defaults to 60 (valid range: 1..86400).
+internal/api/handlers.go:174:	TimeoutSeconds *int            `json:"timeout_seconds"`
+internal/api/handlers.go:199:	timeoutSec := coordinator.DefaultTimeoutSeconds
+internal/api/handlers.go:200:	if req.TimeoutSeconds != nil {
+internal/api/handlers.go:201:		if *req.TimeoutSeconds < coordinator.MinTimeoutSeconds || *req.TimeoutSeconds > coordinator.MaxTimeoutSeconds {
+internal/api/handlers.go:202:			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("timeout_seconds must be between %d and %d", coordinator.MinTimeoutSeconds, coordinator.MaxTimeoutSeconds))
+internal/api/handlers.go:205:		timeoutSec = *req.TimeoutSeconds
+internal/worker/client.go:311:		"timeout_seconds", assignment.TimeoutSeconds,
+internal/worker/client.go:314:	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
+internal/coordinator/service.go:50:	TimeoutSeconds int             `json:"timeout_seconds"`
+internal/coordinator/service.go:127:	DefaultTimeoutSeconds = 60
+internal/coordinator/service.go:128:	MinTimeoutSeconds     = 1
+internal/coordinator/service.go:129:	MaxTimeoutSeconds     = 86400
+internal/coordinator/service.go:170:	if timeoutSec < MinTimeoutSeconds || timeoutSec > MaxTimeoutSeconds {
+internal/coordinator/service.go:171:		return nil, fmt.Errorf("%w: timeout_seconds must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinTimeoutSeconds, MaxTimeoutSeconds, timeoutSec)
+internal/coordinator/service.go:181:		TimeoutSeconds: timeoutSec,
+internal/coordinator/service.go:371:		TimeoutSeconds: job.TimeoutSeconds,
+docs/security/field-limits.md:18:| **Job** | `timeout_seconds` | `int` / `INTEGER` | 1 | 86,400 (24h) | 60 | Integer in `[1, 86400]` | `chk_jobs_timeout` | `400 INVALID_REQUEST` |
+docs/security/field-limits.md:66:| `23514` (check_violation) | `chk_jobs_timeout` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be between 1 and 86400"}}` |
+---MaxJobRuntime
+./internal/config/config.go:24:	MaxJobRuntime      time.Duration
+./internal/config/config.go:79:		MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+./internal/config/config.go:114:	if cfg.MaxJobRuntime <= 0 {
+./internal/config/config.go:115:		return nil, fmt.Errorf("MINICLOUD_MAX_JOB_RUNTIME must be positive")
+---DefaultMaxAttempts/LogLevel
+./internal/config/config.go:25:	LogLevel           string
+./internal/config/config.go:49:	LogLevel          string
+./internal/config/config.go:80:		LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
+./internal/config/config.go:111:	if cfg.DefaultMaxAttempts <= 0 {
+./internal/config/config.go:158:		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+./internal/api/handlers.go:190:	maxAttempts := coordinator.DefaultMaxAttempts
+[rc=0]
+
+=== 13 - TIMED_OUT ===
+$ grep -rn "TIMED_OUT\|AttemptTimedOut" --include=*.go . | grep -v _test | head; echo ---docs; grep -n -i "TIMED_OUT" docs/state-machine.md
+./internal/domain/state.go:27:	AttemptTimedOut  AttemptState = "TIMED_OUT"
+./internal/storage/storagetest/conformance.go:1160:	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+./internal/storage/storagetest/conformance.go:1456:		for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+./internal/storage/storagetest/conformance.go:2049:		for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+---docs
+66:  `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`.
+70:- **Canonical Attempt States**: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT`, `CANCELLED`, `LOST`.
+81:| `AttemptTimedOut` (reserved) | `"TIMED_OUT"` | `TIMED_OUT` | Reserved state in schema; not written in V1 | Reserved; worker executor timeout reports `FAILED` with execution timeout |
+93:    AttemptTimedOut  AttemptState = "TIMED_OUT"
+107:Database migration `000001_initial_schema.sql:97` already defined `chk_attempts_state` with `CHECK (state IN ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'TIMED_OUT', 'CANCELLED', 'LOST'))`. Therefore, zero database schema migrations or data backfills are required.
+153:- `TIMED_OUT`: Reserved for future phase; not written in V1 (worker executor timeout reports `FAILED` with execution timeout error).
+[rc=0]
+
+=== 14 - new env vars wired? (LeaseDuration etc.) and README mention ===
+$ grep -rn -E "LeaseDuration|SweeperInterval|StartupGracePeriod|OutageGraceWindow" --include=*.go cmd internal | grep -v _test | grep -v "internal/config/config.go" | head -12; echo ---README mentions; grep -n -i -E "LEASE_DURATION|SWEEPER|GRACE" README.md; echo grep_rc=$?
+cmd/coordinator/main.go:27:	return storage.NewInMemoryRepository(storage.WithLeaseDuration(cfg.LeaseDuration))
+cmd/coordinator/main.go:33:	svc.SetLeaseDuration(cfg.LeaseDuration)
+cmd/coordinator/main.go:34:	svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)
+cmd/coordinator/main.go:50:		svc.StartLeaseSweeper(bgCtx, cfg.SweeperInterval)
+cmd/coordinator/main.go:134:		repo = postgres.NewRepository(pool, postgres.WithLeaseDuration(cfg.LeaseDuration))
+internal/domain/lease.go:12:// DefaultLeaseDuration is the attempt lease length (ADR-0014: 30 s, MINICLOUD_LEASE_DURATION).
+internal/domain/lease.go:13:const DefaultLeaseDuration = 30 * time.Second
+internal/storage/inmemory.go:46:// WithLeaseDuration sets the attempt lease length stamped at dispatch and applied on renewal
+internal/storage/inmemory.go:47:// (default domain.DefaultLeaseDuration, 30 s). Non-positive values are ignored.
+internal/storage/inmemory.go:48:func WithLeaseDuration(d time.Duration) InMemoryOption {
+internal/storage/inmemory.go:66:		leaseDuration: domain.DefaultLeaseDuration,
+internal/storage/storagetest/conformance.go:620:	// LeaseDuration is the lease length the repository under test was built with.
+---README mentions
+grep_rc=1
+[rc=0]
+
+=== 15 - executor runtime bounds ===
+$ ls internal/executor; grep -n -i -E "max|limit|cap|bound|context|ctx.Done|WithTimeout" internal/executor/*.go | grep -v _test | head -40
+echo.go
+executor.go
+executor_test.go
+sha256_loop.go
+sleep.go
+internal/executor/echo.go:4:	"context"
+internal/executor/echo.go:27:func (t *EchoTask) Execute(ctx context.Context, payload []byte) (string, error) {
+internal/executor/executor.go:4:	"context"
+internal/executor/executor.go:13:	// MaxPayloadSizeBytes is the hard limit on task input payload (64 KiB).
+internal/executor/executor.go:14:	MaxPayloadSizeBytes = 64 * 1024
+internal/executor/executor.go:16:	// MaxOutputSizeBytes is the hard limit on task output (64 KiB).
+internal/executor/executor.go:17:	MaxOutputSizeBytes = 64 * 1024
+internal/executor/executor.go:19:	// DefaultMaxTimeout is the fallback execution timeout if not specified.
+internal/executor/executor.go:20:	DefaultMaxTimeout = 60 * time.Second
+internal/executor/executor.go:27:	Execute(ctx context.Context, payload []byte) (string, error)
+internal/executor/executor.go:65:// Execute runs the requested task with safety bounds:
+internal/executor/executor.go:66:// 1. Enforces MaxPayloadSizeBytes.
+internal/executor/executor.go:69:// 4. Enforces execution timeout via context.
+internal/executor/executor.go:70:// 5. Caps output to MaxOutputSizeBytes.
+internal/executor/executor.go:73:func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte, timeout time.Duration) (string, int, error) {
+internal/executor/executor.go:74:	if len(payload) > MaxPayloadSizeBytes {
+internal/executor/executor.go:75:		return "", 1, fmt.Errorf("%w: payload size %d exceeds %d bytes", domain.ErrPayloadTooLarge, len(payload), MaxPayloadSizeBytes)
+internal/executor/executor.go:88:		timeout = DefaultMaxTimeout
+internal/executor/executor.go:90:	execCtx, cancel := context.WithTimeout(ctx, timeout)
+internal/executor/executor.go:95:		if execCtx.Err() == context.DeadlineExceeded {
+internal/executor/executor.go:101:	// Truncate output if it exceeds MaxOutputSizeBytes
+internal/executor/executor.go:102:	if len(output) > MaxOutputSizeBytes {
+internal/executor/executor.go:103:		output = output[:MaxOutputSizeBytes]
+internal/executor/sha256_loop.go:4:	"context"
+internal/executor/sha256_loop.go:12:	// MaxSHA256Iterations limits CPU-bound work to 1,000,000 iterations.
+internal/executor/sha256_loop.go:13:	MaxSHA256Iterations = 1000000
+internal/executor/sha256_loop.go:22:// SHA256LoopTask performs bounded CPU-bound hashing.
+internal/executor/sha256_loop.go:37:	if p.Iterations > MaxSHA256Iterations {
+internal/executor/sha256_loop.go:38:		return fmt.Errorf("iterations %d exceeds maximum limit of %d", p.Iterations, MaxSHA256Iterations)
+internal/executor/sha256_loop.go:43:func (t *SHA256LoopTask) Execute(ctx context.Context, payload []byte) (string, error) {
+internal/executor/sha256_loop.go:51:		// Check context cancellation every 1024 iterations
+internal/executor/sleep.go:4:	"context"
+internal/executor/sleep.go:11:	// MaxSleepDurationMs limits sleep task to 10 seconds to prevent resource exhaustion.
+internal/executor/sleep.go:12:	MaxSleepDurationMs = 10000
+internal/executor/sleep.go:20:// SleepTask pauses execution for a bounded duration.
+internal/executor/sleep.go:35:	if p.DurationMs > MaxSleepDurationMs {
+internal/executor/sleep.go:36:		return fmt.Errorf("duration_ms %d exceeds maximum allowed %d ms", p.DurationMs, MaxSleepDurationMs)
+internal/executor/sleep.go:41:func (t *SleepTask) Execute(ctx context.Context, payload []byte) (string, error) {
+internal/executor/sleep.go:54:	case <-ctx.Done():
+[rc=0]
+
+=== 16 - worker timeout application (client.go) ===
+$ sed -n 300,335p internal/worker/client.go
+		return resp.StatusCode, fmt.Errorf("non-retryable report rejection (HTTP %d)", resp.StatusCode)
+	}
+
+	return resp.StatusCode, fmt.Errorf("report failed with status %d", resp.StatusCode)
+}
+
+func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
+	slog.Info("executing job assignment",
+		"job_id", assignment.JobID,
+		"attempt_id", assignment.AttemptID,
+		"task_type", assignment.TaskType,
+		"timeout_seconds", assignment.TimeoutSeconds,
+	)
+
+	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
+	output, exitCode, err := a.registry.Execute(ctx, assignment.TaskType, assignment.Payload, timeout)
+
+	errSummary := ""
+	if err != nil {
+		errSummary = err.Error()
+	}
+
+	var status int
+	var reportErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		status, reportErr = a.ReportResult(ctx, assignment.JobID, assignment.AttemptID, assignment.LeaseToken, exitCode, output, errSummary)
+		if reportErr == nil {
+			slog.Info("result successfully committed",
+				"job_id", assignment.JobID,
+				"attempt_id", assignment.AttemptID,
+				"exit_code", exitCode,
+			)
+			return
+		}
+		if IsNonRetryableReportError(status) {
+			slog.Warn("coordinator permanently rejected result (non-retryable)",
+[rc=0]
+
+=== 17 - worker renew/abort present in HEAD? (renewal claim) ===
+$ grep -rn -i -E "renew" --include=*.go cmd internal/worker internal/coordinator internal/api | grep -v _test | head -20
+internal/coordinator/service.go:52:	// the worker derives its renewal interval (one third of the lease) from the duration.
+internal/coordinator/service.go:440:// RenewLease extends the lease of the caller's attempt, or reports that the job was cancelled
+internal/coordinator/service.go:441:// (ADR-0014, ADR-0016: the renewal response is the sole cancellation channel). All decisions,
+internal/coordinator/service.go:442:// including the 409 evaluation order, are made by repo.RenewLease under the row locks; the service
+internal/coordinator/service.go:443:// only logs rejections. It takes no service-wide lock, so a slow commit never delays a renewal,
+internal/coordinator/service.go:444:// and it writes no event: a rejected renewal changes nothing (owner decision Q-8).
+internal/coordinator/service.go:445:func (s *Service) RenewLease(ctx context.Context, jobID, attemptID, leaseToken, workerID string) (*domain.LeaseRenewal, error) {
+internal/coordinator/service.go:446:	renewal, err := s.repo.RenewLease(ctx, jobID, attemptID, leaseToken, workerID)
+internal/coordinator/service.go:453:			slog.Warn("lease renewal rejected",
+internal/coordinator/service.go:462:	return renewal, nil
+internal/api/server.go:72:	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/renew", s.handler.HandleRenewLease)
+internal/api/handlers.go:415:// RenewLeaseRequest defines the JSON schema for POST /v1/jobs/{id}/attempts/{attempt_id}/renew.
+internal/api/handlers.go:416:type RenewLeaseRequest struct {
+internal/api/handlers.go:421:// HandleRenewLease extends an attempt lease and delivers cancellation (docs/protocol.md 6.1).
+internal/api/handlers.go:423:// from mapDomainErrorToHTTP so renew and result share one table (protocol 6.3). The lease token is
+internal/api/handlers.go:425:func (h *Handler) HandleRenewLease(w http.ResponseWriter, r *http.Request) {
+internal/api/handlers.go:437:	var req RenewLeaseRequest
+internal/api/handlers.go:447:	renewal, err := h.coord.RenewLease(r.Context(), jobID, attemptID, req.LeaseToken, req.WorkerID)
+internal/api/handlers.go:455:		"status":           "RENEWED",
+internal/api/handlers.go:456:		"lease_expires_at": renewal.LeaseExpiresAt.UTC(),
+[rc=0]
+
+=== 18 - project state + phase4 plan slice list at HEAD ===
+$ sed -n 1,60p docs/PROJECT_STATE.md; echo; grep -n -E "^#+ .*[Ss]lice" docs/phase4-plan.md
+# MiniCloud Project State & Handoff
+
+## 1. Current Phase & Milestone
+- **Current Branch:** `main`
+- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
+- **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
+
+---
+
+## 2. Done
+- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+  - **Domain Transition Matrix Updates (Executed):** Flipped exactly two matrix cells in `allowedTransitions` table: `RETRYING -> QUEUED` becomes invalid (`false`), and `RETRYING -> RUNNING` becomes valid (`true`) for direct pull dispatch via `DispatchNextJob`. Verified by `TestJobTransitionMatrix_AllPairs`.
+  - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.DispatchNextJob`, achieving full dispatch parity with PostgreSQL. Retired `NewServiceWithQueue` and historical `spyQueue` test helper, rewriting seven coordinator unit tests to assert observable domain outcomes.
+  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic seeded model-based property test `TestProperty_StateMachine_ModelConformance`: memory 8 seeds x 400 steps (3,200 steps) and PostgreSQL 3 seeds x 120 steps (360 steps), no invariant violations.
+  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, FAIL 0. Database test gate (make test-db) on the slice 4a tip: PASS 70, SKIP 0, FAIL 0; P4-02 changes no code.
+  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndExpiry (planned test) and the CommitAttempt 409 evaluation order; Slice 4c receives the coordinator sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop and the delivery retry budget.
+- **Two-Agent Workflow Infrastructure (P0-01, PR #16, `main` at `a9453fc`):**
+  - **Single Rule File (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`):** `AGENTS.md` is the single rule file for all coding agents; `CLAUDE.md` and `GEMINI.md` point to it.
+  - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Committed agent rules and task board from owner draft with builder/auditor roles, active/done states, reserved touch points, and handoff and review folders.
+  - **Per-Worktree Test Databases (`minicloud_claude_test`, `minicloud_gemini_test`):** Documented and verified per-worktree test databases in `AGENTS.md` section 9 so concurrent agent test runs avoid data collisions. Added guarded reset script refusing anything other than `minicloud_<agent>_test` and added database preflight check to session start protocol (section 7 step 0 and section 9).
+  - **Citation Checker Scope (`tests/docs/citations_test.go`):** Added `AGENTS.md` to root documentation files scanned by `CollectDocFiles` in `tests/docs/citations_test.go`.
+- **Phase 4 — Coordination, Leases, Retries & Cancellation Design Specification Second Revision (`docs/phase4-design`):**
+  - **Symmetric Accept-Until-Swept Rule (ADR-0014, ADR-0016, `docs/protocol.md`, `docs/state-machine.md`, `docs/failure-model.md`, `docs/fault-injection-plan.md`):** Resolved renewal vs grace design contradiction. Leases grant exclusive rights until swept to `LOST`. While `attempts.state == 'RUNNING'`, both `RenewAttemptLease` and `CommitAttempt` succeed even if `lease_expires_at` has passed on database time, extending the lease from current database time (`clock_timestamp() + lease_duration`). Prevents cascading worker aborts during coordinator restarts and database outages. HTTP 409 Conflict (`LEASE_EXPIRED` / `domain.ErrLeaseExpired`) is returned only once an attempt has been swept to `LOST`. Documented trade-off (alive but delayed worker retains attempt until next sweeper pass) and added planned tests.
+  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry behavior for finished but unreported tasks: capped jittered backoff (500ms base to 5.0s cap), ongoing background lease renewal during reporting, stopping on non-retryable rejection (403, 404, 409) or cumulative bound (lease + grace = 60s). Inspected existing tests pinning behavior (`internal/worker/client_test.go:16` `TestIsNonRetryableReportError`, `internal/worker/client_test.go:40` `TestAgent_ReportResult_RejectionHandling`), confirmed zero weakened assertions, submitted loop expansion in `internal/worker/client.go:324-355` as candidate for owner approval, and updated FS-05 to verify tasks completing during a 45s coordinator downtime.
+  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Maintained canonical lock order (`jobs -> workers -> attempts`). Documented candidate scan using unlocked read and `FOR UPDATE SKIP LOCKED` on jobs and plain `FOR UPDATE` under `lock_timeout` on workers and attempts to eliminate lock contention; specified `CANCEL_REQUESTED` resolution to terminal `CANCELLED` suppressing retries; detailed lock failure fallback (skips candidate with zero mutation); and specified autonomous outage grace detection (any failed tick or database-time gap > 3x sweep interval, activating a 30s grace window capped by a 30s cooldown). Enforced config validation rule: `MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW` must be >= lease duration.
+  - **Explicit Architectural Alignments (ADR-0015, `docs/state-machine.md`):** Documented that `LOST` attempts consume `max_attempts` with `error_class = "LEASE_EXPIRED"` (alternative infinite retries rejected to avoid poison job cluster loops); cited Blueprint Section 5 justifying direct `RETRYING -> RUNNING` pull dispatch; documented in-memory repo and queue dispatch rules and shared conformance assertions; added full state mapping table with grep proof showing zero stored rows or API outputs contain old spellings; and explicitly cited cancel HTTP handler returning HTTP 200 for all valid cancellations (`internal/api/handlers.go:267`).
+  - **Security Findings Register (SEC-022):** Documented finding SEC-022 (Medium, executed): duplicate `CancelJob` on `CANCEL_REQUESTED` moves job directly to `CANCELLED` via fallback `else` branch, confirmed by code reading in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), with authorized fix in Slice 4a as idempotent no-op returning HTTP 200.
+    Verified by `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
+- **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
+  - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
+    - Rule A: Every cited repository path must exist on disk.
+    - Rule B: Line number anchors (`path:line`, `path#Lline`) must not exceed file line counts.
+    - Rule C: Test function identifiers must exist in repository test suites parsed via `go/parser` without subprocesses.
+    - Rule D: Prohibits local file URI schemes (`file:` triple slash) and legacy route prefixes (`/api` preceding `/v1`).
+    - Rule E: ADR citations must reference valid ADR numbers with zero gap sequence.
+    - Rule F: Allowlist (`tests/docs/citation_allowlist.txt`) format, non-empty reasons (>= 15 characters), and strict non-staleness check.
+  - **Rule C Exemption Tightening:** Tightened Rule C exemption evaluation to individual clauses and table cells (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping, ensuring separate clauses do not inherit exemptions. Verified with fixtures `TestFixtures/RuleC_SeparateClause_Fail` and `TestFixtures/RuleC_ProposedExemption_Pass`.
+  - **Documentation & ADR Corrections:** Fixed `file:` URI schemes in `README.md` and migration path in `docs/adr/0010-migrations-policy.md`.
+  - **Makefile Integration & Security Guidance:** Added `test-docs` target to `Makefile`, documented in `README.md`, `GEMINI.md`, and added documentation verification rules to `docs/security/security-testing.md`.
+  - **Security Findings Register:** Documented `SEC-020` (Documentation Citation Drift and Nonexistent Citations) and `SEC-021` (Whole-Line Exemption Scoping in Rule C Citation Checker; verified across four executed mutation cases, with residual limitation documented for same-clause self-labeling) in `docs/security/findings.md` and `docs/security/test-plan.md`.
+- **Phase 3, Slice 3d — PostgreSQL Coordinator Wiring, Durable Dispatch, Readiness Probe & Recovery (`milestone/3d-postgres-wiring`):**
+  - **Durable Dispatch (`repo.DispatchNextJob`):** Single-transaction FIFO pull dispatch in PostgreSQL (`internal/storage/postgres/repository.go`) adhering to canonical deadlock-free lock order (`jobs` -> `workers` -> `attempts`). Employs unlocked worker pre-check preserving SEC-002 error precedence, candidate job selection via `SELECT ... FOR UPDATE SKIP LOCKED`, worker row locking with capacity re-check, and dynamic attempt number derivation (`COALESCE(MAX(attempt_no), 0) + 1`). Implemented in `InMemoryRepository` for shared conformance. Tested under extreme contention with `TestPostgresRepository_Concurrency_MixedOperationsStress` (`-race -count=20`) and `TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier` (`-race -count=50`).
+  - **Coordinator Wiring & Queue Split:** Added `NewPostgresService` in `internal/coordinator/service.go`. In PostgreSQL mode, jobs bypass the in-memory queue entirely, preventing unbounded memory growth (SEC-010) and guaranteeing restart durability. In memory mode, the in-memory queue + `DispatchJob` path is preserved.
+  - **Dynamic Boot-Time Schema Verification:** Configured `cmd/coordinator/main.go` to assert on startup that the active database schema version matches `migrator.LatestEmbeddedVersion()`, refusing to start on outdated schemas. Added `migrator.CurrentSchemaVersion`.
+  - **Readiness Probe (`/readyz`) & Outage Resilience:** Updated `/readyz` endpoint in `internal/api/handlers.go` to verify repository reachability via `repo.Ping(ctx)`. Mapped connection failures and query timeouts to HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body. Unmapped driver errors map to opaque HTTP 500 `INTERNAL_ERROR`.
+  - **Worker Client Backoff & Outage Distinction:** Updated `internal/worker/client.go` implementing exponential backoff with full jitter on 5xx responses from `/poll` and `/heartbeat`, strictly distinguishing `SERVICE_UNAVAILABLE` (transient backoff) from `WORKER_UNHEALTHY` (wait for heartbeat restoration). Tested in `internal/worker/client_test.go`.
+  - **Real-Process Crash Recovery & Outage Integration Tests:** Added `tests/integration/postgres_wiring_test.go` verifying: (1) coordinator restart mid-execution accepts surviving worker attempt report with HTTP 200 COMMITTED and dispatches surviving queued jobs; (2) database container outage returns 503 with `Retry-After: 1` on `/readyz` and job submission without leaking credentials, automatically recovering when the database restarts; (3) 50-job burst across 3 workers with mid-run coordinator kill completes all 50 jobs with zero loss or duplicates.
+  - **Migration `000003_worker_limits.sql` & Check Constraint Defense:** Added migration enforcing `chk_workers_total_slots_range` (1..1024), `chk_workers_version_length` (<= 64), and `chk_workers_supported_tasks_count` (<= 16). Mapped check violations and SQLSTATE `22001`/`22003` to HTTP 400 `INVALID_REQUEST`.
+  - **Worker Registration Limits (SEC-015, SEC-016, SEC-017):** Bounded `total_slots` to 1..1024, `version` to <= 64 characters (empty allowed), `supported_tasks` to <= 16 unique items (duplicates deduplicated; each task name 1..64 characters of `^[a-z0-9_]{1,64}$`; unknown well-formed task names accepted for rolling fleet upgrades). Tested in `TestAPI_RegisterWorker_SlotsUpperLimit`, `TestAPI_RegisterWorker_VersionLengthLimit`, `TestAPI_RegisterWorker_SupportedTasksAllowlist`, `TestPostgresRepository_Security_WorkerCheckConstraints`, and `TestSchemaInvariants_SQLViolations`.
+  - **Part D Security Test Suite (`tests/integration/part_d_security_test.go`):** Implemented and executed all Part D security tests against live PostgreSQL container:
+    1. `TestSecurity_PartD_PoolExhaustion`: Genuinely saturates 10-connection pool by holding an exclusive table lock on `jobs` for 800ms (`holdDuration`) across pre-spawned barrier requests. 500 concurrent requests; process survived, all responses 2xx/4xx or opaque 503 with `Retry-After: 1`, zero 500s; primary proof verifies admin sampling of `pg_stat_activity` observed 10/10 connections in `wait_event_type = 'Lock'` (threshold >= 8); secondary proof verifies locked max latency exceeds 3-run unlocked baseline median by >= 0.25 * holdDuration (200ms); verified by adversarial mutation testing (SEC-019); immediate recovery (<2ms).
+    2. `TestSecurity_PartD_SlowQuery_ContextDeadline`: Query timeout under exclusive lock contention returned HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and opaque body in <200ms.
+    3. `TestSecurity_PartD_SQLInjection_EndToEnd`: SQL injection strings across payload, task_type, worker_id, version, supported_tasks returned 201 (stored-as-data) or 4xx; zero 5xx; zero schema objects altered.
+    4. `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`: Mid-run container shutdown and restore completed cleanly with worker backoff and commit; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs.
+    5. `TestSecurity_PartD_LeakScan`: Scrubbed responses and logs; confirmed zero occurrences of connection strings, passwords, SQL fragments, database host/ports (`:5433`, `:5432`), or the real raw 32-byte base64url lease token issued at dispatch (`pollResult.Assignment.LeaseToken`). Verified with sub-test positive control (`PositiveControl_PlantedTokenDetected`) proving detection of planted tokens.
+    6. `TestMigrator_NotSubjectToCoordinatorQueryTimeout`: Verifies that migrations executed by `cmd/migrate` / `postgres.Migrator` run on unconstrained connections (`statement_timeout = 0`, `lock_timeout = 0`) and are not cancelled by the coordinator's short query timeouts.
+  - **SEC-018 Process Remediations & Reporting Protocol:** Disclosed and recorded `SEC-018` in `docs/security/findings.md` addressing reconstructed test outputs in prior reports. Mandated redirection of all test runs to `/tmp/<name>.log 2>&1` with verbatim head/tail and exact grep count verification.
+  - **Documentation & Specifications:** Created `docs/security/field-limits.md` specifying all field limits and database constraints, authored `docs/adr/0013-durable-dispatch-and-coordinator-recovery.md` detailing lock ordering, approximate FIFO, pooled connection timeouts (`statement_timeout`, `lock_timeout`), and migration isolation, updated `docs/architecture.md`, and documented Phase 3 dead-worker limitation in `docs/failure-model.md`.
+- **Phase 3, Slice 3d — Authorized Security Hardening (SEC-003, SEC-007, SEC-008, SEC-009, SEC-011, SEC-014) (`milestone/3d-postgres-queue`):**
+
+20:## 2. Proposed Sub-Slices
+22:### Slice 4a: Grace Design, Existing-Test Impact, Domain State Machine & In-Memory Parity
+114:### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+170:### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
+227:### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
+260:### Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review
+[rc=0]
+
+=== 19 - P4-4c-b branch (read-only, other worktree): does worker renewal / cancel delivery exist there? and wording the README makes ===
+$ git -C /home/blazeee/MiniCloud-claude log --oneline -3; git -C /home/blazeee/MiniCloud-claude grep -n -i -E "renew|cancel_requested|CancelRequested" HEAD -- internal/worker/*.go | grep -v _test | head -15
+6268073 docs(handoff): P4-4c-b round 2 (interval ceiling, production wiring proof, real-binary smoke run)
+ce3e6c7 feat(worker): clamp renewal interval to 10 s; test the production Agent.Run path starts renewals (P4-4c-b round 2)
+068c70f docs(handoff): P4-4c-b worker lease renewal, abort, cancel delivery and result budget
+HEAD:internal/worker/client.go:24:	// DefaultRenewalInterval is the renewal interval when the assignment carries no lease duration
+HEAD:internal/worker/client.go:26:	DefaultRenewalInterval = 10 * time.Second
+HEAD:internal/worker/client.go:27:	// MinRenewalInterval floors the interval derived from a very short advertised lease so a
+HEAD:internal/worker/client.go:28:	// misconfigured coordinator cannot make the worker hammer the renew endpoint.
+HEAD:internal/worker/client.go:29:	MinRenewalInterval = time.Second
+HEAD:internal/worker/client.go:33:	renewBackoffBase    = time.Second
+HEAD:internal/worker/client.go:58:// Clock abstracts the timers the agent waits on (renewal interval, delivery backoff and budget) so
+HEAD:internal/worker/client.go:354:// renewalInterval is one third of the lease duration the coordinator advertised in the poll
+HEAD:internal/worker/client.go:355:// assignment (protocol 6.2), clamped to [MinRenewalInterval, DefaultRenewalInterval] so a long or
+HEAD:internal/worker/client.go:356:// hostile advertised lease cannot make the worker renew rarely; the default applies when the
+HEAD:internal/worker/client.go:358:func renewalInterval(a *coordinator.WorkAssignment) time.Duration {
+HEAD:internal/worker/client.go:360:		return DefaultRenewalInterval
+HEAD:internal/worker/client.go:362:	return min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)
+HEAD:internal/worker/client.go:365:type renewVerdict int
+HEAD:internal/worker/client.go:368:	renewOK        renewVerdict = iota // lease extended, keep going
+[rc=0]
+
+=== 20 - README progress/status/schedule statements ===
+$ grep -n -i -E 'not implemented|not yet|planned|slice|in progress|pending|today|currently|done|complete|phase [0-9]|V1' README.md | cut -c1-220
+3:MiniCloud is a learning-oriented distributed job-execution platform written in Go (standard library plus pgx v5), with PostgreSQL 16 as the durable source of truth. A central coordinator accepts computational jobs, ind
+7:- **Development Stage:** Pre-production (active V1 implementation).
+8:- **Phase:** V1, Phase 4 in progress. The current slice and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
+9:- **Security Posture:** The HTTP API and worker endpoints currently lack authentication, authorization, and TLS (documented as accepted risk SEC-004 in [docs/security/findings.md](docs/security/findings.md)); network s
+12:## What Works Today
+20:- **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`SUBMITTED`, `QUEUED`, `RUNNING`, `CANCEL_REQUESTED`, `RETRYING`, `SUCCEEDED`, `FAILED
+26:Pending slice deliverables (including worker-side lease renewal, automatic retries with backoff, and cancellation delivery to running workers) and post-V1 roadmap items are tracked in [docs/PROJECT_STATE.md](docs/PROJ
+44:                                | HTTP REST (/v1/jobs, /v1/workers)
+65:          | (/v1/workers/*)              | (deployments/docker-compose.yml)
+85:Prerequisites: Go 1.22.2 and `make`. Run every command from the repository root. Terminals 1 and 2 stay in the foreground and log JSON; stop them with Ctrl-C when done.
+106:until curl -sf http://127.0.0.1:8080/readyz >/dev/null; do sleep 0.5; done
+179:1    att_1_46ceaa3f05b8   worker-1   COMPLETED   0      11:47:14
+206:`.env` is read by `make` and `docker compose`, not by the binaries. Do not `source` it into your interactive shell: `.env` also defines `MINICLOUD_TEST_DATABASE_URL`, and a subsequent `go test ./...` in that shell wo
+232:| `MINICLOUD_DEFAULT_MAX_ATTEMPTS` | `3` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not yet applied by the coordinator; the effective default is a constant of 3 in code |
+233:| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component yet. The worker does not clamp the coordinator-supplied timeout (
+283:- `POST /v1/jobs` - Submit a new job payload. Returns HTTP 201 `CREATED` with job metadata.
+284:- `GET /v1/jobs/{id}` - Fetch job details and execution result.
+285:- `GET /v1/jobs/{id}/attempts` - List execution attempts for a job.
+286:- `POST /v1/jobs/{id}/cancel` - Request cancellation. A queued job is cancelled immediately; for a running job cancellation is recorded by the coordinator (`CANCEL_REQUESTED`), but the running job is not interrupted 
+289:- `POST /v1/workers/register` - Register a worker, its capacity slots, and supported task types.
+290:- `POST /v1/workers/{id}/heartbeat` - Send periodic liveness ping and report available capacity slots.
+291:- `POST /v1/workers/{id}/poll` - Poll for next available job assignment (`fifo_pull`).
+292:- `POST /v1/jobs/{id}/attempts/{attempt_id}/result` - Report completion or failure of an assigned attempt.
+293:- `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` - Renew an active attempt lease and receive cancellation notifications.
+294:- `GET /v1/workers` - Operator endpoint listing registered workers.
+314:│   ├── scheduler/              # Deterministic round-robin scheduler (not yet used for dispatch)
+355:- **V1 (Phases 0–4):** Core execution with allowlisted tasks, transactional FIFO pull dispatch (`fifo_pull`), PostgreSQL durability, lease management, bounded retries, cancellation reaching running workers (planned
+356:- **V2 (Phase 6 & Transport Evaluation):** Resource-aware scheduling policies, comparative benchmark generator, fault injection harness, and Redis Streams dispatch evaluation against the PostgreSQL baseline (ADR-0006
+361:- [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md): Living handoff, completed milestones, and current phase progress.
+368:- [docs/phase4-plan.md](docs/phase4-plan.md): Phase 4 implementation plan for leases, retries, and cancellation.
+380:Security documentation and risk tracking are maintained in [docs/security/findings.md](docs/security/findings.md) and [docs/security/threat-model.md](docs/security/threat-model.md). In V1, coordinator and worker HTTP
+[rc=0]
+
+=== 21 - does main (origin/main) PROJECT_STATE currently say anything about worker renewal? ===
+$ git show origin/main:docs/PROJECT_STATE.md | sed -n 1,12p | cut -c1-400; git log --oneline origin/main -5
+# MiniCloud Project State & Handoff
+
+## 1. Current Phase & Milestone
+- **Current Branch:** `main`
+- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
+- **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
+
+---
+
+## 2. Done
+- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, t
+3e8ab9e Merge pull request #22 from BlaZe08-Dev/agent/gemini/P4-03
+66303ba docs(agents): resolve audit findings F-1 through F-6 for P4-03
+5558b11 Merge origin/main into agent/gemini/P4-03
+fc451c9 Merge pull request #21 from BlaZe08-Dev/agent/claude/P4-4c-a
+85b2246 docs(handoff): P4-4c-a drop a line-number citation
+[rc=0]
+
+=== 22 - Makefile targets vs README list ===
+$ sed -n 1,200p Makefile
+.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db
+
+BIN_DIR := bin
+
+all: fmt vet build test-race
+
+build:
+	@mkdir -p $(BIN_DIR)
+	go build -o $(BIN_DIR)/coordinator ./cmd/coordinator
+	go build -o $(BIN_DIR)/worker ./cmd/worker
+	go build -o $(BIN_DIR)/mc ./cmd/mc
+	go build -o $(BIN_DIR)/migrate ./cmd/migrate
+	@echo "Build complete. Executables located in $(BIN_DIR)/"
+
+test:
+	go test -v ./...
+
+test-race:
+	go test -v -race ./...
+
+test-docs:
+	go test ./tests/docs
+
+fmt:
+	gofmt -s -w .
+
+vet:
+	go vet ./...
+
+run-coordinator: build
+	./$(BIN_DIR)/coordinator
+
+run-worker: build
+	./$(BIN_DIR)/worker
+
+demo: build
+	@echo "=== Starting MiniCloud Local Core Demo ==="
+	@bash scripts/demo.sh
+
+# Database provisioning targets (Slice 3b)
+db-up:
+	@docker compose -f deployments/docker-compose.yml --env-file .env up -d --wait
+	@echo "PostgreSQL container is running and healthy on 127.0.0.1:5433"
+
+db-down:
+	@docker compose --env-file .env -f deployments/docker-compose.yml down
+	@echo "PostgreSQL container stopped (named volumes preserved)"
+
+db-psql:
+	@docker compose -f deployments/docker-compose.yml --env-file .env exec -it postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+
+db-reset-test:
+	@docker compose -f deployments/docker-compose.yml --env-file .env exec -T postgres sh -c '\
+		TARGET="minicloud_test"; \
+		case "$$TARGET" in *_test) ;; *) echo "Refusing to reset non-test DB $$TARGET" >&2; exit 1 ;; esac; \
+		psql -U "$$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS minicloud_test;" && \
+		psql -U "$$POSTGRES_USER" -d postgres -c "CREATE DATABASE minicloud_test;" && \
+		psql -U "$$POSTGRES_USER" -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE minicloud_test TO \"$$POSTGRES_USER\";"'
+	@echo "Test database minicloud_test reset successfully."
+
+test-db:
+	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+	@set -e; \
+	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+
+clean:
+	rm -rf $(BIN_DIR)
+[rc=0]
+
+=== 23 - make target set diff (README vs .PHONY) ===
+$ grep -E "^\.PHONY" Makefile | tr " " "\n" | grep -v PHONY | sort > /tmp/x_mk 2>/dev/null; sed -n "/^### Make Targets/,/^### Test Guardrails/p" README.md | grep -oE "^- \`make [a-z-]+\`" | sed -E "s/^- \`make //; s/\`//" | sort > /tmp/x_rd; echo makefile:; cat /tmp/x_mk | tr "\n" " "; echo; echo readme:; cat /tmp/x_rd | tr "\n" " "; echo; diff /tmp/x_mk /tmp/x_rd && echo SAME; rm -f /tmp/x_mk /tmp/x_rd
+makefile:
+all build clean db-down db-psql db-reset-test db-up demo fmt run-coordinator run-worker test test-db test-docs test-race vet 
+readme:
+all build clean db-down db-psql db-reset-test db-up demo fmt run-coordinator run-worker test test-db test-docs test-race vet 
+SAME
+[rc=0]
+
+=== 24 - env.example and compose file ===
+$ sed -E "s/(PASSWORD=).*/\1<redacted>/; s#(//[^:]*:)[^@]*@#\1<redacted>@#" .env.example; echo ----; cat deployments/docker-compose.yml
+# PostgreSQL Database Provisioning & Credentials Example
+# Copy this file to .env and configure local development credentials.
+# The real .env is gitignored and must never be committed.
+
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<redacted>
+POSTGRES_DB=minicloud
+POSTGRES_PORT=5433
+
+# Database Connection URLs (Host is 127.0.0.1:5433)
+MINICLOUD_DATABASE_URL=postgres://postgres:<redacted>@127.0.0.1:5433/minicloud?sslmode=disable
+MINICLOUD_TEST_DATABASE_URL=postgres://postgres:<redacted>@127.0.0.1:5433/minicloud_test?sslmode=disable
+----
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: minicloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-minicloud}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - minicloud_pgdata:/var/lib/postgresql/data
+      - ./init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+volumes:
+  minicloud_pgdata:
+    name: minicloud_pgdata
+[rc=0]
+
+=== 25 - make -n (dry run, executes nothing): test-db and db-down recipes ===
+$ make -n test-db; echo; make -n db-down
+if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+set -e; \
+URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+if [ -z "$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$' ./tests/integration/
+
+docker compose --env-file .env -f deployments/docker-compose.yml down
+echo "PostgreSQL container stopped (named volumes preserved)"
+[rc=0]
+
+=== 26 - tests selected by make test-db: list ===
+$ go test -list "TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit" ./tests/integration/; grep -n "stopPostgresContainer\|startPostgresContainer" tests/integration/*.go | head; sed -n "/func TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/,/^}/p" tests/integration/postgres_wiring_test.go | grep -n -E "stopPostgres|docker|startPostgres" ; echo grep_rc=$?
+TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	0.006s
+tests/integration/part_d_security_test.go:799:		startPostgresContainer(t)
+tests/integration/part_d_security_test.go:916:	stopPostgresContainer(t)
+tests/integration/part_d_security_test.go:923:	startPostgresContainer(t)
+tests/integration/part_d_security_test.go:1007:		startPostgresContainer(t)
+tests/integration/part_d_security_test.go:1134:	stopPostgresContainer(t)
+tests/integration/part_d_security_test.go:1151:	startPostgresContainer(t)
+tests/integration/postgres_wiring_test.go:109:func stopPostgresContainer(t *testing.T) {
+tests/integration/postgres_wiring_test.go:117:func startPostgresContainer(t *testing.T) {
+tests/integration/postgres_wiring_test.go:355:		startPostgresContainer(t)
+tests/integration/postgres_wiring_test.go:406:	stopPostgresContainer(t)
+grep_rc=1
+[rc=0]
+
+=== 27 - docker compose config -q with fake env-file (no daemon contact; no container touched) ===
+$ E=$HOME/mc-audit3-envtest/fake.env; echo "-- with -q:"; docker compose --env-file $E -f deployments/docker-compose.yml config -q; echo rc=$?; echo "-- without -q (shows what -q avoids; fake pw):"; docker compose --env-file $E -f deployments/docker-compose.yml config 2>&1 | grep -n -i "password"; echo "-- missing .env (README order: config before cp?):"; docker compose --env-file /nonexistent.env -f deployments/docker-compose.yml config -q; echo rc=$?
+-- with -q:
+rc=0
+-- without -q (shows what -q avoids; fake pw):
+7:      POSTGRES_PASSWORD: FAKEPW-not-a-real-secret
+-- missing .env (README order: config before cp?):
+couldn't find env file: /nonexistent.env
+rc=1
+[rc=0]
+
+=== 28 - port-busy: second coordinator on busy 18081, mc env behaviour (own PIDs only) ===
+$ portbusy.sh
+A (first coordinator) real PID=395949
+B (second coordinator, same port) real PID=395958
+B alive? no
+--- B log (cut to msg/err fields):
+starting MiniCloud coordinator...
+using in-memory storage driver
+coordinator listening for requests
+http server failed | listen tcp 127.0.0.1:18081: bind: address already in use
+--- readiness loop on busy port succeeds against A (README step passes although B failed):
+rc=0
+--- mc workers with no MINICLOUD_COORDINATOR_URL (targets default 8080):
+Error querying workers: Get "http://127.0.0.1:8080/v1/workers": dial tcp 127.0.0.1:8080: connect: connection refused
+rc=1
+--- mc workers with MINICLOUD_COORDINATOR_URL=18081:
+Registered Workers (0 total):
+WORKER ID   STATUS   AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+rc=0
+--- mc get/attempts without URL env:
+Error querying job: Get "http://127.0.0.1:8080/v1/jobs/job_x": dial tcp 127.0.0.1:8080: connect: connection refused
+rc=1
+Error querying attempts: Get "http://127.0.0.1:8080/v1/jobs/job_x/attempts": dial tcp 127.0.0.1:8080: connect: connection refused
+rc=1
+--- kill recorded PIDs 395949 395958
+[rc=0]
+395944 /bin/bash -c source /home/blazeee/.claude/shell-snapshots/snapshot-bash-1793201703360-ne730x.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'S=/tmp/claude-1000/-home-blazeee-MiniCloud-claude/2515cb7e-d52d-4912-8d1c-026a9141b22c/scratchpad; . $S/lib.sh cat > $S/portbusy.sh <<'"'"'EOF'"'"' #!/bin/bash cd "$HOME/mc-readme-audit3" || exit 9 A=; B= trap '"'"'[ -n "$B" ] && kill $B 2>/dev/null; [ -n "$A" ] && kill $A 2>/dev/null; wait 2>/dev/null'"'"' EXIT MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18081 ./bin/coordinator > $1/pb_A.log 2>&1 & A=$! until curl -sf http://127.0.0.1:18081/readyz >/dev/null; do sleep 0.2; done echo "A (first coordinator) real PID=$A" MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18081 ./bin/coordinator > $1/pb_B.log 2>&1 & B=$! echo "B (second coordinator, same port) real PID=$B"; sleep 1.5 echo "B alive? $(kill -0 $B 2>/dev/null && echo yes || echo no)" echo "--- B log (cut to msg/err fields):"; sed -E '"'"'s/.*"msg":"([^"]*)".*"(error|err)":"([^"]*)".*/\1 | \3/; t; s/.*"msg":"([^"]*)".*/\1/'"'"' $1/pb_B.log echo "--- readiness loop on busy port succeeds against A (README step passes although B failed):"; timeout 5 bash -c '"'"'until curl -sf http://127.0.0.1:18081/readyz >/dev/null; do sleep 0.5; done'"'"'; echo rc=$? echo "--- mc workers with no MINICLOUD_COORDINATOR_URL (targets default 8080):"; env -u MINICLOUD_COORDINATOR_URL ./bin/mc workers; echo rc=$? echo "--- mc workers with MINICLOUD_COORDINATOR_URL=18081:"; MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18081 ./bin/mc workers; echo rc=$? echo "--- mc get/attempts without URL env:"; env -u MINICLOUD_COORDINATOR_URL ./bin/mc get job_x; echo rc=$?; env -u MINICLOUD_COORDINATOR_URL ./bin/mc attempts job_x; echo rc=$? echo "--- kill recorded PIDs $A $B" EOF chmod +x $S/portbusy.sh { echo; echo "=== 28 - port-busy: second coordinator on busy 18081, mc env behaviour (own PIDs only) ==="; echo "\$ portbusy.sh"; timeout 60 $S/portbusy.sh $S; echo "[rc=$?]"; ss -ltn | grep -E '"'"':(18081|18080)\b'"'"'; pgrep -af '"'"'bin/(coordinator|worker)'"'"'; echo leftovers_checked; } >> $EV 2>&1 sed -n '"'"'/=== 28/,$p'"'"' $EV | cut -c1-300' && pwd -P >| /tmp/claude-8226-cwd
+leftovers_checked
+
+=== 29 - gofmt -l . ===
+$ env -u MINICLOUD_TEST_DATABASE_URL gofmt -l .; echo rc=$?
+rc=0
+[rc=0]
+
+=== 30 - go vet ./... ===
+$ env -u MINICLOUD_TEST_DATABASE_URL go vet ./... ; echo rc=$?
+rc=0
+[rc=0]
+
+=== 31 - go build ./... ===
+$ env -u MINICLOUD_TEST_DATABASE_URL go build ./... ; echo rc=$?
+rc=0
+[rc=0]
+
+=== 32 - make test-docs ===
+$ env -u MINICLOUD_TEST_DATABASE_URL make test-docs; echo rc=$?
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.620s
+rc=0
+[rc=0]
+
+=== 33 - go test -v -race -count=1 ./... (env -u MINICLOUD_TEST_DATABASE_URL; full log at scratchpad gate-v.log; package result lines + counts below)
+exit: 0
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.489s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.025s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.978s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.032s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.154s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.178s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.109s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.045s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.028s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.533s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.159s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.521s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.050s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	17.959s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.844s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.090s
+DATA RACE lines: 0
+PASS 151 SKIP 35 FAIL 0
+
+=== 34 - handoff commit hashes exist; branch log ===
+$ git log --oneline fc451c9..HEAD; for h in fc451c9 0fac9d4 5eb510f ea08ea5 3a04340 f0e6cea; do printf "%s: " $h; git cat-file -t $h 2>&1; done; git diff --stat fc451c9 HEAD | tail -8
+f0e6cea docs(handoff): update P0-03 handoff for round 2 with audit resolutions and execution evidence
+3a04340 docs(readme): address round-2 audit findings for quickstart, configuration, and staleness
+0fac9d4 Merge origin/main into agent/gemini/P0-03
+e42acd0 docs(handoff): update P0-03 handoff with review resolutions and execution evidence
+ea08ea5 docs: resolve audit findings F-1 through F-12 and F-14 in README
+5eb510f docs(review): import Claude review and evidence for P0-03
+521be86 docs(agents): create P0-03 handoff record
+567c731 docs: refresh README with accurate architecture, quickstart, and configuration
+fc451c9: commit
+0fac9d4: commit
+5eb510f: commit
+ea08ea5: commit
+3a04340: commit
+f0e6cea: commit
+ README.md                              |  435 +++++--
+ docs/agents/handoffs/P0-03.md          |  222 ++++
+ docs/agents/reviews/P0-03-evidence.txt | 1981 ++++++++++++++++++++++++++++++++
+ docs/agents/reviews/P0-03.md           |  143 +++
+ 4 files changed, 2712 insertions(+), 69 deletions(-)
+[rc=0]
+
+=== 35 - handoff: line numbers in prose (path:line and "README.md:NNN") ===
+$ grep -n -E "README\.md:[0-9]|\.go:[0-9]|\.md:[0-9]" docs/agents/handoffs/P0-03.md
+201:docs/security/findings.md:24:| **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
+202:docs/security/findings.md:177:### SEC-012: Worker Execution Timeout Not Clamped Above
+203:docs/security/findings.md:472:- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+213:| F-P0-03-R2-1 | Major | `README.md:195-216` | Executed | Removed interactive `.env` sourcing. Replaced with selective subshell exports `( export MINICLOUD_DATABASE_URL=...; ... )` for migration and coordinator commands. Added warning sentence to testing section: "Never run `go test ./...` with the database URL set in the shell; use `make test-db`." |
+214:| F-P0-03-R2-2 | Major | `README.md:237` | Confirmed by code reading | Verified `docs/security/findings.md` and `docs/phase4-plan.md` via grep. Retained SEC-012 reference while removing unscheduled "planned for slice 4d" claim. |
+215:| F-P0-03-R2-3 | Major | `README.md:3,8,26` | Confirmed by code reading | Replaced rotting "slice 4a done" in Status block with link to `docs/PROJECT_STATE.md`. Softened line 3 from "under leases" to "with a per-attempt lease token (worker-side lease renewal is not implemented yet; see docs/PROJECT_STATE.md)". Replaced "Not implemented yet" list with pointer to `docs/PROJECT_STATE.md` and `docs/roadmap.md`. |
+216:| F-P0-03-R2-4 | Minor | `README.md:88` | Confirmed by code reading & executed | Clarified that coordinator exits on port collision while worker and `mc` silently target port 8080. Documented `MINICLOUD_HTTP_ADDR` and exporting `MINICLOUD_COORDINATOR_URL` for `mc` and worker. |
+217:| F-P0-03-R2-5 | Minor | `README.md:86,100,109` | Executed | Documented explicit startup order. Added `/readyz` polling check (`until curl -sf http://127.0.0.1:8080/readyz >/dev/null; do sleep 0.5; done`) and worker registration wait before running `mc` commands. |
+218:| F-P0-03-R2-6 | Minor | `README.md:191,206` | Executed & confirmed by code reading | Added `-q` to `docker compose config` to prevent printing credentials. Documented running `make build` before migrations. Scoped `MINICLOUD_DATABASE_URL` export strictly to migration subshell. |
+220:| F-P0-03-R2-8 | Nit | `README.md:333,340` | Confirmed by code reading | Updated `make db-down` to specify stopping and removing container and network. Updated `make test-db` to specify reading `MINICLOUD_TEST_DATABASE_URL` from `.env`. |
+221:| F-P0-03-R2-9 | Nit | `README.md:146` | Confirmed by code reading | Updated quickstart text from "the one shown below" to "the one shown here". |
+222:| F-P0-03-R2-10 | Nit | `README.md:20` | Confirmed by code reading | Added annotation `(TIMED_OUT is reserved and not written in V1)` to attempt states list per `docs/state-machine.md`. |
+[rc=0]
+
+=== 36 - actual README lines for those claims ===
+$ grep -n -E "SEC-012|Port-busy advice|until curl|Copy the .ID:|make db-down|make test-db|TIMED_OUT. is reserved|docker compose --env-file|Wait for the worker to register" README.md | cut -c1-90
+20:- **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enf
+89:Port-busy advice: If port 8080 is busy (`ss -tulpn | grep 8080` or `ss -ltn | grep 8080
+106:until curl -sf http://127.0.0.1:8080/readyz >/dev/null; do sleep 0.5; done
+115:Wait for the worker to register (it logs `worker successfully registered with coordina
+147:Copy the `ID:` value from the submit output; the job ID is generated per submission an
+195:docker compose --env-file .env -f deployments/docker-compose.yml config -q
+233:| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Pa
+336:- `make test-db`: Runs PostgreSQL persistence tests against the `MINICLOUD_TEST_DATABA
+342:- `make db-down`: Stops and removes the shared PostgreSQL container and network; every
+349:- **Container Interruption Warning:** With `MINICLOUD_TEST_DATABASE_URL` set in your e
+[rc=0]
+
+=== 37 - handoff wording: literal/verbatim/raw, uncommitted, base, script contents ===
+$ grep -n -i -E "literal|verbatim|raw|uncommitted|not committed|script|base commit|merge-base" docs/agents/handoffs/P0-03.md | cut -c1-200
+4:Base commit: `fc451c9` (merge-base with `origin/main` after merging `origin/main` in commit `0fac9d4`)
+9:Verbatim output:
+34:  Updated with round 2 execution evidence, break-before-fix proof, raw test suite counts (`PASS 151 SKIP 35 FAIL 0`), diff scope statement, and resolution table.
+111:Verbatim output:
+124:(Executed with backgrounding and PID recording for long-running daemons, readiness polling via `/readyz`, worker registration wait, and cleanup by recorded PID; the test runner script was executed
+219:| F-P0-03-R2-7 | Minor | `docs/agents/handoffs/P0-03.md` | Executed | Updated handoff with precise description of quickstart execution (noting backgrounding and uncommitted helper script), pasted 
+[rc=0]
+
+=== 38 - handoff break-before-fix block re-run (extracted by sed from the handoff itself) ===
+$ sed -n "/^TMPDIR=\$(mktemp -d)/,/^rm -rf \"\$TMPDIR\"/p" docs/agents/handoffs/P0-03.md > /tmp/x_bbf.sh; wc -l /tmp/x_bbf.sh; env -i PATH=$PATH HOME=$HOME bash /tmp/x_bbf.sh; rm -f /tmp/x_bbf.sh
+28 /tmp/x_bbf.sh
+=== BREAK (Old way: auto-exporting whole .env) ===
+MINICLOUD_TEST_DATABASE_URL in shell: postgres://user:pass@127.0.0.1:5433/test_db
+POSTGRES_PASSWORD in shell: 
+=== FIX (New way: selective subshell export) ===
+Subshell MINICLOUD_DATABASE_URL: postgres://user:pass@127.0.0.1:5433/db
+Subshell MINICLOUD_TEST_DATABASE_URL: 
+Parent shell MINICLOUD_DATABASE_URL: 
+Parent shell MINICLOUD_TEST_DATABASE_URL: 
+[rc=0]
+
+=== 39 - state constants vs README lists ===
+$ sed -n 1,35p internal/domain/state.go | grep -E "= \"" ; echo; grep -c -E "^\s+(Job|Attempt)[A-Za-z]+\s+(JobState|AttemptState)? *= \"" internal/domain/state.go
+	StateSubmitted       JobState = "SUBMITTED"
+	StateQueued          JobState = "QUEUED"
+	StateRunning         JobState = "RUNNING"
+	StateCancelRequested JobState = "CANCEL_REQUESTED"
+	StateRetrying        JobState = "RETRYING"
+	StateSucceeded       JobState = "SUCCEEDED"
+	StateFailed          JobState = "FAILED"
+	StateCancelled       JobState = "CANCELLED"
+	StateRejected        JobState = "REJECTED"
+	AttemptPending   AttemptState = "PENDING"
+	AttemptRunning   AttemptState = "RUNNING"
+	AttemptCompleted AttemptState = "COMPLETED"
+	AttemptFailed    AttemptState = "FAILED"
+	AttemptTimedOut  AttemptState = "TIMED_OUT"
+	AttemptCancelled AttemptState = "CANCELLED"
+	AttemptLost      AttemptState = "LOST"
+
+7
+[rc=0]
+
+=== 40 - worker backoff constants, id regex, attempts bound ===
+$ grep -n -E "baseBackoff|maxBackoff" internal/worker/client.go | head -6; grep -rn -E "\[a-zA-Z0-9_-\]|128" internal/api/*.go | grep -v _test | head -5; grep -n -E "MaxAttempts|MinMaxAttempts|= 20" internal/coordinator/service.go | head -8
+92:	baseBackoff := 200 * time.Millisecond
+93:	maxBackoff := 3 * time.Second
+106:					time.Sleep(baseBackoff)
+109:					time.Sleep(baseBackoff)
+112:					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+117:					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+internal/api/handlers.go:65:const maxIdentifierLength = 128
+124:	DefaultMaxAttempts    = 3
+125:	MinMaxAttempts        = 1
+126:	MaxMaxAttempts        = 20
+167:	if maxAttempts < MinMaxAttempts || maxAttempts > MaxMaxAttempts {
+168:		return nil, fmt.Errorf("%w: max_attempts must be between %d and %d (got %d)", domain.ErrInvalidRequest, MinMaxAttempts, MaxMaxAttempts, maxAttempts)
+180:		MaxAttempts:    maxAttempts,
+199:		"max_attempts", job.MaxAttempts,
+[rc=0]
+
+=== 41 - README text round-1 residue checks ===
+$ grep -n -i -E "job_results|engineering-serious|production-grade|blazing|robust|enterprise|world-class" README.md; echo grep_rc=$?; grep -c -E "[🚀✅❌⚡]" README.md; grep -n -E "README.md:[0-9]|\.go:[0-9]" README.md; echo linecite_rc=$?
+grep_rc=1
+0
+linecite_rc=1
+[rc=0]
+
+=== 42 - SEC-012 present in findings ===
+$ grep -n "SEC-012" docs/security/findings.md | head -3; grep -n -i "clamp" docs/phase4-plan.md | head; echo rc=$?
+24:| **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
+177:### SEC-012: Worker Execution Timeout Not Clamped Above
+472:- `TestWorker_ExcessiveTimeoutClamped`: Future verification test for SEC-012 (worker execution timeout clamping).
+rc=0
+[rc=0]
+
+=== 43 - README links resolve ===
+$ grep -oE "\]\((docs/[^)#]+|AGENTS.md)" README.md | sed "s/](//" | sort -u | while read p; do [ -e "$p" ] && echo "ok $p" || echo "MISSING $p"; done
+ok AGENTS.md
+ok docs/adr/
+ok docs/architecture.md
+ok docs/failure-model.md
+ok docs/fault-injection-plan.md
+ok docs/phase4-plan.md
+ok docs/PROJECT_STATE.md
+ok docs/protocol.md
+ok docs/roadmap.md
+ok docs/schema.md
+ok docs/security/field-limits.md
+ok docs/security/findings.md
+ok docs/security/security-testing.md
+ok docs/security/test-plan.md
+ok docs/security/threat-model.md
+ok docs/state-machine.md
+ok docs/testing-postgres.md
+[rc=0]
+
+=== 44 - executor registry timeout application and any clamp ===
+$ grep -n -E "WithTimeout|timeout|Clamp|clamp|min\(" internal/executor/registry.go internal/executor/*.go | grep -v _test | head -20
+grep: internal/executor/registry.go: No such file or directory
+internal/executor/executor.go:19:	// DefaultMaxTimeout is the fallback execution timeout if not specified.
+internal/executor/executor.go:69:// 4. Enforces execution timeout via context.
+internal/executor/executor.go:73:func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte, timeout time.Duration) (string, int, error) {
+internal/executor/executor.go:87:	if timeout <= 0 {
+internal/executor/executor.go:88:		timeout = DefaultMaxTimeout
+internal/executor/executor.go:90:	execCtx, cancel := context.WithTimeout(ctx, timeout)
+[rc=0]
+
+=== 45 - lease sweeper acts on running attempts without renewal at HEAD (code reading): sweeper entry + lease default ===
+$ grep -n -E "func \(s \*Service\) (StartLeaseSweeper|SweepOnce|sweep)" internal/coordinator/*.go | head; grep -n "DefaultLeaseDuration" internal/domain/lease.go
+internal/coordinator/sweeper.go:93:func (s *Service) StartLeaseSweeper(ctx context.Context, interval time.Duration) {
+12:// DefaultLeaseDuration is the attempt lease length (ADR-0014: 30 s, MINICLOUD_LEASE_DURATION).
+13:const DefaultLeaseDuration = 30 * time.Second
+[rc=0]
+
+=== 46 - P4-4c-b branch: cancel delivery in worker (code reading, other worktree HEAD) ===
+$ git -C /home/blazeee/MiniCloud-claude log --oneline -12 | cut -c1-150; git -C /home/blazeee/MiniCloud-claude grep -n -i -E "cancel" HEAD -- internal/worker/client.go | grep -v _test | head -10
+6268073 docs(handoff): P4-4c-b round 2 (interval ceiling, production wiring proof, real-binary smoke run)
+ce3e6c7 feat(worker): clamp renewal interval to 10 s; test the production Agent.Run path starts renewals (P4-4c-b round 2)
+068c70f docs(handoff): P4-4c-b worker lease renewal, abort, cancel delivery and result budget
+5c69b9b test(worker): pin delivery and renewal backoff bounds; drop two redundant guards (P4-4c-b, kills survivors m11 m19)
+eaa9d07 test(worker): renewal must stop at cancel_requested even if the task ignores cancellation (P4-4c-b, kills survivor m08)
+450270e test(integration): in-process worker-to-coordinator lease renewal, lost-lease abort, cancel via renewal and delivery budget (P4-4c-b)
+6faef83 test(worker): settle the agent between fake-clock steps instead of sleeping (P4-4c-b)
+fb6279c feat(worker): lease renewal loop, abort on lease loss, cancel via renewal, 60 s result delivery budget (P4-4c-b)
+26036ce test(worker): renewal, lease-loss abort, cancel delivery and result-delivery budget tests (P4-4c-b, red before implementation)
+cd3610d refactor(worker): injectable timer clock and exported ExecuteAndReport, fake clock for tests (P4-4c-b)
+85b2246 docs(handoff): P4-4c-a drop a line-number citation
+983e173 docs(handoff): P4-4c-a round 2, sweeper wiring, test-db gate, resolutions
+HEAD:internal/worker/client.go:369:	renewCancel                        // 200 with cancel_requested: cancel the task, stop renewing, report
+HEAD:internal/worker/client.go:383:	rctx, cancel := context.WithTimeout(ctx, timeout)
+HEAD:internal/worker/client.go:384:	defer cancel()
+HEAD:internal/worker/client.go:401:			CancelRequested bool `json:"cancel_requested"`
+HEAD:internal/worker/client.go:407:		if ok.CancelRequested {
+HEAD:internal/worker/client.go:408:			return renewCancel
+HEAD:internal/worker/client.go:463:func (a *Agent) renewLoop(ctx context.Context, run *attemptRun, asg *coordinator.WorkAssignment, interval time.Duration, cancelTask context.CancelFunc) {
+HEAD:internal/worker/client.go:477:		case renewCancel:
+HEAD:internal/worker/client.go:478:			slog.Info("cancellation requested by coordinator; cancelling task", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+HEAD:internal/worker/client.go:479:			cancelTask()
+[rc=0]
+
+=== 00b - SSH clone attempt as prescribed (read-only check, no clone) ===
+$ git ls-remote git@github.com:BlaZe08-Dev/Minicloud.git HEAD; echo rc=$?; ssh -T git@github.com; echo rc=$?; git remote -v
+git@github.com: Permission denied (publickey).
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+rc=128
+git@github.com: Permission denied (publickey).
+rc=255
+origin	https://github.com/BlaZe08-Dev/Minicloud.git (fetch)
+origin	https://github.com/BlaZe08-Dev/Minicloud.git (push)
+[rc=0]

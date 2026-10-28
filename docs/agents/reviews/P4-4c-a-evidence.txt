@@ -1,0 +1,317 @@
+================================================================================
+MiniCloud Audit Evidence: P4-4c-a
+Date: 2026-10-28
+Auditor: Gemini (agent/gemini/P4-4c-a-review)
+Commit Under Review: 85b2246
+================================================================================
+
+--------------------------------------------------------------------------------
+1. SETUP & REPOSITORY INTEGRITY
+--------------------------------------------------------------------------------
+
+$ git rev-parse --short HEAD
+85b2246
+
+$ git status
+On branch agent/gemini/P4-4c-a-review
+nothing to commit, working tree clean
+
+$ [ ! -f .env ] && echo "NO .env OK" && [ -z "$MINICLOUD_TEST_DATABASE_URL" ] && echo "MINICLOUD_TEST_DATABASE_URL is unset OK"
+NO .env OK
+MINICLOUD_TEST_DATABASE_URL is unset OK
+
+--------------------------------------------------------------------------------
+2. QUALITY GATES (DB URL UNSET)
+--------------------------------------------------------------------------------
+
+$ gofmt -l .
+(empty, rc=0)
+
+$ go vet ./...
+(empty, rc=0)
+
+$ go build ./...
+(empty, rc=0)
+
+$ make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.789s
+(rc=0)
+
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./... > /tmp/gate-v.log 2>&1
+(rc=0)
+
+$ echo "PASS $(grep -c '^--- PASS' /tmp/gate-v.log) SKIP $(grep -c '^--- SKIP' /tmp/gate-v.log) FAIL $(grep -c '^--- FAIL' /tmp/gate-v.log)"
+PASS 151 SKIP 35 FAIL 0
+
+--------------------------------------------------------------------------------
+3. AUDIT CHECKLIST ITEM 1: D-R3-01 STATE MACHINE VERIFICATION
+--------------------------------------------------------------------------------
+
+$ go test -v -run 'TestCoordinator_LeaseSweeper_' ./internal/coordinator/
+=== RUN   TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock
+--- PASS: TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness
+--- PASS: TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace
+--- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick
+--- PASS: TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace
+--- PASS: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt
+--- PASS: TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow
+--- PASS: TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery
+--- PASS: TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn
+--- PASS: TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel
+--- PASS: TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt
+--- PASS: TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping
+--- PASS: TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery
+--- PASS: TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.015s
+
+--------------------------------------------------------------------------------
+4. AUDIT CHECKLIST ITEM 2: CLOCK DOMAIN (REPOSITORY.NOW VS TIME.NOW)
+--------------------------------------------------------------------------------
+
+$ git grep -n "time\.Now()" internal/coordinator/ internal/storage/
+internal/coordinator/service.go:39:	return time.Now().UTC()
+internal/coordinator/sweeper_test.go:26:// repository clock (owner decision Q-1), so a coordinator that used time.Now() is caught.
+internal/coordinator/sweeper_test.go:359:	deadline := time.Now().Add(5 * time.Second)
+internal/coordinator/sweeper_test.go:360:	for repo.sweepCalls() < 3 && time.Now().Before(deadline) {
+internal/storage/clock.go:13:	return time.Now().UTC()
+internal/storage/inmemory.go:122:		event.CreatedAt = time.Now().UTC()
+internal/storage/inmemory.go:276:		copied.RegisteredAt = time.Now().UTC()
+internal/storage/inmemory.go:279:		copied.LastHeartbeatAt = time.Now().UTC()
+internal/storage/inmemory.go:436:	now := time.Now().UTC()
+internal/storage/inmemory.go:657:	now := time.Now().UTC()
+(no time.Now() calls in sweeper.go or for grace calculations)
+
+--------------------------------------------------------------------------------
+5. AUDIT CHECKLIST ITEM 3: CONFIG VALIDATION TESTS
+--------------------------------------------------------------------------------
+
+$ go test -v ./internal/config/...
+=== RUN   TestLoadCoordinatorConfig_Defaults
+--- PASS: TestLoadCoordinatorConfig_Defaults (0.00s)
+=== RUN   TestLoadCoordinatorConfig_ValidationFailures
+--- PASS: TestLoadCoordinatorConfig_ValidationFailures (0.00s)
+=== RUN   TestLoadCoordinatorConfig_LeaseDefaults
+--- PASS: TestLoadCoordinatorConfig_LeaseDefaults (0.00s)
+=== RUN   TestLoadCoordinatorConfig_LeaseSettingsFromEnv
+--- PASS: TestLoadCoordinatorConfig_LeaseSettingsFromEnv (0.00s)
+=== RUN   TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected
+--- PASS: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected (0.00s)
+=== RUN   TestConfig_Validation_NonPositiveLeaseSettings_Rejected
+--- PASS: TestConfig_Validation_NonPositiveLeaseSettings_Rejected (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	0.010s
+
+--------------------------------------------------------------------------------
+6. AUDIT CHECKLIST ITEM 4: RENEW ROUTE & HANDLER VS PROTOCOL 6.3
+--------------------------------------------------------------------------------
+
+$ go test -v -run 'TestAPI_RenewLease' ./internal/api/
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection
+--- PASS: TestAPI_RenewLease_SuccessAndStaleRejection (0.00s)
+=== RUN   TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery
+--- PASS: TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery (0.00s)
+=== RUN   TestAPI_RenewLease_RequestValidation
+--- PASS: TestAPI_RenewLease_RequestValidation (0.52s)
+=== RUN   TestAPI_RenewLease_OutageMapsTo503
+--- PASS: TestAPI_RenewLease_OutageMapsTo503 (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.533s
+
+--------------------------------------------------------------------------------
+7. AUDIT CHECKLIST ITEM 5: POLL ASSIGNMENT METADATA
+--------------------------------------------------------------------------------
+
+$ go test -v -run 'TestAPI_PollAssignment_CarriesLeaseMetadata' ./internal/api/
+=== RUN   TestAPI_PollAssignment_CarriesLeaseMetadata
+--- PASS: TestAPI_PollAssignment_CarriesLeaseMetadata (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.008s
+
+$ go test -v -run 'TestAPI_Heartbeat_ResponseIsAckOnly' ./internal/api/
+=== RUN   TestAPI_Heartbeat_ResponseIsAckOnly
+--- PASS: TestAPI_Heartbeat_ResponseIsAckOnly (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.008s
+
+--------------------------------------------------------------------------------
+8. AUDIT CHECKLIST ITEM 6: WIRING IN CMD/COORDINATOR/MAIN.GO (MUTATION TEST)
+--------------------------------------------------------------------------------
+
+(In throwaway worktree ~/mc-gemini-mut, commented out `stopBackground := startBackground(context.Background(), svc, cfg)` and `stopBackground()` in main())
+$ git diff cmd/coordinator/main.go
+-	stopBackground := startBackground(context.Background(), svc, cfg)
++	_ = startBackground // commented out
+-		stopBackground()
++		// stopBackground()
+-	stopBackground()
++	// stopBackground()
+
+$ go test -v ./cmd/coordinator/...
+=== RUN   TestMain_BackgroundLoops_ReapAbandonedAttempt
+--- PASS: TestMain_BackgroundLoops_ReapAbandonedAttempt (0.04s)
+=== RUN   TestMain_BackgroundLoops_StartupGraceFromConfig
+--- PASS: TestMain_BackgroundLoops_StartupGraceFromConfig (0.30s)
+=== RUN   TestMain_BackgroundLoops_StopWaitsForLoops
+--- PASS: TestMain_BackgroundLoops_StopWaitsForLoops (0.16s)
+=== RUN   TestMain_BackgroundLoops_ReaperRuns
+--- PASS: TestMain_BackgroundLoops_ReaperRuns (0.03s)
+=== RUN   TestMain_NewMemoryRepository_UsesConfiguredLease
+--- PASS: TestMain_NewMemoryRepository_UsesConfiguredLease (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	0.540s
+(All tests pass; confirms finding F-4c-a-A2 that main() invocation of startBackground is not exercised by tests)
+
+--------------------------------------------------------------------------------
+9. AUDIT CHECKLIST ITEM 7: MAKEFILE TEST-DB CHANGE VERIFICATION
+--------------------------------------------------------------------------------
+
+$ git diff origin/main...HEAD Makefile
+-	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/...
++	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
++	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+
+$ go test -list '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	0.004s
+
+$ make -n test-db
+if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+set -e; \
+URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+if [ -z "$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+
+(In throwaway worktree ~/mc-gemini-mut with target test renamed):
+$ go test -list '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	0.005s
+
+$ go test -run '^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$' ./tests/integration/
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	0.004s [no tests to run]
+(rc=0; confirms finding F-4c-a-A1 that false green occurs if target test is missing or renamed)
+
+$ git grep -i -E "docker|container" internal/coordinator/ cmd/coordinator/
+cmd/coordinator/main_test.go:// millisecond scale; nothing starts a server or touches a container.
+(rc=0, no docker or container controls in coordinator package)
+
+--------------------------------------------------------------------------------
+10. AUDIT CHECKLIST ITEM 8: MUTATION SPOT CHECKS
+--------------------------------------------------------------------------------
+
+Mutation 1: Cooldown check removed from SweepGraceState.Suppresses in internal/domain/sweep.go
+- Mutated: go test ./internal/domain/... -> FAIL (rc=1)
+  --- FAIL: TestDomain_SweepGraceState_Suppresses (0.00s)
+      --- FAIL: TestDomain_SweepGraceState_Suppresses/cooldown_active_reaping_proceeds_despite_open_window (0.00s)
+          sweep_test.go:31: Suppresses(...) = true, want false
+- Restored: go test ./internal/domain/... -> ok (rc=0)
+
+Mutation 2: Repository.Now replaced with time.Now().UTC() in internal/coordinator/sweeper.go
+- Mutated: go test ./internal/coordinator/... -> FAIL (rc=1, 10 failing tests)
+  --- FAIL: TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping (0.00s)
+  --- FAIL: TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery (0.00s)
+- Restored: go test ./internal/coordinator/... -> ok (rc=0)
+
+Mutation 3: Grace >= lease validation removed in internal/config/config.go
+- Mutated: go test ./internal/config/... -> FAIL (rc=1)
+  --- FAIL: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected (0.00s)
+      --- FAIL: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected/startup_grace_below_lease (0.00s)
+      --- FAIL: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected/outage_window_below_lease (0.00s)
+      --- FAIL: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected/startup_grace_zero (0.00s)
+      --- FAIL: TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected/longer_lease_than_default_grace (0.00s)
+- Restored: go test ./internal/config/... -> ok (rc=0)
+
+Mutation 4: Poll assignment lease metadata dropped in internal/coordinator/service.go
+- Mutated: go test -run 'TestAPI_PollAssignment_CarriesLeaseMetadata' ./internal/api/... -> FAIL (rc=1)
+  --- FAIL: TestAPI_PollAssignment_CarriesLeaseMetadata (0.00s)
+      api_test.go:1563: lease_expires_at = <nil>, want 2026-10-28 09:00:30 +0000 UTC
+- Restored: go test -run 'TestAPI_PollAssignment_CarriesLeaseMetadata' ./internal/api/... -> ok (rc=0)
+
+Mutation 5: Renew response status changed from "RENEWED" to "OK" in internal/api/handlers.go
+- Mutated: go test -run 'TestAPI_RenewLease' ./internal/api/... -> FAIL (rc=1)
+  --- FAIL: TestAPI_RenewLease_SuccessAndStaleRejection (0.00s)
+  --- FAIL: TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery (0.00s)
+- Restored: go test -run 'TestAPI_RenewLease' ./internal/api/... -> ok (rc=0)
+
+Mutation 6: Cooldown check omitted when opening outage window in internal/coordinator/sweeper.go
+- Mutated: go test ./internal/coordinator/... -> FAIL (rc=1)
+  --- FAIL: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+- Restored: go test ./internal/coordinator/... -> ok (rc=0)
+
+--------------------------------------------------------------------------------
+11. AUDIT CHECKLIST ITEM 9: CONCURRENCY STRESS
+--------------------------------------------------------------------------------
+
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=20 ./internal/coordinator/... ./cmd/coordinator/...
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	3.805s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	11.783s
+
+$ git grep -n "time\.Sleep" internal/coordinator/ cmd/coordinator/
+cmd/coordinator/main_test.go:69:		time.Sleep(2 * time.Millisecond)
+cmd/coordinator/main_test.go:91:	time.Sleep(300 * time.Millisecond) // many 5 ms ticks, lease long expired
+cmd/coordinator/main_test.go:108:		time.Sleep(time.Millisecond)
+cmd/coordinator/main_test.go:128:	time.Sleep(80 * time.Millisecond) // ignores ctx on purpose
+cmd/coordinator/main_test.go:151:		time.Sleep(2 * time.Millisecond)
+internal/coordinator/service_test.go:298:				time.Sleep(1 * time.Millisecond)
+internal/coordinator/service_test.go:313:				time.Sleep(2 * time.Millisecond)
+internal/coordinator/service_test.go:319:	time.Sleep(100 * time.Millisecond)
+internal/coordinator/sweeper_test.go:361:		time.Sleep(time.Millisecond)
+
+--------------------------------------------------------------------------------
+12. AUDIT CHECKLIST ITEM 10: SCOPE & DIFF INSPECTION
+--------------------------------------------------------------------------------
+
+$ git diff origin/main...HEAD --name-only
+Makefile
+cmd/coordinator/main.go
+cmd/coordinator/main_test.go
+docs/agents/handoffs/P4-4c-a.md
+internal/api/api_test.go
+internal/api/handlers.go
+internal/api/server.go
+internal/config/config.go
+internal/config/config_test.go
+internal/coordinator/service.go
+internal/coordinator/sweeper.go
+internal/coordinator/sweeper_test.go
+internal/storage/inmemory.go
+internal/storage/inmemory_test.go
+internal/storage/postgres/repository.go
+internal/storage/postgres/repository_test.go
+internal/storage/repository.go
+internal/storage/storagetest/conformance.go
+tests/integration/postgres_restart_grace_test.go
+
+$ git diff origin/main...HEAD internal/domain/
+(empty, rc=0)
+
+$ git diff origin/main...HEAD docs/ --name-only
+docs/agents/handoffs/P4-4c-a.md
+(no design docs modified, rc=0)
