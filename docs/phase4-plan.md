@@ -132,7 +132,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Update `CommitAttempt`: enforce 409 evaluation order:
       1. Terminal job -> close attempt (strictly if still in `RUNNING`), free worker slot, record diagnostic event, and return 409 `JOB_ALREADY_TERMINAL` (the single stored result stands; an attempt already terminal is never overwritten).
       2. Attempt swept to `LOST` -> return 409 `LEASE_EXPIRED` (`domain.ErrLeaseExpired`).
-      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`, `domain.ErrAttemptNotRunning`) -> return 409 `STALE_ATTEMPT_REJECTED` (today unmapped in `internal/api/handlers.go:110-154`, which would surface as HTTP 500).
+      3. Superseded attempt, token mismatch, or attempt not `RUNNING` (`domain.ErrStaleAttempt`) -> return 409 `STALE_ATTEMPT_REJECTED` (already returned by `CommitAttempt` in `internal/storage/inmemory.go` and `internal/storage/postgres/repository.go`, and mapped by `mapDomainErrorToHTTP` in `internal/api/handlers.go`).
     - `CommitAttempt` on `CANCEL_REQUESTED` (built in Slice 4d): success moves attempt `COMPLETED` and job `SUCCEEDED` (`internal/storage/inmemory.go:615-618`, `internal/storage/postgres/repository.go:1046-1049`, `internal/domain/transition.go:21`); failure moves attempt `FAILED` and job `CANCELLED` (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4).
     - Update `CancelJob`: idempotent no-op on `CANCEL_REQUESTED`, immediate `CANCELLED` on `RETRYING`.
   - Run shared conformance test suite against live PostgreSQL container.
@@ -150,7 +150,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - `TestPostgresRepository_Sweeper_CanonicalLockOrder` (planned test)
   - `TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck` (planned test)
   - `TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt` (planned test)
-  - `TestPostgresRepository_CommitAttempt_AttemptNotRunning_ReturnsStaleAttempt` (planned test)
   - `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test)
   - `TestPostgresRepository_Concurrency_MixedOperationsStress` (expanded with leases, cancels, and Invariant 4 check)
 - **Risks & Mitigations**:
@@ -166,7 +165,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Single cancellation channel: renewal response returns `{"status": "RENEWED", "cancel_requested": true, "lease_expires_at": "<current_expiry>"}` when job is in `CANCEL_REQUESTED`, without extending `lease_expires_at`.
     - **Heartbeat Cleanup**: Remove `cancelled_job_ids` from worker heartbeat response. Heartbeats remain purely for worker liveness (`{"status": "ACK"}`).
     - Expand `POST /v1/workers/{id}/poll` assignment response with `lease_expires_at` and `lease_duration_seconds`.
-    - Standardize error mapping in `mapDomainErrorToHTTP` (`internal/api/handlers.go:110-154`): map `domain.ErrAttemptNotRunning` and `domain.ErrStaleAttempt` to HTTP 409 `STALE_ATTEMPT_REJECTED` (surfaces as HTTP 500 today).
     - Rate Limiting Defense Documentation: renewal flooding is formally recorded as designed, not yet implemented (R-23); planned endpoint defenses are fast state short-circuit, indexed lookup on primary key, and statement timeout; accepted risk under SEC-004.
   - Worker Agent (`internal/worker`):
     - Dedicated background renewal goroutine per running attempt ticking every 10s (1/3 lease duration; `MINICLOUD_LEASE_DURATION / 3`).
@@ -193,7 +191,6 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Mutating outage gap threshold or cooldown must cause outage grace recovery tests to fail.
 - **Gating Tests**:
   - `TestAPI_RenewLease_SuccessAndStaleRejection` (planned test)
-  - `TestAPI_CommitAttempt_AttemptNotRunning_Returns409StaleAttemptRejected` (planned test)
   - `TestAgent_PeriodicLeaseRenewal_Success` (planned test)
   - `TestAgent_LeaseRenewal_ReceivesCancelRequested` (planned test)
   - `TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt` (planned test)
