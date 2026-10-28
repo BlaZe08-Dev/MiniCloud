@@ -25,6 +25,7 @@ type blockTask struct {
 	started   chan struct{}
 	release   chan struct{}
 	cancelled atomic.Bool
+	stubborn  bool // keeps running after its context is cancelled (an uncooperative task)
 }
 
 func newBlockTask() *blockTask {
@@ -39,6 +40,10 @@ func (b *blockTask) Execute(ctx context.Context, _ []byte) (string, error) {
 		return "done", nil
 	case <-ctx.Done():
 		b.cancelled.Store(true)
+		if b.stubborn {
+			<-b.release
+			return "late", nil
+		}
 		return "", ctx.Err()
 	}
 }
@@ -281,6 +286,31 @@ func TestAgent_LeaseRenewal_ReceivesCancelRequested(t *testing.T) {
 	}
 	if r.coord.renews() != 1 {
 		t.Fatalf("renewals = %d, want 1: renewing stops after cancel_requested", r.coord.renews())
+	}
+}
+
+func TestAgent_LeaseRenewal_CancelRequested_StopsRenewingEvenIfTaskIgnoresCancel(t *testing.T) {
+	r := newRig(t, renewed(true), okResult)
+	r.task.stubborn = true
+	r.start()
+	r.tick(10*time.Second, 1)
+	waitFor(t, "task to see the cancellation", r.task.cancelled.Load)
+	// The lease is not extended on a cancel-requested renewal, so the worker must not keep
+	// renewing: the lease has to lapse and the sweeper resolve the job (ADR-0016 race 2).
+	for i := 0; i < 6; i++ {
+		r.clk.Advance(10 * time.Second)
+		time.Sleep(5 * time.Millisecond)
+	}
+	if r.coord.renews() != 1 {
+		t.Fatalf("renewals = %d, want 1: renewing must stop at cancel_requested", r.coord.renews())
+	}
+	if r.isDone() {
+		t.Fatal("agent returned while the uncooperative task was still running")
+	}
+	close(r.task.release)
+	r.waitDone()
+	if r.coord.results() != 1 {
+		t.Fatalf("results = %d, want 1", r.coord.results())
 	}
 }
 
