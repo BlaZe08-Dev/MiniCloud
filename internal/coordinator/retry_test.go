@@ -217,3 +217,25 @@ func TestCoordinator_DefaultMaxAttempts_Configurable(t *testing.T) {
 		t.Fatalf("a rejected value changed the default to %d", got)
 	}
 }
+
+// TestCoordinator_TransientFailureThenSuccess: a transient failure is retried after its backoff and
+// the second attempt's success completes the job, with both attempts recorded.
+func TestCoordinator_TransientFailureThenSuccess(t *testing.T) {
+	f := newRetryFixture(t, 3)
+	if _, err := f.fail(f.poll(), "TRANSIENT"); err != nil {
+		t.Fatalf("fail failed: %v", err)
+	}
+	f.clk.Advance(time.Minute)
+	asg := f.poll()
+	if asg.AttemptNo != 2 {
+		t.Fatalf("attempt_no = %d, want 2", asg.AttemptNo)
+	}
+	job, err := f.svc.CommitResult(context.Background(), asg.JobID, asg.AttemptID, asg.LeaseToken, "w1", 0, "ok", "", "")
+	if err != nil || job.State != domain.StateSucceeded || job.Result == nil || job.Result.Output != "ok" {
+		t.Fatalf("job = %+v, %v; want SUCCEEDED with the second attempt's result", job, err)
+	}
+	atts := requireAttempts(t, f.repo, f.job.ID, 2)
+	if atts[0].State != domain.AttemptFailed && atts[1].State != domain.AttemptFailed {
+		t.Fatalf("attempts = %+v, want one FAILED and one COMPLETED", atts)
+	}
+}
