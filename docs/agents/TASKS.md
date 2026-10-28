@@ -59,10 +59,10 @@ builds the rest. The other agent audits.
 - Out of scope: any code under `internal/`, `cmd/`, `tests/` (except `tests/docs/citation_allowlist.txt`), any database migrations.
 
 ### P4-4b — Phase 4 slice 4b (migration 000004, PostgreSQL parity)
-- Goal: Schema migration 000004, PostgreSQL repository parity (leases, sweeper with row lock, backoff computation, CommitAttempt 409 order, cooperative cancel).
+- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExpiry (planned test).
 - Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4b`. Status: queued.
-- Owned files: `internal/storage/postgres/**`, `internal/storage/storagetest/**`, `migrations/000004_*`, `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
-- Out of scope: any worker loop expansion (slice 4c), sweeper runner daemon (slice 4c).
+- Owned files: `internal/storage/**` (in-memory and PostgreSQL repositories, the Repository interface, storagetest), `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
+- Out of scope: sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop, delivery retry budget (slice 4c); cooperative cancel and failure classification (slice 4d).
 
 ## Done
 
