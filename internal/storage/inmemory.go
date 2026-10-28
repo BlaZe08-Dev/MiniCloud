@@ -610,7 +610,7 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 //
 // An attempt whose lease has passed but which the sweeper has not yet swept is still accepted
 // (symmetric accept-until-swept rule).
-func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
+func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome, backoff domain.BackoffFunc) (*domain.Job, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

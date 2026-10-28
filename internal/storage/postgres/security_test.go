@@ -169,7 +169,8 @@ func TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits(t *testing.T
 	_, err = repo.CommitAttempt(ctx, "j_payload_65535", att.ID, att.LeaseToken, "w_limits", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   outputAbove,
-	})
+	}, nil)
+
 	if !errors.Is(err, domain.ErrOutputTooLarge) {
 		t.Fatalf("output of 65537 bytes must be rejected with ErrOutputTooLarge, got: %v", err)
 	}
@@ -179,7 +180,8 @@ func TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits(t *testing.T
 	committedJob, err := repo.CommitAttempt(ctx, "j_payload_65535", att.ID, att.LeaseToken, "w_limits", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   outputExact,
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("output of 65536 bytes (exact 64 KiB) should be accepted, got: %v", err)
 	}
@@ -243,7 +245,8 @@ func TestPostgresRepository_Security_ForgedTokenAndReplayAttacks(t *testing.T) {
 		_, err := repo.CommitAttempt(ctx, "j_replay_test", att.ID, forged, "w_auth_1", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "forged",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("forged token %q must be rejected with ErrStaleAttempt, got: %v", forged, err)
 		}
@@ -253,7 +256,8 @@ func TestPostgresRepository_Security_ForgedTokenAndReplayAttacks(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "j_replay_test", att.ID, att.LeaseToken, "w_rogue_2", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "impersonated",
-	})
+	}, nil)
+
 	if !errors.Is(err, domain.ErrWorkerMismatch) {
 		t.Fatalf("wrong worker must be rejected with ErrWorkerMismatch, got: %v", err)
 	}
@@ -269,7 +273,8 @@ func TestPostgresRepository_Security_ForgedTokenAndReplayAttacks(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "j_replay_test", att.ID, att.LeaseToken, "w_auth_1", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "authorized",
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("legitimate commit failed: %v", err)
 	}
@@ -278,7 +283,8 @@ func TestPostgresRepository_Security_ForgedTokenAndReplayAttacks(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "j_replay_test", att.ID, att.LeaseToken, "w_auth_1", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "replayed",
-	})
+	}, nil)
+
 	if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 		t.Fatalf("replayed commit must be rejected with ErrJobAlreadyTerminal, got: %v", err)
 	}

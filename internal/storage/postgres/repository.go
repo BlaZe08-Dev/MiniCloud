@@ -1034,7 +1034,7 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
 // (ErrJobAlreadyTerminal), swept attempt (ErrLeaseExpired), then superseded attempt, non-RUNNING
 // attempt or wrong token (ErrStaleAttempt), then wrong worker (ErrWorkerMismatch). An attempt
 // whose lease has passed but which is still RUNNING is accepted (accept-until-swept).
-func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome) (*domain.Job, error) {
+func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseToken, workerID string, outcome domain.AttemptOutcome, backoff domain.BackoffFunc) (*domain.Job, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, mapPgError(err)

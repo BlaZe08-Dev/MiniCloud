@@ -241,7 +241,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_wrong", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrWorkerMismatch) {
 			t.Fatalf("expected ErrWorkerMismatch, got %v", err)
 		}
@@ -250,7 +251,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, "invalid_lease_token", "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrStaleAttempt for wrong token, got %v", err)
 		}
@@ -259,7 +261,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", "att_wrong_id", att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "ok",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrStaleAttempt) && !errors.Is(err, domain.ErrAttemptNotFound) {
 			t.Fatalf("expected ErrStaleAttempt or ErrAttemptNotFound, got %v", err)
 		}
@@ -268,7 +271,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		committedJob, err := repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "success output",
-		})
+		}, nil)
+
 		if err != nil {
 			t.Fatalf("CommitAttempt success failed: %v", err)
 		}
@@ -283,7 +287,8 @@ func RunRepositoryConformanceTests(t *testing.T, repoFactory func(t *testing.T) 
 		_, err = repo.CommitAttempt(ctx, "j_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 			ExitCode: 0,
 			Output:   "again",
-		})
+		}, nil)
+
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) && !errors.Is(err, domain.ErrStaleAttempt) {
 			t.Fatalf("expected ErrJobAlreadyTerminal or ErrStaleAttempt on duplicate commit, got %v", err)
 		}
@@ -745,7 +750,7 @@ func RunCancelIdempotentCancelRequestedConformance(t *testing.T, newHarness func
 	}
 
 	// The worker's own commit must still be accepted: the job was not finalised early.
-	job, err := repo.CommitAttempt(ctx, "j_idem", att.ID, att.LeaseToken, "w_idem", domain.AttemptOutcome{ExitCode: 0, Output: "done"})
+	job, err := repo.CommitAttempt(ctx, "j_idem", att.ID, att.LeaseToken, "w_idem", domain.AttemptOutcome{ExitCode: 0, Output: "done"}, nil)
 	if err != nil {
 		t.Fatalf("worker commit after duplicate cancels must be accepted, got: %v", err)
 	}
@@ -818,7 +823,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 			att := conformanceRunningJob(t, repo, "j_term", "w_term")
 			h.ForceJobState(t, "j_term", tc.jobState)
 
-			_, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome)
+			_, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome, nil)
 			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 			}
@@ -847,7 +852,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 			}
 
 			// A retry of the same commit is rejected again: no second event, attempt untouched.
-			if _, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
+			if _, err := repo.CommitAttempt(ctx, "j_term", att.ID, att.LeaseToken, "w_term", outcome, nil); !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("retried commit: expected ErrJobAlreadyTerminal, got %v", err)
 			}
 			if got := countEvents(conformanceEvents(t, repo, "j_term"), domain.JobEventDiagnosticLateResult); got != 1 {
@@ -864,12 +869,12 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		repo := h.Repo
 		conformanceWorker(t, repo, "w_done", 1)
 		att := conformanceRunningJob(t, repo, "j_done", "w_done")
-		if _, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 0, Output: "first"}); err != nil {
+		if _, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 0, Output: "first"}, nil); err != nil {
 			t.Fatalf("first commit failed: %v", err)
 		}
 		before, _ := repo.GetAttempt(ctx, att.ID)
 
-		_, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 1, Error: "replay"})
+		_, err := repo.CommitAttempt(ctx, "j_done", att.ID, att.LeaseToken, "w_done", domain.AttemptOutcome{ExitCode: 1, Error: "replay"}, nil)
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 		}
@@ -892,7 +897,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		h.ForceJobState(t, "j_foreign_a", domain.StateCancelled)
 
 		// Terminal job A, but the caller names job B's attempt.
-		_, err := repo.CommitAttempt(ctx, "j_foreign_a", attB.ID, attB.LeaseToken, "w_foreign", outcome)
+		_, err := repo.CommitAttempt(ctx, "j_foreign_a", attB.ID, attB.LeaseToken, "w_foreign", outcome, nil)
 		if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 		}
@@ -913,7 +918,7 @@ func RunCommitAttemptTerminalJobConformance(t *testing.T, newHarness func(t *tes
 		h.ForceJobState(t, "j_unknown", domain.StateCancelled)
 
 		for i := 0; i < 3; i++ {
-			_, err := repo.CommitAttempt(ctx, "j_unknown", "att_does_not_exist", "tok", "w_unknown", outcome)
+			_, err := repo.CommitAttempt(ctx, "j_unknown", "att_does_not_exist", "tok", "w_unknown", outcome, nil)
 			if !errors.Is(err, domain.ErrJobAlreadyTerminal) {
 				t.Fatalf("expected ErrJobAlreadyTerminal, got %v", err)
 			}
@@ -1094,7 +1099,7 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 				outcome = domain.AttemptOutcome{ExitCode: 1, Error: "boom"}
 				wantAttempt, wantJob = domain.AttemptFailed, domain.StateFailed
 			}
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, outcome)
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, outcome, nil)
 			wantErr(step, "commit", err, nil)
 			a.state, j.state = wantAttempt, wantJob
 			check(step, "commit", j)
@@ -1105,7 +1110,7 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 				continue
 			}
 			a := j.current()
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, "wrong-token", a.worker, domain.AttemptOutcome{ExitCode: 0})
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, "wrong-token", a.worker, domain.AttemptOutcome{ExitCode: 0}, nil)
 			wantErr(step, "commit-stale", err, domain.ErrStaleAttempt)
 			check(step, "commit-stale", j)
 
@@ -1115,7 +1120,7 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 				continue
 			}
 			a := j.current()
-			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0})
+			_, err := repo.CommitAttempt(ctx, j.id, a.id, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0}, nil)
 			wantErr(step, "commit-replay", err, domain.ErrJobAlreadyTerminal)
 			check(step, "commit-replay", j)
 
@@ -1171,7 +1176,7 @@ func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(
 			beforeEvents := len(conformanceEvents(t, repo, "j_stale"))
 			beforeSlots := conformanceSlots(t, repo, "w_stale")
 
-			_, err := repo.CommitAttempt(ctx, "j_stale", att.ID, att.LeaseToken, "w_stale", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+			_, err := repo.CommitAttempt(ctx, "j_stale", att.ID, att.LeaseToken, "w_stale", domain.AttemptOutcome{ExitCode: 0, Output: "late"}, nil)
 			if !errors.Is(err, domain.ErrStaleAttempt) {
 				t.Fatalf("commit on a %s attempt: expected ErrStaleAttempt, got %v", state, err)
 			}
@@ -1942,7 +1947,7 @@ func RunSweepGraceInputConformance(t *testing.T, newHarness func(t *testing.T) H
 func RunCommitAttemptConflictOrderConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
 	ctx := context.Background()
 	commit := func(h Harness, jobID string, att *domain.Attempt, token string) error {
-		_, err := h.Repo.CommitAttempt(ctx, jobID, att.ID, token, "w_c", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+		_, err := h.Repo.CommitAttempt(ctx, jobID, att.ID, token, "w_c", domain.AttemptOutcome{ExitCode: 0, Output: "late"}, nil)
 		return err
 	}
 	diagnostics := func(t *testing.T, h Harness, jobID string) []*domain.JobEvent {

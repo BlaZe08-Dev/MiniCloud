@@ -392,7 +392,7 @@ func (s *Service) CommitResult(ctx context.Context, jobID, attemptID, leaseToken
 		Error:    errSummary,
 	}
 
-	job, err := s.repo.CommitAttempt(ctx, jobID, attemptID, leaseToken, workerID, outcome)
+	job, err := s.repo.CommitAttempt(ctx, jobID, attemptID, leaseToken, workerID, outcome, nil)
 	if err != nil {
 		if errors.Is(err, domain.ErrJobAlreadyTerminal) {
 			slog.Warn("rejecting result for already-terminal job",
