@@ -22,7 +22,7 @@ import (
 
 const (
 	// DefaultRenewalInterval is the renewal interval when the assignment carries no lease duration
-	// (one third of the default 30 s lease, ADR-0014).
+	// (one third of the default 30 s lease, ADR-0014) and also the ceiling of the derived interval.
 	DefaultRenewalInterval = 10 * time.Second
 	// MinRenewalInterval floors the interval derived from a very short advertised lease so a
 	// misconfigured coordinator cannot make the worker hammer the renew endpoint.
@@ -352,12 +352,14 @@ func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken s
 }
 
 // renewalInterval is one third of the lease duration the coordinator advertised in the poll
-// assignment (protocol 6.2), or the default when it did not (old coordinator, sub-second lease).
+// assignment (protocol 6.2), clamped to [MinRenewalInterval, DefaultRenewalInterval] so a long or
+// hostile advertised lease cannot make the worker renew rarely; the default applies when the
+// coordinator advertised none (old coordinator, sub-second lease).
 func renewalInterval(a *coordinator.WorkAssignment) time.Duration {
 	if a.LeaseDurationSeconds <= 0 {
 		return DefaultRenewalInterval
 	}
-	return max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval)
+	return min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)
 }
 
 type renewVerdict int

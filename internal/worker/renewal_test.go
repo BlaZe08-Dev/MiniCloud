@@ -257,6 +257,8 @@ func TestWorker_Renewal_IntervalDerivedFromAssignment(t *testing.T) {
 		{"9 s lease renews every 3 s", 9, 3 * time.Second},
 		{"missing duration falls back to 10 s", 0, 10 * time.Second},
 		{"tiny lease is floored at 1 s", 1, time.Second},
+		{"3600 s lease is clamped to the 10 s ceiling", 3600, 10 * time.Second},
+		{"31 s lease is clamped to the 10 s ceiling", 31, 10 * time.Second},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -311,6 +313,17 @@ func TestAgent_LeaseRenewal_CancelRequested_StopsRenewingEvenIfTaskIgnoresCancel
 	r.waitDone()
 	if r.coord.results() != 1 {
 		t.Fatalf("results = %d, want 1", r.coord.results())
+	}
+}
+
+func TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s(t *testing.T) {
+	r := newRig(t, renewed(true), okResult)
+	r.asg.LeaseDurationSeconds = 3600
+	r.start()
+	r.tick(10*time.Second, 1) // exactly one 10 s clock interval, not 20 min
+	r.waitDone()
+	if !r.task.cancelled.Load() {
+		t.Fatal("cancel_requested did not reach the task within 10 s of the clock")
 	}
 }
 
