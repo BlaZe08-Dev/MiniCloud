@@ -1,13 +1,20 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `docs/phase4-design`
-- **Current Milestone:** Phase 4 Design Specification Revision — Leases, Bounded Retries, Stale-Attempt Rejection, Cancellation, and Automated Fault Testing (ADR-0014, ADR-0015, ADR-0016, Sub-Slices 4a–4e revised with Owner Decisions Accepted).
+- **Current Branch:** `agent/gemini/P4-02`
+- **Current Milestone:** Phase 4 Slice 4a Complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire). Merging with P4-02.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
+  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under row lock. In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+  - **Domain Transition Matrix Updates (Executed):** Flipped exactly two matrix cells in `allowedTransitions` table: `RETRYING -> QUEUED` becomes invalid (`false`), and `RETRYING -> RUNNING` becomes valid (`true`) for direct pull dispatch via `DispatchNextJob`. Verified by `TestJobTransitionMatrix_AllPairs`.
+  - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.DispatchNextJob`, achieving full dispatch parity with PostgreSQL. Retired `NewServiceWithQueue` and historical `spyQueue` test helper, rewriting seven coordinator unit tests to assert observable domain outcomes.
+  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic pseudo-random model-based property test `TestProperty_StateMachine_ModelConformance` executing 5 seeds x 200 steps (1,000 steps total) across memory and PostgreSQL without invariant violations.
+  - **Test Suite Results (Executed):** Unit/integration gate (`MINICLOUD_TEST_DATABASE_URL` unset): PASS 89, SKIP 28, FAIL 0; database test gate (`make test-db`): PASS 70, SKIP 0, FAIL 0.
+  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, `RenewLease`/`SweepExpiredLeases` with row lock, backoff computation (`TestDomain_ComputeBackoff_FullJitter` (planned test)), and `CommitAttempt` 409 evaluation order; Slice 4c receives coordinator sweeper runner loop, grace/cooldown window management, and worker renewal loop.
 - **Two-Agent Workflow Infrastructure (P0-01, PR #16, `main` at `a9453fc`):**
   - **Single Rule File (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`):** `AGENTS.md` is the single rule file for all coding agents; `CLAUDE.md` and `GEMINI.md` point to it.
   - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Committed agent rules and task board from owner draft with builder/auditor roles, active/done states, reserved touch points, and handoff and review folders.
