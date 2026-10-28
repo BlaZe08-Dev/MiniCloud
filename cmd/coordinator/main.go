@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,39 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// newMemoryRepository builds the in-memory repository with the configured attempt lease.
+func newMemoryRepository(cfg *config.CoordinatorConfig) *storage.InMemoryRepository {
+	return storage.NewInMemoryRepository(storage.WithLeaseDuration(cfg.LeaseDuration))
+}
+
+// configureService applies the lease and grace settings to the coordinator service. The lease
+// duration given to the repository and to the service (poll metadata) must be the same value.
+func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) {
+	svc.SetLeaseDuration(cfg.LeaseDuration)
+	svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)
+}
+
+// startBackground starts the worker reaper and the lease sweeper, each exactly once, and returns
+// a stop function that cancels both and returns only after both loops have exited. stop is safe to
+// call more than once.
+func startBackground(ctx context.Context, svc *coordinator.Service, cfg *config.CoordinatorConfig) (stop func()) {
+	bgCtx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		svc.StartReaper(bgCtx, cfg.ReaperInterval)
+	}()
+	go func() {
+		defer wg.Done()
+		svc.StartLeaseSweeper(bgCtx, cfg.SweeperInterval)
+	}()
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
 
 func main() {
 	// 1. Structured logging setup
@@ -97,20 +131,19 @@ func main() {
 		}
 
 		slog.Info("connected to postgres storage", "schema_version", currentVer, "max_conns", cfg.DBMaxConns)
-		repo = postgres.NewRepository(pool)
+		repo = postgres.NewRepository(pool, postgres.WithLeaseDuration(cfg.LeaseDuration))
 		svc = coordinator.NewPostgresService(repo, sched, reg, cfg.WorkerTimeout)
 	} else {
 		slog.Info("using in-memory storage driver")
-		repo = storage.NewInMemoryRepository()
+		repo = newMemoryRepository(cfg)
 		svc = coordinator.NewService(repo, sched, reg, cfg.WorkerTimeout)
 	}
 
+	configureService(svc, cfg)
 	server := api.NewServer(cfg.HTTPAddr, svc)
 
-	// Start reaper loop
-	reaperCtx, reaperCancel := context.WithCancel(context.Background())
-	defer reaperCancel()
-	go svc.StartReaper(reaperCtx, cfg.ReaperInterval)
+	// Start the worker reaper and the lease sweeper (once; stopped on shutdown below).
+	stopBackground := startBackground(context.Background(), svc, cfg)
 
 	// 4. Start HTTP Server in background goroutine
 	go func() {
@@ -132,8 +165,12 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("error during server shutdown", "err", err)
+		stopBackground()
 		os.Exit(1)
 	}
+
+	// Stop the background loops and wait for them before the pool closes under them.
+	stopBackground()
 
 	if pool != nil {
 		pool.Close()

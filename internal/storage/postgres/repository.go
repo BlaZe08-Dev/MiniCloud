@@ -84,6 +84,16 @@ func (r *Repository) Ping(ctx context.Context) error {
 	return r.pool.Ping(ctx)
 }
 
+// Now returns database time (clock_timestamp()). A failed read is a connectivity error mapped like
+// every other repository call, so the sweeper counts it as a failed tick.
+func (r *Repository) Now(ctx context.Context) (time.Time, error) {
+	var now time.Time
+	if err := r.pool.QueryRow(ctx, `SELECT clock_timestamp();`).Scan(&now); err != nil {
+		return time.Time{}, mapPgError(err)
+	}
+	return now.UTC(), nil
+}
+
 // Pool returns the underlying pgxpool connection pool.
 func (r *Repository) Pool() *pgxpool.Pool {
 	return r.pool

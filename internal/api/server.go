@@ -69,6 +69,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/workers/{id}/heartbeat", s.handler.HandleWorkerHeartbeat)
 	s.mux.HandleFunc("POST /v1/workers/{id}/poll", s.handler.HandlePollWork)
 	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/result", s.handler.HandleReportResult)
+	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/renew", s.handler.HandleRenewLease)
 }
 
 // Handler returns the underlying http.Handler (useful for httptest.Server in tests).

@@ -1,0 +1,197 @@
+package coordinator
+
+import (
+	"context"
+	"log/slog"
+	"math/rand"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+)
+
+const (
+	// DefaultSweeperInterval is the lease sweeper cadence (ADR-0014).
+	DefaultSweeperInterval = 5 * time.Second
+	// DefaultStartupGracePeriod and DefaultOutageGraceWindow are the ADR-0014 defaults. Grace is on
+	// unless explicitly shortened: a Service that forgets to configure it must not reap healthy
+	// attempts after a restart.
+	DefaultStartupGracePeriod = 30 * time.Second
+	DefaultOutageGraceWindow  = 30 * time.Second
+
+	// gapIntervals is the database-time gap, in sweep intervals, over which consecutive successful
+	// ticks mean the sweeper (or its database) was away (D-R3-01).
+	gapIntervals = 3
+)
+
+// SetGracePeriods sets the startup grace period and the outage grace window (which is also the
+// length of the cooldown that follows a window). The values are validated against the lease
+// duration by internal/config; a negative value is treated as zero.
+func (s *Service) SetGracePeriods(startup, outageWindow time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.startupGrace = max(startup, 0)
+	s.outageWindow = max(outageWindow, 0)
+}
+
+// SetSweepRandom injects the randomness behind the retry backoff jitter, a source of values in
+// [0, 1). Tests use it for deterministic backoff.
+func (s *Service) SetSweepRandom(rnd func() float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rnd != nil {
+		s.sweepRand = rnd
+	}
+}
+
+// LeaseSweeper owns the sweeper's grace state and advances it tick by tick (ADR-0014, D-R3-01).
+// The repository only reads that state inside its row locks; it never advances it.
+//
+// All grace instants are computed from repository time (database time in PostgreSQL), the same
+// clock the in-lock check uses (owner decision Q-1), never from process time. A LeaseSweeper is
+// driven by a single goroutine; it is not safe for concurrent use.
+type LeaseSweeper struct {
+	svc          *Service
+	interval     time.Duration
+	startupGrace time.Duration
+	window       time.Duration
+	backoff      domain.BackoffFunc
+
+	state sweepState
+}
+
+// sweepState is the part of the sweeper that persists between ticks. It is a plain value so a tick
+// can work on a copy and commit it only when the tick succeeded.
+type sweepState struct {
+	startupSet    bool
+	startupUntil  time.Time
+	windowUntil   time.Time
+	cooldownUntil time.Time
+	lastOK        time.Time
+	hasLastOK     bool
+	failedSince   bool // a tick failed since the last successful one
+}
+
+// NewLeaseSweeper builds a sweeper with the Service's grace settings and retry policy. A
+// non-positive interval means DefaultSweeperInterval.
+func (s *Service) NewLeaseSweeper(interval time.Duration) *LeaseSweeper {
+	if interval <= 0 {
+		interval = DefaultSweeperInterval
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return &LeaseSweeper{
+		svc:          s,
+		interval:     interval,
+		startupGrace: s.startupGrace,
+		window:       s.outageWindow,
+		backoff:      domain.DefaultRetryPolicy().BackoffFunc(s.sweepRand),
+	}
+}
+
+// StartLeaseSweeper runs the lease sweeper until ctx is cancelled. It ticks once immediately, which
+// anchors the startup grace at coordinator start, and then every interval.
+func (s *Service) StartLeaseSweeper(ctx context.Context, interval time.Duration) {
+	s.NewLeaseSweeper(interval).Run(ctx)
+}
+
+// Run ticks immediately and then every interval until ctx is cancelled. A failed tick is logged
+// and counted by the grace state; it never stops the loop.
+func (w *LeaseSweeper) Run(ctx context.Context) {
+	ticker := time.NewTicker(w.interval)
+	defer ticker.Stop()
+	for {
+		if err := w.Tick(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("lease sweeper tick failed", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// Tick runs one sweep. Only a returned error (reading the repository clock, or
+// SweepExpiredLeases) is a failed tick; a lock timeout or SKIP LOCKED skip is reported in the
+// result and is not. On a failed tick the state is not advanced except for the failure flag, so
+// the first successful tick after it opens the outage window.
+func (w *LeaseSweeper) Tick(ctx context.Context) error {
+	now, err := w.svc.repo.Now(ctx)
+	if err != nil {
+		w.state.failedSince = true
+		return err
+	}
+	if !w.state.startupSet {
+		w.state.startupSet = true
+		w.state.startupUntil = now.Add(w.startupGrace)
+	}
+
+	next, opened := w.advance(w.state, now)
+	res, err := w.svc.repo.SweepExpiredLeases(ctx, domain.SweepParams{
+		Limit: domain.DefaultSweepBatchSize,
+		Grace: domain.SweepGraceState{
+			StartupGraceUntil: next.startupUntil,
+			OutageWindowUntil: next.windowUntil,
+			CooldownUntil:     next.cooldownUntil,
+		},
+		Backoff: w.backoff,
+	})
+	if err != nil {
+		// The window decided for this tick is discarded; the next successful tick decides again.
+		w.state.failedSince = true
+		return err
+	}
+
+	next.lastOK = now
+	next.hasLastOK = true
+	next.failedSince = false
+	w.state = next
+	if opened {
+		slog.Warn("lease sweeper opened an outage grace window: reaping suppressed",
+			"until", next.windowUntil, "window", w.window)
+	}
+	w.report(res)
+	return nil
+}
+
+// advance computes the state for a successful tick at database time now: it arms the cooldown once
+// a window has ended, then opens a new window if a failed tick or a gap over 3x the interval
+// triggered one and neither a window nor a cooldown is active. The trigger is consumed either way.
+func (w *LeaseSweeper) advance(st sweepState, now time.Time) (sweepState, bool) {
+	// Cooldown starts exactly when the window ends, whichever tick notices first.
+	if !st.windowUntil.IsZero() && !now.Before(st.windowUntil) && st.cooldownUntil.Before(st.windowUntil) {
+		st.cooldownUntil = st.windowUntil.Add(w.window)
+	}
+
+	gap := st.hasLastOK && now.Sub(st.lastOK) > gapIntervals*w.interval
+	trigger := st.failedSince || gap
+	if trigger && !now.Before(st.windowUntil) && !now.Before(st.cooldownUntil) {
+		st.windowUntil = now.Add(w.window)
+		return st, true
+	}
+	return st, false
+}
+
+func (w *LeaseSweeper) report(res *domain.SweepResult) {
+	if res == nil {
+		return
+	}
+	for _, o := range res.Swept {
+		slog.Info("lease sweeper closed an expired attempt",
+			"job_id", o.JobID,
+			"attempt_id", o.AttemptID,
+			"attempt_state", o.AttemptState,
+			"job_state", o.JobState,
+		)
+	}
+	if res.SuppressedByGrace > 0 {
+		slog.Info("lease sweeper: expired attempts held back by grace",
+			"suppressed", res.SuppressedByGrace)
+	}
+	if res.SkippedChanged > 0 {
+		slog.Warn("lease sweeper: candidates changed state outside every sweep rule",
+			"skipped_changed", res.SkippedChanged, "candidates", res.Candidates)
+	}
+}
+
+func newSweepRand() func() float64 { return rand.Float64 }

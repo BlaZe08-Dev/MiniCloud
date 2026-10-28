@@ -1006,3 +1006,16 @@ func TestInMemoryRepository_LeaseRenewalAndExpiry(t *testing.T) {
 func TestConformance_RetryingJob_DispatchAndCancelParity(t *testing.T) {
 	storagetest.RunRetryingJobParityConformance(t, newInMemoryHarness)
 }
+
+func TestConformance_Now_IsRepositoryClock(t *testing.T) {
+	storagetest.RunNowConformance(t, newInMemoryHarness)
+}
+
+func TestInMemoryRepository_Now_UsesInjectedClock(t *testing.T) {
+	want := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
+	repo := storage.NewInMemoryRepository(storage.WithClock(&retryTestClock{now: want}))
+	got, err := repo.Now(context.Background())
+	if err != nil || !got.Equal(want) {
+		t.Fatalf("Now = %v, %v, want the injected clock %v", got, err, want)
+	}
+}

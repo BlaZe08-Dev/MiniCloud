@@ -2216,3 +2216,45 @@ func RunRetryingJobParityConformance(t *testing.T, newHarness func(t *testing.T)
 		}
 	})
 }
+
+// RunNowConformance verifies Repository.Now, the clock the sweeper uses for every grace instant
+// (owner decision Q-1: one clock domain). Now must be the repository's own clock: it brackets
+// between two reads of that clock, never goes backwards, and sits on the same timeline as the
+// lease a dispatch stamps (lease_expires_at minus Now is the lease duration). Wrapped by
+// TestConformance_Now_IsRepositoryClock.
+func RunNowConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	h := newHarness(t)
+	requireLeaseHooks(t, h)
+	ctx := context.Background()
+
+	lo := h.Now(t)
+	first, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("Now failed: %v", err)
+	}
+	hi := h.Now(t)
+	if first.Before(lo.Add(-leaseTolerance)) || first.After(hi.Add(leaseTolerance)) {
+		t.Fatalf("Now = %v, want within [%v, %v] of the repository clock", first, lo, hi)
+	}
+
+	second, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("second Now failed: %v", err)
+	}
+	if second.Before(first) {
+		t.Fatalf("Now went backwards: %v then %v", first, second)
+	}
+
+	conformanceWorker(t, h.Repo, "w_now", 1)
+	conformanceQueuedJob(t, h.Repo, "j_now")
+	att := conformanceDispatchNext(t, h.Repo, "w_now")
+	after, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("Now after dispatch failed: %v", err)
+	}
+	lease := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+	remaining := lease.Sub(after)
+	if remaining > h.LeaseDuration+leaseTolerance || remaining < h.LeaseDuration-time.Second {
+		t.Fatalf("lease_expires_at - Now = %v, want about the lease duration %v (Now must share the lease clock)", remaining, h.LeaseDuration)
+	}
+}
