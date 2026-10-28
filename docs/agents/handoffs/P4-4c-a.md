@@ -270,7 +270,7 @@ exit=0
 ```
 # github.com/BlaZe08-Dev/Minicloud/cmd/coordinator
 # [github.com/BlaZe08-Dev/Minicloud/cmd/coordinator]
-vet: cmd/coordinator/main_test.go:37:10: undefined: newMemoryRepository
+vet: cmd/coordinator/main_test.go: undefined: newMemoryRepository
 ```
 
 **Mutation proofs of the wiring** (throwaway worktree `~/mc-mut-claude`, `.env` copied in, both removed afterwards). Mutations w4 and w5 **survived** the first versions of the tests (the stop test only counted ticks and no test covered the reaper); the tests above were strengthened and both then failed. Driver summary, verbatim:
