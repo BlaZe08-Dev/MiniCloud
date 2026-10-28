@@ -697,6 +697,14 @@ func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
 	storagetest.RunCancelRetryingImmediatelyCancelledConformance(t, newInMemoryHarness)
 }
 
+func TestConformance_CommitAttempt_FailureRetryOrFail(t *testing.T) {
+	storagetest.RunCommitAttemptFailureRetryOrFailConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob(t *testing.T) {
+	storagetest.RunCommitAttemptFailureOnCancelRequestedConformance(t, newInMemoryHarness)
+}
+
 func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
 	storagetest.RunCommitAttemptTerminalJobConformance(t, newInMemoryHarness)
 }

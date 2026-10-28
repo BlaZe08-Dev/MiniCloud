@@ -654,34 +654,69 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 		}
 	}
 
-	now := time.Now().UTC()
+	failed := domain.IsFailedOutcome(outcome)
+	class, err := domain.NormalizeWorkerErrorClass(outcome.ErrorClassification, failed)
+	if err != nil {
+		return nil, err
+	}
+	var resolution domain.FailureResolution
+	if failed {
+		resolution = domain.ResolveFailure(job.State, class, att.AttemptNo, job.MaxAttempts)
+		if resolution.Retry && backoff == nil {
+			return nil, fmt.Errorf("%w: a retryable failure needs a backoff function", domain.ErrInvalidRequest)
+		}
+	}
+
+	now := r.clock.Now()
+	fromState := job.State
+	var (
+		targetState domain.JobState
+		eventType   domain.JobEventType
+		attState    domain.AttemptState
+		details     = map[string]any{"worker_id": workerID, "exit_code": outcome.ExitCode}
+	)
+	switch {
+	case !failed:
+		attState, targetState, eventType = domain.AttemptCompleted, domain.StateSucceeded, domain.JobEventCompleted
+	case resolution.Retry:
+		attState, targetState, eventType = domain.AttemptFailed, domain.StateRetrying, domain.JobEventRetrying
+	case resolution.JobState == domain.StateCancelled:
+		attState, targetState, eventType = domain.AttemptFailed, domain.StateCancelled, domain.JobEventCancelled
+	default:
+		attState, targetState, eventType = domain.AttemptFailed, domain.StateFailed, domain.JobEventFailed
+	}
+	if err := job.TransitionTo(targetState); err != nil {
+		return nil, err
+	}
+
+	att.State = attState
 	att.FinishedAt = &now
 	att.ExitCode = outcome.ExitCode
 	att.Output = outcome.Output
 	att.Error = outcome.Error
-
-	var targetState domain.JobState
-	var eventType domain.JobEventType
-	if outcome.ExitCode == 0 && outcome.Error == "" {
-		att.State = domain.AttemptCompleted
-		targetState = domain.StateSucceeded
-		eventType = domain.JobEventCompleted
-	} else {
-		att.State = domain.AttemptFailed
-		targetState = domain.StateFailed
-		eventType = domain.JobEventFailed
-	}
-
-	fromState := job.State
-	if err := job.TransitionTo(targetState); err != nil {
-		return nil, err
-	}
-	job.Result = &domain.Result{
-		ExitCode: outcome.ExitCode,
-		Output:   outcome.Output,
-		Error:    outcome.Error,
-	}
+	att.ErrorClass = class
 	job.UpdatedAt = now
+	job.NotBefore = nil
+	if failed {
+		details["error_class"] = string(class)
+		details["attempt_no"] = att.AttemptNo
+	}
+	if resolution.Retry {
+		delay := max(backoff(att.AttemptNo), 0)
+		notBefore := now.Add(delay)
+		job.NotBefore = &notBefore
+		details["not_before"] = notBefore.UTC().Format(time.RFC3339Nano)
+		details["backoff_seconds"] = delay.Seconds()
+	} else {
+		job.Result = &domain.Result{
+			ExitCode: outcome.ExitCode,
+			Output:   outcome.Output,
+			Error:    outcome.Error,
+		}
+		if resolution.Exhausted {
+			details["error"] = "max attempts exhausted"
+		}
+	}
 
 	r.recordEventLocked(&domain.JobEvent{
 		JobID:     jobID,
@@ -690,10 +725,7 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 		FromState: &fromState,
 		ToState:   &targetState,
 		CreatedAt: now,
-		Details: map[string]any{
-			"worker_id": workerID,
-			"exit_code": outcome.ExitCode,
-		},
+		Details:   details,
 	})
 
 	copied := *job

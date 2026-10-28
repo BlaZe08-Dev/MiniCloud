@@ -1157,89 +1157,144 @@ func (r *Repository) CommitAttempt(ctx context.Context, jobID, attemptID, leaseT
 		}
 	}
 
-	// Step 3: Determine outcomes
+	// Step 3: Validate the reported class and decide the outcome (domain.ResolveFailure). Nothing
+	// has been written yet, so a rejection here leaves the job and the attempt untouched.
+	failed := domain.IsFailedOutcome(outcome)
+	class, err := domain.NormalizeWorkerErrorClass(outcome.ErrorClassification, failed)
+	if err != nil {
+		return nil, err
+	}
+	var resolution domain.FailureResolution
+	if failed {
+		resolution = domain.ResolveFailure(job.State, class, attNo, job.MaxAttempts)
+		if resolution.Retry && backoff == nil {
+			return nil, fmt.Errorf("%w: a retryable failure needs a backoff function", domain.ErrInvalidRequest)
+		}
+	}
 	var (
-		targetAttemptState string
+		targetAttemptState domain.AttemptState
 		targetJobState     domain.JobState
 		jobEventType       domain.JobEventType
 	)
-	if outcome.ExitCode == 0 && outcome.Error == "" {
-		targetAttemptState = string(domain.AttemptCompleted)
-		targetJobState = domain.StateSucceeded
-		jobEventType = domain.JobEventCompleted
-	} else {
-		targetAttemptState = string(domain.AttemptFailed)
-		targetJobState = domain.StateFailed
-		jobEventType = domain.JobEventFailed
+	switch {
+	case !failed:
+		targetAttemptState, targetJobState, jobEventType = domain.AttemptCompleted, domain.StateSucceeded, domain.JobEventCompleted
+	case resolution.Retry:
+		targetAttemptState, targetJobState, jobEventType = domain.AttemptFailed, domain.StateRetrying, domain.JobEventRetrying
+	case resolution.JobState == domain.StateCancelled:
+		targetAttemptState, targetJobState, jobEventType = domain.AttemptFailed, domain.StateCancelled, domain.JobEventCancelled
+	default:
+		targetAttemptState, targetJobState, jobEventType = domain.AttemptFailed, domain.StateFailed, domain.JobEventFailed
+	}
+	if err := domain.ValidateJobTransition(job.State, targetJobState); err != nil {
+		return nil, err
+	}
+
+	var now time.Time
+	if err := tx.QueryRow(ctx, `SELECT clock_timestamp();`).Scan(&now); err != nil {
+		return nil, mapPgError(err)
+	}
+	details := map[string]any{"worker_id": workerID, "exit_code": outcome.ExitCode}
+	if failed {
+		details["error_class"] = string(class)
+		details["attempt_no"] = attNo
+	}
+	var notBefore *time.Time
+	if resolution.Retry {
+		delay := max(backoff(attNo), 0)
+		nb := now.Add(delay)
+		notBefore = &nb
+		details["not_before"] = nb.UTC().Format(time.RFC3339Nano)
+		details["backoff_seconds"] = delay.Seconds()
+	} else if resolution.Exhausted {
+		details["error"] = "max attempts exhausted"
 	}
 
 	// Step 4: Update attempt
+	var classCol *string
+	if class != "" {
+		c := string(class)
+		classCol = &c
+	}
 	updateAttemptQuery := `
 		UPDATE attempts
-		SET state = $1, finished_at = CURRENT_TIMESTAMP, exit_code = $2, output = $3, error = $4
-		WHERE id = $5;
+		SET state = $1, finished_at = $2, exit_code = $3, output = $4, error = $5, error_class = $6
+		WHERE id = $7;
 	`
 	_, err = tx.Exec(ctx, updateAttemptQuery,
-		targetAttemptState,
+		string(targetAttemptState),
+		now,
 		outcome.ExitCode,
 		outcome.Output,
 		outcome.Error,
+		classCol,
 		attemptID,
 	)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
 
-	// Step 5: Update job
+	// Step 5: Update job (not_before is set only for RETRYING and cleared otherwise)
 	fromState := string(job.State)
 	toState := string(targetJobState)
 	updateJobQuery := `
 		UPDATE jobs
-		SET state = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2
+		SET state = $1, not_before = $2, updated_at = $3
+		WHERE id = $4
 		RETURNING updated_at;
 	`
 	var updatedAt time.Time
-	err = tx.QueryRow(ctx, updateJobQuery, toState, jobID).Scan(&updatedAt)
+	err = tx.QueryRow(ctx, updateJobQuery, toState, notBefore, now, jobID).Scan(&updatedAt)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
 	job.State = targetJobState
 	job.UpdatedAt = updatedAt
+	job.NotBefore = notBefore
 
-	// Step 6: Insert into results table
-	insertResultQuery := `
-		INSERT INTO results (job_id, attempt_id, exit_code, output, error, committed_at)
-		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP);
-	`
-	_, err = tx.Exec(ctx, insertResultQuery,
-		jobID,
-		attemptID,
-		outcome.ExitCode,
-		outcome.Output,
-		outcome.Error,
-	)
-	if err != nil {
-		return nil, mapPgError(err)
-	}
+	// Step 6: Insert into results table. A RETRYING job has no result yet: the table holds one row
+	// per job, written when the job reaches a terminal state.
+	if !resolution.Retry {
+		insertResultQuery := `
+			INSERT INTO results (job_id, attempt_id, exit_code, output, error, committed_at)
+			VALUES ($1, $2, $3, $4, $5, $6);
+		`
+		_, err = tx.Exec(ctx, insertResultQuery,
+			jobID,
+			attemptID,
+			outcome.ExitCode,
+			outcome.Output,
+			outcome.Error,
+			now,
+		)
+		if err != nil {
+			return nil, mapPgError(err)
+		}
 
-	job.Result = &domain.Result{
-		ExitCode: outcome.ExitCode,
-		Output:   outcome.Output,
-		Error:    outcome.Error,
+		job.Result = &domain.Result{
+			ExitCode: outcome.ExitCode,
+			Output:   outcome.Output,
+			Error:    outcome.Error,
+		}
 	}
 
 	// Step 7: Record audit event
+	detailsJSON, err := json.Marshal(details)
+	if err != nil {
+		return nil, err
+	}
 	insertEventQuery := `
-		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, created_at)
-		VALUES ($1, $2, $3, $4, $5, clock_timestamp());
+		INSERT INTO job_events (job_id, attempt_id, event_type, from_state, to_state, details, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7);
 	`
 	_, err = tx.Exec(ctx, insertEventQuery,
 		jobID,
 		attemptID,
-		jobEventType,
+		string(jobEventType),
 		fromState,
 		toState,
+		string(detailsJSON),
+		now,
 	)
 	if err != nil {
 		return nil, mapPgError(err)
