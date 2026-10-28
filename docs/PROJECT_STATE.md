@@ -190,7 +190,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - Sweeper correctness: row-locked re-check under lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`).
   - Late-commit Option 2: accept-until-swept while attempt is `RUNNING` in database; strictly rejected once swept to `LOST`.
   - In-lock grace check driven by the caller-supplied grace state; the sweeper loop, the outage grace and cooldown state and the startup grace period belong to slice 4c.
-- **Exit Criteria:** Migration applies cleanly; PostgreSQL repository passes all shared conformance tests under `-race`; zero deadlocks under concurrent mixed operations stress test (`-race -count=20`). Mandatory mutation proofs for sweeper lock order/re-check condition, startup grace window, and late-commit acceptance.
+- **Exit Criteria:** Migration applies cleanly; PostgreSQL repository passes all shared conformance tests under `-race`; zero deadlocks under concurrent mixed operations stress test (`-race -count=20`). Mandatory mutation proofs for sweeper lock order/re-check condition, the in-lock grace check driven by the grace-state input, and late-commit acceptance.
 
 ### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
 - **Scope:**
@@ -200,15 +200,15 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - Coordinator background expiry sweeper ticker (every 5s, batch size 50) honoring 30s startup and outage grace.
   - Renewal flood defense: formally documented as designed, not yet implemented (R-23); planned endpoint defenses (state short-circuit, indexed lookup, statement_timeout); accepted risk under SEC-004.
   - Synchronized deployment rule: V1 coordinator and workers deploy together.
-- **Exit Criteria:** Long-running jobs (>30s) maintain continuous renewals; cancellation delivered exclusively via renewal response within 10s; sweeper reclaims abandoned attempts after grace period. Mandatory mutation proofs for renewal cancellation delivery and worker abort on lease lost.
+- **Exit Criteria:** Long-running jobs (>30s) maintain continuous renewals; cancellation delivered exclusively via renewal response within 10s; sweeper reclaims abandoned attempts after grace period. Mandatory mutation proofs for renewal cancellation delivery, worker abort on lease lost and the startup grace period.
 
 ### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
 - **Scope:**
   - 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`): success is `AttemptCompleted` (no error class); allowlisted task validation errors permanent (`ClassPermanent`); worker abnormal terminations; unknown errors retryable (`ClassTransient` / `ClassUnknown`); `LOST` attempts consume 1 attempt (`ClassLeaseExpired`).
-  - Exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 max attempts. `LOST` attempts consume 1 attempt.
+  - Reuse of the slice 4b pure backoff function (full jitter [0.5, 1.5], base 1s, cap 30s) to set `not_before`; default 3 max attempts. `LOST` attempts consume 1 attempt.
   - Cooperative cancellation: worker receives `cancel_requested: true` via renewal, cancels execution context, preempted executor returns `context.Canceled`, worker commits with cancel status.
   - Exhaustive race resolution (cancel vs completion, cancel vs lease expiry, duplicate cancels).
-- **Exit Criteria:** Transient failures retry up to `max_attempts` with backoff; permanent failures fail immediately; cancelled jobs preempt running workers within 10s; zero jobs stranded in `CANCEL_REQUESTED`. Mandatory mutation proofs for failure classification and jitter distribution.
+- **Exit Criteria:** Transient failures retry up to `max_attempts` with backoff; permanent failures fail immediately; cancelled jobs preempt running workers within 10s; zero jobs stranded in `CANCEL_REQUESTED`. Mandatory mutation proofs for failure classification and bypassing the slice 4b backoff function.
 
 ### Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review
 - **Scope:**
@@ -265,7 +265,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ---
 
 ## 8. Last Verified Commands & Actual Results
-- **Date:** 2026-10-28
+- **Date:** 2026-10-28 (go version, gofmt, go vet, make test-docs and the final count line from the P4-02 tree; per-package race timings are the 2026-10-26 P4-01 output; make test-db was not run in P4-02)
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
@@ -278,7 +278,7 @@ $ go vet ./...
 
 $ make test-docs
 go test ./tests/docs
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.596s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs
 
 $ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...
 ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.055s
@@ -300,6 +300,6 @@ $ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...
 PASS: 90, SKIP: 28, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
 
 $ make test-db
-PASS: 70, SKIP: 0, FAIL: 0
+(not run in P4-02; PASS: 70, SKIP: 0, FAIL: 0 is the slice 4a audit figure at 8183a59, code unchanged)
 ```
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*

@@ -57,12 +57,12 @@ MiniCloud development is structured into three major releases. Each version buil
    - Expand shared conformance suite (`internal/storage/storagetest/conformance.go`) and implement property/model-based state machine test harness.
 2. **Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function**:
    - Author forward-only migration `000004_leases_retries_cancellation.sql` adding `attempts.lease_expires_at`, `attempts.error_class`, `jobs.not_before`, `jobs.cancel_requested_at`, indexes, and zero-downtime constraints.
-   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
+   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock (the 30 s startup and outage grace periods are owned by slice 4c). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
 3. **Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring**:
    - Add `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint as single delivery channel for cancellation (`cancel_requested: true`). Heartbeat response does not carry cancellations.
    - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s owning the startup grace period and the outage grace and cooldown state, and passing that state to `SweepExpiredLeases`.
 4. **Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation**:
-   - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
+   - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and reuse of the slice 4b backoff function for retry scheduling.
    - Implement cooperative cancellation via Go `context.Context` in worker executor and resolve concurrent cancellation races with duplicate cancel idempotency (HTTP 200).
 5. **Slice 4e: End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review**:
    - Execute all 10 blueprint fault scenarios (FS-01 through FS-10) in `tests/integration/` per [docs/fault-injection-plan.md](fault-injection-plan.md).
