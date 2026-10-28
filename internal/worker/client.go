@@ -532,10 +532,7 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 	if err != nil {
 		errSummary = err.Error()
 	}
-	if run.isLost() {
-		slog.Warn("not reporting a result for a lost attempt", "job_id", assignment.JobID, "attempt_id", assignment.AttemptID)
-		return
-	}
+	// deliverResult drops the result without any request when the attempt was declared lost.
 	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary)
 }
 
@@ -572,9 +569,6 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
 			slog.Warn("coordinator permanently rejected result (non-retryable)",
 				"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "err", reportErr)
 			return
-		}
-		if dctx.Err() != nil {
-			break
 		}
 		slog.Warn("transient error reporting result to coordinator, retrying",
 			"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "err", reportErr, "attempt", n)

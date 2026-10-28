@@ -406,24 +406,26 @@ func TestWorker_Client_Renew400KeepsRunning(t *testing.T) {
 }
 
 func TestWorker_Renewal_TransientErrorsNeverAbortAndAreBackedOff(t *testing.T) {
-	// 503 (database outage), 500 and a dropped connection, then recovery.
+	// A 503 (database outage), a 500 and a dropped connection, then more 503s until the backoff
+	// reaches its cap, then recovery.
+	const failures = 8
 	r := newRig(t, func(n int, w http.ResponseWriter, req *http.Request) {
-		switch n {
-		case 1:
-			rejectWith(503, "SERVICE_UNAVAILABLE")(n, w, req)
-		case 2:
+		switch {
+		case n == 2:
 			rejectWith(500, "INTERNAL")(n, w, req)
-		case 3:
+		case n == 3:
 			hj, _ := w.(http.Hijacker)
 			c, _, _ := hj.Hijack()
 			_ = c.Close()
+		case n <= failures:
+			rejectWith(503, "SERVICE_UNAVAILABLE")(n, w, req)
 		default:
 			renewed(false)(n, w, req)
 		}
 	}, okResult)
 	r.start()
 	r.tick(10*time.Second, 1)
-	for n := 2; n <= 4; n++ {
+	for n := 2; n <= failures+1; n++ {
 		if !r.clk.BlockUntil(1, 5*time.Second) {
 			t.Fatalf("no retry timer after failure %d", n-1)
 		}
@@ -436,13 +438,17 @@ func TestWorker_Renewal_TransientErrorsNeverAbortAndAreBackedOff(t *testing.T) {
 		t.Fatal("transient renewal errors must never abort the attempt")
 	}
 	got := r.clk.Requested()
-	if len(got) != 5 {
-		t.Fatalf("timers requested = %v, want 5", got)
+	if len(got) != failures+2 {
+		t.Fatalf("timers requested = %v, want %d", got, failures+2)
 	}
-	bounds := [][2]time.Duration{{10 * time.Second, 10 * time.Second}, {500 * time.Millisecond, time.Second}, {time.Second, 2 * time.Second}, {2 * time.Second, 4 * time.Second}, {10 * time.Second, 10 * time.Second}}
-	for i, d := range got {
-		if d < bounds[i][0] || d > bounds[i][1] {
-			t.Fatalf("wait %d = %v, want within [%v, %v]: bounded exponential backoff, back to the interval after recovery", i, d, bounds[i][0], bounds[i][1])
+	if got[0] != 10*time.Second || got[len(got)-1] != 10*time.Second {
+		t.Fatalf("first and post-recovery waits = %v and %v, want the 10 s interval", got[0], got[len(got)-1])
+	}
+	for n := 1; n <= failures; n++ {
+		hi := min(time.Second<<(n-1), 10*time.Second) // base 1 s, doubling, capped at the interval
+		lo := hi / 2                                  // jitter factor in [0.5, 1]
+		if d := got[n]; d < lo || d > hi {
+			t.Fatalf("wait after failure %d = %v, want within [%v, %v]: bounded exponential backoff capped at the interval", n, d, lo, hi)
 		}
 	}
 	close(r.task.release)
@@ -460,12 +466,26 @@ func TestWorker_Client_ResultDeliveryLoop_BoundedRetry(t *testing.T) {
 	if n := r.coord.results(); n < 5 || n > 62 {
 		t.Fatalf("delivery attempts = %d, want a bounded number of backed-off retries", n)
 	}
+	// Delivery backoff: base 200 ms, doubling up to the 16x multiplier cap of ComputeBackoffWithJitter
+	// (3.2 s, below the 5 s ceiling), jitter factor in [0.5, 1].
+	var backoffs []time.Duration
 	for _, d := range r.clk.Requested() {
-		if d > 10*time.Second && d != 60*time.Second {
-			t.Fatalf("timer %v exceeds the backoff and renewal bounds", d)
+		if d != 10*time.Second && d != ResultBudgetForTest {
+			backoffs = append(backoffs, d)
+		}
+	}
+	if len(backoffs) < 8 {
+		t.Fatalf("only %d backoff waits recorded", len(backoffs))
+	}
+	for i, d := range backoffs {
+		hi := min(200*time.Millisecond<<min(i, 4), 5*time.Second)
+		if d < hi/2 || d > hi {
+			t.Fatalf("delivery backoff %d = %v, want within [%v, %v]", i+1, d, hi/2, hi)
 		}
 	}
 }
+
+const ResultBudgetForTest = worker.ResultDeliveryBudget
 
 func TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success(t *testing.T) {
 	var clk *workertest.FakeClock
