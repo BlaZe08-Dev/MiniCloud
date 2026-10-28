@@ -38,12 +38,42 @@ func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Du
 	return time.Duration(float64(dur) * jitterFrac)
 }
 
+// Clock abstracts the timers the agent waits on (renewal interval, delivery backoff and budget) so
+// tests drive them deterministically. Wall-clock time is never read from it: lease expiry is
+// decided by the coordinator (ADR-0014, worker clocks are untrusted).
+type Clock interface {
+	NewTimer(d time.Duration) Timer
+}
+
+// Timer is the part of time.Timer the agent uses.
+type Timer interface {
+	C() <-chan time.Time
+	Stop() bool
+}
+
+type realClock struct{}
+
+func (realClock) NewTimer(d time.Duration) Timer { return realTimer{time.NewTimer(d)} }
+
+type realTimer struct{ t *time.Timer }
+
+func (r realTimer) C() <-chan time.Time { return r.t.C }
+func (r realTimer) Stop() bool          { return r.t.Stop() }
+
 // Agent runs an independent worker process communicating strictly over HTTP.
 type Agent struct {
 	mu         sync.Mutex
 	cfg        *config.WorkerConfig
 	registry   *executor.Registry
 	httpClient *http.Client
+	clock      Clock
+}
+
+// SetClock replaces the timer source (tests only; call before running work).
+func (a *Agent) SetClock(c Clock) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.clock = c
 }
 
 // NewAgent constructs a new Worker Agent.
@@ -51,6 +81,7 @@ func NewAgent(cfg *config.WorkerConfig, registry *executor.Registry) *Agent {
 	return &Agent{
 		cfg:      cfg,
 		registry: registry,
+		clock:    realClock{},
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -128,7 +159,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			}
 
 			// Execute claimed work assignment
-			a.executeAndReport(ctx, assignment)
+			a.ExecuteAndReport(ctx, assignment)
 		}
 	}
 }
@@ -303,7 +334,8 @@ func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken s
 	return resp.StatusCode, fmt.Errorf("report failed with status %d", resp.StatusCode)
 }
 
-func (a *Agent) executeAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
+// ExecuteAndReport runs one claimed assignment and delivers its outcome.
+func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.WorkAssignment) {
 	slog.Info("executing job assignment",
 		"job_id", assignment.JobID,
 		"attempt_id", assignment.AttemptID,
