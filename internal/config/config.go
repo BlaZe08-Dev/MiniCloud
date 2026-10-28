@@ -108,8 +108,9 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 	if cfg.ReaperInterval > cfg.WorkerTimeout {
 		return nil, fmt.Errorf("MINICLOUD_REAPER_INTERVAL (%v) must not exceed MINICLOUD_WORKER_TIMEOUT (%v)", cfg.ReaperInterval, cfg.WorkerTimeout)
 	}
-	if cfg.DefaultMaxAttempts <= 0 {
-		return nil, fmt.Errorf("MINICLOUD_DEFAULT_MAX_ATTEMPTS must be positive")
+	// The range is the one every job's max_attempts must lie in (chk_jobs_max_attempts).
+	if cfg.DefaultMaxAttempts < 1 || cfg.DefaultMaxAttempts > 20 {
+		return nil, fmt.Errorf("MINICLOUD_DEFAULT_MAX_ATTEMPTS must be between 1 and 20 (got %d)", cfg.DefaultMaxAttempts)
 	}
 	if cfg.MaxJobRuntime <= 0 {
 		return nil, fmt.Errorf("MINICLOUD_MAX_JOB_RUNTIME must be positive")

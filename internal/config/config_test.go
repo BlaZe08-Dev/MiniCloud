@@ -3,6 +3,7 @@ package config_test
 import (
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -248,5 +249,35 @@ func TestConfig_Validation_NonPositiveLeaseSettings_Rejected(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestConfig_DefaultMaxAttempts_ValidatedAgainstJobRange: MINICLOUD_DEFAULT_MAX_ATTEMPTS is read
+// from the environment and must lie in the 1..20 range every job's max_attempts must (SQL check
+// chk_jobs_max_attempts, docs/security/field-limits.md); a default no submission could use is
+// refused at startup.
+func TestConfig_DefaultMaxAttempts_ValidatedAgainstJobRange(t *testing.T) {
+	for _, val := range []string{"1", "3", "20"} {
+		t.Run("accepts_"+val, func(t *testing.T) {
+			clearEnv()
+			t.Setenv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", val)
+			cfg, err := config.LoadCoordinatorConfig()
+			if err != nil {
+				t.Fatalf("expected %s to be accepted, got %v", val, err)
+			}
+			if strconv.Itoa(cfg.DefaultMaxAttempts) != val {
+				t.Fatalf("DefaultMaxAttempts = %d, want %s", cfg.DefaultMaxAttempts, val)
+			}
+		})
+	}
+	for _, val := range []string{"0", "-1", "21", "1000"} {
+		t.Run("rejects_"+val, func(t *testing.T) {
+			clearEnv()
+			t.Setenv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", val)
+			_, err := config.LoadCoordinatorConfig()
+			if err == nil || !strings.Contains(err.Error(), "MINICLOUD_DEFAULT_MAX_ATTEMPTS") {
+				t.Fatalf("error = %v, want rejection naming MINICLOUD_DEFAULT_MAX_ATTEMPTS", err)
+			}
+		})
 	}
 }
