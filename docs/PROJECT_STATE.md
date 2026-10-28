@@ -1,20 +1,20 @@
 # MiniCloud Project State & Handoff
 
 ## 1. Current Phase & Milestone
-- **Current Branch:** `agent/gemini/P4-02`
-- **Current Milestone:** Phase 4 Slice 4a Complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire). Merging with P4-02.
+- **Current Branch:** `main`
+- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
 - **Phase 4, Slice 4a — Domain FSM, In-Memory Parity, SEC-022 Fix & Dispatch Rewire (P4-4a):**
-  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under row lock. In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
   - **Domain Transition Matrix Updates (Executed):** Flipped exactly two matrix cells in `allowedTransitions` table: `RETRYING -> QUEUED` becomes invalid (`false`), and `RETRYING -> RUNNING` becomes valid (`true`) for direct pull dispatch via `DispatchNextJob`. Verified by `TestJobTransitionMatrix_AllPairs`.
   - **Memory-Mode Dispatch Rewire & Queue Retirement (Executed):** Rewired memory-mode coordinator (`PollWork` in `internal/coordinator/service.go`) to claim work through `repo.DispatchNextJob`, achieving full dispatch parity with PostgreSQL. Retired `NewServiceWithQueue` and historical `spyQueue` test helper, rewriting seven coordinator unit tests to assert observable domain outcomes.
-  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic pseudo-random model-based property test `TestProperty_StateMachine_ModelConformance` executing 5 seeds x 200 steps (1,000 steps total) across memory and PostgreSQL without invariant violations.
-  - **Test Suite Results (Executed):** Unit/integration gate (`MINICLOUD_TEST_DATABASE_URL` unset): PASS 89, SKIP 28, FAIL 0; database test gate (`make test-db`): PASS 70, SKIP 0, FAIL 0.
-  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, `RenewLease`/`SweepExpiredLeases` with row lock, backoff computation (`TestDomain_ComputeBackoff_FullJitter` (planned test)), and `CommitAttempt` 409 evaluation order; Slice 4c receives coordinator sweeper runner loop, grace/cooldown window management, and worker renewal loop.
+  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic seeded model-based property test `TestProperty_StateMachine_ModelConformance`: memory 8 seeds x 400 steps (3,200 steps) and PostgreSQL 3 seeds x 120 steps (360 steps), no invariant violations.
+  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, FAIL 0. Database test gate (make test-db) on the slice 4a tip: PASS 70, SKIP 0, FAIL 0; P4-02 changes no code.
+  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndExpiry (planned test) and the CommitAttempt 409 evaluation order; Slice 4c receives the coordinator sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop and the delivery retry budget.
 - **Two-Agent Workflow Infrastructure (P0-01, PR #16, `main` at `a9453fc`):**
   - **Single Rule File (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`):** `AGENTS.md` is the single rule file for all coding agents; `CLAUDE.md` and `GEMINI.md` point to it.
   - **Task Board & Workflow Directories (`docs/agents/TASKS.md`, `docs/agents/handoffs/`, `docs/agents/reviews/`):** Committed agent rules and task board from owner draft with builder/auditor roles, active/done states, reserved touch points, and handoff and review folders.
@@ -26,7 +26,7 @@
   - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Maintained canonical lock order (`jobs -> workers -> attempts`). Documented candidate scan using unlocked read and `FOR UPDATE SKIP LOCKED` on jobs and plain `FOR UPDATE` under `lock_timeout` on workers and attempts to eliminate lock contention; specified `CANCEL_REQUESTED` resolution to terminal `CANCELLED` suppressing retries; detailed lock failure fallback (skips candidate with zero mutation); and specified autonomous outage grace detection (any failed tick or database-time gap > 3x sweep interval, activating a 30s grace window capped by a 30s cooldown). Enforced config validation rule: `MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW` must be >= lease duration.
   - **Explicit Architectural Alignments (ADR-0015, `docs/state-machine.md`):** Documented that `LOST` attempts consume `max_attempts` with `error_class = "LEASE_EXPIRED"` (alternative infinite retries rejected to avoid poison job cluster loops); cited Blueprint Section 5 justifying direct `RETRYING -> RUNNING` pull dispatch; documented in-memory repo and queue dispatch rules and shared conformance assertions; added full state mapping table with grep proof showing zero stored rows or API outputs contain old spellings; and explicitly cited cancel HTTP handler returning HTTP 200 for all valid cancellations (`internal/api/handlers.go:267`).
   - **Security Findings Register (SEC-022):** Documented finding SEC-022 (Medium, executed): duplicate `CancelJob` on `CANCEL_REQUESTED` moves job directly to `CANCELLED` via fallback `else` branch, confirmed by code reading in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob` and demonstrated by audit probe `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a), with authorized fix in Slice 4a as idempotent no-op returning HTTP 200.
-    Verified by `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+    Verified by `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
 - **Milestone `docs/citation-check` — Documentation Citation Verification Tooling & Rule C Hardening (`docs/citation-check`):**
   - **Automated Citation Checker (`tests/docs/citations_test.go`):** Implemented standard library static documentation citation verifier enforcing Rules A–F across `docs/` (excluding `docs/source/`), `README.md`, `GEMINI.md`, and `CHANGELOG.md`:
     - Rule A: Every cited repository path must exist on disk.
@@ -176,20 +176,20 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ### Slice 4a: Grace Design, Existing-Test Impact, Domain State Machine & In-Memory Parity
 - **Scope:**
   - Grace design: 30s coordinator startup grace, 30s database outage grace protecting Phase 3 surviving-worker commit recovery in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `TestSecurity_PartD_Outage_MidDispatchAndMidCommit` (`tests/integration/part_d_security_test.go:794`).
-  - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED`. Slice 4a changes duplicate-cancel behavior (job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes. Existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` only tested duplicate cancel on terminal `QUEUED`/`CANCELLED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
-  - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map domain constants in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+  - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED`. Slice 4a changes duplicate-cancel behavior (job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes. Existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` only tested duplicate cancel on terminal `QUEUED`/`CANCELLED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
+  - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` CHECK constraint `chk_attempts_state`. Map domain constants in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
   - Domain types, transitions (`RUNNING -> RETRYING`, `CANCEL_REQUESTED -> CANCELLED`, `RETRYING -> RUNNING` via direct dispatch), typed errors (`ErrLeaseExpired`, `ErrJobCancelRequested`). Success is `AttemptCompleted` (no error class); task validation errors permanent; unknown errors retryable.
-  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, leases, renewals, and sweeper.
-  - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (planned test).
-- **Exit Criteria:** In-memory repository passes expanded shared conformance suite; property test generator executes >= 1,000 random event traces without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency, and retry backoff.
+  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.
+  - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (executed in slice 4a).
+- **Exit Criteria:** In-memory repository passes expanded shared conformance suite; the model-based property test runs seeded traces (memory 8 seeds x 400 steps, PostgreSQL 3 seeds x 120 steps) without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency and `not_before` dispatch gating.
 
-### Slice 4b: Schema Migration 000004 & PostgreSQL Repository Parity
+### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
 - **Scope:**
   - Migration `000004_leases_retries_cancellation.sql (proposed)` with forward-only schema expansion, sweeper index, retry index, check constraints.
-  - PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases`, retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`.
+  - In-memory and PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases` (the grace state arrives as an input value and the only authoritative grace check runs inside the row locks), retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`; a pure job-retry backoff function in `internal/domain` (planned test `TestDomain_ComputeBackoff_FullJitter` (planned test)).
   - Sweeper correctness: row-locked re-check under lock (`SELECT state, lease_expires_at FROM attempts WHERE id = $1 FOR UPDATE;` in lock order `jobs -> workers -> attempts`).
   - Late-commit Option 2: accept-until-swept while attempt is `RUNNING` in database; strictly rejected once swept to `LOST`.
-  - Sweeper dual grace windows: 30s startup grace, 30s outage grace.
+  - In-lock grace check driven by the caller-supplied grace state; the sweeper loop, the outage grace and cooldown state and the startup grace period belong to slice 4c.
 - **Exit Criteria:** Migration applies cleanly; PostgreSQL repository passes all shared conformance tests under `-race`; zero deadlocks under concurrent mixed operations stress test (`-race -count=20`). Mandatory mutation proofs for sweeper lock order/re-check condition, startup grace window, and late-commit acceptance.
 
 ### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
@@ -256,6 +256,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-010 (Low, Open):** Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). Bypassed in production PostgreSQL mode.
   - **SEC-012 (Informational, Open):** Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-270`).
   - **SEC-013 (Informational, Open):** Job and attempt ID format exposes sequential counter (`internal/coordinator/service.go` func `generateID`).
+  - **SEC-024 (Informational, Open, within SEC-004):** CommitAttempt on a terminal job evaluates job terminality before the attempt lease token, so a bogus token naming the active attempt still closes it and frees the slot (`internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`); recorded in ADR-0014 and `docs/security/findings.md`.
 - **Distributed & Architectural Limitations:**
   - PostgreSQL repository and coordinator durable dispatch are fully wired (`fifo_pull`).
   - Jobs assigned to dead workers remain `RUNNING` until Phase 4 implements lease expiry and automatic requeue.
@@ -264,7 +265,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ---
 
 ## 8. Last Verified Commands & Actual Results
-- **Date:** 2026-10-26
+- **Date:** 2026-10-28
 ```bash
 $ go version
 go version go1.22.2 linux/amd64
@@ -277,9 +278,9 @@ $ go vet ./...
 
 $ make test-docs
 go test ./tests/docs
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.354s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.596s
 
-$ go test -race -count=1 ./...
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...
 ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.055s
 ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.932s
 ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.042s
@@ -295,7 +296,10 @@ ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.044s
 ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.937s
 ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.611s
 
-$ go test -v -count=1 ./...
-PASS: 77, SKIP: 26, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...
+PASS: 90, SKIP: 28, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
+
+$ make test-db
+PASS: 70, SKIP: 0, FAIL: 0
 ```
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*
