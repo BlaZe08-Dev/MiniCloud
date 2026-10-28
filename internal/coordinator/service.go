@@ -63,6 +63,11 @@ type Service struct {
 	clock         Clock
 	workerTimeout time.Duration
 	leaseDuration time.Duration
+
+	// Lease sweeper settings (sweeper.go).
+	startupGrace time.Duration
+	outageWindow time.Duration
+	sweepRand    func() float64
 }
 
 // NewService constructs a new Coordinator Service. Dispatch flows through repo.DispatchNextJob
@@ -80,6 +85,9 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		clock:         realClock{},
 		workerTimeout: workerTimeout,
 		leaseDuration: domain.DefaultLeaseDuration,
+		startupGrace:  DefaultStartupGracePeriod,
+		outageWindow:  DefaultOutageGraceWindow,
+		sweepRand:     newSweepRand(),
 	}
 }
 
