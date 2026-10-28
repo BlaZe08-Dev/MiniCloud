@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -94,25 +94,63 @@ func TestMain_BackgroundLoops_StartupGraceFromConfig(t *testing.T) {
 	}
 }
 
-// TestMain_BackgroundLoops_StopWaitsForLoops: stop cancels the loops and returns only after they
-// have exited, and is safe to call twice.
+// TestMain_BackgroundLoops_StopWaitsForLoops: stop cancels the loops and returns only after an
+// in-flight sweep has finished (the repository call ignores cancellation, like a slow query), and
+// is safe to call twice.
 func TestMain_BackgroundLoops_StopWaitsForLoops(t *testing.T) {
 	cfg := testConfig()
-	repo := &countingRepo{Repository: newMemoryRepository(cfg)}
+	repo := &slowSweepRepo{Repository: newMemoryRepository(cfg)}
 	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), cfg.WorkerTimeout)
 	configureService(svc, cfg)
 	stop := startBackground(context.Background(), svc, cfg)
 	deadline := time.Now().Add(5 * time.Second)
-	for repo.count() == 0 && time.Now().Before(deadline) {
+	for repo.inflight.Load() == 0 && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	stop()
-	stop()
-	n := repo.count()
-	time.Sleep(50 * time.Millisecond)
-	if repo.count() != n {
-		t.Fatal("the sweeper kept ticking after stop returned")
+	if repo.inflight.Load() == 0 {
+		t.Fatal("the sweeper never started a sweep")
 	}
+	stop()
+	if n := repo.inflight.Load(); n != 0 {
+		t.Fatalf("stop returned with %d sweep(s) still in flight: the loop exit was not awaited", n)
+	}
+	stop()
+}
+
+type slowSweepRepo struct {
+	storage.Repository
+	inflight atomic.Int32
+}
+
+func (r *slowSweepRepo) SweepExpiredLeases(ctx context.Context, p domain.SweepParams) (*domain.SweepResult, error) {
+	r.inflight.Add(1)
+	defer r.inflight.Add(-1)
+	time.Sleep(80 * time.Millisecond) // ignores ctx on purpose
+	return r.Repository.SweepExpiredLeases(ctx, p)
+}
+
+// TestMain_BackgroundLoops_ReaperRuns: the worker reaper is started by the same call.
+func TestMain_BackgroundLoops_ReaperRuns(t *testing.T) {
+	cfg := testConfig()
+	cfg.WorkerTimeout = 30 * time.Millisecond
+	cfg.ReaperInterval = 5 * time.Millisecond
+	repo := newMemoryRepository(cfg)
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), cfg.WorkerTimeout)
+	configureService(svc, cfg)
+	ctx := context.Background()
+	if err := svc.RegisterWorker(ctx, &domain.Worker{ID: "quiet", TotalSlots: 1, SupportedTasks: []string{"echo"}}); err != nil {
+		t.Fatal(err)
+	}
+	stop := startBackground(ctx, svc, cfg)
+	defer stop()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if w, _ := repo.GetWorker(ctx, "quiet"); w != nil && w.Status == domain.WorkerStatusUnhealthy {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatal("the worker reaper never marked a silent worker UNHEALTHY")
 }
 
 func TestMain_NewMemoryRepository_UsesConfiguredLease(t *testing.T) {
@@ -130,26 +168,4 @@ func TestMain_NewMemoryRepository_UsesConfiguredLease(t *testing.T) {
 	if d := att.LeaseExpiresAt.Sub(now); d < 6*time.Second || d > 8*time.Second {
 		t.Fatalf("lease = %v, want the configured 7s", d)
 	}
-}
-
-var (
-	countMu    sync.Mutex
-	sweepCount int
-)
-
-type countingRepo struct {
-	storage.Repository
-}
-
-func (r *countingRepo) SweepExpiredLeases(ctx context.Context, p domain.SweepParams) (*domain.SweepResult, error) {
-	countMu.Lock()
-	sweepCount++
-	countMu.Unlock()
-	return r.Repository.SweepExpiredLeases(ctx, p)
-}
-
-func (r *countingRepo) count() int {
-	countMu.Lock()
-	defer countMu.Unlock()
-	return sweepCount
 }
