@@ -792,6 +792,7 @@ func TestSecurity_PartD_SQLInjection_EndToEnd(t *testing.T) {
 // and asserts the surviving worker's commit is accepted or cleanly rejected,
 // there is no duplicate commit, no lost job, and no partial rows.
 func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *testing.T) {
+	requireContainerControl(t)
 	schemaURL, pool, schemaName := setupPostgresTestSchema(t)
 
 	// Absolute safety guard: always restore database container on cleanup
@@ -1000,6 +1001,7 @@ func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *testing.T) {
 // - hostnames/ports of the database
 // - lease tokens
 func TestSecurity_PartD_LeakScan(t *testing.T) {
+	requireContainerControl(t)
 	schemaURL, pool, schemaName := setupPostgresTestSchema(t)
 
 	// Absolute safety guard: always restore database container on cleanup
