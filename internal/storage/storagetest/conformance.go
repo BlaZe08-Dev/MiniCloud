@@ -616,6 +616,14 @@ type Harness struct {
 	// ForceAttemptState sets an attempt's state directly (for example LOST, which only the
 	// sweeper of a later slice produces). Nil when a test does not need it.
 	ForceAttemptState func(t *testing.T, attemptID string, state domain.AttemptState)
+
+	// LeaseDuration is the lease length the repository under test was built with.
+	LeaseDuration time.Duration
+	// Now reads the repository's own clock (database time for PostgreSQL).
+	Now func(t *testing.T) time.Time
+	// SetLeaseExpiry sets an attempt's lease_expires_at to repository-now + offset; a negative
+	// offset makes the lease already expired. It stands in for waiting out a lease.
+	SetLeaseExpiry func(t *testing.T, attemptID string, offset time.Duration)
 }
 
 func conformanceWorker(t *testing.T, repo storage.Repository, id string, slots int) {
@@ -1142,11 +1150,14 @@ func runModelSeed(t *testing.T, repo storage.Repository, seed int64, steps int) 
 // longer RUNNING is rejected with ErrStaleAttempt while the job is still non-terminal, and that the
 // rejection changes nothing: job state, attempt, worker slot, events and stored result stay as they
 // were. In slice 4a no public repository path leaves a non-terminal job with a non-RUNNING current
-// attempt, so COMPLETED, FAILED and LOST are all reached through the harness's ForceAttemptState
+// attempt, so the states below are all reached through the harness's ForceAttemptState
 // hook. Wrapped by TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt.
 func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
 	ctx := context.Background()
-	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptLost} {
+	// LOST is deliberately absent: since slice 4b a commit naming a LOST attempt returns
+	// ErrLeaseExpired (RunCommitAttemptConflictOrderConformance). Every other non-RUNNING
+	// attempt state keeps returning ErrStaleAttempt.
+	for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
 		state := state
 		t.Run(string(state), func(t *testing.T) {
 			h := newHarness(t)
@@ -1180,5 +1191,1070 @@ func RunCommitAttemptNonRunningAttemptConformance(t *testing.T, newHarness func(
 				t.Fatalf("rejected commit recorded an event: before=%d after=%d", beforeEvents, got)
 			}
 		})
+	}
+}
+
+// ---- Slice 4b: leases, renewal, sweep, conflict order ----------------------------------------
+
+const leaseTolerance = 2 * time.Millisecond // PostgreSQL stores microseconds
+
+func conformanceJobN(t *testing.T, repo storage.Repository, id string, maxAttempts int) {
+	t.Helper()
+	err := repo.SubmitJob(context.Background(), &domain.Job{
+		ID: id, TaskType: "echo", Payload: []byte(`{"message":"x"}`),
+		State: domain.StateQueued, MaxAttempts: maxAttempts, TimeoutSeconds: 30,
+	})
+	if err != nil {
+		t.Fatalf("SubmitJob(%s) failed: %v", id, err)
+	}
+}
+
+// conformanceDispatchNext dispatches the next job to workerID and returns the attempt.
+func conformanceDispatchNext(t *testing.T, repo storage.Repository, workerID string) *domain.Attempt {
+	t.Helper()
+	_, att, err := repo.DispatchNextJob(context.Background(), workerID)
+	if err != nil {
+		t.Fatalf("DispatchNextJob(%s) failed: %v", workerID, err)
+	}
+	return att
+}
+
+func conformanceBackoff(d time.Duration) domain.BackoffFunc {
+	return func(int) time.Duration { return d }
+}
+
+func conformanceSweep(t *testing.T, repo storage.Repository, p domain.SweepParams) *domain.SweepResult {
+	t.Helper()
+	if p.Backoff == nil {
+		p.Backoff = conformanceBackoff(time.Hour)
+	}
+	res, err := repo.SweepExpiredLeases(context.Background(), p)
+	if err != nil {
+		t.Fatalf("SweepExpiredLeases failed: %v", err)
+	}
+	return res
+}
+
+func conformanceAttempt(t *testing.T, repo storage.Repository, id string) *domain.Attempt {
+	t.Helper()
+	att, err := repo.GetAttempt(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetAttempt(%s) failed: %v", id, err)
+	}
+	return att
+}
+
+func conformanceJob(t *testing.T, repo storage.Repository, id string) *domain.Job {
+	t.Helper()
+	j, err := repo.GetJob(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetJob(%s) failed: %v", id, err)
+	}
+	return j
+}
+
+func requireLeaseHooks(t *testing.T, h Harness) {
+	t.Helper()
+	if h.Now == nil || h.SetLeaseExpiry == nil || h.LeaseDuration <= 0 {
+		t.Fatalf("harness must provide Now, SetLeaseExpiry and LeaseDuration")
+	}
+}
+
+func timesClose(a, b time.Time) bool {
+	d := a.Sub(b)
+	if d < 0 {
+		d = -d
+	}
+	return d <= leaseTolerance
+}
+
+func requireLease(t *testing.T, att *domain.Attempt) time.Time {
+	t.Helper()
+	if att.LeaseExpiresAt == nil {
+		t.Fatalf("attempt %s has no lease_expires_at", att.ID)
+	}
+	return *att.LeaseExpiresAt
+}
+
+func eventTypes(events []*domain.JobEvent) []domain.JobEventType {
+	out := make([]domain.JobEventType, len(events))
+	for i, e := range events {
+		out[i] = e.EventType
+	}
+	return out
+}
+
+func requireEventTail(t *testing.T, events []*domain.JobEvent, want ...domain.JobEventType) {
+	t.Helper()
+	got := eventTypes(events)
+	if len(got) < len(want) {
+		t.Fatalf("events %v: shorter than expected tail %v", got, want)
+	}
+	tail := got[len(got)-len(want):]
+	for i := range want {
+		if tail[i] != want[i] {
+			t.Fatalf("event tail = %v, want %v (all events %v)", tail, want, got)
+		}
+	}
+}
+
+// RunDispatchLeaseConformance verifies that every dispatch path stamps the new attempt with a
+// lease of the configured length, measured on the repository clock. Wrapped by
+// TestConformance_Dispatch_StampsLease.
+func RunDispatchLeaseConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	for _, path := range []string{"DispatchJob", "DispatchNextJob"} {
+		path := path
+		t.Run(path, func(t *testing.T) {
+			h := newHarness(t)
+			requireLeaseHooks(t, h)
+			conformanceWorker(t, h.Repo, "w_l", 1)
+			conformanceQueuedJob(t, h.Repo, "j_l")
+			lo := h.Now(t)
+			var att *domain.Attempt
+			if path == "DispatchJob" {
+				a, err := h.Repo.DispatchJob(context.Background(), "j_l", "w_l")
+				if err != nil {
+					t.Fatalf("DispatchJob failed: %v", err)
+				}
+				att = a
+			} else {
+				att = conformanceDispatchNext(t, h.Repo, "w_l")
+			}
+			hi := h.Now(t)
+			lease := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+			if lease.Before(lo.Add(h.LeaseDuration).Add(-leaseTolerance)) || lease.After(hi.Add(h.LeaseDuration).Add(leaseTolerance)) {
+				t.Fatalf("lease_expires_at %v not within [%v, %v] (dispatch time + %v)", lease, lo.Add(h.LeaseDuration), hi.Add(h.LeaseDuration), h.LeaseDuration)
+			}
+			if att.LeaseExpiresAt == nil || !timesClose(*att.LeaseExpiresAt, lease) {
+				t.Fatalf("returned attempt lease %v does not match stored lease %v", att.LeaseExpiresAt, lease)
+			}
+		})
+	}
+}
+
+// RunRenewLeaseAcceptUntilSweptConformance verifies RenewLease under the symmetric
+// accept-until-swept rule (ADR-0014): an unswept RUNNING attempt is renewed from repository-now
+// even after its lease passed, a CANCEL_REQUESTED job gets cancel_requested and no extension, and
+// every rejection leaves the lease and the event log untouched. Wrapped by
+// TestConformance_RenewLease_AcceptUntilSwept.
+func RunRenewLeaseAcceptUntilSweptConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	setup := func(t *testing.T) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_r", 2)
+		return h, conformanceRunningJob(t, h.Repo, "j_r", "w_r")
+	}
+
+	t.Run("extends_from_repository_now_and_records_no_event", func(t *testing.T) {
+		h, att := setup(t)
+		h.SetLeaseExpiry(t, att.ID, 2*time.Second)
+		eventsBefore := len(conformanceEvents(t, h.Repo, "j_r"))
+		lo := h.Now(t)
+		got, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_r")
+		hi := h.Now(t)
+		if err != nil {
+			t.Fatalf("RenewLease failed: %v", err)
+		}
+		if got.CancelRequested {
+			t.Fatalf("cancel_requested = true on a RUNNING job")
+		}
+		if got.LeaseExpiresAt.Before(lo.Add(h.LeaseDuration).Add(-leaseTolerance)) || got.LeaseExpiresAt.After(hi.Add(h.LeaseDuration).Add(leaseTolerance)) {
+			t.Fatalf("renewed expiry %v not within [%v, %v]", got.LeaseExpiresAt, lo.Add(h.LeaseDuration), hi.Add(h.LeaseDuration))
+		}
+		stored := conformanceAttempt(t, h.Repo, att.ID)
+		if !timesClose(requireLease(t, stored), got.LeaseExpiresAt) || stored.State != domain.AttemptRunning {
+			t.Fatalf("stored attempt %+v does not reflect the renewal %v", stored, got.LeaseExpiresAt)
+		}
+		if n := len(conformanceEvents(t, h.Repo, "j_r")); n != eventsBefore {
+			t.Fatalf("renewal recorded %d event(s); a renewal must not write to the audit log", n-eventsBefore)
+		}
+		if job := conformanceJob(t, h.Repo, "j_r"); job.State != domain.StateRunning {
+			t.Fatalf("job state after renewal = %s", job.State)
+		}
+	})
+
+	t.Run("accepted_after_the_lease_passed_while_unswept", func(t *testing.T) {
+		h, att := setup(t)
+		h.SetLeaseExpiry(t, att.ID, -time.Minute)
+		lo := h.Now(t)
+		got, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_r")
+		if err != nil {
+			t.Fatalf("renewal of an expired but unswept lease rejected: %v", err)
+		}
+		if got.LeaseExpiresAt.Before(lo.Add(h.LeaseDuration).Add(-leaseTolerance)) {
+			t.Fatalf("expired lease was not extended from now: %v", got.LeaseExpiresAt)
+		}
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{})
+		if len(res.Swept) != 0 || res.Candidates != 0 {
+			t.Fatalf("a renewed attempt was still a sweep candidate: %+v", res)
+		}
+	})
+
+	t.Run("cancel_requested_returns_flag_and_does_not_extend", func(t *testing.T) {
+		for _, offset := range []time.Duration{5 * time.Second, -time.Minute} {
+			h, att := setup(t)
+			h.SetLeaseExpiry(t, att.ID, offset)
+			before := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+			if _, err := h.Repo.CancelJob(ctx, "j_r"); err != nil {
+				t.Fatalf("CancelJob failed: %v", err)
+			}
+			got, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_r")
+			if err != nil {
+				t.Fatalf("renewal on CANCEL_REQUESTED (lease offset %v) failed: %v", offset, err)
+			}
+			if !got.CancelRequested {
+				t.Fatalf("cancel_requested = false on a CANCEL_REQUESTED job (lease offset %v)", offset)
+			}
+			if !timesClose(got.LeaseExpiresAt, before) {
+				t.Fatalf("lease offset %v: returned expiry %v differs from the current expiry %v; it must not be extended", offset, got.LeaseExpiresAt, before)
+			}
+			if after := requireLease(t, conformanceAttempt(t, h.Repo, att.ID)); !timesClose(after, before) {
+				t.Fatalf("lease offset %v: stored expiry moved %v -> %v on a CANCEL_REQUESTED job", offset, before, after)
+			}
+		}
+	})
+
+	t.Run("rejections_leave_lease_and_events_untouched", func(t *testing.T) {
+		cases := []struct {
+			name    string
+			prepare func(h Harness, att *domain.Attempt)
+			call    func(h Harness, att *domain.Attempt) error
+			check   func(err error) bool
+		}{
+			{"wrong_token", nil, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "j_r", att.ID, "not-the-token", "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrStaleAttempt) }},
+			{"wrong_worker", nil, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_intruder")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrWorkerMismatch) }},
+			{"unknown_job", nil, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "no_such_job", att.ID, att.LeaseToken, "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrJobNotFound) }},
+			{"unknown_attempt", nil, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "j_r", "no_such_attempt", att.LeaseToken, "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrStaleAttempt) }},
+			{"attempt_of_another_job", func(h Harness, att *domain.Attempt) {
+				conformanceWorker(t, h.Repo, "w_other", 1)
+				conformanceRunningJob(t, h.Repo, "j_other", "w_other")
+			}, func(h Harness, att *domain.Attempt) error {
+				other, _ := h.Repo.ListAttemptsByJob(ctx, "j_other")
+				_, err := h.Repo.RenewLease(ctx, "j_r", other[0].ID, att.LeaseToken, "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrStaleAttempt) }},
+			{"terminal_job", func(h Harness, att *domain.Attempt) {
+				h.ForceJobState(t, "j_r", domain.StateSucceeded)
+			}, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrJobAlreadyTerminal) }},
+		}
+		for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+			state := state
+			cases = append(cases, struct {
+				name    string
+				prepare func(h Harness, att *domain.Attempt)
+				call    func(h Harness, att *domain.Attempt) error
+				check   func(err error) bool
+			}{"attempt_" + string(state), func(h Harness, att *domain.Attempt) {
+				h.ForceAttemptState(t, att.ID, state)
+			}, func(h Harness, att *domain.Attempt) error {
+				_, err := h.Repo.RenewLease(ctx, "j_r", att.ID, att.LeaseToken, "w_r")
+				return err
+			}, func(err error) bool { return errors.Is(err, domain.ErrStaleAttempt) }})
+		}
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.name, func(t *testing.T) {
+				h, att := setup(t)
+				h.SetLeaseExpiry(t, att.ID, 3*time.Second)
+				if tc.prepare != nil {
+					tc.prepare(h, att)
+				}
+				leaseBefore := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+				stateBefore := conformanceAttempt(t, h.Repo, att.ID).State
+				eventsBefore := len(conformanceEvents(t, h.Repo, "j_r"))
+				err := tc.call(h, att)
+				if err == nil || !tc.check(err) {
+					t.Fatalf("unexpected renewal result: %v", err)
+				}
+				after := conformanceAttempt(t, h.Repo, att.ID)
+				if !timesClose(requireLease(t, after), leaseBefore) || after.State != stateBefore {
+					t.Fatalf("rejected renewal changed the attempt: lease %v -> %v, state %s -> %s", leaseBefore, requireLease(t, after), stateBefore, after.State)
+				}
+				if n := len(conformanceEvents(t, h.Repo, "j_r")); n != eventsBefore {
+					t.Fatalf("rejected renewal recorded %d event(s)", n-eventsBefore)
+				}
+			})
+		}
+	})
+}
+
+// RunRenewLeaseRejectedAfterLostConformance verifies that a renewal naming an attempt the sweeper
+// already marked LOST gets ErrLeaseExpired, whether or not a newer attempt exists, and never
+// resurrects it. Wrapped by TestConformance_RenewLease_RejectedAfterLost.
+func RunRenewLeaseRejectedAfterLostConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	assertNotResurrected := func(t *testing.T, h Harness, attemptID string, leaseBefore time.Time) {
+		t.Helper()
+		att := conformanceAttempt(t, h.Repo, attemptID)
+		if att.State != domain.AttemptLost || !timesClose(requireLease(t, att), leaseBefore) {
+			t.Fatalf("LOST attempt changed by a rejected renewal: %+v (lease before %v)", att, leaseBefore)
+		}
+	}
+
+	t.Run("after_sweep_job_retrying", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_x", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_x", "w_x")
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{})
+		leaseBefore := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+		eventsBefore := len(conformanceEvents(t, h.Repo, "j_x"))
+
+		_, err := h.Repo.RenewLease(ctx, "j_x", att.ID, att.LeaseToken, "w_x")
+		if !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("renewal after sweep: want ErrLeaseExpired, got %v", err)
+		}
+		assertNotResurrected(t, h, att.ID, leaseBefore)
+		if job := conformanceJob(t, h.Repo, "j_x"); job.State != domain.StateRetrying {
+			t.Fatalf("job state = %s, want RETRYING (renewal must not resurrect the attempt)", job.State)
+		}
+		if n := len(conformanceEvents(t, h.Repo, "j_x")); n != eventsBefore {
+			t.Fatalf("rejected renewal recorded %d event(s)", n-eventsBefore)
+		}
+		if got := conformanceSlots(t, h.Repo, "w_x"); got != 1 {
+			t.Fatalf("worker slots = %d, want 1 (LOST attempt holds no slot)", got)
+		}
+	})
+
+	t.Run("superseded_lost_attempt", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_x", 1)
+		att1 := conformanceRunningJob(t, h.Repo, "j_x", "w_x")
+		h.SetLeaseExpiry(t, att1.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(0)})
+		att2 := conformanceDispatchNext(t, h.Repo, "w_x")
+		if att2.AttemptNo != 2 {
+			t.Fatalf("second attempt number = %d", att2.AttemptNo)
+		}
+		lease1 := requireLease(t, conformanceAttempt(t, h.Repo, att1.ID))
+		lease2 := requireLease(t, conformanceAttempt(t, h.Repo, att2.ID))
+
+		// Old attempt: LEASE_EXPIRED (it is LOST), even though it is also superseded.
+		if _, err := h.Repo.RenewLease(ctx, "j_x", att1.ID, att1.LeaseToken, "w_x"); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("renewal of the superseded LOST attempt: want ErrLeaseExpired, got %v", err)
+		}
+		// The ADR evaluates LOST before token mismatch, so a wrong token on a LOST attempt is also LEASE_EXPIRED.
+		if _, err := h.Repo.RenewLease(ctx, "j_x", att1.ID, "wrong", "w_x"); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("wrong token on a LOST attempt: want ErrLeaseExpired (ADR-0014 evaluation order), got %v", err)
+		}
+		assertNotResurrected(t, h, att1.ID, lease1)
+		if got := requireLease(t, conformanceAttempt(t, h.Repo, att2.ID)); !timesClose(got, lease2) {
+			t.Fatalf("rejected renewal of attempt 1 touched attempt 2's lease: %v -> %v", lease2, got)
+		}
+		// The live attempt keeps renewing.
+		if _, err := h.Repo.RenewLease(ctx, "j_x", att2.ID, att2.LeaseToken, "w_x"); err != nil {
+			t.Fatalf("renewal of the current attempt failed: %v", err)
+		}
+	})
+
+	t.Run("lost_attempt_forced_on_current_attempt", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_x", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_x", "w_x")
+		h.ForceAttemptState(t, att.ID, domain.AttemptLost)
+		if _, err := h.Repo.RenewLease(ctx, "j_x", att.ID, att.LeaseToken, "w_x"); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("renewal of a LOST current attempt: want ErrLeaseExpired, got %v", err)
+		}
+	})
+}
+
+// RunSweepRetryOrFailConformance verifies how SweepExpiredLeases resolves each kind of expired
+// attempt (ADR-0014 sweeper state resolution rules, plan R-02). Wrapped by
+// TestConformance_SweepExpiredLeases_RetryOrFail.
+func RunSweepRetryOrFailConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	setup := func(t *testing.T, maxAttempts int) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_s", 1)
+		conformanceJobN(t, h.Repo, "j_s", maxAttempts)
+		att, err := h.Repo.DispatchJob(ctx, "j_s", "w_s")
+		if err != nil {
+			t.Fatalf("DispatchJob failed: %v", err)
+		}
+		return h, att
+	}
+	requireDetail := func(t *testing.T, ev *domain.JobEvent, keys ...string) {
+		t.Helper()
+		for _, k := range keys {
+			if _, ok := ev.Details[k]; !ok {
+				t.Fatalf("event %s details %v lack %q", ev.EventType, ev.Details, k)
+			}
+		}
+	}
+
+	t.Run("retry_when_attempts_remain", func(t *testing.T) {
+		h, att := setup(t, 3)
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		var asked []int
+		backoff := func(n int) time.Duration { asked = append(asked, n); return 7 * time.Second }
+		lo := h.Now(t)
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: backoff})
+		hi := h.Now(t)
+
+		if res.Candidates != 1 || len(res.Swept) != 1 || res.SkippedLocked != 0 || res.SuppressedByGrace != 0 || res.SkippedChanged != 0 {
+			t.Fatalf("sweep result = %+v", res)
+		}
+		out := res.Swept[0]
+		if out.JobID != "j_s" || out.AttemptID != att.ID || out.AttemptState != domain.AttemptLost || out.JobState != domain.StateRetrying {
+			t.Fatalf("outcome = %+v", out)
+		}
+		if len(asked) != 1 || asked[0] != 1 {
+			t.Fatalf("backoff asked for attempts %v, want [1] (the attempt that was lost)", asked)
+		}
+		a := conformanceAttempt(t, h.Repo, att.ID)
+		if a.State != domain.AttemptLost || a.ErrorClass != domain.ClassLeaseExpired || a.FinishedAt == nil || a.Error != "lease expired: worker failed to renew" {
+			t.Fatalf("lost attempt = %+v", a)
+		}
+		job := conformanceJob(t, h.Repo, "j_s")
+		if job.State != domain.StateRetrying || job.NotBefore == nil || job.Result != nil {
+			t.Fatalf("job = %+v", job)
+		}
+		if job.NotBefore.Before(lo.Add(7*time.Second).Add(-leaseTolerance)) || job.NotBefore.After(hi.Add(7*time.Second).Add(leaseTolerance)) {
+			t.Fatalf("not_before %v not within [%v, %v] (sweep time + 7s)", *job.NotBefore, lo.Add(7*time.Second), hi.Add(7*time.Second))
+		}
+		if got := conformanceSlots(t, h.Repo, "w_s"); got != 1 {
+			t.Fatalf("worker slots = %d, want 1 (slot freed)", got)
+		}
+		events := conformanceEvents(t, h.Repo, "j_s")
+		requireEventTail(t, events, domain.JobEventLeaseExpired, domain.JobEventRetrying)
+		lease, retry := events[len(events)-2], events[len(events)-1]
+		requireDetail(t, lease, "attempt_id", "worker_id")
+		requireDetail(t, retry, "attempt_no", "not_before", "backoff_seconds")
+		if retry.FromState == nil || *retry.FromState != domain.StateRunning || retry.ToState == nil || *retry.ToState != domain.StateRetrying {
+			t.Fatalf("JOB_RETRYING states = %v -> %v", retry.FromState, retry.ToState)
+		}
+		if lease.AttemptID == nil || *lease.AttemptID != att.ID || retry.AttemptID == nil || *retry.AttemptID != att.ID {
+			t.Fatalf("events must carry the attempt id")
+		}
+
+		// Not eligible for dispatch before not_before.
+		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_s"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("dispatch before not_before: want ErrNoQueuedJobs, got %v", err)
+		}
+		// A second sweep finds nothing: the attempt is closed.
+		if again := conformanceSweep(t, h.Repo, domain.SweepParams{}); again.Candidates != 0 || len(again.Swept) != 0 {
+			t.Fatalf("second sweep = %+v", again)
+		}
+	})
+
+	t.Run("redispatch_once_not_before_reached_uses_attempt_number_2", func(t *testing.T) {
+		h, att := setup(t, 3)
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(0)})
+		att2 := conformanceDispatchNext(t, h.Repo, "w_s")
+		if att2.AttemptNo != 2 || att2.ID == att.ID {
+			t.Fatalf("redispatched attempt = %+v", att2)
+		}
+		if job := conformanceJob(t, h.Repo, "j_s"); job.State != domain.StateRunning || job.NotBefore != nil {
+			t.Fatalf("job after redispatch = %+v", job)
+		}
+		if conformanceAttemptState(t, h.Repo, att.ID) != domain.AttemptLost {
+			t.Fatalf("attempt 1 must stay LOST")
+		}
+	})
+
+	t.Run("fail_when_attempts_exhausted", func(t *testing.T) {
+		h, att := setup(t, 1)
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		asked := 0
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: func(int) time.Duration { asked++; return time.Second }})
+		if len(res.Swept) != 1 || res.Swept[0].JobState != domain.StateFailed || res.Swept[0].AttemptState != domain.AttemptLost {
+			t.Fatalf("sweep result = %+v", res)
+		}
+		if asked != 0 {
+			t.Fatalf("backoff consulted %d times for an exhausted job", asked)
+		}
+		a := conformanceAttempt(t, h.Repo, att.ID)
+		if a.State != domain.AttemptLost || a.ErrorClass != domain.ClassLeaseExpired {
+			t.Fatalf("attempt = %+v", a)
+		}
+		job := conformanceJob(t, h.Repo, "j_s")
+		if job.State != domain.StateFailed || job.NotBefore != nil || job.Result != nil {
+			t.Fatalf("job = %+v (a swept job has no worker-committed result)", job)
+		}
+		if got := conformanceSlots(t, h.Repo, "w_s"); got != 1 {
+			t.Fatalf("worker slots = %d, want 1", got)
+		}
+		events := conformanceEvents(t, h.Repo, "j_s")
+		requireEventTail(t, events, domain.JobEventLeaseExpired, domain.JobEventFailed)
+		failed := events[len(events)-1]
+		if failed.Details["error"] != "max attempts exhausted" || failed.Details["error_class"] != string(domain.ClassLeaseExpired) {
+			t.Fatalf("JOB_FAILED details = %v", failed.Details)
+		}
+		if countEvents(events, domain.JobEventRetrying) != 0 {
+			t.Fatalf("exhausted job recorded JOB_RETRYING")
+		}
+	})
+
+	t.Run("lost_attempts_consume_max_attempts", func(t *testing.T) {
+		h, att := setup(t, 3)
+		for n := 1; n <= 3; n++ {
+			h.SetLeaseExpiry(t, att.ID, -time.Second)
+			res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(0)})
+			want := domain.StateRetrying
+			if n == 3 {
+				want = domain.StateFailed
+			}
+			if len(res.Swept) != 1 || res.Swept[0].JobState != want {
+				t.Fatalf("sweep %d result = %+v, want job %s", n, res, want)
+			}
+			if n < 3 {
+				att = conformanceDispatchNext(t, h.Repo, "w_s")
+				if att.AttemptNo != n+1 {
+					t.Fatalf("attempt number after sweep %d = %d", n, att.AttemptNo)
+				}
+			}
+		}
+		if job := conformanceJob(t, h.Repo, "j_s"); job.State != domain.StateFailed {
+			t.Fatalf("job = %s after 3 lost attempts, want FAILED", job.State)
+		}
+		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_s"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("a FAILED job must not be dispatchable: %v", err)
+		}
+	})
+
+	t.Run("cancel_requested_records_only_job_cancelled", func(t *testing.T) {
+		h, att := setup(t, 3)
+		if _, err := h.Repo.CancelJob(ctx, "j_s"); err != nil {
+			t.Fatalf("CancelJob failed: %v", err)
+		}
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		asked := 0
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: func(int) time.Duration { asked++; return 0 }})
+		if len(res.Swept) != 1 || res.Swept[0].AttemptState != domain.AttemptCancelled || res.Swept[0].JobState != domain.StateCancelled {
+			t.Fatalf("sweep result = %+v", res)
+		}
+		if asked != 0 {
+			t.Fatalf("a cancelled job consulted the retry backoff")
+		}
+		a := conformanceAttempt(t, h.Repo, att.ID)
+		if a.State != domain.AttemptCancelled || a.FinishedAt == nil {
+			t.Fatalf("attempt = %+v", a)
+		}
+		job := conformanceJob(t, h.Repo, "j_s")
+		if job.State != domain.StateCancelled || job.NotBefore != nil {
+			t.Fatalf("job = %+v (cancel wins, never RETRYING, even with attempts left)", job)
+		}
+		events := conformanceEvents(t, h.Repo, "j_s")
+		requireEventTail(t, events, domain.JobEventCancelRequested, domain.JobEventCancelled)
+		if countEvents(events, domain.JobEventLeaseExpired) != 0 || countEvents(events, domain.JobEventRetrying) != 0 || countEvents(events, domain.JobEventCancelled) != 1 {
+			t.Fatalf("a CANCEL_REQUESTED sweep must record only JOB_CANCELLED, events = %v", eventTypes(events))
+		}
+		ev := events[len(events)-1]
+		if ev.Details["resolved_by"] != "lease_sweeper" || ev.FromState == nil || *ev.FromState != domain.StateCancelRequested || ev.ToState == nil || *ev.ToState != domain.StateCancelled {
+			t.Fatalf("JOB_CANCELLED = %+v details %v", ev, ev.Details)
+		}
+		if got := conformanceSlots(t, h.Repo, "w_s"); got != 1 {
+			t.Fatalf("worker slots = %d, want 1", got)
+		}
+	})
+
+	t.Run("terminal_job_closes_attempt_without_touching_the_job", func(t *testing.T) {
+		cases := []struct {
+			jobState domain.JobState
+			want     domain.AttemptState
+		}{
+			{domain.StateCancelled, domain.AttemptCancelled},
+			{domain.StateSucceeded, domain.AttemptLost},
+			{domain.StateFailed, domain.AttemptLost},
+		}
+		for _, tc := range cases {
+			tc := tc
+			t.Run(string(tc.jobState), func(t *testing.T) {
+				h, att := setup(t, 3)
+				h.ForceJobState(t, "j_s", tc.jobState)
+				jobBefore := conformanceJob(t, h.Repo, "j_s")
+				eventsBefore := len(conformanceEvents(t, h.Repo, "j_s"))
+				h.SetLeaseExpiry(t, att.ID, -time.Second)
+				res := conformanceSweep(t, h.Repo, domain.SweepParams{})
+				if len(res.Swept) != 1 || res.Swept[0].AttemptState != tc.want || res.Swept[0].JobState != tc.jobState {
+					t.Fatalf("sweep result = %+v", res)
+				}
+				a := conformanceAttempt(t, h.Repo, att.ID)
+				if a.State != tc.want || a.FinishedAt == nil {
+					t.Fatalf("attempt = %+v, want %s", a, tc.want)
+				}
+				if tc.want == domain.AttemptLost && a.ErrorClass != domain.ClassLeaseExpired {
+					t.Fatalf("LOST attempt error_class = %q", a.ErrorClass)
+				}
+				if tc.want == domain.AttemptCancelled && a.ErrorClass != "" {
+					t.Fatalf("CANCELLED attempt error_class = %q, want none", a.ErrorClass)
+				}
+				jobAfter := conformanceJob(t, h.Repo, "j_s")
+				if jobAfter.State != jobBefore.State || !jobAfter.UpdatedAt.Equal(jobBefore.UpdatedAt) || jobAfter.NotBefore != nil {
+					t.Fatalf("terminal job mutated: before=%+v after=%+v", jobBefore, jobAfter)
+				}
+				events := conformanceEvents(t, h.Repo, "j_s")
+				if len(events) != eventsBefore+1 || events[len(events)-1].EventType != domain.JobEventLeaseExpired {
+					t.Fatalf("events = %v, want exactly one new LEASE_EXPIRED", eventTypes(events))
+				}
+				if got := conformanceSlots(t, h.Repo, "w_s"); got != 1 {
+					t.Fatalf("worker slots = %d, want 1", got)
+				}
+			})
+		}
+	})
+
+	t.Run("candidates_are_only_expired_running_attempts", func(t *testing.T) {
+		h, att := setup(t, 3)
+		h.SetLeaseExpiry(t, att.ID, time.Minute)
+		if res := conformanceSweep(t, h.Repo, domain.SweepParams{}); res.Candidates != 0 {
+			t.Fatalf("an unexpired attempt was a candidate: %+v", res)
+		}
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		h.ForceAttemptState(t, att.ID, domain.AttemptCompleted)
+		if res := conformanceSweep(t, h.Repo, domain.SweepParams{}); res.Candidates != 0 {
+			t.Fatalf("a COMPLETED attempt was a candidate: %+v", res)
+		}
+	})
+
+	t.Run("limit_bounds_the_batch_oldest_lease_first", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_s", 3)
+		atts := make([]*domain.Attempt, 3)
+		for i := range atts {
+			atts[i] = conformanceRunningJob(t, h.Repo, fmt.Sprintf("j_b%d", i), "w_s")
+		}
+		// Lease ages: j_b2 oldest, then j_b0, then j_b1.
+		h.SetLeaseExpiry(t, atts[2].ID, -30*time.Second)
+		h.SetLeaseExpiry(t, atts[0].ID, -20*time.Second)
+		h.SetLeaseExpiry(t, atts[1].ID, -10*time.Second)
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Limit: 2})
+		if res.Candidates != 2 || len(res.Swept) != 2 || res.Swept[0].AttemptID != atts[2].ID || res.Swept[1].AttemptID != atts[0].ID {
+			t.Fatalf("limited sweep = %+v, want the two oldest leases (%s, %s)", res, atts[2].ID, atts[0].ID)
+		}
+		if conformanceAttemptState(t, h.Repo, atts[1].ID) != domain.AttemptRunning {
+			t.Fatalf("the third attempt was swept beyond the limit")
+		}
+		if res := conformanceSweep(t, h.Repo, domain.SweepParams{Limit: 2}); len(res.Swept) != 1 || res.Swept[0].AttemptID != atts[1].ID {
+			t.Fatalf("second limited sweep = %+v", res)
+		}
+	})
+
+	t.Run("nil_backoff_is_rejected_and_nothing_changes", func(t *testing.T) {
+		h, att := setup(t, 3)
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		_, err := h.Repo.SweepExpiredLeases(ctx, domain.SweepParams{})
+		if !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("nil Backoff: want ErrInvalidRequest, got %v", err)
+		}
+		if conformanceAttemptState(t, h.Repo, att.ID) != domain.AttemptRunning {
+			t.Fatalf("a rejected sweep changed the attempt")
+		}
+	})
+}
+
+// RunSweepGraceInputConformance verifies the in-lock grace check driven by the caller's grace
+// state (ADR-0014): while the state suppresses reaping, nothing is mutated and nothing is
+// extended; the cooldown lifts an outage window but not the startup grace. Wrapped by
+// TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping.
+func RunSweepGraceInputConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	for _, kind := range []string{"running", "cancel_requested", "terminal_job"} {
+		kind := kind
+		t.Run("job_"+kind, func(t *testing.T) {
+			h := newHarness(t)
+			requireLeaseHooks(t, h)
+			conformanceWorker(t, h.Repo, "w_g", 1)
+			att := conformanceRunningJob(t, h.Repo, "j_g", "w_g")
+			switch kind {
+			case "cancel_requested":
+				if _, err := h.Repo.CancelJob(ctx, "j_g"); err != nil {
+					t.Fatalf("CancelJob failed: %v", err)
+				}
+			case "terminal_job":
+				h.ForceJobState(t, "j_g", domain.StateCancelled)
+			}
+			h.SetLeaseExpiry(t, att.ID, -time.Second)
+			jobBefore := conformanceJob(t, h.Repo, "j_g")
+			attBefore := conformanceAttempt(t, h.Repo, att.ID)
+			eventsBefore := len(conformanceEvents(t, h.Repo, "j_g"))
+			slotsBefore := conformanceSlots(t, h.Repo, "w_g")
+
+			future := h.Now(t).Add(time.Hour)
+			past := h.Now(t).Add(-time.Hour)
+			suppressing := map[string]domain.SweepGraceState{
+				"startup_grace":                 {StartupGraceUntil: future},
+				"outage_window":                 {OutageWindowUntil: future},
+				"cooldown_does_not_end_startup": {StartupGraceUntil: future, CooldownUntil: future},
+			}
+			for name, grace := range suppressing {
+				res := conformanceSweep(t, h.Repo, domain.SweepParams{Grace: grace})
+				if res.Candidates != 1 || len(res.Swept) != 0 || res.SuppressedByGrace != 1 {
+					t.Fatalf("%s: sweep result = %+v, want the candidate suppressed", name, res)
+				}
+				jobAfter, attAfter := conformanceJob(t, h.Repo, "j_g"), conformanceAttempt(t, h.Repo, att.ID)
+				if jobAfter.State != jobBefore.State || !jobAfter.UpdatedAt.Equal(jobBefore.UpdatedAt) {
+					t.Fatalf("%s: job mutated %+v -> %+v", name, jobBefore, jobAfter)
+				}
+				if attAfter.State != attBefore.State || !timesClose(requireLease(t, attAfter), requireLease(t, attBefore)) || attAfter.FinishedAt != nil {
+					t.Fatalf("%s: attempt mutated %+v -> %+v", name, attBefore, attAfter)
+				}
+				if n := len(conformanceEvents(t, h.Repo, "j_g")); n != eventsBefore {
+					t.Fatalf("%s: %d event(s) recorded while suppressed", name, n-eventsBefore)
+				}
+				if got := conformanceSlots(t, h.Repo, "w_g"); got != slotsBefore {
+					t.Fatalf("%s: worker slots changed %d -> %d", name, slotsBefore, got)
+				}
+			}
+
+			// Grace that has ended, a cooldown over an outage window, and the zero value all let reaping proceed.
+			proceeding := domain.SweepGraceState{StartupGraceUntil: past, OutageWindowUntil: past}
+			if kind == "running" {
+				proceeding = domain.SweepGraceState{OutageWindowUntil: future, CooldownUntil: future}
+			}
+			res := conformanceSweep(t, h.Repo, domain.SweepParams{Grace: proceeding})
+			if len(res.Swept) != 1 || res.SuppressedByGrace != 0 {
+				t.Fatalf("sweep with non-suppressing grace %+v = %+v, want the attempt swept", proceeding, res)
+			}
+			if conformanceAttemptState(t, h.Repo, att.ID) == domain.AttemptRunning {
+				t.Fatalf("attempt still RUNNING after an unsuppressed sweep")
+			}
+		})
+	}
+}
+
+// RunCommitAttemptConflictOrderConformance verifies the CommitAttempt 409 evaluation order of
+// ADR-0014 / protocol 6.3: terminal job, then swept (LOST) attempt, then superseded / not RUNNING /
+// wrong token. A late commit on a LOST attempt records one bounded DIAGNOSTIC_LATE_RESULT and is
+// never stored. Wrapped by TestConformance_CommitAttempt_ConflictEvaluationOrder.
+func RunCommitAttemptConflictOrderConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	commit := func(h Harness, jobID string, att *domain.Attempt, token string) error {
+		_, err := h.Repo.CommitAttempt(ctx, jobID, att.ID, token, "w_c", domain.AttemptOutcome{ExitCode: 0, Output: "late"})
+		return err
+	}
+	diagnostics := func(t *testing.T, h Harness, jobID string) []*domain.JobEvent {
+		var out []*domain.JobEvent
+		for _, e := range conformanceEvents(t, h.Repo, jobID) {
+			if e.EventType == domain.JobEventDiagnosticLateResult {
+				out = append(out, e)
+			}
+		}
+		return out
+	}
+
+	t.Run("swept_attempt_is_lease_expired_with_one_bounded_diagnostic", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_c", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_c", "w_c")
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(time.Hour)})
+		jobBefore := conformanceJob(t, h.Repo, "j_c")
+		attBefore := conformanceAttempt(t, h.Repo, att.ID)
+
+		for i := 0; i < 5; i++ {
+			if err := commit(h, "j_c", att, att.LeaseToken); !errors.Is(err, domain.ErrLeaseExpired) {
+				t.Fatalf("commit %d on a LOST attempt: want ErrLeaseExpired, got %v", i, err)
+			}
+		}
+		if d := diagnostics(t, h, "j_c"); len(d) != 1 {
+			t.Fatalf("%d DIAGNOSTIC_LATE_RESULT events after 5 late commits, want exactly 1", len(d))
+		} else if d[0].AttemptID == nil || *d[0].AttemptID != att.ID || d[0].Details["attempt_id"] != att.ID || d[0].Details["rejected"] != true {
+			t.Fatalf("diagnostic event = %+v details %v", d[0], d[0].Details)
+		}
+		jobAfter, attAfter := conformanceJob(t, h.Repo, "j_c"), conformanceAttempt(t, h.Repo, att.ID)
+		if jobAfter.State != jobBefore.State || jobAfter.Result != nil || !jobAfter.UpdatedAt.Equal(jobBefore.UpdatedAt) {
+			t.Fatalf("late commit changed the job: %+v -> %+v", jobBefore, jobAfter)
+		}
+		if attAfter.State != domain.AttemptLost || attAfter.Output != attBefore.Output || (attAfter.FinishedAt == nil) != (attBefore.FinishedAt == nil) {
+			t.Fatalf("late commit changed the LOST attempt: %+v -> %+v", attBefore, attAfter)
+		}
+	})
+
+	t.Run("lost_is_evaluated_before_token_mismatch_and_supersession", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_c", 1)
+		att1 := conformanceRunningJob(t, h.Repo, "j_c", "w_c")
+		h.SetLeaseExpiry(t, att1.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(0)})
+		att2 := conformanceDispatchNext(t, h.Repo, "w_c")
+
+		// FS-04: the old worker commits after a new attempt started.
+		if err := commit(h, "j_c", att1, att1.LeaseToken); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("old attempt, right token: want ErrLeaseExpired, got %v", err)
+		}
+		if err := commit(h, "j_c", att1, "wrong-token"); !errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("old attempt, wrong token: want ErrLeaseExpired (LOST precedes token mismatch), got %v", err)
+		}
+		if d := diagnostics(t, h, "j_c"); len(d) != 1 {
+			t.Fatalf("%d diagnostics, want 1 per attempt", len(d))
+		}
+		// The live attempt is untouched and a wrong token on it is STALE, with no diagnostic.
+		if err := commit(h, "j_c", att2, "wrong-token"); !errors.Is(err, domain.ErrStaleAttempt) || errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("wrong token on the live attempt: want ErrStaleAttempt, got %v", err)
+		}
+		if d := diagnostics(t, h, "j_c"); len(d) != 1 {
+			t.Fatalf("a stale-token rejection recorded a diagnostic")
+		}
+		if job := conformanceJob(t, h.Repo, "j_c"); job.State != domain.StateRunning || conformanceAttemptState(t, h.Repo, att2.ID) != domain.AttemptRunning {
+			t.Fatalf("live attempt disturbed: job %s", job.State)
+		}
+		if err := commit(h, "j_c", att2, att2.LeaseToken); err != nil {
+			t.Fatalf("the live attempt could not commit: %v", err)
+		}
+	})
+
+	t.Run("terminal_job_beats_lost_attempt", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_c", 1)
+		conformanceJobN(t, h.Repo, "j_c", 1)
+		att, err := h.Repo.DispatchJob(ctx, "j_c", "w_c")
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{}) // max_attempts 1: job FAILED, attempt LOST
+		if job := conformanceJob(t, h.Repo, "j_c"); job.State != domain.StateFailed {
+			t.Fatalf("setup: job = %s", job.State)
+		}
+		for i := 0; i < 3; i++ {
+			if err := commit(h, "j_c", att, att.LeaseToken); !errors.Is(err, domain.ErrJobAlreadyTerminal) || errors.Is(err, domain.ErrLeaseExpired) {
+				t.Fatalf("commit on a terminal job with a LOST attempt: want ErrJobAlreadyTerminal, got %v", err)
+			}
+		}
+		if got := conformanceAttemptState(t, h.Repo, att.ID); got != domain.AttemptLost {
+			t.Fatalf("attempt = %s, a closed attempt must never be overwritten", got)
+		}
+		if d := diagnostics(t, h, "j_c"); len(d) != 1 {
+			t.Fatalf("%d diagnostics, want 1", len(d))
+		}
+	})
+
+	t.Run("non_lost_non_running_and_unknown_attempts_are_stale_without_diagnostic", func(t *testing.T) {
+		for _, state := range []domain.AttemptState{domain.AttemptCompleted, domain.AttemptFailed, domain.AttemptCancelled, domain.AttemptTimedOut} {
+			h := newHarness(t)
+			conformanceWorker(t, h.Repo, "w_c", 1)
+			att := conformanceRunningJob(t, h.Repo, "j_c", "w_c")
+			h.ForceAttemptState(t, att.ID, state)
+			if err := commit(h, "j_c", att, att.LeaseToken); !errors.Is(err, domain.ErrStaleAttempt) {
+				t.Fatalf("%s attempt: want ErrStaleAttempt, got %v", state, err)
+			}
+			if d := diagnostics(t, h, "j_c"); len(d) != 0 {
+				t.Fatalf("%s attempt: stale rejection recorded %d diagnostic(s)", state, len(d))
+			}
+		}
+		h := newHarness(t)
+		conformanceWorker(t, h.Repo, "w_c", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_c", "w_c")
+		ghost := &domain.Attempt{ID: "no_such_attempt"}
+		if err := commit(h, "j_c", ghost, att.LeaseToken); !errors.Is(err, domain.ErrStaleAttempt) {
+			t.Fatalf("unknown attempt: want ErrStaleAttempt, got %v", err)
+		}
+		if d := diagnostics(t, h, "j_c"); len(d) != 0 {
+			t.Fatalf("unknown attempt recorded %d diagnostic(s)", len(d))
+		}
+	})
+
+	t.Run("lost_attempt_of_another_job_is_not_disclosed_or_recorded", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_c", 2)
+		lost := conformanceRunningJob(t, h.Repo, "j_lost", "w_c")
+		h.SetLeaseExpiry(t, lost.ID, -time.Second)
+		conformanceSweep(t, h.Repo, domain.SweepParams{})
+		conformanceRunningJob(t, h.Repo, "j_live", "w_c")
+		if err := commit(h, "j_live", lost, lost.LeaseToken); !errors.Is(err, domain.ErrStaleAttempt) || errors.Is(err, domain.ErrLeaseExpired) {
+			t.Fatalf("another job's LOST attempt named on j_live: want ErrStaleAttempt, got %v", err)
+		}
+		if d := diagnostics(t, h, "j_live"); len(d) != 0 {
+			t.Fatalf("a foreign attempt recorded %d diagnostic(s) on j_live", len(d))
+		}
+	})
+
+	t.Run("expired_but_unswept_attempt_still_commits", func(t *testing.T) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_c", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_c", "w_c")
+		h.SetLeaseExpiry(t, att.ID, -time.Minute)
+		if err := commit(h, "j_c", att, att.LeaseToken); err != nil {
+			t.Fatalf("commit of an expired but unswept attempt rejected: %v", err)
+		}
+		if job := conformanceJob(t, h.Repo, "j_c"); job.State != domain.StateSucceeded {
+			t.Fatalf("job = %s", job.State)
+		}
+	})
+}
+
+// RunRetryingJobParityConformance verifies, on both backends, how a job the sweeper put into
+// RETRYING behaves: it is listed and dispatchable (by id and by queue order) only once not_before
+// has been reached, and a cancel clears the gate, while the first cancel of a RUNNING job stamps
+// cancel_requested_at once. Wrapped by TestConformance_RetryingJob_DispatchAndCancelParity.
+func RunRetryingJobParityConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	ctx := context.Background()
+	retrying := func(t *testing.T, backoff time.Duration) (Harness, *domain.Attempt) {
+		h := newHarness(t)
+		requireLeaseHooks(t, h)
+		conformanceWorker(t, h.Repo, "w_p", 1)
+		att := conformanceRunningJob(t, h.Repo, "j_p", "w_p")
+		h.SetLeaseExpiry(t, att.ID, -time.Second)
+		res := conformanceSweep(t, h.Repo, domain.SweepParams{Backoff: conformanceBackoff(backoff)})
+		if len(res.Swept) != 1 || res.Swept[0].JobState != domain.StateRetrying {
+			t.Fatalf("setup sweep = %+v", res)
+		}
+		return h, att
+	}
+	listed := func(t *testing.T, h Harness) bool {
+		t.Helper()
+		jobs, err := h.Repo.ListQueuedJobs(ctx)
+		if err != nil {
+			t.Fatalf("ListQueuedJobs failed: %v", err)
+		}
+		for _, j := range jobs {
+			if j.ID == "j_p" {
+				return true
+			}
+		}
+		return false
+	}
+
+	t.Run("before_not_before_not_listed_not_dispatchable", func(t *testing.T) {
+		h, _ := retrying(t, time.Hour)
+		if listed(t, h) {
+			t.Fatal("a RETRYING job inside its backoff is listed as dispatchable")
+		}
+		if _, err := h.Repo.DispatchJob(ctx, "j_p", "w_p"); !errors.Is(err, domain.ErrJobNotQueued) {
+			t.Fatalf("DispatchJob inside the backoff: want ErrJobNotQueued, got %v", err)
+		}
+		if _, _, err := h.Repo.DispatchNextJob(ctx, "w_p"); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("DispatchNextJob inside the backoff: want ErrNoQueuedJobs, got %v", err)
+		}
+	})
+
+	t.Run("after_not_before_listed_and_dispatchable_by_id", func(t *testing.T) {
+		h, att1 := retrying(t, 0)
+		if !listed(t, h) {
+			t.Fatal("a RETRYING job past its backoff is not listed")
+		}
+		att2, err := h.Repo.DispatchJob(ctx, "j_p", "w_p")
+		if err != nil {
+			t.Fatalf("DispatchJob past the backoff failed: %v", err)
+		}
+		if att2.AttemptNo != 2 || att2.ID == att1.ID {
+			t.Fatalf("second attempt = %+v", att2)
+		}
+		job := conformanceJob(t, h.Repo, "j_p")
+		if job.State != domain.StateRunning || job.NotBefore != nil {
+			t.Fatalf("job after dispatch = %+v", job)
+		}
+		events := conformanceEvents(t, h.Repo, "j_p")
+		last := events[len(events)-1]
+		if last.EventType != domain.JobEventDispatched || last.FromState == nil || *last.FromState != domain.StateRetrying {
+			t.Fatalf("dispatch event = %+v, want JOB_DISPATCHED from RETRYING", last)
+		}
+	})
+
+	t.Run("cancel_during_backoff_clears_the_gate", func(t *testing.T) {
+		h, _ := retrying(t, time.Hour)
+		if before := conformanceJob(t, h.Repo, "j_p"); before.NotBefore == nil {
+			t.Fatalf("setup: RETRYING job has no not_before")
+		}
+		job, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil {
+			t.Fatalf("CancelJob failed: %v", err)
+		}
+		stored := conformanceJob(t, h.Repo, "j_p")
+		if job.State != domain.StateCancelled || job.NotBefore != nil || stored.State != domain.StateCancelled || stored.NotBefore != nil || stored.CancelRequestedAt != nil {
+			t.Fatalf("cancel of a RETRYING job: returned %+v, stored %+v", job, stored)
+		}
+		if listed(t, h) {
+			t.Fatal("a cancelled RETRYING job is still listed")
+		}
+	})
+
+	t.Run("cancel_requested_at_is_stamped_once", func(t *testing.T) {
+		h := newHarness(t)
+		conformanceWorker(t, h.Repo, "w_p", 1)
+		conformanceRunningJob(t, h.Repo, "j_p", "w_p")
+		first, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil || first.State != domain.StateCancelRequested || first.CancelRequestedAt == nil {
+			t.Fatalf("first cancel = %+v, %v", first, err)
+		}
+		stored := conformanceJob(t, h.Repo, "j_p")
+		if stored.CancelRequestedAt == nil || !timesClose(*stored.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("stored cancel_requested_at %v != returned %v", stored.CancelRequestedAt, first.CancelRequestedAt)
+		}
+		second, err := h.Repo.CancelJob(ctx, "j_p")
+		if err != nil || second.CancelRequestedAt == nil || !timesClose(*second.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("duplicate cancel = %+v, %v; cancel_requested_at must not move", second, err)
+		}
+		if again := conformanceJob(t, h.Repo, "j_p"); again.CancelRequestedAt == nil || !timesClose(*again.CancelRequestedAt, *first.CancelRequestedAt) {
+			t.Fatalf("stored cancel_requested_at moved on the duplicate cancel: %v", again.CancelRequestedAt)
+		}
+	})
+
+	t.Run("queued_cancel_has_no_cancel_requested_at", func(t *testing.T) {
+		h := newHarness(t)
+		conformanceQueuedJob(t, h.Repo, "j_p")
+		if job, err := h.Repo.CancelJob(ctx, "j_p"); err != nil || job.CancelRequestedAt != nil {
+			t.Fatalf("cancel of a QUEUED job = %+v, %v", job, err)
+		}
+	})
+}
+
+// RunNowConformance verifies Repository.Now, the clock the sweeper uses for every grace instant
+// (owner decision Q-1: one clock domain). Now must be the repository's own clock: it brackets
+// between two reads of that clock, never goes backwards, and sits on the same timeline as the
+// lease a dispatch stamps (lease_expires_at minus Now is the lease duration). Wrapped by
+// TestConformance_Now_IsRepositoryClock.
+func RunNowConformance(t *testing.T, newHarness func(t *testing.T) Harness) {
+	h := newHarness(t)
+	requireLeaseHooks(t, h)
+	ctx := context.Background()
+
+	lo := h.Now(t)
+	first, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("Now failed: %v", err)
+	}
+	hi := h.Now(t)
+	if first.Before(lo.Add(-leaseTolerance)) || first.After(hi.Add(leaseTolerance)) {
+		t.Fatalf("Now = %v, want within [%v, %v] of the repository clock", first, lo, hi)
+	}
+
+	second, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("second Now failed: %v", err)
+	}
+	if second.Before(first) {
+		t.Fatalf("Now went backwards: %v then %v", first, second)
+	}
+
+	conformanceWorker(t, h.Repo, "w_now", 1)
+	conformanceQueuedJob(t, h.Repo, "j_now")
+	att := conformanceDispatchNext(t, h.Repo, "w_now")
+	after, err := h.Repo.Now(ctx)
+	if err != nil {
+		t.Fatalf("Now after dispatch failed: %v", err)
+	}
+	lease := requireLease(t, conformanceAttempt(t, h.Repo, att.ID))
+	remaining := lease.Sub(after)
+	if remaining > h.LeaseDuration+leaseTolerance || remaining < h.LeaseDuration-time.Second {
+		t.Fatalf("lease_expires_at - Now = %v, want about the lease duration %v (Now must share the lease clock)", remaining, h.LeaseDuration)
 	}
 }

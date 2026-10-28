@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -22,6 +23,10 @@ func clearEnv() {
 	os.Unsetenv("MINICLOUD_DB_MAX_CONNS")
 	os.Unsetenv("MINICLOUD_DB_MIN_CONNS")
 	os.Unsetenv("MINICLOUD_DB_QUERY_TIMEOUT")
+	os.Unsetenv("MINICLOUD_LEASE_DURATION")
+	os.Unsetenv("MINICLOUD_SWEEPER_INTERVAL")
+	os.Unsetenv("MINICLOUD_STARTUP_GRACE_PERIOD")
+	os.Unsetenv("MINICLOUD_OUTAGE_GRACE_WINDOW")
 }
 
 func TestLoadCoordinatorConfig_Defaults(t *testing.T) {
@@ -150,5 +155,98 @@ func TestLoadCoordinatorConfig_ValidationFailures(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %v", tc.errContains, err)
 			}
 		})
+	}
+}
+
+func TestLoadCoordinatorConfig_LeaseDefaults(t *testing.T) {
+	clearEnv()
+	cfg, err := config.LoadCoordinatorConfig()
+	if err != nil {
+		t.Fatalf("default config rejected: %v", err)
+	}
+	if cfg.LeaseDuration != 30*time.Second {
+		t.Errorf("LeaseDuration = %v, want 30s", cfg.LeaseDuration)
+	}
+	if cfg.SweeperInterval != 5*time.Second {
+		t.Errorf("SweeperInterval = %v, want 5s", cfg.SweeperInterval)
+	}
+	if cfg.StartupGracePeriod != 30*time.Second {
+		t.Errorf("StartupGracePeriod = %v, want 30s", cfg.StartupGracePeriod)
+	}
+	if cfg.OutageGraceWindow != 30*time.Second {
+		t.Errorf("OutageGraceWindow = %v, want 30s", cfg.OutageGraceWindow)
+	}
+}
+
+func TestLoadCoordinatorConfig_LeaseSettingsFromEnv(t *testing.T) {
+	clearEnv()
+	t.Setenv("MINICLOUD_LEASE_DURATION", "20s")
+	t.Setenv("MINICLOUD_SWEEPER_INTERVAL", "2s")
+	t.Setenv("MINICLOUD_STARTUP_GRACE_PERIOD", "45s")
+	t.Setenv("MINICLOUD_OUTAGE_GRACE_WINDOW", "20s")
+	cfg, err := config.LoadCoordinatorConfig()
+	if err != nil {
+		t.Fatalf("valid lease settings rejected: %v", err)
+	}
+	if cfg.LeaseDuration != 20*time.Second || cfg.SweeperInterval != 2*time.Second ||
+		cfg.StartupGracePeriod != 45*time.Second || cfg.OutageGraceWindow != 20*time.Second {
+		t.Fatalf("lease settings not read from the environment: %+v", cfg)
+	}
+}
+
+// TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected pins ADR-0014: both grace
+// settings must be at least the lease duration, otherwise a surviving worker's lease can lapse
+// before grace ends and be reaped; equality is allowed.
+func TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected(t *testing.T) {
+	tests := []struct {
+		name      string
+		env       map[string]string
+		wantError string // substring naming the offending setting; empty means valid
+	}{
+		{"startup grace below lease", map[string]string{"MINICLOUD_LEASE_DURATION": "30s", "MINICLOUD_STARTUP_GRACE_PERIOD": "29s"}, "MINICLOUD_STARTUP_GRACE_PERIOD"},
+		{"outage window below lease", map[string]string{"MINICLOUD_LEASE_DURATION": "30s", "MINICLOUD_OUTAGE_GRACE_WINDOW": "29s"}, "MINICLOUD_OUTAGE_GRACE_WINDOW"},
+		{"startup grace zero", map[string]string{"MINICLOUD_STARTUP_GRACE_PERIOD": "0s"}, "MINICLOUD_STARTUP_GRACE_PERIOD"},
+		{"longer lease than default grace", map[string]string{"MINICLOUD_LEASE_DURATION": "60s"}, "MINICLOUD_STARTUP_GRACE_PERIOD"},
+		{"startup grace equal to lease", map[string]string{"MINICLOUD_LEASE_DURATION": "30s", "MINICLOUD_STARTUP_GRACE_PERIOD": "30s", "MINICLOUD_OUTAGE_GRACE_WINDOW": "30s"}, ""},
+		{"both above lease", map[string]string{"MINICLOUD_LEASE_DURATION": "10s", "MINICLOUD_STARTUP_GRACE_PERIOD": "11s", "MINICLOUD_OUTAGE_GRACE_WINDOW": "10s"}, ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			clearEnv()
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			_, err := config.LoadCoordinatorConfig()
+			if tc.wantError == "" {
+				if err != nil {
+					t.Fatalf("valid config rejected: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("config accepted, want rejection naming %s", tc.wantError)
+			}
+			if !errors.Is(err, config.ErrInvalidGraceConfiguration) {
+				t.Errorf("error %v is not ErrInvalidGraceConfiguration", err)
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("error %q does not name %s", err, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestConfig_Validation_NonPositiveLeaseSettings_Rejected(t *testing.T) {
+	for _, name := range []string{"MINICLOUD_LEASE_DURATION", "MINICLOUD_SWEEPER_INTERVAL"} {
+		for _, val := range []string{"0s", "-5s"} {
+			t.Run(name+"="+val, func(t *testing.T) {
+				clearEnv()
+				t.Setenv(name, val)
+				_, err := config.LoadCoordinatorConfig()
+				if err == nil || !strings.Contains(err.Error(), name) {
+					t.Fatalf("error = %v, want rejection naming %s", err, name)
+				}
+			})
+		}
 	}
 }

@@ -1,12 +1,18 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// ErrInvalidGraceConfiguration is returned when a grace setting is shorter than the attempt lease
+// duration (ADR-0014): grace must outlast a lease or a surviving worker's lease can lapse inside
+// the grace and be reaped the moment it ends.
+var ErrInvalidGraceConfiguration = errors.New("invalid grace configuration")
 
 // CoordinatorConfig defines startup configuration for the coordinator service.
 type CoordinatorConfig struct {
@@ -22,6 +28,16 @@ type CoordinatorConfig struct {
 	DBMaxConns         int
 	DBMinConns         int
 	DBQueryTimeout     time.Duration
+
+	// LeaseDuration is the attempt lease length (ADR-0014, default 30s).
+	LeaseDuration time.Duration
+	// SweeperInterval is the lease sweeper cadence (default 5s).
+	SweeperInterval time.Duration
+	// StartupGracePeriod suppresses lease reaping after coordinator start (default 30s).
+	StartupGracePeriod time.Duration
+	// OutageGraceWindow is the length of the reaping suppression, and of the cooldown that
+	// follows it, after a database outage (default 30s).
+	OutageGraceWindow time.Duration
 }
 
 // WorkerConfig defines startup configuration for the worker agent.
@@ -67,6 +83,11 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		DBMaxConns:         dbMaxConns,
 		DBMinConns:         dbMinConns,
 		DBQueryTimeout:     dbQueryTimeout,
+
+		LeaseDuration:      getDurationEnv("MINICLOUD_LEASE_DURATION", 30*time.Second),
+		SweeperInterval:    getDurationEnv("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
+		StartupGracePeriod: getDurationEnv("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
+		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
 	}
 
 	if cfg.HTTPAddr == "" {
@@ -110,6 +131,18 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 	}
 	if cfg.DBQueryTimeout <= 0 {
 		return nil, fmt.Errorf("MINICLOUD_DB_QUERY_TIMEOUT must be positive")
+	}
+	if cfg.LeaseDuration <= 0 {
+		return nil, fmt.Errorf("MINICLOUD_LEASE_DURATION must be positive")
+	}
+	if cfg.SweeperInterval <= 0 {
+		return nil, fmt.Errorf("MINICLOUD_SWEEPER_INTERVAL must be positive")
+	}
+	if cfg.StartupGracePeriod < cfg.LeaseDuration {
+		return nil, fmt.Errorf("%w: MINICLOUD_STARTUP_GRACE_PERIOD (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.StartupGracePeriod, cfg.LeaseDuration)
+	}
+	if cfg.OutageGraceWindow < cfg.LeaseDuration {
+		return nil, fmt.Errorf("%w: MINICLOUD_OUTAGE_GRACE_WINDOW (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.OutageGraceWindow, cfg.LeaseDuration)
 	}
 
 	return cfg, nil

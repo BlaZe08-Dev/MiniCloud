@@ -300,8 +300,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// First active attempt succeeds (RUNNING)
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_act_1', 'job_active_inv', 1, 'worker_active_inv', repeat('a', 64), 'RUNNING');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_act_1', 'job_active_inv', 1, 'worker_active_inv', repeat('a', 64), 'RUNNING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err != nil {
 			t.Fatalf("expected first active attempt to succeed, got: %v", err)
@@ -309,8 +309,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// Second active attempt for same job with state RUNNING must fail due to idx_attempts_active_per_job
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_act_2_running', 'job_active_inv', 2, 'worker_active_inv', repeat('b', 64), 'RUNNING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err == nil {
 			t.Fatalf("expected second RUNNING active attempt on same job to fail with unique violation, got nil")
@@ -321,8 +321,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// Second active attempt for same job with state PENDING must ALSO fail due to idx_attempts_active_per_job
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_act_2_pending', 'job_active_inv', 3, 'worker_active_inv', repeat('c', 64), 'PENDING', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err == nil {
 			t.Fatalf("expected second PENDING active attempt on same job to fail with unique violation, got nil")
@@ -353,8 +353,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// Insert attempt 1
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_dup_1', 'job_dup_att', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_dup_1', 'job_dup_att', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err != nil {
 			t.Fatalf("failed to insert attempt 1: %v", err)
@@ -362,8 +362,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// Insert duplicate attempt_no 1 for same job
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_dup_2', 'job_dup_att', 1, 'worker_active_inv', repeat('b', 64), 'FAILED');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_dup_2', 'job_dup_att', 1, 'worker_active_inv', repeat('b', 64), 'FAILED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err == nil {
 			t.Fatalf("expected duplicate attempt_no to fail, got nil")
@@ -383,8 +383,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 		}
 
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_res_1', 'job_res_inv', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_res_1', 'job_res_inv', 1, 'worker_active_inv', repeat('a', 64), 'COMPLETED', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err != nil {
 			t.Fatalf("failed to insert attempt: %v", err)
@@ -430,8 +430,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 	t.Run("OversizedOutput_RejectedByCheckConstraint", func(t *testing.T) {
 		oversizedText := strings.Repeat("x", 65537)
 		_, err := conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, output)
-			VALUES ('att_oversized', 'job_res_inv', 2, 'worker_active_inv', repeat('c', 64), 'COMPLETED', $1);
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, output, lease_expires_at)
+			VALUES ('att_oversized', 'job_res_inv', 2, 'worker_active_inv', repeat('c', 64), 'COMPLETED', $1, CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`, oversizedText)
 		if err == nil {
 			t.Fatalf("expected oversized output to fail, got nil")
@@ -456,8 +456,8 @@ func TestSchemaInvariants_SQLViolations(t *testing.T) {
 
 		// Invalid attempt state
 		_, err = conn.Exec(ctx, `
-			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state)
-			VALUES ('att_inv_state', 'job_res_inv', 3, 'worker_active_inv', repeat('d', 64), 'NOT_A_STATE');
+			INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+			VALUES ('att_inv_state', 'job_res_inv', 3, 'worker_active_inv', repeat('d', 64), 'NOT_A_STATE', CURRENT_TIMESTAMP + INTERVAL '30 seconds');
 		`)
 		if err == nil {
 			t.Fatalf("expected invalid attempt state to fail, got nil")
