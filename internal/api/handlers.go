@@ -166,7 +166,8 @@ func NewHandler(coord *coordinator.Service) *Handler {
 }
 
 // SubmitJobRequest defines the JSON schema for POST /v1/jobs.
-// If max_attempts is omitted or null, it defaults to 3 (valid range: 1..20).
+// If max_attempts is omitted or null, it defaults to MINICLOUD_DEFAULT_MAX_ATTEMPTS (3 unless
+// configured; valid range: 1..20).
 // If timeout_seconds is omitted or null, it defaults to 60 (valid range: 1..86400).
 type SubmitJobRequest struct {
 	TaskType       string          `json:"task_type"`
@@ -187,7 +188,7 @@ func (h *Handler) HandleSubmitJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxAttempts := coordinator.DefaultMaxAttempts
+	maxAttempts := h.coord.DefaultMaxAttempts()
 	if req.MaxAttempts != nil {
 		if *req.MaxAttempts < coordinator.MinMaxAttempts || *req.MaxAttempts > coordinator.MaxMaxAttempts {
 			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("max_attempts must be between %d and %d", coordinator.MinMaxAttempts, coordinator.MaxMaxAttempts))
@@ -365,6 +366,9 @@ type ReportResultRequest struct {
 	ExitCode   int    `json:"exit_code"`
 	Output     string `json:"output"`
 	Error      string `json:"error,omitempty"`
+	// ErrorClassification is PERMANENT, TRANSIENT or UNKNOWN, supplied only with a failure
+	// (protocol 6.2). The coordinator validates it; LEASE_EXPIRED is never accepted from a worker.
+	ErrorClassification string `json:"error_classification,omitempty"`
 }
 
 func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
@@ -398,8 +402,9 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 		req.WorkerID,
 		req.ExitCode,
 		req.Output,
-		req.Error, "")
-
+		req.Error,
+		req.ErrorClassification,
+	)
 	if err != nil {
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)
