@@ -1,8 +1,8 @@
 # Handoff P4-4c-a
 
-Branch / last commit: `agent/claude/P4-4c-a`, based on `origin/main` at `7e58d4a` (merge of slice 4b). Code and tests are complete at commit `03739f3`; the handoff commit follows it. Nothing merged, `main` untouched.
+Branch / last commit: `agent/claude/P4-4c-a`, based on `origin/main` at `7e58d4a` (merge of slice 4b). Round 1 code and tests were complete at `03739f3`; round 2 (fix-up, see the section "Round 2" below) follows. The last commit is the handoff commit. Nothing merged, `main` untouched.
 
-**Status: coordinator side of slice 4c built, all gates green, 45 mutation proofs run (one first survived, a test was added, then it died). One file outside my ownership needs a wiring edit (`cmd/coordinator/main.go`, see Open questions Q1): until that edit is made the sweeper exists and is tested but the coordinator binary does not start it.**
+**Status: coordinator side of slice 4c built and wired into the coordinator binary, all gates green, 50 mutation proofs run (three survived at first, tests were strengthened, then they died). Round 2 resolved every open question that was blocking; read "Round 2" first.**
 
 ## What changed (by package)
 
@@ -13,7 +13,7 @@ Branch / last commit: `agent/claude/P4-4c-a`, based on `origin/main` at `7e58d4a
   - `service.go`: `Service.RenewLease` (logs rejections, no event, no service-wide lock), `Service.SetLeaseDuration`, and `WorkAssignment` gains the additive `lease_expires_at` and `lease_duration_seconds` (protocol 6.2).
 - `internal/api`: route `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` and `HandleRenewLease`; error statuses come from the existing `mapDomainErrorToHTTP` (no change to it).
 - `tests/integration`: new `postgres_restart_grace_test.go`.
-- Not touched: `internal/worker`, `cmd/*`, every design doc, `TASKS.md`, `CHANGELOG.md`, `PROJECT_STATE.md`, `findings.md`, `internal/domain`, `SweepExpiredLeases` semantics.
+- Not touched in round 1: `internal/worker`, `cmd/*` (round 2 edits `cmd/coordinator`), every design doc, `TASKS.md`, `CHANGELOG.md`, `PROJECT_STATE.md`, `findings.md`, `internal/domain`, `SweepExpiredLeases` semantics.
 
 ## Design decisions and deviations (with reasons)
 
@@ -179,7 +179,7 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.529s
 
 ## Known gaps / TODOs
 
-- The coordinator binary does not start the sweeper or pass the new settings (Q1).
+- (Round 1 gap, closed in round 2) the coordinator binary did not start the sweeper.
 - No test runs the sweeper against a real database outage (forbidden by the hard rule: it restarts the shared container). Outage behaviour is covered with fake repositories that fail on demand, and the restart behaviour with a real PostgreSQL via the lease-expiry-by-SQL scenario.
 - Grace state is per coordinator process (see finding F-4c-a-3).
 - A tick has no timeout of its own; in production the pool's `statement_timeout` bounds each query.
@@ -187,9 +187,9 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.529s
 
 ## Open questions for the orchestrator
 
-- **Q1 (ownership) `cmd/coordinator/main.go` must wire the sweeper.** I do not own `cmd/**`. Needed, about eight lines: pass `postgres.WithLeaseDuration(cfg.LeaseDuration)` and `storage.WithLeaseDuration(cfg.LeaseDuration)` to the repositories; `svc.SetLeaseDuration(cfg.LeaseDuration)`; `svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)`; and `go svc.StartLeaseSweeper(sweeperCtx, cfg.SweeperInterval)` next to `StartReaper`. The memory driver should start it too. Without it `Terminating a worker process triggers automated lease expiry` (4c exit criterion) cannot hold end to end.
-- **Q2 (audit finding F-4b-A1 vs this task).** The 4b audit says reaping must be suppressed during the cooldown and asks to change `SweepGraceState.Suppresses`. ADR-0014, the plan and this task's brief say the opposite: during the cooldown no new window opens **and reaping proceeds**, and startup grace wins over the cooldown. 4b was merged with the latter and I did not touch it. This slice is built to that reading (the sweeper never has a window and a cooldown active at once, so the two readings differ only in how a cooldown overlapping a window is treated, which this sweeper never produces). If the owner wants the audit's reading, the repository check and the cooldown tests change, not this slice's behaviour. Needs an owner ruling so the audit finding can be closed.
-- **Q3 (docs) contradiction in ADR-0014.** The validation rule rejects a grace shorter than the lease, but the "Impact on Existing Tests" paragraph says micro-lease tests "must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s`". Both cannot hold with the env path. I implemented the rule (strict, as the brief says). Tests that need no grace use `Service.SetGracePeriods(0, ...)` in code, which bypasses config.
+- **Q1 (ownership) RESOLVED in round 2.** `cmd/coordinator/main.go` must wire the sweeper.** I do not own `cmd/**`. Needed, about eight lines: pass `postgres.WithLeaseDuration(cfg.LeaseDuration)` and `storage.WithLeaseDuration(cfg.LeaseDuration)` to the repositories; `svc.SetLeaseDuration(cfg.LeaseDuration)`; `svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)`; and `go svc.StartLeaseSweeper(sweeperCtx, cfg.SweeperInterval)` next to `StartReaper`. The memory driver should start it too. Without it `Terminating a worker process triggers automated lease expiry` (4c exit criterion) cannot hold end to end.
+- **Q2 RESOLVED in round 2 (F-4b-A1 withdrawn).** (audit finding F-4b-A1 vs this task).** The 4b audit says reaping must be suppressed during the cooldown and asks to change `SweepGraceState.Suppresses`. ADR-0014, the plan and this task's brief say the opposite: during the cooldown no new window opens **and reaping proceeds**, and startup grace wins over the cooldown. 4b was merged with the latter and I did not touch it. This slice is built to that reading (the sweeper never has a window and a cooldown active at once, so the two readings differ only in how a cooldown overlapping a window is treated, which this sweeper never produces). If the owner wants the audit's reading, the repository check and the cooldown tests change, not this slice's behaviour. Needs an owner ruling so the audit finding can be closed.
+- **Q3 RESOLVED in round 2 (strict rule kept).** (docs) contradiction in ADR-0014.** The validation rule rejects a grace shorter than the lease, but the "Impact on Existing Tests" paragraph says micro-lease tests "must explicitly configure `MINICLOUD_STARTUP_GRACE_PERIOD=0s`". Both cannot hold with the env path. I implemented the rule (strict, as the brief says). Tests that need no grace use `Service.SetGracePeriods(0, ...)` in code, which bypasses config.
 - **Q4 (docs)** ADR-0014 lists `MINICLOUD_SWEEPER_BATCH_SIZE`; the plan's 4c does not. Not added. Say if wanted.
 - **Q5 (protocol) lease token bounds.** field-limits.md has no limit for the request `lease_token`; I mirrored the result endpoint (1 MiB body cap only, empty accepted and rejected as stale). A cheap bound (for example 256 bytes, 400 `INVALID_REQUEST`) would be a design change and a worker-visible one (400 makes the worker stop renewing and keep running), so I left it.
 - **Q6 (docs) protocol 6.3 row 5.** The table lists a 404 `WORKER_NOT_FOUND` for a reporting worker that does not exist. Both repositories compare the worker id with the attempt's and return `WORKER_MISMATCH` (403) for any other id, existing or not (4b D5). Row 5 is unreachable for renewals and commits. Worker-side code that handles `WORKER_NOT_FOUND` as terminal is harmless.
@@ -203,12 +203,12 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.529s
 - A1 *The grace state and the in-lock check share a clock.* Challenge: a coordinator that computed instants from process time would be wrong exactly when the clocks differ. Evidence: **executed** (`TestConformance_Now_IsRepositoryClock`, `..._StartupGraceInstantComesFromRepositoryClock` with a fake repository clock 5 years away; mutations c16, r01, r02, r03). A same-host wall clock mutation of the PostgreSQL `Now` cannot be told from the database clock (same machine), so r03 is a skewed-clock mutation, not a wall-clock one.
 - A2 *A lock timeout or skip must not look like an outage.* **executed** (`..._CandidateLockTimeout_EntersNoGrace`, c08). Conversely a sweep that returns an error together with a partial result is a failed tick (`..._PartialResultWithErrorIsFailedTick`, c06).
 - A3 *Suppression must be bounded.* A flapping database could keep reaping off forever if windows extended or re-triggered. **executed**: failures during a window do not extend it (c13, c14), a failure or gap during the cooldown opens nothing and is not deferred (c09, c12, c07), and 200 s of healthy ticks open no window (`..._HealthyTicksAfterRecoveryNeverReopenWindow`). The first run of that last test did not exist and mutation c07 **survived**; I added the test and c07 then failed (appendix).
-- A4 *Grace must not be forgotten.* The repository check is fail-open for a zero `SweepGraceState` (4b S3). **executed**: `..._StartupGrace_SuppressesReaping`, `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` and its no-grace control (the control shows the same scenario reaping and answering the late commit with 409, so the test would fail without grace; c15). Defaults are grace-on (D5). **Not closed:** nothing starts the sweeper in the binary yet (Q1).
+- A4 *Grace must not be forgotten.* The repository check is fail-open for a zero `SweepGraceState` (4b S3). **executed**: `..._StartupGrace_SuppressesReaping`, `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` and its no-grace control (the control shows the same scenario reaping and answering the late commit with 409, so the test would fail without grace; c15). Defaults are grace-on (D5). Round 1 left this open (nothing started the sweeper in the binary); closed in round 2.
 - A5 *Renewal as an unauthenticated oracle and a lock source.* Within SEC-004 (accepted). New, specific to this route: `RenewLease` locks the job row `FOR UPDATE` **before** the token is checked (4b D5/D6), so an unauthenticated caller who knows a job id can take that row lock repeatedly with wrong tokens and contend with the job's commit, cancel and dispatch. See F-4c-a-1.
 
 **Attacks tried (real tests)**: path ids with illegal characters, over-long ids, an over-long worker id, a missing worker id, malformed and empty bodies, a body over 1 MiB (all 400, none 500; `TestAPI_RenewLease_RequestValidation`); wrong worker, wrong token, unknown attempt, unknown job, terminal job and swept attempt on renewal, with event counts unchanged (`TestAPI_RenewLease_SuccessAndStaleRejection`); GET on the renew path (405); a renewal after a rejected one still returns the unmoved lease; renewal of a lapsed unswept lease (extended) and of a cancelled job (flag set, expiry unchanged) (`..._AcceptUntilSweptAndCancelDelivery`); a connection error in the repository (503, opaque body, no address leaked; `..._OutageMapsTo503`); coordinator restart with an expired lease against real PostgreSQL; repeated sweeper failures and recoveries with window, cooldown and gap combinations; sweeper loop with a repository that always fails.
 
-**Not tested**: a real database outage under a running sweeper (the hard rule forbids restarting the shared container), a flood of renewals (no load test; R-23 is documented not implemented), two coordinator processes against one database, a sweep tick that hangs without a deadline, clock jumps of the database itself, `ctx` cancellation in the middle of a PostgreSQL sweep, `cmd/coordinator` wiring (not mine), a renewal body with a token of 1 MiB through the real server and PostgreSQL (the 1 MiB body test is memory-backed).
+**Not tested**: a real database outage under a running sweeper (the hard rule forbids restarting the shared container), a flood of renewals (no load test; R-23 is documented not implemented), two coordinator processes against one database, a sweep tick that hangs without a deadline, clock jumps of the database itself, `ctx` cancellation in the middle of a PostgreSQL sweep, a renewal body with a token of 1 MiB through the real server and PostgreSQL (the 1 MiB body test is memory-backed).
 
 **Findings**
 - **F-4c-a-1 (Low, within SEC-004).** An unauthenticated caller who knows (or derives, 4b F-4b-2: ids are `att_<jobID>_<n>`) a job id can send renewals with any token. The repository takes the job row lock before the token comparison, so a flood serializes with that job's commit, cancel and dispatch, and a LOST attempt answers `LEASE_EXPIRED` instead of `STALE_ATTEMPT_REJECTED` (the 4b F-4b-1 oracle). Evidence: **confirmed by code reading** (`RenewLease` in the PostgreSQL repository); the ordering is covered by 4b tests but the flooding effect was not measured. Suggested: token check before the row lock needs a lock-free read, a design change; rate limiting is the planned defence (R-23).
@@ -216,6 +216,150 @@ FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.529s
 - **F-4c-a-3 (Low).** Grace state lives in the coordinator process. A second coordinator against the same database has its own state, so one coordinator's startup grace does not stop the other from reaping. V1 assumes one coordinator. Evidence: **confirmed by code reading** (`LeaseSweeper.state`), not executed.
 - **F-4c-a-4 (Informational).** While reaping is held back by grace, the sweeper logs one info line per tick when candidates are suppressed (up to six per window with the default cadence). Not attacker-triggerable: candidates exist only for attempts that were dispatched. Evidence: **executed** (visible in the output of `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` run with `-v`).
 - No new unauthenticated behaviour beyond SEC-004 apart from F-4c-a-1; I did not edit `findings.md`. Next free numbers are SEC-027 and up; the orchestrator assigns.
+
+## Round 2 (fix-up after the orchestrator's answers)
+
+Every authorisation below was authorised by the orchestrator in the planning session; the owner accepts it by merging. None of it is recorded here as an owner decision.
+
+**Resolutions of the open questions**
+- **Q1 resolved.** Editing `cmd/coordinator/main.go` (and a test for it) was authorised by the orchestrator in the planning session; the owner accepts it by merging. Done, see below.
+- **Q2 resolved.** F-4b-A1 was withdrawn (authorised by the orchestrator in the planning session; the owner accepts it by merging). My reading stands: reaping proceeds during the cooldown and startup grace wins over the cooldown. Nothing in 4b changed.
+- **Q3 resolved.** The strict rule (grace at least the lease) stays; micro-lease tests set the lease and the grace both small (authorised by the orchestrator in the planning session; the owner accepts it by merging). The wiring tests use a 40 ms lease and a 40 ms startup grace. The ADR wording is for the docs pass.
+- **F-4c-a-1 and F-4c-a-3** stay as findings in this handoff; the owner registers them. Unchanged.
+- **Gate gap (item 5)** resolved by a minimal edit of the `test-db` target, authorised by the orchestrator in the planning session; the owner accepts it by merging.
+
+**What changed in round 2**
+- `cmd/coordinator/main.go`: new `newMemoryRepository`, `configureService` and `startBackground`. `startBackground` starts the worker reaper and the lease sweeper once each under one cancellable context and returns a `stop` that cancels and waits for both loops (safe to call twice). `main` calls it once, and calls `stop` after the HTTP server has shut down and before the PostgreSQL pool closes (also on the shutdown-error exit path). Both storage drivers get the configured lease (`postgres.WithLeaseDuration`, `storage.WithLeaseDuration`); `configureService` passes the lease and the two grace settings to the service; the sweeper runs at `cfg.SweeperInterval`.
+- `cmd/coordinator/main_test.go` (new): see the tests below.
+- `Makefile`: the `test-db` target now runs `./internal/storage/postgres/... ./internal/coordinator/...` and then, as a separate command, `./tests/integration/` with the anchored `-run` for the restart-grace test only. The restart-grace test lives in `tests/integration` (not in the coordinator package), whose package also holds the outage test that restarts the shared container, so a whole-package run was not an option; the anchored pattern matches exactly one test (output below).
+
+**New deviations**: `cmd/**` and the `Makefile` edited with the authorisation above (both outside my original ownership list). `make test-db` now also runs `./tests/integration/` with the anchored pattern; this is wider than the "coordinator package" you named and is the only way to make the restart-grace test part of the gate without running the outage test.
+
+**Confirmation that nothing in the coordinator package restarts the container** (and that the anchored pattern matches one test):
+
+```
+== tests matched by the anchored -run in tests/integration:
+TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	0.010s
+== container-control calls in internal/coordinator (expect none):
+rc=1
+```
+
+**New tests** (`cmd/coordinator/main_test.go`, real clock at millisecond scale, no server, no container):
+- `TestMain_BackgroundLoops_ReapAbandonedAttempt`: end to end on the in-memory driver; a worker claims a job and never renews; the sweeper started by `startBackground` reaps the attempt (LOST) and the job goes RETRYING [w1 w2 w3].
+- `TestMain_BackgroundLoops_StartupGraceFromConfig`: a one-hour startup grace from the config keeps the same expired attempt RUNNING [w2].
+- `TestMain_BackgroundLoops_StopWaitsForLoops`: a sweep that ignores cancellation is in flight when `stop` is called; `stop` returns only after it finished [w4].
+- `TestMain_BackgroundLoops_ReaperRuns`: the worker reaper is started by the same call [w5].
+- `TestMain_NewMemoryRepository_UsesConfiguredLease` [w3].
+- Not covered by a test: that `main` itself calls `startBackground` (it would need a running server). That call is two lines and was checked by running the real binary (smoke output below).
+
+**Smoke run of the real binary** (in-memory driver, no database, no container): started with `MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18089 MINICLOUD_SWEEPER_INTERVAL=1s`, `/readyz` returned 200, then SIGTERM:
+
+```
+readyz=200
+exit=0
+{"time":"2026-10-28T18:52:26.692638757+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-10-28T18:52:26.692759223+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-10-28T18:52:26.693130219+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18089"}
+{"time":"2026-10-28T18:52:28.738536341+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-10-28T18:52:28.7387248+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+```
+
+**Red before green** for the wiring tests (first run, before `startBackground` existed):
+
+```
+# github.com/BlaZe08-Dev/Minicloud/cmd/coordinator
+# [github.com/BlaZe08-Dev/Minicloud/cmd/coordinator]
+vet: cmd/coordinator/main_test.go:37:10: undefined: newMemoryRepository
+```
+
+**Mutation proofs of the wiring** (throwaway worktree `~/mc-mut-claude`, `.env` copied in, both removed afterwards). Mutations w4 and w5 **survived** the first versions of the tests (the stop test only counted ticks and no test covered the reaper); the tests above were strengthened and both then failed. Driver summary, verbatim:
+
+```
+w1-sweeper-not-started: mutated rc=1 (want 1), restored rc=0 (want 0)  [cmd/coordinator/main.go]
+w2-grace-config-not-applied: mutated rc=1 (want 1), restored rc=0 (want 0)  [cmd/coordinator/main.go]
+w3-lease-config-not-applied-to-repo: mutated rc=1 (want 1), restored rc=0 (want 0)  [cmd/coordinator/main.go]
+w4-stop-does-not-wait, w5-reaper-dropped (first run, before the stronger tests): SURVIVED mutated rc=0
+w4-stop-does-not-wait: mutated rc=1 (want 1), restored rc=0 (want 0)  [cmd/coordinator/main.go]
+w5-reaper-dropped: mutated rc=1 (want 1), restored rc=0 (want 0)  [cmd/coordinator/main.go]
+```
+
+Failing tests of the mutated runs, verbatim (line numbers omitted from the failure messages, which are not shown):
+
+```
+w1-sweeper-not-started:
+--- FAIL: TestMain_BackgroundLoops_ReapAbandonedAttempt (10.00s)
+rc=1
+w2-grace-config-not-applied:
+--- FAIL: TestMain_BackgroundLoops_ReapAbandonedAttempt (10.00s)
+rc=1
+w3-lease-config-not-applied-to-repo:
+--- FAIL: TestMain_BackgroundLoops_ReapAbandonedAttempt (10.00s)
+--- FAIL: TestMain_NewMemoryRepository_UsesConfiguredLease (0.00s)
+rc=1
+w4-stop-does-not-wait:
+--- FAIL: TestMain_BackgroundLoops_StopWaitsForLoops (0.00s)
+rc=1
+w5-reaper-dropped:
+--- FAIL: TestMain_BackgroundLoops_ReaperRuns (10.02s)
+rc=1
+```
+
+**Gates at the final commit** (round 2). Static:
+
+```
+== gofmt
+rc=0
+== vet
+rc=0
+== build
+rc=0
+```
+
+`make test-docs` is re-run after this file is committed (see the end of this section). Unset run (`env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`):
+
+```
+PASS 151 SKIP 35 FAIL 0
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.491s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.034s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.473s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.029s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.154s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.143s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.086s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.026s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.020s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.445s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.097s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.541s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.028s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	15.400s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	10.055s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.067s
+```
+
+Counts before and after round 2, DB URL unset: round 1 PASS 146 SKIP 35 FAIL 0; round 2 PASS 151 SKIP 35 FAIL 0 (+5 passing tests in `cmd/coordinator`). The one SKIP is still the restart-grace test; it is now run by `make test-db`.
+
+`make test-db` (new target; counts include subtests as before): round 1 target PASS 147 FAIL 0; round 2 target:
+
+```
+PASS 180 FAIL 0 SKIP 0
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	64.047s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.159s
+--- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit (1.01s)
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/startup_grace_protects_the_surviving_worker (0.51s)
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/control_without_grace_reaps_and_rejects_the_late_commit (0.49s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.031s
+```
+
+(+33: the coordinator package tests with their subtests, and the three restart-grace lines.) Stability, DB URL unset, `go test -count=20 -race ./cmd/coordinator/ ./internal/coordinator/`:
+
+```
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	12.141s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	3.838s
+```
+
+**Still open after round 2**: Q4 to Q9 above (docs, protocol and 4d/worker items) are unchanged; Q1 to Q3 are resolved as listed. Mutation of the `Makefile` target was not done (it is a script, not a guarded property); its behaviour is shown by the `make test-db` output above.
 
 ## Appendix: mutation proofs (driver summary and failing tests, from the real logs)
 
