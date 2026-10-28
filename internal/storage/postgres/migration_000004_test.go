@@ -342,7 +342,7 @@ func TestMigrator_Migration000004_UpgradeFrom000003_WithExistingRows(t *testing.
 	}
 	defer pool.Close()
 	repo := postgres.NewRepository(pool)
-	job, err := repo.CommitAttempt(ctx, "j_run", "att_run", token, "w_legacy", domain.AttemptOutcome{ExitCode: 0, Output: "legacy ok"})
+	job, err := repo.CommitAttempt(ctx, "j_run", "att_run", token, "w_legacy", domain.AttemptOutcome{ExitCode: 0, Output: "legacy ok"}, nil)
 	if err != nil {
 		t.Fatalf("committing the legacy in-flight attempt after the upgrade: %v", err)
 	}

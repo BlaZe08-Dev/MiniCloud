@@ -259,7 +259,8 @@ func TestPostgresRepository_Concurrency_DuplicateCommitRaced(t *testing.T) {
 			committedJob, err := repo.CommitAttempt(ctx, "job_concur_c", att.ID, att.LeaseToken, "worker_concur_c", domain.AttemptOutcome{
 				ExitCode: 0,
 				Output:   fmt.Sprintf("output from worker %d", idx),
-			})
+			}, nil)
+
 			results[idx] = commitResult{job: committedJob, err: err}
 		}(i)
 	}
@@ -440,7 +441,7 @@ func TestPostgresRepository_Concurrency_MixedOperationsStress(t *testing.T) {
 							ExitCode: 0,
 							Output:   "stress ok",
 						}
-						_, _ = repo.CommitAttempt(ctx, candidate.jobID, candidate.attemptID, candidate.leaseToken, candidate.workerID, outcome)
+						_, _ = repo.CommitAttempt(ctx, candidate.jobID, candidate.attemptID, candidate.leaseToken, candidate.workerID, outcome, nil)
 					}
 				case 3: // CancelJob
 					_, _ = repo.CancelJob(ctx, targetJobID)
@@ -827,7 +828,7 @@ func TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace(t *testing.
 				case 0:
 					_, _ = repo.RenewLease(ctx, a.jobID, a.attemptID, a.token, a.worker)
 				case 1:
-					_, err := repo.CommitAttempt(ctx, a.jobID, a.attemptID, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0, Output: "ok"})
+					_, err := repo.CommitAttempt(ctx, a.jobID, a.attemptID, a.token, a.worker, domain.AttemptOutcome{ExitCode: 0, Output: "ok"}, nil)
 					switch {
 					case err == nil:
 						commitOK.Store(a.attemptID, true)

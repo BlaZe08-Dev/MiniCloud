@@ -19,6 +19,7 @@ import (
 // 5 ms ticks cannot suppress reaping.
 func testConfig() *config.CoordinatorConfig {
 	return &config.CoordinatorConfig{
+		DefaultMaxAttempts: 3,
 		LeaseDuration:      40 * time.Millisecond,
 		SweeperInterval:    5 * time.Millisecond,
 		StartupGracePeriod: 40 * time.Millisecond,
@@ -167,5 +168,25 @@ func TestMain_NewMemoryRepository_UsesConfiguredLease(t *testing.T) {
 	}
 	if d := att.LeaseExpiresAt.Sub(now); d < 6*time.Second || d > 8*time.Second {
 		t.Fatalf("lease = %v, want the configured 7s", d)
+	}
+}
+
+// TestMain_ConfigureService_AppliesDefaultMaxAttempts proves MINICLOUD_DEFAULT_MAX_ATTEMPTS reaches
+// the service that stamps max_attempts on a job submitted without one, and that a value the job
+// range cannot hold is an error instead of being silently ignored.
+func TestMain_ConfigureService_AppliesDefaultMaxAttempts(t *testing.T) {
+	cfg := testConfig()
+	cfg.DefaultMaxAttempts = 6
+	svc := coordinator.NewService(newMemoryRepository(cfg), scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), time.Hour)
+	if err := configureService(svc, cfg); err != nil {
+		t.Fatalf("configureService failed: %v", err)
+	}
+	if got := svc.DefaultMaxAttempts(); got != 6 {
+		t.Fatalf("service default max_attempts = %d, want the configured 6", got)
+	}
+
+	cfg.DefaultMaxAttempts = 21
+	if err := configureService(svc, cfg); err == nil {
+		t.Fatal("configureService accepted a default max_attempts of 21")
 	}
 }

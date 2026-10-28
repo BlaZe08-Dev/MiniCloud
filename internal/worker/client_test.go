@@ -92,7 +92,7 @@ func TestAgent_ReportResult_RejectionHandling(t *testing.T) {
 			reg := executor.NewRegistry()
 			agent := worker.NewAgent(cfg, reg)
 
-			status, err := agent.ReportResult(context.Background(), "job-1", "att-1", "lease-1", 0, "out", "")
+			status, err := agent.ReportResult(context.Background(), "job-1", "att-1", "lease-1", 0, "out", "", "")
 			if status != tt.serverStatus {
 				t.Fatalf("expected status %d, got %d", tt.serverStatus, status)
 			}

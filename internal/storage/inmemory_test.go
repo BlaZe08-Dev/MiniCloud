@@ -367,7 +367,8 @@ func TestInMemoryRepository_ConcurrentCommit_ExactlyOneAccepted(t *testing.T) {
 			_, err := repo.CommitAttempt(ctx, "job_to_commit", att.ID, att.LeaseToken, "w_commit", domain.AttemptOutcome{
 				ExitCode: 0,
 				Output:   `{"msg":"success"}`,
-			})
+			}, nil)
+
 			mu.Lock()
 			defer mu.Unlock()
 			if err == nil {
@@ -442,7 +443,8 @@ func TestInMemoryRepository_LeaseTokenHashVerification(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "job_tok", att.ID, "wrong_token", "w_token", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "ok",
-	})
+	}, nil)
+
 	if err != domain.ErrStaleAttempt {
 		t.Fatalf("expected ErrStaleAttempt for wrong token, got %v", err)
 	}
@@ -451,7 +453,8 @@ func TestInMemoryRepository_LeaseTokenHashVerification(t *testing.T) {
 	committedJob, err := repo.CommitAttempt(ctx, "job_tok", att.ID, att.LeaseToken, "w_token", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "ok",
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("expected commit with valid token to succeed, got %v", err)
 	}
@@ -534,7 +537,8 @@ func TestInMemoryRepository_DynamicAvailableSlots(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "job_slot_1", att1.ID, att1.LeaseToken, "w_dynamic", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "done",
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("CommitAttempt 1 failed: %v", err)
 	}
@@ -547,7 +551,8 @@ func TestInMemoryRepository_DynamicAvailableSlots(t *testing.T) {
 	_, err = repo.CommitAttempt(ctx, "job_slot_2", att2.ID, att2.LeaseToken, "w_dynamic", domain.AttemptOutcome{
 		ExitCode: 0,
 		Output:   "done",
-	})
+	}, nil)
+
 	if err != nil {
 		t.Fatalf("CommitAttempt 2 failed: %v", err)
 	}
@@ -690,6 +695,14 @@ func TestConformance_CancelJob_IdempotentCancelRequested(t *testing.T) {
 
 func TestConformance_CancelJob_RetryingImmediatelyCancelled(t *testing.T) {
 	storagetest.RunCancelRetryingImmediatelyCancelledConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_FailureRetryOrFail(t *testing.T) {
+	storagetest.RunCommitAttemptFailureRetryOrFailConformance(t, newInMemoryHarness)
+}
+
+func TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob(t *testing.T) {
+	storagetest.RunCommitAttemptFailureOnCancelRequestedConformance(t, newInMemoryHarness)
 }
 
 func TestConformance_CommitAttempt_TerminalJob(t *testing.T) {
@@ -934,7 +947,7 @@ func TestInMemoryRepository_LeaseRenewalAndExpiry(t *testing.T) {
 			t.Fatalf("renewal of an expired, unswept attempt = %+v, %v", got, err)
 		}
 		f.clock.now = t0.Add(5 * time.Minute)
-		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{ExitCode: 0, Output: "ok"}); err != nil {
+		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{ExitCode: 0, Output: "ok"}, nil); err != nil {
 			t.Fatalf("commit of an expired, unswept attempt rejected: %v", err)
 		}
 	})
@@ -946,7 +959,7 @@ func TestInMemoryRepository_LeaseRenewalAndExpiry(t *testing.T) {
 		if _, err := f.repo.RenewLease(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1"); !errors.Is(err, domain.ErrLeaseExpired) {
 			t.Fatalf("renew after sweep = %v", err)
 		}
-		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{}); !errors.Is(err, domain.ErrLeaseExpired) {
+		if _, err := f.repo.CommitAttempt(ctx, "j1", f.att.ID, f.att.LeaseToken, "w1", domain.AttemptOutcome{}, nil); !errors.Is(err, domain.ErrLeaseExpired) {
 			t.Fatalf("commit after sweep = %v", err)
 		}
 		if a, _ := f.repo.GetAttempt(ctx, f.att.ID); a.State != domain.AttemptLost {

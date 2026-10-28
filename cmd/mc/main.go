@@ -64,7 +64,7 @@ func handleSubmit(args []string) {
 	taskType := fs.String("task", "", "Allowlisted task type (echo, sleep, sha256_loop)")
 	payload := fs.String("payload", "{}", "JSON payload string")
 	timeoutSec := fs.Int("timeout", 60, "Task execution timeout in seconds")
-	maxAttempts := fs.Int("max-attempts", 3, "Maximum execution attempts")
+	maxAttempts := fs.Int("max-attempts", 0, "Maximum execution attempts (0 = the coordinator's default, MINICLOUD_DEFAULT_MAX_ATTEMPTS)")
 	coordURL := fs.String("coordinator-url", getCoordinatorURL(), "Coordinator URL")
 
 	_ = fs.Parse(args)
@@ -80,12 +80,15 @@ func handleSubmit(args []string) {
 		os.Exit(1)
 	}
 
-	reqBody, _ := json.Marshal(map[string]any{
+	req := map[string]any{
 		"task_type":       *taskType,
 		"payload":         json.RawMessage(*payload),
 		"timeout_seconds": *timeoutSec,
-		"max_attempts":    *maxAttempts,
-	})
+	}
+	if *maxAttempts != 0 {
+		req["max_attempts"] = *maxAttempts
+	}
+	reqBody, _ := json.Marshal(req)
 
 	resp, err := http.Post(*coordURL+"/v1/jobs", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
@@ -155,6 +158,39 @@ func handleGet(args []string) {
 			fmt.Printf("    Error:      %s\n", job.Result.Error)
 		}
 	}
+	if job.State == domain.StateFailed || job.State == domain.StateCancelled || job.State == domain.StateRetrying {
+		attempts, err := fetchAttempts(coordURL, jobID)
+		if err != nil {
+			fmt.Printf("  Failure:      attempt history unavailable (%v)\n", err)
+			return
+		}
+		if lines := failureSummary(&job, attempts); len(lines) > 0 {
+			fmt.Printf("  Failure:\n")
+			for _, l := range lines {
+				fmt.Printf("    %s\n", l)
+			}
+		}
+	}
+}
+
+// fetchAttempts reads GET /v1/jobs/{id}/attempts.
+func fetchAttempts(coordURL, jobID string) ([]*domain.Attempt, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/v1/jobs/%s/attempts", coordURL, jobID))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	var res struct {
+		Attempts []*domain.Attempt `json:"attempts"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, err
+	}
+	return res.Attempts, nil
 }
 
 func handleAttempts(args []string) {
@@ -189,13 +225,14 @@ func handleAttempts(args []string) {
 
 	fmt.Printf("Attempts for Job %s (%d total):\n", res.JobID, len(res.Attempts))
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NO\tATTEMPT ID\tWORKER\tSTATE\tEXIT\tSTARTED")
+	fmt.Fprintln(w, "NO\tATTEMPT ID\tWORKER\tSTATE\tCLASS\tEXIT\tSTARTED")
 	for _, att := range res.Attempts {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\t%s\n",
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%d\t%s\n",
 			att.AttemptNo,
 			att.ID,
 			att.WorkerID,
 			att.State,
+			att.ErrorClass,
 			att.ExitCode,
 			att.StartedAt.Format("15:04:05"),
 		)

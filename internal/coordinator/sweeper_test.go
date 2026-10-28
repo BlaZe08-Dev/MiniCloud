@@ -453,7 +453,7 @@ func TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt(t *testing.T) {
 	if err != nil || a2.JobID != a.JobID || a2.AttemptNo != 2 {
 		t.Fatalf("retry dispatch = %+v, %v, want attempt 2 of the same job", a2, err)
 	}
-	if _, err := h.svc.CommitResult(ctx, a.JobID, a.AttemptID, a.LeaseToken, "w1", 0, "late", ""); !errors.Is(err, domain.ErrStaleAttempt) && !errors.Is(err, domain.ErrLeaseExpired) {
+	if _, err := h.svc.CommitResult(ctx, a.JobID, a.AttemptID, a.LeaseToken, "w1", 0, "late", "", ""); !errors.Is(err, domain.ErrStaleAttempt) && !errors.Is(err, domain.ErrLeaseExpired) {
 		t.Fatalf("late commit from the abandoned attempt = %v, want rejection", err)
 	}
 }
@@ -473,7 +473,7 @@ func TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping(t *testing.T) {
 		t.Fatalf("attempt %s inside startup grace, want RUNNING (a surviving worker must still be able to finish)", att.State)
 	}
 	// The surviving worker's commit is accepted (accept-until-swept).
-	if _, err := h.svc.CommitResult(ctx, a.JobID, a.AttemptID, a.LeaseToken, "w1", 0, "ok", ""); err != nil {
+	if _, err := h.svc.CommitResult(ctx, a.JobID, a.AttemptID, a.LeaseToken, "w1", 0, "ok", "", ""); err != nil {
 		t.Fatalf("commit inside grace: %v", err)
 	}
 
