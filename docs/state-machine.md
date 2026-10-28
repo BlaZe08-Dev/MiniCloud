@@ -165,7 +165,6 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 | `JOB_SUBMITTED` | Client / API | Job accepted via `POST /v1/jobs`. | `{"task_type": "...", "max_attempts": 3}` |
 | `JOB_QUEUED` | Coordinator | Job placed into scheduling pool. | `{}` |
 | `JOB_DISPATCHED` | Worker / Poller | Job claimed via `repo.DispatchNextJob`. | `{"worker_id": "...", "attempt_no": 1, "policy": "fifo_pull"}` |
-| `LEASE_RENEWED` | Worker / Agent | Worker renewed attempt lease via `/renew`. | `{"attempt_id": "...", "worker_id": "...", "new_expires_at": "..."}` |
 | `LEASE_EXPIRED` | Sweeper | Coordinator swept expired attempt. | `{"attempt_id": "...", "worker_id": "...", "expired_at": "..."}` |
 | `JOB_RETRYING` | Coordinator | Retryable failure scheduled for backoff. | `{"attempt_no": 1, "not_before": "...", "backoff_seconds": 2.5}` |
 | `JOB_CANCEL_REQUESTED` | Client / API | Client requested cancellation for running job. | `{"requested_at": "..."}` |
@@ -173,6 +172,9 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 | `JOB_COMPLETED` | Worker | Worker committed successful result. | `{"worker_id": "...", "exit_code": 0}` |
 | `JOB_FAILED` | Worker / Sweeper | Worker committed permanent error or budget exhausted. | `{"worker_id": "...", "exit_code": 1, "error": "..."}` |
 | `DIAGNOSTIC_LATE_RESULT` | Worker | Expired worker attempted commit after lease lapse. | `{"reporting_worker": "...", "attempt_id": "...", "rejected": true}` |
+
+*Note on Lease Renewals*: A renewal records no event in `job_events`, and rejected renewals write nothing (preventing unbounded audit table growth; authorised by the orchestrator in the planning session).
+
 
 ---
 
