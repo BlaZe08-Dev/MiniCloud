@@ -1,0 +1,775 @@
+
+##### [setup] git fetch / switch / HEAD / tree status
+
+Switched to a new branch 'agent/claude/P4-02-review-2'
+branch 'agent/claude/P4-02-review-2' set up to track 'origin/agent/gemini/P4-02'.
+d441c3e
+
+##### [preflight] AGENTS.md section 9 preflight
+
+worktree: /home/blazeee/MiniCloud-claude-audit
+test URL: postgres://***@127.0.0.1:5433/minicloud_claude_test?sslmode=disable
+test DB:  minicloud_claude_test
+preflight OK
+
+##### [fixlog] git log --oneline 33c31ed..HEAD
+
+d441c3e docs(agents): apply R7-12, R7-16 to P4-02 handoff
+a3590bd docs(agents): apply R7-14 to P4-01 handoff
+78686e8 test(docs): apply R7-13 to citation allowlist backoff test reason
+07d00e4 docs(agents): apply R7-06, R7-17 to P4-00 handoff
+6448078 docs(tasks): apply R7-10 to P4-4b task specification
+9f04d0f docs(adr): apply R7-15 to ADR-0008 regarding removed NewServiceWithQueue
+78c3c7c docs: apply R7-07, R7-11 to state-machine, ADR-0016, and fault-injection plan
+08df139 docs(plan): apply R7-04, R7-09, R7-11 to Phase 4 plan
+a39f333 docs(security): apply R7-04, R7-05, R7-08, R7-11 to findings and threat-model
+1cf36e4 docs(roadmap): apply R7-03, R7-11 to Phase 4 sub-slices
+6fa9749 docs: apply R7-01, R7-02, R7-03, R7-04, R7-11, R7-12 to docs/PROJECT_STATE.md
+143877c docs(changelog): apply R7-01, R7-02, R7-11, R7-12 to Slice 4a records
+
+##### [fixstat] git diff --stat 33c31ed..HEAD
+
+ CHANGELOG.md                                       | 11 +++---
+ docs/PROJECT_STATE.md                              | 44 ++++++++++++----------
+ .../adr/0008-dispatch-transport-queue-interface.md |  4 +-
+ docs/adr/0016-cancellation-semantics.md            |  8 ++--
+ docs/agents/TASKS.md                               |  6 +--
+ docs/agents/handoffs/P4-00.md                      | 10 ++---
+ docs/agents/handoffs/P4-01.md                      | 17 +++++----
+ docs/agents/handoffs/P4-02.md                      | 38 ++++++++++---------
+ docs/fault-injection-plan.md                       |  2 +-
+ docs/phase4-plan.md                                | 23 ++++++-----
+ docs/roadmap.md                                    |  8 ++--
+ docs/security/findings.md                          |  8 ++--
+ docs/security/threat-model.md                      |  8 ++--
+ docs/state-machine.md                              | 10 ++---
+ tests/docs/citation_allowlist.txt                  |  2 +-
+ 15 files changed, 106 insertions(+), 93 deletions(-)
+
+##### [diff-state] git diff -U0 33c31ed..HEAD -- CHANGELOG.md docs/PROJECT_STATE.md docs/roadmap.md
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 31b524c..b4f86ae 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,0 +11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
++- **P4-02 (docs):** Repaired 4a-drifted line citations in live docs to function and section references, applied the 4b/4c slice split to docs/phase4-plan.md, registered SEC-024, added six audit-record names to the citation allowlist, imported the P4-01 and P4-4a audits.
+@@ -12 +13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+-  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under row lock. In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
++  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+@@ -15,3 +16,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+-  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic pseudo-random model-based property test `TestProperty_StateMachine_ModelConformance` executing 5 seeds x 200 steps (1,000 steps total) across memory and PostgreSQL without invariant violations.
+-  - **Test Suite Results (Executed):** Unit/integration gate (`MINICLOUD_TEST_DATABASE_URL` unset): PASS 89, SKIP 28, FAIL 0; database test gate (`make test-db`): PASS 70, SKIP 0, FAIL 0.
+-  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, `RenewLease`/`SweepExpiredLeases` with row lock, backoff computation (`TestDomain_ComputeBackoff_FullJitter` (planned test)), and `CommitAttempt` 409 evaluation order; Slice 4c receives coordinator sweeper runner loop, grace/cooldown window management, and worker renewal loop.
++  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic seeded model-based property test `TestProperty_StateMachine_ModelConformance`: memory 8 seeds x 400 steps (3,200 steps) and PostgreSQL 3 seeds x 120 steps (360 steps), no invariant violations.
++  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, FAIL 0. Database test gate (make test-db) on the slice 4a tip: PASS 70, SKIP 0, FAIL 0; P4-02 changes no code.
++  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndExpiry (planned test) and the CommitAttempt 409 evaluation order; Slice 4c receives the coordinator sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop and the delivery retry budget.
+@@ -39 +40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
+-  - **Phase 4 Execution Plan (`docs/phase4-plan.md`):** Updated implementation plan: Slice 4a starts with grace design and existing-test impact list (citing `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and adding `TestConformance_CancelJob_IdempotentCancelRequested` (planned test)); every sub-slice exit criteria explicitly mandate mutation proofs for new test controls.
++  - **Phase 4 Execution Plan (`docs/phase4-plan.md`):** Updated implementation plan: Slice 4a starts with grace design and existing-test impact list (citing `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and adding `TestConformance_CancelJob_IdempotentCancelRequested` (planned test, since executed in slice 4a)); every sub-slice exit criteria explicitly mandate mutation proofs for new test controls.
+diff --git a/docs/PROJECT_STATE.md b/docs/PROJECT_STATE.md
+index 5505931..c45d127 100644
+--- a/docs/PROJECT_STATE.md
++++ b/docs/PROJECT_STATE.md
+@@ -4,2 +4,2 @@
+-- **Current Branch:** `agent/gemini/P4-02`
+-- **Current Milestone:** Phase 4 Slice 4a Complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire). Merging with P4-02.
++- **Current Branch:** `main`
++- **Current Milestone:** Phase 4 Slice 4a complete (Domain FSM, In-Memory Parity, SEC-022 Remediation, Dispatch Rewire); next: slice 4b.
+@@ -12 +12 @@
+-  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under row lock. In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
++  - **SEC-022 Remediation (Executed):** Fixed duplicate `CancelJob` on `CANCEL_REQUESTED` prematurely marking job `CANCELLED` while attempt remains `RUNNING`, which permanently leaked worker slots on late commit. Handled duplicate cancel on `CANCEL_REQUESTED` as an idempotent HTTP 200 no-op under the job row lock (PostgreSQL) or repository mutex (in-memory). In `CommitAttempt` on a terminal job, the attempt is closed strictly if still in `RUNNING` (setting attempt `state = 'CANCELLED'` if job is `CANCELLED`, or `state = 'LOST'` otherwise) and the worker slot is freed in the same transaction as the rejection, writing a diagnostic event and returning HTTP 409 `JOB_ALREADY_TERMINAL`. Verified by regression test `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (both memory and PostgreSQL) and shared conformance test `TestConformance_CancelJob_IdempotentCancelRequested`.
+@@ -15,3 +15,3 @@
+-  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic pseudo-random model-based property test `TestProperty_StateMachine_ModelConformance` executing 5 seeds x 200 steps (1,000 steps total) across memory and PostgreSQL without invariant violations.
+-  - **Test Suite Results (Executed):** Unit/integration gate (`MINICLOUD_TEST_DATABASE_URL` unset): PASS 89, SKIP 28, FAIL 0; database test gate (`make test-db`): PASS 70, SKIP 0, FAIL 0.
+-  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, `RenewLease`/`SweepExpiredLeases` with row lock, backoff computation (`TestDomain_ComputeBackoff_FullJitter` (planned test)), and `CommitAttempt` 409 evaluation order; Slice 4c receives coordinator sweeper runner loop, grace/cooldown window management, and worker renewal loop.
++  - **Storage Conformance & Model-Based Verification (Executed):** Added shared conformance tests for idempotent cancel, retrying cancellation, terminal commit attempt closing, and non-RUNNING attempt rejection (`TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt` addressing R6-01 via `ForceAttemptState`). Added deterministic seeded model-based property test `TestProperty_StateMachine_ModelConformance`: memory 8 seeds x 400 steps (3,200 steps) and PostgreSQL 3 seeds x 120 steps (360 steps), no invariant violations.
++  - **Test Suite Results (Executed):** Slice 4a tip (8183a59), unit/integration gate (MINICLOUD_TEST_DATABASE_URL unset): PASS 89, SKIP 28, FAIL 1; the failure was TestCitations (stale line citations), repaired in P4-02. Merged tree after P4-02, same gate: PASS 90, SKIP 28, FAIL 0. Database test gate (make test-db) on the slice 4a tip: PASS 70, SKIP 0, FAIL 0; P4-02 changes no code.
++  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndExpiry (planned test) and the CommitAttempt 409 evaluation order; Slice 4c receives the coordinator sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop and the delivery retry budget.
+@@ -29 +29 @@
+-    Verified by `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
++    Verified by `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
+@@ -179,2 +179,2 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-  - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED`. Slice 4a changes duplicate-cancel behavior (job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes. Existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` only tested duplicate cancel on terminal `QUEUED`/`CANCELLED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
+-  - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map domain constants in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
++  - Existing-test impact: Duplicate cancel on `CANCEL_REQUESTED` becomes an idempotent no-op returning HTTP 200 with state `CANCEL_REQUESTED`. Slice 4a changes duplicate-cancel behavior (job remains in `CANCEL_REQUESTED` rather than prematurely jumping to `CANCELLED`), but changes zero HTTP status codes. Existing test `CancelJob_QueuedAndRunning` in `internal/storage/storagetest/conformance.go` and `TestInMemoryRepository_SubmitJob_And_CancelJob_Events` in `internal/storage/inmemory_test.go` only tested duplicate cancel on terminal `QUEUED`/`CANCELLED`. Zero existing assertions broken. Add `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
++  - State naming reconciliation: canonical states `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` CHECK constraint `chk_attempts_state`. Map domain constants in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+@@ -182,3 +182,3 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, leases, renewals, and sweeper.
+-  - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (planned test).
+-- **Exit Criteria:** In-memory repository passes expanded shared conformance suite; property test generator executes >= 1,000 random event traces without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency, and retry backoff.
++  - `InMemoryRepository` parity with injectable `Clock`, `not_before` dispatch filter, idempotent duplicate cancel, immediate `RETRYING` cancel and `DispatchNextJob` dispatch. In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b by owner decision.
++  - Shared conformance tests in `internal/storage/storagetest` and model-based state machine property test `TestProperty_StateMachine_ModelConformance` (executed in slice 4a).
++- **Exit Criteria:** In-memory repository passes expanded shared conformance suite; the model-based property test runs seeded traces (memory 8 seeds x 400 steps, PostgreSQL 3 seeds x 120 steps) without invariant violations; `-race -count=1` clean. Mandatory mutation proofs for transition guards, duplicate cancel idempotency and `not_before` dispatch gating.
+@@ -186 +186 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-### Slice 4b: Schema Migration 000004 & PostgreSQL Repository Parity
++### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+@@ -189 +189 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-  - PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases`, retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`.
++  - In-memory and PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases` (the grace state arrives as an input value and the only authoritative grace check runs inside the row locks), retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`; a pure job-retry backoff function in `internal/domain` (planned test `TestDomain_ComputeBackoff_FullJitter` (planned test)).
+@@ -192 +192 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-  - Sweeper dual grace windows: 30s startup grace, 30s outage grace.
++  - In-lock grace check driven by the caller-supplied grace state; the sweeper loop, the outage grace and cooldown state and the startup grace period belong to slice 4c.
+@@ -258,0 +259 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
++  - **SEC-024 (Informational, Open, within SEC-004):** CommitAttempt on a terminal job evaluates job terminality before the attempt lease token, so a bogus token naming the active attempt still closes it and frees the slot (`internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`); recorded in ADR-0014 and `docs/security/findings.md`.
+@@ -267 +268 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
+-- **Date:** 2026-10-26
++- **Date:** 2026-10-28
+@@ -280 +281 @@ go test ./tests/docs
+-ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.354s
++ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.596s
+@@ -282 +283 @@ ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.354s
+-$ go test -race -count=1 ./...
++$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...
+@@ -298,2 +299,5 @@ ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.611s
+-$ go test -v -count=1 ./...
+-PASS: 77, SKIP: 26, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
++$ env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...
++PASS: 90, SKIP: 28, FAIL: 0 (with MINICLOUD_TEST_DATABASE_URL unset)
++
++$ make test-db
++PASS: 70, SKIP: 0, FAIL: 0
+diff --git a/docs/roadmap.md b/docs/roadmap.md
+index 790971e..eaf474e 100644
+--- a/docs/roadmap.md
++++ b/docs/roadmap.md
+@@ -56 +56 @@ MiniCloud development is structured into three major releases. Each version buil
+-   - Implement `LeaseExpiresAt`, `RenewLease`, `SweepExpiredLeases`, and `not_before` backoff in `internal/storage.InMemoryRepository`.
++   - Add `LeaseExpiresAt`, `not_before` dispatch gating, idempotent duplicate cancel and in-memory dispatch via `DispatchNextJob` in `internal/storage.InMemoryRepository`. (In-memory `RenewLease` and `SweepExpiredLeases` moved to slice 4b.)
+@@ -58 +58 @@ MiniCloud development is structured into three major releases. Each version buil
+-2. **Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation**:
++2. **Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function**:
+@@ -60 +60 @@ MiniCloud development is structured into three major releases. Each version buil
+-   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s).
++   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state input, and a pure job-retry backoff function in `internal/domain`.
+@@ -63 +63 @@ MiniCloud development is structured into three major releases. Each version buil
+-   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s with startup grace suppression (30s).
++   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s owning the startup grace period and the outage grace and cooldown state, and passing that state to `SweepExpiredLeases`.
+
+##### [diff-docs] git diff -U0 33c31ed..HEAD -- docs/adr docs/fault-injection-plan.md docs/phase4-plan.md docs/security docs/state-machine.md docs/agents/TASKS.md tests
+
+diff --git a/docs/adr/0008-dispatch-transport-queue-interface.md b/docs/adr/0008-dispatch-transport-queue-interface.md
+index c39c904..417a018 100644
+--- a/docs/adr/0008-dispatch-transport-queue-interface.md
++++ b/docs/adr/0008-dispatch-transport-queue-interface.md
+@@ -52 +52 @@ As planned in ADR 0004 (Version Boundaries) and ADR 0006 (Redis Streams Dispatch
+-   - `coordinator.NewServiceWithQueue` allows injecting alternative transport implementations (such as Redis Streams in V2) without modifying domain or scheduling logic.
++   - `coordinator.NewServiceWithQueue` allows injecting alternative transport implementations (such as Redis Streams in V2) without modifying domain or scheduling logic. (Removed in slice 4a: memory-mode dispatch now goes through repo.DispatchNextJob; queue injection is no longer used.)
+@@ -71 +71 @@ As planned in ADR 0004 (Version Boundaries) and ADR 0006 (Redis Streams Dispatch
+-- *Mutator Method (`SetQueue`):* Rejected in favor of constructor injection (`NewServiceWithQueue`) to maintain immutable service dependencies and avoid concurrency hazards.
++- *Mutator Method (`SetQueue`):* Rejected in favor of constructor injection (`NewServiceWithQueue`) to maintain immutable service dependencies and avoid concurrency hazards. (constructor since removed in slice 4a)
+diff --git a/docs/adr/0016-cancellation-semantics.md b/docs/adr/0016-cancellation-semantics.md
+index 3bdd56f..c4b3e14 100644
+--- a/docs/adr/0016-cancellation-semantics.md
++++ b/docs/adr/0016-cancellation-semantics.md
+@@ -19 +19 @@ Accepted by Owner (2026-10-26)
+-MiniCloud currently implements cancellation atomically in storage via `repo.CancelJob`:
++Before slice 4a (baseline at f6c7ec8) MiniCloud implemented cancellation atomically in storage via `repo.CancelJob`:
+@@ -24 +24 @@ MiniCloud currently implements cancellation atomically in storage via `repo.Canc
+-  4. If job is in any other non-terminal state (which currently includes `CANCEL_REQUESTED` or future `RETRYING`): the `else` branch transitions the job directly to `CANCELLED` (audit event `JobEventCancelled`).
++  4. If job is in any other non-terminal state (which then included `CANCEL_REQUESTED` or future `RETRYING`): the `else` branch transitions the job directly to `CANCELLED` (audit event `JobEventCancelled`).
+@@ -45 +45 @@ The Phase 4 design introduces four concrete behavioral changes to the existing c
+-   - *Current Behavior*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
++   - *Behavior before slice 4a*: A second call to `CancelJob` while `job.state == 'CANCEL_REQUESTED'` falls into the `else` block, moving the job prematurely to `CANCELLED` while the worker may still be executing the attempt. When the worker later commits, the commit is rejected as terminal (`JOB_ALREADY_TERMINAL`) without closing the attempt, permanently leaking worker capacity (SEC-022).
+@@ -150 +150 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
+-  - Conformance plan adds `TestConformance_CancelJob_IdempotentCancelRequested` (planned test) to verify in-memory and PostgreSQL parity for duplicate cancel on `CANCEL_REQUESTED`.
++  - Conformance plan adds `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a) to verify in-memory and PostgreSQL parity for duplicate cancel on `CANCEL_REQUESTED`.
+diff --git a/docs/agents/TASKS.md b/docs/agents/TASKS.md
+index a89bc90..7ceaa2a 100644
+--- a/docs/agents/TASKS.md
++++ b/docs/agents/TASKS.md
+@@ -62 +62 @@ builds the rest. The other agent audits.
+-- Goal: Schema migration 000004, PostgreSQL repository parity (leases, sweeper with row lock, backoff computation, CommitAttempt 409 order, cooperative cancel).
++- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExpiry (planned test).
+@@ -64,2 +64,2 @@ builds the rest. The other agent audits.
+-- Owned files: `internal/storage/postgres/**`, `internal/storage/storagetest/**`, `migrations/000004_*`, `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
+-- Out of scope: any worker loop expansion (slice 4c), sweeper runner daemon (slice 4c).
++- Owned files: `internal/storage/**` (in-memory and PostgreSQL repositories, the Repository interface, storagetest), `internal/domain/**`, `tests/**`, `docs/agents/handoffs/P4-4b*` (when created).
++- Out of scope: sweeper loop, outage grace and cooldown state, startup grace, worker renewal loop, delivery retry budget (slice 4c); cooperative cancel and failure classification (slice 4d).
+diff --git a/docs/fault-injection-plan.md b/docs/fault-injection-plan.md
+index 37fd166..e40778a 100644
+--- a/docs/fault-injection-plan.md
++++ b/docs/fault-injection-plan.md
+@@ -116 +116 @@ A distributed system cannot be certified by "happy path" testing alone. Every fa
+-To discover unexpected corner cases, race conditions, and sequence anomalies across arbitrary failure combinations, MiniCloud introduces a model-based testing harness (`TestProperty_StateMachine_ModelConformance` (planned test)).
++To discover unexpected corner cases, race conditions, and sequence anomalies across arbitrary failure combinations, MiniCloud introduces a model-based testing harness (`TestProperty_StateMachine_ModelConformance` (executed in slice 4a)).
+diff --git a/docs/phase4-plan.md b/docs/phase4-plan.md
+index 115dcee..ff0117a 100644
+--- a/docs/phase4-plan.md
++++ b/docs/phase4-plan.md
+@@ -43 +43 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` will be added to `storagetest/conformance.go`.
++       - *New Conformance Test*: `TestConformance_CancelJob_IdempotentCancelRequested` (added in slice 4a to `internal/storage/storagetest/conformance.go`).
+@@ -52 +52 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - Planned test: `TestAPI_CancelJob_SuccessReturns200`.
++     - Test: `TestAPI_CancelJob_SuccessReturns200` (executed in slice 4a).
+@@ -58 +58 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `newTestService`), `internal/api/api_test.go` (helper `newTestServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
++       - Callers constructing memory coordinators without queue assertions remain unaffected: `internal/coordinator/service_test.go` (helper `setupTestCoordinator`), `internal/api/api_test.go` (helpers `setupTestServer` and `setupErrorServer`), `tests/integration/coordinator_restart_test.go`, and `tests/integration/worker_liveness_test.go`.
+@@ -77 +77 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-     - Planned test: `TestConformance_CancelJob_RetryingImmediatelyCancelled`.
++     - Test: `TestConformance_CancelJob_RetryingImmediatelyCancelled` (executed in slice 4a).
+@@ -79 +79 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` enum `attempt_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
++  - Reconcile attempt state naming: canonical states are `'PENDING'`, `'RUNNING'`, `'COMPLETED'`, `'FAILED'`, `'TIMED_OUT'`, `'CANCELLED'`, `'LOST'`, matching migration `000001_initial_schema.sql` CHECK constraint `chk_attempts_state`. Map/rename domain constants `AttemptState` in `internal/domain/state.go` (`EXPIRED` -> `LOST`, `CANCELED` -> `CANCELLED`).
+@@ -114 +114 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-### Slice 4b: Schema Migration 000004 & PostgreSQL Repository Durable Implementation
++### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+@@ -149 +149,2 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Removing startup grace check in sweeper (driven by passing grace-state input to `SweepExpiredLeases`) must cause sweeper grace tests to fail; coordinator-level restart grace is tested in 4c.
++    - Removing the in-lock grace check in `SweepExpiredLeases` (driven by the grace-state input) must fail `TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping` (planned test).
++    - Mutating the jitter factor outside [0.5, 1.5] or removing the 30 s cap in the pure backoff function must fail `TestDomain_ComputeBackoff_FullJitter` (planned test).
+@@ -162,0 +164 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
++  - `TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping` (planned test)
+@@ -199,0 +202 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
++    - Removing the startup grace period from the sweeper loop must cause `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test) and `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test) to fail.
+@@ -232 +235 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - Implement exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, and calculate `jobs.not_before`.
++  - Reuse the pure backoff function built in slice 4b (`internal/domain`) to calculate `jobs.not_before` for classified retries; no second implementation.
+@@ -245 +248 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-    - Mutating jitter formula to exceed [0.5, 1.5] bounds must cause jitter distribution test to fail.
++    - Mutating the retry path to bypass the 4b backoff function must cause `TestCoordinator_RetryBackoffWithJitter` (planned test) to fail.
+@@ -270 +273 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a
+-  - Execute property-based state machine test harness (`TestProperty_StateMachine_ModelConformance` (planned test)) for >= 1,000 iterations.
++  - Execute property-based state machine test harness (`TestProperty_StateMachine_ModelConformance` (executed in slice 4a)) for >= 1,000 iterations.
+diff --git a/docs/security/findings.md b/docs/security/findings.md
+index 357b99d..c96d2bc 100644
+--- a/docs/security/findings.md
++++ b/docs/security/findings.md
+@@ -26 +26 @@ For findings of **Medium** severity and above, the full structured report format
+-| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go` func `IsValidIdentifier`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CommitAttempt`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
++| **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go` func `SubmitJob` (bounds `MinMaxAttempts`, `MaxMaxAttempts`, `MinTimeoutSeconds`, `MaxTimeoutSeconds`), `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CreateJob`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go:476-608`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
+@@ -104 +104 @@ For findings of **Medium** severity and above, the full structured report format
+-- **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go` func `IsValidIdentifier`, `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CommitAttempt`)
++- **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go` func `SubmitJob` (bounds `MinMaxAttempts`, `MaxMaxAttempts`, `MinTimeoutSeconds`, `MaxTimeoutSeconds`), `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CreateJob`)
+@@ -386 +386 @@ FAIL
+-- **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
++- **Regression Test**: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test, since executed in slice 4a).
+@@ -427 +427 @@ FAIL
+-- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-022 remediation). The stored result of the job is never overwritten, and diagnostic event insertion is idempotent (capped at 1 per attempt via partial unique index).
++- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-022 remediation). The stored result of the job is never overwritten, and diagnostic event insertion is idempotent (capped at 1 per attempt by a NOT EXISTS check under the job row lock in PostgreSQL and a loop check in memory; the partial unique index idx_job_events_unique_diagnostic_late_result is planned for migration 000004 in slice 4b).
+diff --git a/docs/security/threat-model.md b/docs/security/threat-model.md
+index bb797f7..0e7727f 100644
+--- a/docs/security/threat-model.md
++++ b/docs/security/threat-model.md
+@@ -54 +54 @@ MiniCloud is a distributed job execution system. This threat model evaluates the
+-| | | | **Oversized Payloads & Outputs**: Jobs with massive payloads crashing workers. | Validated in executor (`MaxPayloadSizeBytes` 64 KiB, `MaxOutputSizeBytes` 64 KiB in `internal/executor/executor.go:14-15,74`) and coordinator (`internal/coordinator/service.go` func `NewService`). Dedicated domain-level validation package is proposed, does not exist yet. Tested in `TestExecutor_PayloadSizeLimit` (`internal/executor/executor_test.go:96`) and `TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits` (`internal/storage/postgres/security_test.go:104`). | covered by a named test |
++| | | | **Oversized Payloads & Outputs**: Jobs with massive payloads crashing workers. | Validated in executor (`MaxPayloadSizeBytes` 64 KiB, `MaxOutputSizeBytes` 64 KiB in `internal/executor/executor.go:14-15,74`) and coordinator (`internal/coordinator/service.go` func `SubmitJob`). Dedicated domain-level validation package is proposed, does not exist yet. Tested in `TestExecutor_PayloadSizeLimit` (`internal/executor/executor_test.go:96`) and `TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits` (`internal/storage/postgres/security_test.go:104`). | covered by a named test |
+@@ -98 +98 @@ The following items were identified during static inspection of the codebase. It
+-8. **Unvalidated Numeric Boundaries in Job Submission (`internal/api/handlers.go:138-158`, `internal/coordinator/service.go` func `IsValidIdentifier`)** (SEC-014, Fixed in Slice 3d):
++8. **Unvalidated Numeric Boundaries in Job Submission (`internal/api/handlers.go:138-158`, `internal/coordinator/service.go` func `SubmitJob` (bounds `MinMaxAttempts`, `MaxMaxAttempts`, `MinTimeoutSeconds`, `MaxTimeoutSeconds`))** (SEC-014, Fixed in Slice 3d):
+@@ -114 +114 @@ The following items were identified during static inspection of the codebase. It
+-12. **Premature Job Finalization and Permanent Slot Leak via Duplicate Cancel on CANCEL_REQUESTED (`internal/storage/inmemory.go` func `CancelJob`, `internal/storage/postgres/repository.go` func `CancelJob`)** (SEC-022, Medium, Open, executed):
++12. **Premature Job Finalization and Permanent Slot Leak via Duplicate Cancel on CANCEL_REQUESTED (`internal/storage/inmemory.go` func `CancelJob`, `internal/storage/postgres/repository.go` func `CancelJob`)** (SEC-022, Medium, Fixed in slice 4a, executed):
+@@ -117 +117 @@ The following items were identified during static inspection of the codebase. It
+-    - Verification step: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (planned test).
++    - Verification step: `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (audit probe, executed on `agent/claude/P4-00-review`; regression in slice 4a). Conformance test: `TestConformance_CancelJob_IdempotentCancelRequested` (executed in slice 4a).
+diff --git a/docs/state-machine.md b/docs/state-machine.md
+index 9cc842d..9d94436 100644
+--- a/docs/state-machine.md
++++ b/docs/state-machine.md
+@@ -44 +44 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
+-  Cancellation today behaves identically in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob`:
++  Before slice 4a (baseline at f6c7ec8), cancellation behaved identically in `internal/storage/inmemory.go` func `CancelJob` and `internal/storage/postgres/repository.go` func `CancelJob`:
+@@ -48 +48 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
+-  4. Any other non-terminal state (including `CANCEL_REQUESTED` and future `RETRYING`) -> falls through to `CANCELLED` (event `JOB_CANCELLED`).
++  4. Any other non-terminal state (including `CANCEL_REQUESTED`, and `RETRYING` once it existed) fell through to `CANCELLED` (event `JOB_CANCELLED`). Slice 4a replaced this branch: duplicate cancel on `CANCEL_REQUESTED` is an idempotent no-op and `RETRYING` cancels immediately.
+@@ -52 +52 @@ The table below defines whether a transition from `Current State` (rows) to `Tar
+-  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Currently, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, the repository performs an idempotent duplicate-cancel no-op under row lock returning the job in `CANCEL_REQUESTED` unchanged (API returns HTTP 200 with state `CANCEL_REQUESTED`, identical response body as the first cancel). The domain transition matrix is unchanged by this (`CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the FSM).
++  1. **Idempotent Duplicate Cancel on `CANCEL_REQUESTED`**: Before slice 4a, a second cancel on `CANCEL_REQUESTED` moves the job prematurely to `CANCELLED` while the worker may still be executing. Under Phase 4, the repository performs an idempotent duplicate-cancel no-op under row lock returning the job in `CANCEL_REQUESTED` unchanged (API returns HTTP 200 with state `CANCEL_REQUESTED`, identical response body as the first cancel). The domain transition matrix is unchanged by this (`CANCEL_REQUESTED -> CANCEL_REQUESTED` remains invalid in the FSM).
+@@ -86 +86 @@ MiniCloud establishes the schema values as the canonical state names across the
+-In Slice 4a, `internal/domain/state.go` will be updated to declare:
++Slice 4a updated `internal/domain/state.go` to declare:
+@@ -104 +104 @@ const (
+-In-memory attempt state validation: In Slice 4a, the in-memory repository will validate attempt states against canonical attempt states (preventing typos like `"CANCELED"` from being stored in memory tests).
++In-memory attempt state validation: In Slice 4a, the in-memory repository validated attempt states against canonical attempt states (preventing typos like `"CANCELED"` from being stored in memory tests).
+diff --git a/tests/docs/citation_allowlist.txt b/tests/docs/citation_allowlist.txt
+index 90175e2..3bf84d1 100644
+--- a/tests/docs/citation_allowlist.txt
++++ b/tests/docs/citation_allowlist.txt
+@@ -24 +24 @@ path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; li
+-test|TestDomain_ComputeBackoff_FullJitter|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
+
+##### [diff-handoffs] git diff -U0 33c31ed..HEAD -- docs/agents/handoffs
+
+diff --git a/docs/agents/handoffs/P4-00.md b/docs/agents/handoffs/P4-00.md
+index 53a77ec..a61030d 100644
+--- a/docs/agents/handoffs/P4-00.md
++++ b/docs/agents/handoffs/P4-00.md
+@@ -55 +55 @@ Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7
+-| R-14 | RESOLVED | No | `docs/adr/0014-lease-model-and-expiry.md` (Context), `docs/phase4-plan.md` (overview) | Old state names replaced across ADR-0014 and phase4-plan. |
++| R-14 | RESOLVED | No | `docs/adr/0014-lease-model-and-expiry.md` (Context), `docs/phase4-plan.md` (overview) | Configuration names unified: MINICLOUD_LEASE_DURATION and MINICLOUD_SWEEPER_INTERVAL are the only spellings in ADR-0014 and phase4-plan. |
+@@ -59 +59 @@ Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7
+-| R-18 | RESOLVED | No | `docs/phase4-plan.md` (Slice 4a), `docs/protocol.md` (section 2.2) | Aligned error messages across phase4-plan and protocol. |
++| R-18 | RESOLVED | No | `docs/phase4-plan.md` (Slice 4a), `docs/protocol.md` (section 2.2) | RETRYING-cancel conformance case added to the 4a gate (TestConformance_CancelJob_RetryingImmediatelyCancelled); the RETRYING cancel wording no longer differs between ADR-0016 and protocol 3.4. |
+@@ -61 +61 @@ Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7
+-| R-20 | RESOLVED | No | `docs/security/findings.md` (SEC-020), `docs/failure-model.md` (recovery paths) | Citations aligned to section and document names per R5-01. |
++| R-20 | RESOLVED | No | `docs/security/findings.md` (SEC-020), `docs/failure-model.md` (recovery paths) | Line citations in findings.md SEC-020 repaired; docs/failure-model.md still carries six line citations to unchanged files (see P4-02 review R7-06). |
+@@ -101 +101 @@ Branch docs/phase4-design, merged to main by pull request #17 (merge commit f6c7
+-| R4-01 | D-R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) | `docs/agents/handoffs/P4-00.md` | Status per round 5: PARTIAL; handoff rewritten: renewal response status unified to `"RENEWED"` (removed `"ACTIVE"`), sweeper cadence corrected to 5s, `docs/agents/TASKS.md` updated with reviews round 2, 3, and 4; status columns aligned with audit review table verbatim. Residual citation line inaccuracies addressed in R5-01 by replacing line numbers with document and section names. |
++| R4-01 | D-R4-01 | PARTIAL (residual is R5-01, minor under the owner's rule) | `docs/agents/handoffs/P4-00.md` | Status per round 5: PARTIAL; handoff rewritten: renewal response status unified to `"RENEWED"` (removed `"ACTIVE"`), sweeper cadence corrected to 5s, `docs/agents/TASKS.md` updated with reviews round 2, 3, and 4; status columns aligned with audit review table verbatim. Residual citation line inaccuracies are the subject of R5-01 and P4-02. |
+@@ -206 +206 @@ make test-db was NOT run (docs-only task)
+-None. R5-02 is fixed on P4-01; R5-01 residual is addressed in P4-02.
++None. R5-02 is fixed on P4-01; R5-01 residual is the subject of P4-02 (see docs/agents/reviews/P4-02.md).
+diff --git a/docs/agents/handoffs/P4-01.md b/docs/agents/handoffs/P4-01.md
+index e73bea1..d947d3a 100644
+--- a/docs/agents/handoffs/P4-01.md
++++ b/docs/agents/handoffs/P4-01.md
+@@ -6,4 +6,5 @@ What changed (by package):
+-- `docs/adr/0014-lease-model-and-expiry.md`: Dropped nonexistent non-running attempt error references per owner fix (R5-02).
+-- `docs/protocol.md`: Dropped nonexistent non-running attempt error from protocol 409 table (R5-02).
+-- `docs/phase4-plan.md`: Dropped nonexistent non-running attempt error and associated planned tests (R5-02).
+-- `docs/PROJECT_STATE.md`: Dropped nonexistent non-running attempt error from Phase 4 scope (R5-02).
++- `docs/adr/0014-lease-model-and-expiry.md`: Dropped nonexistent domain.ErrAttemptNotRunning references per owner fix (R5-02).
++- `docs/protocol.md`: Dropped nonexistent domain.ErrAttemptNotRunning from protocol 409 table (R5-02).
++- `docs/phase4-plan.md`: Dropped nonexistent domain.ErrAttemptNotRunning and associated planned tests (R5-02).
++- `docs/PROJECT_STATE.md`: Dropped nonexistent domain.ErrAttemptNotRunning from Phase 4 scope (R5-02).
++- `docs/agents/handoffs/P4-00-citation-check.txt`: deleted.
+@@ -15 +16 @@ Design decisions and deviations from the design doc (with reasons):
+-- `docs/PROJECT_STATE.md` was modified to keep Phase 4 scope consistent with the removal of nonexistent non-running attempt error, but was not originally listed in P4-01 "Owned files" in `docs/agents/TASKS.md` (recorded as audit finding R6-05).
++- `docs/PROJECT_STATE.md` was modified to keep Phase 4 scope consistent with the removal of nonexistent domain.ErrAttemptNotRunning, but was not originally listed in P4-01 "Owned files" in `docs/agents/TASKS.md` (recorded as audit finding R6-05).
+@@ -28 +29 @@ Commands run + real output (gofmt, vet, build, test-docs, test -race counts, tes
+-- `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 77 SKIP 26 FAIL 0.
++- `env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...`: PASS 77 SKIP 26 FAIL 0 (figures taken from the auditor's evidence file docs/agents/reviews/P4-01-evidence.txt; the builder's own output was not preserved).
+@@ -38,2 +39,2 @@ Security review (assumptions challenged, attacks tried, not tested, findings wit
+-- Assumptions challenged: Verified that dropping nonexistent non-running attempt error does not compromise 409 conflict handling in ADR-0014, protocol spec, and Phase 4 plan.
+-- Attacks tried: Static citation check and verification of all links and anchors.
++- Assumptions challenged: Verified that dropping nonexistent domain.ErrAttemptNotRunning does not compromise 409 conflict handling in ADR-0014, protocol spec, and Phase 4 plan.
++- Attacks tried: none by the builder; see docs/agents/reviews/P4-01.md.
+diff --git a/docs/agents/handoffs/P4-02.md b/docs/agents/handoffs/P4-02.md
+index 3536b37..2636c44 100644
+--- a/docs/agents/handoffs/P4-02.md
++++ b/docs/agents/handoffs/P4-02.md
+@@ -3 +3 @@
+-Branch / last commit: `agent/gemini/P4-02` / `5b7c52c` (`docs(agents): rephrase non-running attempt error in P4-01 handoff`)
++Branch / last commit: `agent/gemini/P4-02` / `a3590bd` (`docs(agents): apply R7-14 to P4-01 handoff`)
+@@ -7,5 +7,8 @@ What changed (by package):
+-- `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and transition matrix sections. Applied Phase 4 scope split (4b gets `RenewLease`/`SweepExpiredLeases` with row lock, `TestInMemoryRepository_LeaseRenewalAndExpiry`, pure backoff `TestDomain_ComputeBackoff_FullJitter` (planned test); 4c gets sweeper loop component and worker loops). Clarified R-4a-01 regarding `TestInMemoryRepository_RetryBackoff`.
+-- `docs/security/findings.md`: Repaired drifted line citations in findings register and threat model. Registered informational finding SEC-024 (evaluation order in `CommitAttempt` on terminal job precedes token validation; accepted under SEC-004).
+-- `docs/adr/0011-postgres-dispatch-and-recovery.md`, `docs/adr/0014-lease-model-and-expiry.md`, `docs/adr/0015-retry-policy-and-failure-classification.md`, `docs/adr/0016-cancellation-semantics.md`: Repaired drifted line citations to function and struct references; linked SEC-024 evaluation order in ADR-0014.
+-- `docs/state-machine.md`: Repaired drifted line citations to function references, preserving exact line count.
+-- `docs/security/threat-model.md`, `docs/security/test-plan.md`: Repaired drifted line citations to function and test references.
++- `docs/phase4-plan.md`: Repaired drifted line citations to function/test references across CancelJob, conformance, coordinator service, and transition matrix sections. Applied Phase 4 scope split (4b gets `RenewLease`/`SweepExpiredLeases` with row lock, `TestInMemoryRepository_LeaseRenewalAndExpiry`, pure backoff `TestDomain_ComputeBackoff_FullJitter` (planned test); 4c gets sweeper loop component and worker loops). Clarified R-4a-01 regarding `TestInMemoryRepository_RetryBackoff`. Applied audit corrections R7-04, R7-09, R7-11.
++- `docs/roadmap.md`: Updated slice 4a, 4b, and 4c scope bullets per owner decision 2 (R7-03, R7-11).
++- `docs/security/findings.md`, `docs/security/threat-model.md`: Repaired drifted line citations in findings register and threat model. Registered informational finding SEC-024 (evaluation order in `CommitAttempt` on terminal job precedes token validation; accepted under SEC-004). Applied audit corrections R7-04, R7-05, R7-08, R7-11.
++- `docs/adr/0008-dispatch-transport-queue-interface.md`: Noted removal of `NewServiceWithQueue` in slice 4a (R7-15).
++- `docs/adr/0011-postgres-dispatch-and-recovery.md`, `docs/adr/0014-lease-model-and-expiry.md`, `docs/adr/0015-retry-policy-and-failure-classification.md`, `docs/adr/0016-cancellation-semantics.md`: Repaired drifted line citations to function and struct references; linked SEC-024 evaluation order in ADR-0014; updated baseline and planned test wording in ADR-0016 (R7-07, R7-11).
++- `docs/state-machine.md`: Repaired drifted line citations to function references; updated cancellation baseline and slice 4a tense (R7-07, R7-11).
++- `docs/fault-injection-plan.md`: Updated planned test label for executed cancellation test (R7-11).
++- `docs/security/test-plan.md`: Repaired drifted line citations to function and test references.
+@@ -13 +16 @@ What changed (by package):
+-- `docs/agents/handoffs/P4-01.md`: Created P4-01 handoff record in AGENTS.md section 8 format (resolving R6-07).
++- `docs/agents/handoffs/P4-01.md`: Created P4-01 handoff record in AGENTS.md section 8 format (resolving R6-07) and applied audit corrections (R7-14).
+@@ -15,4 +18,4 @@ What changed (by package):
+-- `tests/docs/citation_allowlist.txt`: Added 6 owner-approved allowlist entries for P4-4a audit review attack tests living on `agent/gemini/P4-4a-review` (Decision D-P4-02-01).
+-- `docs/agents/handoffs/P4-00.md`: Addressed audit minors R6-02 (reworded overclaims in resolution tables), R6-03 (preflight statement replaced with verified text), and R6-06 (removed line-number claims above R-01 table).
+-- `docs/agents/TASKS.md`: Moved P4-01 to Done (PR #18, merge commit `d28a3d1`); marked P4-4a audited with minors; registered P4-02 as Active; registered P4-4b as Queued; fixed R6-04 (P4-4a out-of-scope line) and R6-05 (P4-01 owned files).
+-- `CHANGELOG.md`, `docs/PROJECT_STATE.md`: Recorded Phase 4 Slice 4a completion with factual summary of SEC-022 fix, transition matrix cell flips, memory-mode dispatch rewire, retired `NewServiceWithQueue`, conformance tests, test counts, and deferred items.
++- `tests/docs/citation_allowlist.txt`: Added 6 owner-approved allowlist entries for P4-4a audit review attack tests living on `agent/gemini/P4-4a-review` (Decision D-P4-02-01), with accurate backoff test reason (R7-13).
++- `docs/agents/handoffs/P4-00.md`: Addressed audit minors R6-02, R6-03, R6-06, and applied review corrections R7-06, R7-17.
++- `docs/agents/TASKS.md`: Moved P4-01 to Done (PR #18, merge commit `d28a3d1`); marked P4-4a audited with minors; registered P4-02 as Active; registered P4-4b with updated scope (R7-10); fixed R6-04 and R6-05.
++- `CHANGELOG.md`, `docs/PROJECT_STATE.md`: Recorded Phase 4 Slice 4a completion and P4-02 pass with factual summary of SEC-022 fix, transition matrix cell flips, memory-mode dispatch rewire, retired `NewServiceWithQueue`, conformance tests, test counts, SEC-024 entry, updated branch state, and deferred items (R7-01, R7-02, R7-04, R7-11, R7-12).
+@@ -21,2 +24,3 @@ Design decisions and deviations from the design doc (with reasons):
+-- **Decision D-P4-02-01 (tests/docs/citation_allowlist.txt)**: Added 6 owner-approved entries to `tests/docs/citation_allowlist.txt` for audit attack tests that live only on review branch `agent/gemini/P4-4a-review` (`tests/review/audit_attacks_test.go`, `TestDomain_ComputeBackoff_FullJitter`, `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken`, `TestAudit_Point4b_ConcurrentCancels`, `TestAudit_Point4c_CommitRacingCancel`, `TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount`). This was the single permitted edit outside `docs/` and `CHANGELOG.md`.
+-- **Owner Decision Item 4 (Frozen Review File Citations)**: Because `citations_test.go` does not have a line-level allowlist mechanism, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
++- **Decision D-P4-02-01 (tests/docs/citation_allowlist.txt)**: Added 6 owner-approved entries to `tests/docs/citation_allowlist.txt` for audit attack tests named in P4-4a audit review (`tests/review/audit_attacks_test.go`, `TestDomain_ComputeBackoff_FullJitter` [planned test named without a label in the P4-4a audit record], `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken`, `TestAudit_Point4b_ConcurrentCancels`, `TestAudit_Point4c_CommitRacingCancel`, `TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount`). This was the single permitted edit outside `docs/` and `CHANGELOG.md`.
++- **Owner Decision Item 4 (Frozen Review File Citations)**: RuleB honours a path| allowlist entry for a whole file, but RuleF rejects any such entry as stale while the file exists, so no allowlist entry can exempt a line citation to an existing file; verified in a scratch copy. Therefore, 4 failing Rule B citations in frozen historical reviews (`docs/agents/reviews/P4-00-round2.md:127-128`, `docs/agents/reviews/P4-00-round3.md:382,395`) were rewritten to `path (line N at the audited commit)`, leaving all other bytes in those files untouched.
++- **Roadmap Scope Alignment (Owner Decision 2)**: `docs/roadmap.md` slice 4a, 4b, and 4c sub-slice descriptions were updated to match the Phase 4 plan scope split per owner decision 2 (authorized exception to P4-02 owned files; R7-03, R7-11).
+@@ -32 +36 @@ Commands run + real output (gofmt, vet, build, test-docs, test -race counts, tes
+-- `make test-docs`: PASS (ok `github.com/BlaZe08-Dev/Minicloud/tests/docs` 0.584s).
++- `make test-docs`: PASS (ok `github.com/BlaZe08-Dev/Minicloud/tests/docs`).
+@@ -35 +39 @@ Commands run + real output (gofmt, vet, build, test-docs, test -race counts, tes
+-- `make test-db`: PASS 70, SKIP 0, FAIL 0 (`internal/storage/postgres` 35.819s).
++- `make test-db`: skipped (docs-only task, code identical to slice 4a tip; audited at 8183a59 as PASS 70, SKIP 0, FAIL 0).
+@@ -37 +41 @@ Commands run + real output (gofmt, vet, build, test-docs, test -race counts, tes
+-- Obsolete error and transport classification scan: clean / empty (rc=1).
++- `grep -rn "ErrAttemptNotRunning\|AttemptNotRunning" docs CHANGELOG.md | grep -v "docs/agents/"`: clean (exit code 1, zero matches in live docs).
+@@ -43 +47 @@ Open questions for the orchestrator:
+-None.
++None. (The docs/roadmap.md scope alignment question from R7-03 was authorized and resolved by owner decision 2).
+
+##### [labelcheck] labelcheck.py: every '(executed in slice 4a)' must be a defined func Test*; every '(planned test)' must not exist in code except allowlisted
+
+PLAN absent(ok) CHANGELOG.md:18 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+EXEC OK  CHANGELOG.md:40 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+PLAN absent(ok) docs/PROJECT_STATE.md:17 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+EXEC OK  docs/PROJECT_STATE.md:29 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+EXEC OK  docs/PROJECT_STATE.md:179 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+EXEC OK  docs/PROJECT_STATE.md:183 TestProperty_StateMachine_ModelConformance defined_func=True anywhere=True
+PLAN absent(ok) docs/PROJECT_STATE.md:189 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:142 TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:193 TestPostgresRepository_Sweeper_OutageGraceDetection_SuppressesReap allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:194 TestPostgresRepository_Sweeper_StartupGrace_SuppressesReap allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:195 TestPostgresRepository_Sweeper_FailedTick_EntersGrace allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:196 TestPostgresRepository_Sweeper_InterTickGapExceedsThreshold_EntersGrace allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:197 TestPostgresRepository_Sweeper_InterTickGapBelowThreshold_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:198 TestPostgresRepository_Sweeper_CandidateLockTimeout_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:199 TestPostgresRepository_Sweeper_CooldownPreventsConsecutiveGrace allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:200 TestPostgresRepository_DatabaseStopStart_WorkerRenewsSuccessfully allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:201 TestConfig_Validation_GracePeriodLessThanLeaseDuration_Rejected allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:236 TestPostgresRepository_RenewAttemptLease_ExpiredButUnswept_RenewedFromDBTime allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:237 TestPostgresRepository_RenewAttemptLease_AfterSweptToLost_RejectedLeaseExpired allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:238 TestPostgresRepository_CommitAttempt_ExpiredButUnswept_Accepted allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:239 TestPostgresRepository_CommitAttempt_AfterSweptToLost_RejectedLeaseExpired allowlisted=False
+PLAN absent(ok) docs/adr/0014-lease-model-and-expiry.md:240 TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged allowlisted=False
+PLAN absent(ok) docs/adr/0016-cancellation-semantics.md:52 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+EXEC OK  docs/adr/0016-cancellation-semantics.md:150 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+PLAN absent(ok) docs/agents/TASKS.md:62 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:12 TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:14 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:26 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:88 TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:102 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+PLAN EXISTS-IN-CODE docs/agents/handoffs/P4-00.md:219 TestConformance_CancelJob_IdempotentCancelRequested allowlisted=False
+PLAN EXISTS-IN-CODE docs/agents/handoffs/P4-00.md:220 TestConformance_CancelJob_RetryingImmediatelyCancelled allowlisted=False
+PLAN EXISTS-IN-CODE docs/agents/handoffs/P4-00.md:221 TestAPI_CancelJob_SuccessReturns200 allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:222 TestPostgresRepository_Sweeper_CanonicalLockOrder allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:223 TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:224 TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:225 TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:226 TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:227 TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:228 TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:229 TestCoordinator_LeaseSweeper_FailedTick_EntersGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:230 TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:231 TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:232 TestPostgresRepository_CommitAttempt_RetriedCommitOnTerminalJobLeavesAttemptStateUnchanged allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:233 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:234 TestWorker_Client_RenewOldCoordinatorGracefulDegradation allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:235 TestWorker_Client_Renew400KeepsRunning allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:236 TestWorker_Client_ResultDeliveryLoop_BoundedRetry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:237 TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:238 TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:239 TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-00.md:240 TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately allowlisted=False
+PLAN EXISTS-IN-CODE docs/agents/handoffs/P4-00.md:241 TestProperty_StateMachine_ModelConformance allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-02.md:7 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:25 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:25 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:41 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestPostgresRepository_Sweeper_CanonicalLockOrder allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestConformance_RenewLease_AcceptUntilSwept allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestConformance_RenewLease_RejectedAfterLost allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:46 TestConformance_SweepExpiredLeases_RetryOrFail allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:47 TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:48 TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping allowlisted=False
+PLAN absent(ok) docs/agents/handoffs/P4-4a.md:77 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/failure-model.md:83 TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success allowlisted=False
+PLAN absent(ok) docs/failure-model.md:84 TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport allowlisted=False
+PLAN absent(ok) docs/failure-model.md:85 TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace allowlisted=False
+PLAN absent(ok) docs/failure-model.md:86 TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:20 TestFault_WorkerCrash_BeforeAccept allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:28 TestFault_WorkerCrash_DuringExecution allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:36 TestFault_ResultReport_NetworkDropOrDelay allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:44 TestFault_OldWorker_LateCommitAfterReassignment allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:53 TestFault_CoordinatorCrash_AfterSubmit allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:54 TestFault_CoordinatorCrash_ResultFinishesDuringDowntime allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:66 TestFault_CoordinatorCrash_MidResultCommit allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:76 TestFault_PostgresOutage_DuringLeaseExecution allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:84 TestFault_Heartbeat_DelayedOrDuplicated allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:92 TestFault_Task_TimeoutAndPoisonRepeat allowlisted=False
+PLAN absent(ok) docs/fault-injection-plan.md:100 TestFault_Cancellation_RaceWithCompletion allowlisted=False
+EXEC OK  docs/fault-injection-plan.md:116 TestProperty_StateMachine_ModelConformance defined_func=True anywhere=True
+EXEC OK  docs/phase4-plan.md:52 TestAPI_CancelJob_SuccessReturns200 defined_func=True anywhere=True
+EXEC OK  docs/phase4-plan.md:77 TestConformance_CancelJob_RetryingImmediatelyCancelled defined_func=True anywhere=True
+PLAN absent(ok) docs/phase4-plan.md:124 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+PLAN absent(ok) docs/phase4-plan.md:148 TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:149 TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:150 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+PLAN absent(ok) docs/phase4-plan.md:151 TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:155 TestPostgresRepository_Sweeper_CanonicalLockOrder allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:156 TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:157 TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:159 TestDomain_ComputeBackoff_FullJitter allowlisted=True
+PLAN absent(ok) docs/phase4-plan.md:160 TestInMemoryRepository_LeaseRenewalAndExpiry allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:161 TestConformance_RenewLease_AcceptUntilSwept allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:162 TestConformance_RenewLease_RejectedAfterLost allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:163 TestConformance_SweepExpiredLeases_RetryOrFail allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:164 TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:202 TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:202 TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:204 TestAPI_RenewLease_SuccessAndStaleRejection allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:205 TestAgent_PeriodicLeaseRenewal_Success allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:206 TestAgent_LeaseRenewal_ReceivesCancelRequested allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:207 TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:208 TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:209 TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:210 TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:211 TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:212 TestCoordinator_LeaseSweeper_FailedTick_EntersGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:213 TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:214 TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:215 TestWorker_Client_RenewOldCoordinatorGracefulDegradation allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:216 TestWorker_Client_Renew400KeepsRunning allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:217 TestWorker_Client_ResultDeliveryLoop_BoundedRetry allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:218 TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:219 TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:220 TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:221 TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:248 TestCoordinator_RetryBackoffWithJitter allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:250 TestCoordinator_RetryBackoffWithJitter allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:251 TestWorker_CooperativeCancellation_ContextPreemption allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:252 TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:253 TestAPI_CancelJob_RunningRaces allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:254 TestExecutor_AllowlistValidation_PermanentFailure allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:263 TestFault_WorkerCrash_BeforeAccept allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:264 TestFault_WorkerCrash_DuringExecution allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:265 TestFault_ResultReport_NetworkDropOrDelay allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:266 TestFault_OldWorker_LateCommitAfterReassignment allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:267 TestFault_CoordinatorCrash_AfterSubmit allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:268 TestFault_CoordinatorCrash_MidResultCommit allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:269 TestFault_PostgresOutage_DuringLeaseExecution allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:270 TestFault_Heartbeat_DelayedOrDuplicated allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:271 TestFault_Task_TimeoutAndPoisonRepeat allowlisted=False
+PLAN absent(ok) docs/phase4-plan.md:272 TestFault_Cancellation_RaceWithCompletion allowlisted=False
+EXEC OK  docs/phase4-plan.md:273 TestProperty_StateMachine_ModelConformance defined_func=True anywhere=True
+EXEC OK  docs/security/findings.md:386 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+EXEC OK  docs/security/threat-model.md:117 TestConformance_CancelJob_IdempotentCancelRequested defined_func=True anywhere=True
+exec labels 11 plan labels 126
+
+##### [regress] regress.py: paths, ADR names, funcs, helpers, constants, constraints, SEC ids in lines added by the fix commits
+
+checked 142 missing 4
+('path', 'docs/agents/handoffs/P4-01.md', 'docs/agents/handoffs/P4-00-citation-check.txt')
+('path', 'docs/agents/handoffs/P4-02.md', 'tests/review/audit_attacks_test.go')
+('path', 'docs/roadmap.md', 'internal/storage.InMemoryRepository')
+('path', 'docs/roadmap.md', 'internal/storage/postgres.Repository')
+
+##### [regress-note] the 4 misses above: P4-00-citation-check.txt (deleted on purpose, handoff says 'deleted'); tests/review/audit_attacks_test.go (allowlisted path| entry, review branch only); 2 Go package names in roadmap.md (not paths)
+
+
+##### [r714-scan-run] P4-02 handoff scan command, re-run
+
+rc=1 last=1
+
+##### [r714-scan-full] same pattern without the docs/agents exclusion (files with hits)
+
+      6 docs/agents/handoffs/P4-01.md
+      1 docs/agents/handoffs/P4-02.md
+      1 docs/agents/reviews/P4-00-round3-evidence.txt
+      5 docs/agents/reviews/P4-00-round4-evidence.txt
+      3 docs/agents/reviews/P4-00-round4.md
+     33 docs/agents/reviews/P4-00-round5-evidence.txt
+     15 docs/agents/reviews/P4-00-round5.md
+    119 docs/agents/reviews/P4-01-evidence.txt
+      4 docs/agents/reviews/P4-01.md
+
+##### [r714-symbol] symbol and phrase mentions in tracked files outside reviews (git grep)
+
+docs/agents/handoffs/P4-00.md:22:  - Inserted exact D-R3-01 outage grace sentence (failure-model.md failure modes FS-01 and FS-07). Updated FS-06 to HTTP 409 `JOB_ALREADY_TERMINAL` (removed 200 COMMIT
+docs/agents/handoffs/P4-00.md:94:| R3-08 | R3-08 | RESOLVED | Yes | `docs/adr/0014-lease-model-and-expiry.md` (Decision), `docs/adr/0015-retry-policy-and-failure-classification.md` (Decision), `docs/a
+docs/agents/handoffs/P4-00.md:112:| R5-02 | minor | Drop non-existent error | `docs/protocol.md` section 6.3, `docs/adr/0014-lease-model-and-expiry.md` Decision, `docs/phase4-plan.md` slices 4b and 4c
+docs/agents/handoffs/P4-00.md:117:3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in th
+docs/agents/handoffs/P4-01.md:6:- `docs/adr/0014-lease-model-and-expiry.md`: Dropped nonexistent domain.ErrAttemptNotRunning references per owner fix (R5-02).
+docs/agents/handoffs/P4-01.md:7:- `docs/protocol.md`: Dropped nonexistent domain.ErrAttemptNotRunning from protocol 409 table (R5-02).
+docs/agents/handoffs/P4-01.md:8:- `docs/phase4-plan.md`: Dropped nonexistent domain.ErrAttemptNotRunning and associated planned tests (R5-02).
+docs/agents/handoffs/P4-01.md:9:- `docs/PROJECT_STATE.md`: Dropped nonexistent domain.ErrAttemptNotRunning from Phase 4 scope (R5-02).
+docs/agents/handoffs/P4-01.md:16:- `docs/PROJECT_STATE.md` was modified to keep Phase 4 scope consistent with the removal of nonexistent domain.ErrAttemptNotRunning, but was not originally listed in P
+docs/agents/handoffs/P4-01.md:39:- Assumptions challenged: Verified that dropping nonexistent domain.ErrAttemptNotRunning does not compromise 409 conflict handling in ADR-0014, protocol spec, and Phas
+docs/agents/handoffs/P4-02.md:41:- `grep -rn "ErrAttemptNotRunning\|AttemptNotRunning" docs CHANGELOG.md | grep -v "docs/agents/"`: clean (exit code 1, zero matches in live docs).
+docs/protocol.md:484:The worker treats all 409 Conflict and 403 Forbidden codes as final terminal rejections. Legacy or redundant codes (`ATTEMPT_NOT_RUNNING`, `JOB_CANCELLED`) are deprecated and cons
+
+##### [r714b] 5b7c52c / 33c31ed stats; P4-00 handoff phrase
+
+5b7c52c docs(agents): rephrase non-running attempt error in P4-01 handoff
+
+ docs/agents/handoffs/P4-01.md | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+33c31ed docs(agents): avoid regex match in P4-02 handoff
+
+ docs/agents/handoffs/P4-02.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+---
+d27000a docs(handoff): rebuild P4-00 handoff with section citations and review statuses (Fix 2, R5-01)
+13288c8 docs(handoff): rewrite P4-00 handoff with verified citations and round-4 resolutions (D-R4-01)
+
+| R5-02 | minor | Drop non-existent error | `docs/protocol.md` section 6.3, `docs/adr/0014-lease-model-and-expiry.md` Decision, `docs/phase4-plan.md` slices 4b and 4c, `docs/PROJECT_STATE.md` Phase 4 scope | Dropped non-running attempt error from all design documents and planned tests. An attempt that is no longer RUNNING returns `domain.ErrStaleAttempt` mapped to HTTP 409 `STALE_ATTEMPT_REJECTED`
+3. **Non-Running Attempt Error Does Not Exist (R5-02, Owner Decision)**: The non-running attempt error does not exist in `internal/domain/errors.go` or anywhere in the codebase. Today, a commit on a non-running attempt returns `domain.ErrStaleAttempt` in `internal/storage/inmemory.go` (`CommitAttempt`) and `internal/storage/postgres/repository.go` (`CommitAttempt`), which `internal/api/handlers.go` (`mapDomainErrorToHTTP`) already maps to HTTP 409 `STALE_ATTEMPT_REJECTED`. It does not surface as
+
+
+##### [allow-counts] allowlist diff vs origin/agent/claude/P4-4a: counts
+
+added lines (+, excluding header):
+7
+removed lines:
+0
+added entries (non-comment, non-blank):
+6
+
+##### [allow-diff-4a] git diff origin/agent/claude/P4-4a -- tests/docs/citation_allowlist.txt
+
+diff --git a/tests/docs/citation_allowlist.txt b/tests/docs/citation_allowlist.txt
+index df6d0dd..3bf84d1 100644
+--- a/tests/docs/citation_allowlist.txt
++++ b/tests/docs/citation_allowlist.txt
+@@ -18,3 +18,11 @@ test|TestMigrator_ConcurrentRunners_AllMigrationsAppliedOnce|Invented historical
+ # Audit probe tests on agent/claude/P4-00-review branch cited in P4-00 review
+ test|TestReviewP400_SEC022|Audit probe test flag cited in SEC-022 verbatim evidence
+ test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/claude/P4-00-review branch
++
++# Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
++test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+
+##### [allow-diff-fix] git diff 33c31ed..HEAD -- tests/docs/citation_allowlist.txt
+
+diff --git a/tests/docs/citation_allowlist.txt b/tests/docs/citation_allowlist.txt
+index 90175e2..3bf84d1 100644
+--- a/tests/docs/citation_allowlist.txt
++++ b/tests/docs/citation_allowlist.txt
+@@ -21,7 +21,7 @@ test|TestReviewP400_OldCoordinator_RenewRouteResponse|Audit probe test on agent/
+ 
+ # Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ path|tests/review/audit_attacks_test.go|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+-test|TestDomain_ComputeBackoff_FullJitter|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
++test|TestDomain_ComputeBackoff_FullJitter|Planned test named without a label in the P4-4a audit record (finding R-4a-01); remove this entry when slice 4b adds the test (the checker then reports it stale)
+ test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+ test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+
+##### [scope-names] git diff --name-only 33c31ed..HEAD
+
+CHANGELOG.md
+docs/PROJECT_STATE.md
+docs/adr/0008-dispatch-transport-queue-interface.md
+docs/adr/0016-cancellation-semantics.md
+docs/agents/TASKS.md
+docs/agents/handoffs/P4-00.md
+docs/agents/handoffs/P4-01.md
+docs/agents/handoffs/P4-02.md
+docs/fault-injection-plan.md
+docs/phase4-plan.md
+docs/roadmap.md
+docs/security/findings.md
+docs/security/threat-model.md
+docs/state-machine.md
+tests/docs/citation_allowlist.txt
+
+##### [scope-vs-4a] git diff --name-only origin/agent/claude/P4-4a..HEAD | grep -v docs/|CHANGELOG|allowlist (rc=1 means empty)
+
+rc=1
+
+##### [code-vs-8183a59] git diff --stat 8183a59 HEAD -- . :!docs :!CHANGELOG.md :!allowlist (empty = code identical)
+
+bytes=0
+
+##### [frozen-reviews] git diff --stat 33c31ed HEAD -- docs/agents/reviews (empty = imported audits and frozen round2/3 unchanged)
+
+bytes=0
+
+##### [anc] 8183a59 ancestry; tip of origin/agent/claude/P4-4a
+
+8183a59 ancestor of HEAD
+8183a59 docs(handoff): P4-4a add-on 2: R6-01 test, 4b/4c sweeper split wording, backoff answer
+bcafba0 test(storage): non-RUNNING attempt commit is rejected as stale and changes nothing (R6-01)
+79612f9 docs(handoff): P4-4a fix pass: citation-drift table, plan wording for scope moves, decisions, mutation proof
+
+##### [backoff] backoff / jitter mentions in state docs
+
+CHANGELOG.md:18:  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRenewalAndE
+CHANGELOG.md:26:  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry loop with capped jittered backoff (500ms base to 5.0s cap), ongoing background lease renewals during reporting, explicit terminal rejection stops (403, 404, 409), and 60s total d
+CHANGELOG.md:32:  - **ADR 0015 (Retry Policy, Failure Classification Taxonomy, and At-Least-Once Delivery):** Architectural Decision Record specifying bounded retries up to `max_attempts` (1..20, default 3), exponential backoff base 1s, cap 30s, full jitter [0.5, 1.5] stored in `jobs.not_before`, 4-tier failure classification ta
+CHANGELOG.md:53:  - **Worker Client Backoff & Outage Distinction:** Updated `internal/worker/client.go` implementing exponential backoff with full jitter on 5xx responses from `/poll` and `/heartbeat`, strictly distinguishing `SERVICE_UNAVAILABLE` (transient backoff) from `WORKER_UNHEALTHY` (wait for heartbeat restoration). Test
+docs/PROJECT_STATE.md:17:  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_ComputeBackoff_FullJitter (planned test)), TestInMemoryRepository_LeaseRe
+docs/PROJECT_STATE.md:25:  - **Worker-Side Result Delivery Protocol (`docs/failure-model.md`, `docs/fault-injection-plan.md`, ADR-0014):** Designed worker retry behavior for finished but unreported tasks: capped jittered backoff (500ms base to 5.0s cap), ongoing background lease renewal during reporting, stopping on non-retryabl
+docs/PROJECT_STATE.md:47:  - **Worker Client Backoff & Outage Distinction:** Updated `internal/worker/client.go` implementing exponential backoff with full jitter on 5xx responses from `/poll` and `/heartbeat`, strictly distinguishing `SERVICE_UNAVAILABLE` (transient backoff) from `WORKER_UNHEALTHY` (wait for heartbeat restorati
+docs/PROJECT_STATE.md:55:    4. `TestSecurity_PartD_Outage_MidDispatchAndMidCommit`: Mid-run container shutdown and restore completed cleanly with worker backoff and commit; 1 attempt, 1 result, 0 duplicate commits, 0 lost jobs.
+docs/PROJECT_STATE.md:186:### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+docs/PROJECT_STATE.md:189:  - In-memory and PostgreSQL repository methods: `RenewLease`, `SweepExpiredLeases` (the grace state arrives as an input value and the only authoritative grace check runs inside the row locks), retry-aware `DispatchNextJob` with direct `RETRYING -> RUNNING` transition, atomic `CancelJob`; a pure job-ret
+docs/PROJECT_STATE.md:208:  - Exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 max attempts. `LOST` attempts consume 1 attempt.
+docs/PROJECT_STATE.md:211:- **Exit Criteria:** Transient failures retry up to `max_attempts` with backoff; permanent failures fail immediately; cancelled jobs preempt running workers within 10s; zero jobs stranded in `CANCEL_REQUESTED`. Mandatory mutation proofs for failure classification and jitter distribution.
+docs/agents/TASKS.md:62:- Goal: Schema migration 000004; RenewLease and SweepExpiredLeases in the in-memory and PostgreSQL repositories (in-lock grace check driven by a grace-state input, sweeper with row lock); pure job-retry backoff function in internal/domain; CommitAttempt 409 order; TestInMemoryRepository_LeaseRenewalAndExp
+docs/phase4-plan.md:6:In Phase 3, coordinator restarts and storage outages were made resilient, but a dead or partitioned worker with in-flight attempts leaves jobs stranded in `RUNNING` indefinitely ([docs/failure-model.md](failure-model.md)). Phase 4 implements the distributed machinery to safely detect worker loss, bound exec
+docs/phase4-plan.md:13:5. **Bounded Retries with Backoff**: Structured failure classification (`ClassPermanent`, `ClassTransient`, `ClassUnknown`, `ClassLeaseExpired`), exponential backoff with full jitter ([0.5, 1.5]), base 1s, cap 30s, default 3 max attempts, `jobs.not_before` scheduling, and direct `RETRYING -> RUNNING` dispa
+docs/phase4-plan.md:99:    - Mutating in-memory dispatch to ignore `not_before` must cause retry backoff tests to fail.
+docs/phase4-plan.md:107:  - `TestInMemoryRepository_RetryBackoff` (executed; covers `not_before` dispatch eligibility gating only; no backoff computation per R-4a-01)
+docs/phase4-plan.md:114:### Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function
+docs/phase4-plan.md:124:    - Add a pure job-retry backoff function in `internal/domain` (ADR-0015 parameters: base 1 s, cap 30 s, jitter factor in [0.5, 1.5], default max_attempts 3, randomness injected so tests are deterministic) with planned test `TestDomain_ComputeBackoff_FullJitter` (planned test); Slice 4d reuses it unchan
+docs/phase4-plan.md:133:         - If `RUNNING` and `attempt_no < max_attempts`: close attempt as `LOST` (`error_class = 'LEASE_EXPIRED'`), set exponential backoff `not_before`, transition job to `RETRYING`, free worker slot, record `LEASE_EXPIRED` and `JOB_RETRYING` events.
+docs/phase4-plan.md:150:    - Mutating the jitter factor outside [0.5, 1.5] or removing the 30 s cap in the pure backoff function must fail `TestDomain_ComputeBackoff_FullJitter` (planned test).
+docs/phase4-plan.md:159:  - `TestDomain_ComputeBackoff_FullJitter` (planned test)
+docs/phase4-plan.md:187:    - Worker result delivery (R-11): 60-second bounded retry loop with exponential backoff on transport errors and ongoing concurrent lease renewals; immediate exit on 4xx terminal rejections (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `WORKER_MISMATCH`, deterministic 400 `INVALID_REQUEST`, 404).
+docs/phase4-plan.md:235:  - Reuse the pure backoff function built in slice 4b (`internal/domain`) to calculate `jobs.not_before` for classified retries; no second implementation.
+docs/phase4-plan.md:242:  - Transient failures retry up to `max_attempts` with verified backoff delay.
+docs/phase4-plan.md:248:    - Mutating the retry path to bypass the 4b backoff function must cause `TestCoordinator_RetryBackoffWithJitter` (planned test) to fail.
+docs/phase4-plan.md:250:  - `TestCoordinator_RetryBackoffWithJitter` (planned test)
+docs/roadmap.md:58:2. **Slice 4b: Schema Migration 000004, Lease Renewal and Sweep (In-Memory and PostgreSQL) & Pure Backoff Function**:
+docs/roadmap.md:60:   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `SweepExpiredLeases`, the in-lock grace check driven by a grace-state in
+docs/roadmap.md:65:   - Implement 4-class failure classification (`PERMANENT`, `TRANSIENT`, `UNKNOWN`, `LEASE_EXPIRED`), permanent input validation failures, `LOST` attempts consuming budget, and exponential backoff with full jitter.
+
+##### [grace] startup / outage grace mentions in state docs
+
+docs/PROJECT_STATE.md:17:  - **Deferred Items (Designed):** Slice 4b receives PostgreSQL migration 000004, in-memory and PostgreSQL RenewLease and SweepExpiredLeases (in-lock grace check driven by a grace-state input), the pure backoff function (TestDomain_Com
+docs/PROJECT_STATE.md:26:  - **Sweeper SQL & Outage Grace Detection (`docs/schema.md`, ADR-0014):** Maintained canonical lock order (`jobs -> workers -> attempts`). Documented candidate scan using unlocked read and `FOR UPDATE SKIP LOCKED` on jobs and plain `F
+docs/PROJECT_STATE.md:178:  - Grace design: 30s coordinator startup grace, 30s database outage grace protecting Phase 3 surviving-worker commit recovery in `TestPostgresWiring_CoordinatorRestartRecovery` (`tests/integration/postgres_wiring_test.go:167`) and `T
+docs/PROJECT_STATE.md:192:  - In-lock grace check driven by the caller-supplied grace state; the sweeper loop, the outage grace and cooldown state and the startup grace period belong to slice 4c.
+docs/PROJECT_STATE.md:193:- **Exit Criteria:** Migration applies cleanly; PostgreSQL repository passes all shared conformance tests under `-race`; zero deadlocks under concurrent mixed operations stress test (`-race -count=20`). Mandatory mutation proofs for s
+docs/PROJECT_STATE.md:200:  - Coordinator background expiry sweeper ticker (every 5s, batch size 50) honoring 30s startup and outage grace.
+docs/phase4-plan.md:10:2. **Dual Grace Mechanisms**: Coordinator startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30s) and database outage grace window (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30s), protecting surviving-worker commit guarantees
+docs/phase4-plan.md:74:     - With the 30s startup and outage grace windows, surviving workers commit within the grace window, keeping test assertions valid without weakening any existing test assertion.
+docs/phase4-plan.md:123:    - `SweepExpiredLeases`: single-transaction lock-ordered candidate sweep (`jobs -> workers -> attempts -> results -> job_events`). The method receives the current grace state (startup-grace deadline, open outage window, cooldown end)
+docs/phase4-plan.md:189:    - Component owns: `StartLeaseSweeper(ctx, interval)` cadence (5s, `MINICLOUD_SWEEPER_INTERVAL`), failed-tick tracking, the outage grace window and cooldown state (R-09), and the startup grace period, and passes that state to the 4b 
+docs/phase4-plan.md:202:    - Removing the startup grace period from the sweeper loop must cause `TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping` (planned test) and `TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit` (planned test) to fai
+docs/roadmap.md:60:   - Implement durable atomic repository methods in `internal/storage/postgres.Repository` adhering to canonical lock order, with sweeper re-check under row lock and startup/outage grace periods (30s). Also adds in-memory `RenewLease` and `S
+docs/roadmap.md:63:   - Implement periodic renewal loop in `internal/worker/client.go` (every 10s); implement coordinator lease sweeper loop (`StartLeaseSweeper`) ticking every 5s owning the startup grace period and the outage grace and cooldown state, and pas
+
+##### [idx] idx_job_events_unique_diagnostic_late_result locations
+
+docs/adr/0014-lease-model-and-expiry.md:234:- **Hard Boundary (No Resurrection Once Swept)
+docs/agents/handoffs/P4-00.md:16:  - Proposed migration `000004_leases_retries_cancellatio
+docs/agents/handoffs/P4-00.md:58:| R-17 | RESOLVED | No | `docs/adr/0014-lease-model-and-e
+docs/phase4-plan.md:118:    - Indexes: `idx_attempts_lease_expiry`, `idx_jobs_retrying_dis
+docs/schema.md:340:CREATE UNIQUE INDEX idx_job_events_unique_diagnostic_late_result 
+docs/security/findings.md:427:- **Impact**: Bounded by SEC-004 (unauthenticated HTTP API).
+per attempt (using `ON CONFLICT DO NOTHING` arbitrated by partial unique index `idx_job_events_unique_diagnostic_late_result` on `(job_id, (details->>'attempt_id')) WHERE event_type = 'DIAGNOSTIC_LATE_RES
+16:  - Proposed migration `000004_leases
+58:| R-17 | RESOLVED | No | `docs/adr/00
+
+##### [g-gofmt] gofmt
+
+gofmt clean
+rc=0
+
+##### [g-vet] go vet ./...
+
+rc=0
+
+##### [g-build] go build ./...
+
+rc=0
+
+##### [g-testdocs] make test-docs (DB URL unset)
+
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	5.753s
+rc=0
+
+##### [g-count] go test -v -race -count=1 ./... (DB URL unset): rc, count line
+
+go test rc=0
+PASS 90 SKIP 28 FAIL 0
+
+##### [g-pkgs] package result lines from the same run
+
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.597s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	5.238s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.291s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.334s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.393s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.159s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.044s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.029s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.603s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.210s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.571s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.037s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	14.942s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	10.504s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.064s
