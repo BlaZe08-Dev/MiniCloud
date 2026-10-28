@@ -255,3 +255,211 @@ Mutation to plan mapping: "renewal not sent" m01; "lease-lost not aborting" m02 
 - **F-4c-b-3 (Info).** A result can be in flight when the lease is declared lost; the worker cannot recall it. The coordinator rejects it (invariant 3). Evidence: **inferred**.
 
 No new finding was edited into `docs/security/findings.md` (not owned). Next free number is SEC-029; the three findings above are labelled F-4c-b-N for the docs pass to number.
+
+---
+
+# Round 2 (fix-up after the owner and orchestrator decisions)
+
+Status: all five decisions applied, gates green. Round 1 text above is kept as written; where round 2 changes it, round 2 wins (deviation 5 and F-4c-b-1 are superseded, Q1 to Q4 are answered below).
+
+## Decisions applied
+
+1. **404 on renew: unchanged.** Precisely what the worker does on a 404 whose body has no recognised code (plain text, empty, or a JSON error with another code):
+   - it logs one warning, **stops renewing** for that attempt (no retry, no backoff, exactly one renewal request is ever sent);
+   - it **keeps running the task to completion** (the task context is not cancelled);
+   - it still **delivers the result** through the normal delivery loop (60 s budget).
+   Only a recognised not-found code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`) is terminal (abort, no result). Proof: `TestWorker_Client_RenewOldCoordinatorGracefulDegradation` (three bodies: plain text, unknown code, empty) asserts one renewal, task not cancelled after a further minute of clock, then result delivered once; mutation m14 (every 404 treated as lost) fails it (round 1 table). The recognised-code side is in `TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult` (404 cases).
+2. **Retry cadence accepted.** Deviation from the plan wording for the docs pass: plan 4c and protocol 6.1 say a transient renewal failure is retried "next interval"; the worker retries after bounded exponential backoff, base 1 s, jitter factor in [0.5, 1], capped at one renewal interval, and returns to the interval after one success. Pinned by `TestWorker_Renewal_TransientErrorsNeverAbortAndAreBackedOff` (m18, m19).
+3. **Interval ceiling (F-4c-b-1 FIXED).** `renewalInterval` is `clamp(lease_duration_seconds / 3, 1 s, 10 s)`; absent or zero duration gives 10 s. Break before fix: the new cases failed first (output below). Tests: the two new cases of `TestWorker_Renewal_IntervalDerivedFromAssignment` (3600 s and 31 s leases give 10 s) and `TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s` (a 3600 s lease, `cancel_requested` on the first renewal reaches the task after exactly one 10 s clock advance).
+4. **Wiring proof.** `cmd/worker` needed no change: `main` builds the agent with `worker.NewAgent` and calls `Agent.Run`, whose poll loop calls `ExecuteAndReport`, the same function the unit tests drive (renewals start inside it). New test `TestAgent_Run_ProductionPathStartsRenewals` (`internal/worker/run_wiring_test.go`) runs `Agent.Run` itself with the **real clock** and the real `sleep` task (2.5 s) against an httptest coordinator that advertises a 3 s lease: it requires at least two renewals on the right path and one delivered result. Mutation: the renewal start removed from `ExecuteAndReport` fails it (output below). The real binary is shown by the smoke run.
+5. **Real-binary smoke run, executed** (below). Deviation: the `sleep` task is capped at 10 s (`MaxSleepDurationMs`), so the "20 s" job was a 10 s job with a 6 s lease (still longer than one lease, so it needs at least one renewal; the worker renews every 2 s).
+
+## Red before green (verbatim, the new clamp tests against the round 1 code)
+
+```
+--- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment (0.02s)
+    --- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment/3600_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+        renewal_test.go:269: first renewal timer = 20m0s, want 10s
+    --- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment/31_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+        renewal_test.go:269: first renewal timer = 10.333333333s, want 10s
+--- FAIL: TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s (5.00s)
+    renewal_test.go:323: timed out waiting for renewal request
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	5.045s
+FAIL
+```
+
+## Mutation proofs, round 2 (throwaway worktree under `~/mc-mut-claude`, `.env` copied in, both removed afterwards; verbatim)
+
+```
+## ceiling removed
+--- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment (0.02s)
+    --- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment/3600_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+    --- FAIL: TestWorker_Renewal_IntervalDerivedFromAssignment/31_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+--- FAIL: TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s (5.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	5.052s
+FAIL
+rc=1
+restored:
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.046s
+rc=0
+## renewal start removed from the production path (ExecuteAndReport, called by Agent.Run)
+--- FAIL: TestAgent_Run_ProductionPathStartsRenewals (2.65s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.669s
+FAIL
+rc=1
+restored:
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	3.741s
+rc=0
+```
+
+The first mutation removes the ceiling, the second removes the call that starts the renewal loop from `ExecuteAndReport` (the function `Agent.Run` calls). Each fails when broken and passes when restored.
+
+## Smoke run with the real binaries (executed)
+
+Setup: `make build`; coordinator `bin/coordinator` with `MINICLOUD_STORAGE_DRIVER=memory`, `MINICLOUD_HTTP_ADDR=127.0.0.1:18080` (18080 checked free with `ss -ltn`, 8080 not used), `MINICLOUD_LEASE_DURATION=6s`, `MINICLOUD_STARTUP_GRACE_PERIOD=6s`, `MINICLOUD_OUTAGE_GRACE_WINDOW=6s`, `MINICLOUD_SWEEPER_INTERVAL=1s`; worker `bin/worker` with `MINICLOUD_WORKER_ID=smoke-w1`; client `bin/mc`. Only PIDs started by the script were signalled.
+
+Incident, disclosed: in the first attempt of the script the recorded PID was the `timeout` wrapper, so `kill -9` hit the wrapper and the real worker finished job B normally (that run proved nothing about a kill). I found the orphan by its environment (`MINICLOUD_WORKER_ID=smoke-w1`, port 18080), killed only that PID, removed the wrapper, and re-ran the whole script. The output below is the second run. Script: `smoke.sh` in the session scratchpad, not committed (it is a one-off).
+
+```
+coordinator pid 338891, worker pid 338901
+== job A: sleep 10 s (lease is 6 s)
+Job Submitted Successfully!
+  ID:           job_1_111fadab3e11
+  Task:         sleep
+  State:        QUEUED
+  Max Attempts: 3
+job A id: job_1_111fadab3e11
+t+1s:  State: RUNNING
+t+2s:  State: RUNNING
+t+3s:  State: RUNNING
+t+4s:  State: RUNNING
+t+5s:  State: RUNNING
+t+6s:  State: RUNNING
+t+7s:  State: RUNNING
+t+8s:  State: RUNNING
+t+9s:  State: RUNNING
+t+10s:  State: SUCCEEDED
+t+11s:  State: SUCCEEDED
+t+12s:  State: SUCCEEDED
+t+13s:  State: SUCCEEDED
+t+14s:  State: SUCCEEDED
+t+15s:  State: SUCCEEDED
+t+16s:  State: SUCCEEDED
+== job A final
+Job Details:
+  ID:           job_1_111fadab3e11
+  Task:         sleep
+  State:        SUCCEEDED
+  Attempt ID:   att_1_97e2936ccc4d
+  Created At:   2026-10-28T14:21:46Z
+  Updated At:   2026-10-28T14:21:56Z
+  Result:
+    Exit Code:  0
+    Output:     {"slept_ms":10000}
+Attempts for Job job_1_111fadab3e11 (1 total):
+NO   ATTEMPT ID           WORKER     STATE       EXIT   STARTED
+1    att_1_97e2936ccc4d   smoke-w1   COMPLETED   0      14:21:46
+== job B: sleep 10 s, kill -9 the worker mid-run
+Job Submitted Successfully!
+  ID:           job_2_ec1ca1390354
+  Task:         sleep
+  State:        QUEUED
+  Max Attempts: 3
+job B id: job_2_ec1ca1390354
+t+3s before kill:  State: RUNNING
+killed worker pid 338901
+/tmp/claude-1000/-home-blazeee-MiniCloud-claude/7f9df32b-e020-48bf-a862-03255a2307b7/scratchpad/smoke.sh: line 23: 338901 Killed                  MINICLOUD_WORKER_ID=smoke-w1 bin/worker > $L/worker1.log 2>&1
+after kill +1s:  State: RUNNING
+after kill +2s:  State: RUNNING
+after kill +3s:  State: RUNNING
+after kill +4s:  State: RUNNING
+after kill +5s:  State: RETRYING
+after kill +6s:  State: RETRYING
+after kill +7s:  State: RETRYING
+after kill +8s:  State: RETRYING
+after kill +9s:  State: RETRYING
+after kill +10s:  State: RETRYING
+after kill +11s:  State: RETRYING
+after kill +12s:  State: RETRYING
+after kill +13s:  State: RETRYING
+after kill +14s:  State: RETRYING
+== job B final
+Job Details:
+  ID:           job_2_ec1ca1390354
+  Task:         sleep
+  State:        RETRYING
+  Attempt ID:   att_2_1227413b0ad9
+  Created At:   2026-10-28T14:22:03Z
+  Updated At:   2026-10-28T14:22:11Z
+Attempts for Job job_2_ec1ca1390354 (1 total):
+NO   ATTEMPT ID           WORKER     STATE   EXIT   STARTED
+1    att_2_1227413b0ad9   smoke-w1   LOST    0      14:22:03
+
+== coordinator log, result and sweeper lines (grep of coordinator.log)
+{"time":"2026-10-28T19:51:56.920438787+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_111fadab3e11","attempt_id":"att_1_97e2936ccc4d","final_state":"SUCCEEDED","exit_code":0}
+{"time":"2026-10-28T19:52:11.389565905+05:30","level":"INFO","msg":"lease sweeper closed an expired attempt","job_id":"job_2_ec1ca1390354","attempt_id":"att_2_1227413b0ad9","attempt_state":"LOST","job_state":"RETRYING"}
+== worker log, tail
+{"time":"2026-10-28T19:51:46.917412313+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_111fadab3e11","attempt_id":"att_1_97e2936ccc4d","task_type":"sleep","timeout_seconds":30}
+{"time":"2026-10-28T19:51:56.92108144+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_111fadab3e11","attempt_id":"att_1_97e2936ccc4d","exit_code":0}
+{"time":"2026-10-28T19:52:03.367826578+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_ec1ca1390354","attempt_id":"att_2_1227413b0ad9","task_type":"sleep","timeout_seconds":30}
+== processes after the run
+no bin/worker or bin/coordinator process remained; port 18080 closed
+```
+
+Reading of the output: job A (10 s, lease 6 s) stayed RUNNING for 9 s and ended SUCCEEDED with the attempt COMPLETED, so renewals kept it alive past the lease. Job B: after `kill -9` of the worker the job stayed RUNNING until the lease lapsed (about 5 s), then the sweeper closed the attempt as LOST and the job went RETRYING (queued for retry), as ADR-0014 and plan 4b/4c say. The coordinator log has exactly one `job result committed` line (job A); job B has none and has no result in `mc get`, so no result was accepted for the lost attempt. Job B stays RETRYING because the killed worker was the only worker; no second worker was started.
+
+## Gates, round 2 (before: round 1 final state; after: now)
+
+```
+GOFMT OK
+vet=0
+build=0
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.654s
+docs=0
+== unset DB URL (go test -v -race -count=1 ./...): PASS 172 SKIP 35 FAIL 0
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.498s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.036s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	4.486s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.026s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.159s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.161s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.090s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.023s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	1.025s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.389s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.111s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	6.502s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.048s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	21.522s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	10.660s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.121s
+== make test-db (minicloud_claude_test): PASS 180 FAIL 0
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/control_without_grace_reaps_and_rejects_the_late_commit (0.48s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	1.955s
+== go test -race -count=20 ./internal/worker/
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	99.330s
+```
+
+Counts, before to after: unset run PASS 170 to 172 (+2: the clamp cancel test and the production-path test; the two clamp table rows are subtests), SKIP 35 to 35, FAIL 0 to 0; `make test-db` PASS 180 to 180, FAIL 0 (it does not run the worker package). The database URL was never set for `./...`.
+
+## Deviations (for the docs pass)
+
+- Plan 4c "retry renewal next interval" is replaced by bounded backoff capped at one interval (decision 2).
+- Plan 4c and ADR-0014 give the renewal interval as one third of the lease; the worker clamps it to at most 10 s (decision 3). With the default 30 s lease the two agree.
+- The smoke job slept 10 s, not 20 s (task cap of the `sleep` task), with a 6 s lease.
+- Authorisations above are the orchestrator's decisions in the round 2 message, not owner decisions recorded in a design doc.
+
+## Open questions
+
+- **Q7.** The ceiling makes the interval independent of long leases but a lease shorter than 3 s still renews at the 1 s floor, which is above one third of a 1 s or 2 s lease. Such leases are outside the validated range (grace must be at least the lease, config accepts any positive lease). Say if config should enforce a minimum lease (for example 3 s) so the floor never exceeds a third of the lease.
+
+## Security review, round 2
+
+- F-4c-b-1 is **fixed** (ceiling): a coordinator advertising a very long lease no longer lowers the renewal rate below once per 10 s. Evidence: **executed**, the two clamp tests and the ceiling mutation.
+- F-4c-b-2 (Info) and F-4c-b-3 (Info) are unchanged and listed for the docs pass (round 1 section above); next free finding number SEC-029, `findings.md` not edited.
+- New assumption challenged: the real binary behaves like the tests (wiring). **executed**: `TestAgent_Run_ProductionPathStartsRenewals` plus the smoke run (renewal kept a job alive past a 6 s lease; a `kill -9` was reaped by the sweeper; no late result accepted).
+- Not tested: a worker killed while delivering a result, a coordinator restart under the real binaries, more than one worker in the smoke run, the real PostgreSQL driver with the real binaries.
