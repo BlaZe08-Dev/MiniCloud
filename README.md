@@ -229,7 +229,7 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_HEARTBEAT_INTERVAL` | `2s` | Worker (coordinator validates it against `MINICLOUD_WORKER_TIMEOUT`) | `internal/config/config.go` | Frequency of worker heartbeat transmissions |
 | `MINICLOUD_WORKER_TIMEOUT` | `10s` | Coordinator | `internal/config/config.go` | Liveness window before an uncommunicative worker is declared dead (>= 3x heartbeat interval) |
 | `MINICLOUD_REAPER_INTERVAL` | `5s` (`workerTimeout / 2`) | Coordinator | `internal/config/config.go` | Interval for coordinator worker liveness sweep |
-| `MINICLOUD_DEFAULT_MAX_ATTEMPTS` | `3` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not yet applied by the coordinator; the effective default is a constant of 3 in code |
+| `MINICLOUD_DEFAULT_MAX_ATTEMPTS` | `3` | Coordinator | `internal/config/config.go` | Default maximum attempt count for jobs submitted without `max_attempts` (default 3, valid range 1..20) |
 | `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component. The worker applies the per-job `timeout_seconds` (1..86400) to task execution and does not clamp it (open finding SEC-012 in [docs/security/findings.md](docs/security/findings.md)) |
 | `MINICLOUD_LEASE_DURATION` | `30s` | Coordinator | `internal/config/config.go` | Attempt lease duration ([ADR-0014](docs/adr/0014-lease-model-and-expiry.md)) |
 | `MINICLOUD_SWEEPER_INTERVAL` | `5s` | Coordinator | `internal/config/config.go` | Interval for coordinator attempt lease sweeper passes |
@@ -244,7 +244,7 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_WORKER_SLOTS` | `4` | Worker | `internal/config/config.go` | Concurrency execution capacity of the worker |
 | `MINICLOUD_TEST_DATABASE_URL` | `""` | Test Suites | `internal/storage/postgres/testhelper_test.go` | Isolated database URL for PostgreSQL integration tests (DB name must end in `_test`) |
 
-Unparseable numeric or duration values silently fall back to their defaults (e.g., `MINICLOUD_WORKER_SLOTS=abc` falls back to `4`). Coordinator validation requires grace values (`MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW`) to be at least the lease duration (`MINICLOUD_LEASE_DURATION`).
+Unparseable numeric or duration values silently fall back to their defaults (e.g., `MINICLOUD_WORKER_SLOTS=abc` falls back to `4`). Coordinator validation requires `MINICLOUD_DEFAULT_MAX_ATTEMPTS` to be between 1 and 20, and grace values (`MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW`) to be at least the lease duration (`MINICLOUD_LEASE_DURATION`).
 
 Database container provisioning in `deployments/docker-compose.yml` also uses:
 - `POSTGRES_USER` (default: `postgres`)

@@ -242,6 +242,16 @@ Tests added (branch + files + current result):
 Security findings that affect the system also go in `docs/security/findings.md` with
 the next SEC number, via the task that owns that file.
 
+### Report file rule — `reports/<agent>/<TASK-ID>.md`
+
+Every agent, before its final chat message, writes its final report to a NEW file
+`reports/<agent>/<TASK-ID>.md` at the repo root (outside `docs/`), header lines
+`Task:`, `Branch:`, `Work tip (last commit before this report):`, `Date:`, then
+the exact final message; commit it alone (`docs(report): ...`), push, then send
+the final message; never overwrite an existing report; plain relative paths, no
+`file://` links; if a gate fails because of the new directory remove the file
+and say so. Follow-up reports use the suffixes `-review`, `-roundN`, `-recheck`.
+
 ## 9. Per-worktree test database
 
 Verified by task P0-01 (real output in `docs/agents/handoffs/P0-01.md`).

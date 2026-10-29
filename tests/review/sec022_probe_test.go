@@ -162,7 +162,7 @@ func call(t *testing.T, ts *httptest.Server, method, path, body string) (int, st
 }
 
 // setupProbePool creates an isolated, migrated schema. It refuses any database whose
-// name does not end in "_test" (the guard SEC-023 reports missing elsewhere).
+// name does not end in "_test" (the SEC-023 guard, which now exists via P4-T1).
 func setupProbePool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	testURL := os.Getenv("MINICLOUD_TEST_DATABASE_URL")

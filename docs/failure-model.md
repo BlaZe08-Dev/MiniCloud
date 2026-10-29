@@ -65,7 +65,7 @@ The worker client enforces the following result delivery protocol in `internal/w
    On the lease renewal path (`RenewAttemptLease`):
    - Terminal 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`), 403 (`WORKER_MISMATCH`), and recognized 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`) halt renewals immediately and mark the attempt lost, aborting delivery.
    - HTTP 400 (`INVALID_REQUEST`, `WORKER_TASK_UNSUPPORTED`) or legacy un-enveloped 404 causes the worker to cease renewals while letting the task continue running to completion, reporting the final outcome via `ReportResult`.
-   - Transient errors (5xx, connection drop) retry on the next renewal interval (10s) until lease expiry.
+   - Transient errors (5xx, connection drop) retry with jittered backoff starting from 1 s, capped at the renewal interval (10s, func `renewLoop` in `internal/worker/client.go`), until lease expiry.
 4. **Explicit Delivery Bound**:
    The reporting retry loop in `deliverResult` is bounded by a fixed cumulative timer of `ResultDeliveryBudget = 60 * time.Second`, or terminates early if renewal receives a terminal rejection or the attempt is declared lost.
 

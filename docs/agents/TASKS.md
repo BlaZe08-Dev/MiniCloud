@@ -6,6 +6,8 @@ active task may not be edited by any other task.
 Builder rule (AGENTS.md section 7): Claude Code builds complex and hard tasks; Gemini
 builds the rest. The other agent audits.
 
+Report file rule (AGENTS.md section 8): Every agent, before its final chat message, writes its final report to a new file `reports/<agent>/<TASK-ID>.md` at the repo root, commits it alone (`docs(report): ...`), pushes, then sends the final message.
+
 ## Reserved shared touch points
 
 | Resource | Held by | Notes |
@@ -20,7 +22,8 @@ builds the rest. The other agent audits.
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | merged in PR #28 |
+| P4-06a | Phase 4 docs pass (SEC-029/030, report rule, review imports) | Gemini | Claude Code | agent/gemini/P4-06a | active |
 
 ### P0-01 — Two-agent workflow files
 - Goal: commit the agent rules so both agents read the same file.
@@ -108,11 +111,10 @@ builds the rest. The other agent audits.
 | P4-4d | Phase 4 slice 4d (failure classification, bounded retries, cancel wins, failure presentation) | PR #25, merge commit f13d97f |
 | P4-T1 | Test safety guards, test-db false-green guard, migrator name guard | PR #26, merge commit 9fbbbcf |
 | P4-T2 | Citation checker scoping for frozen review records | PR #27, merge commit 1e20143 |
+| P4-05 | Phase 4 docs pass after slices 4a–4c | PR #28, merge commit c85a58f |
 
 ## Follow-ups
 
 - **F-4c-a-A1 (Makefile `test-db` false-green risk; Resolved in P4-T1, PR #26, merge commit 9fbbbcf)**: Resolved by adding a `-list` pattern check to `Makefile` `test-db` target.
 - **F-4c-a-A2 (`startBackground` top-level invocation test)**: The top-level invocation of `startBackground` in `cmd/coordinator/main.go` `main()` is not exercised by automated tests. Fix: add a smoke test in `cmd/coordinator/main_test.go` that briefly boots the binary with `MINICLOUD_STORAGE_DRIVER=memory` and verifies background loops start and shut down cleanly.
-- **F-4c-b-2 (Slow delivery race with sweeper after cancellation)**: Source: P4-4c-b handoff finding F-4c-b-2. After cancel is requested the worker stops renewing but reports on an unextended lease, so slow delivery (up to 60s) can outlive the lease and race the sweeper (reaped safely as `CANCELLED`; late commit rejected with 409).
-- **F-4c-b-3 (In-flight result delivery on lost lease)**: Source: P4-4c-b handoff finding F-4c-b-3. A result reported over HTTP while the lease is declared lost cannot be recalled by the worker and is rejected by the coordinator under invariant 3.
 - **Review records citation checker scoping (Resolved in P4-T2, PR #27, merge commit 1e20143)**: Citation checker Rule A link check was scoped to live documents in P4-T2, allowing historical review records to be treated as immutable. Review records for P0-03 round 2 and round 3 (`P0-03-round2.md`, `P0-03-round2-evidence.txt`, `P0-03-round3.md`, `P0-03-round3-evidence.txt`) were imported byte-identical in P4-05.
