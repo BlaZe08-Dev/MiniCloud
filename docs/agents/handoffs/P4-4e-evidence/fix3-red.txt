@@ -1,0 +1,31 @@
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/10/29 19:24:57 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=OUTPUT_TOO_LARGE
+2026/10/29 19:24:57 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=403 err="non-retryable report rejection (HTTP 403)"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=404 err="non-retryable report rejection (HTTP 404)"
+2026/10/29 19:24:57 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:24:57 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=MALFORMED_JSON
+2026/10/29 19:24:57 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+--- FAIL: TestWorker_ResultRejected400_MalformedJSON_NoFallback (0.03s)
+    fallback_test.go:109: result requests = 2, want exactly 1 (no fallback)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.112s
+FAIL

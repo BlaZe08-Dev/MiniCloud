@@ -6,12 +6,12 @@ import (
 	"time"
 )
 
-// A validation rejection of the result (400 INVALID_REQUEST, OUTPUT_TOO_LARGE, MALFORMED_JSON) is a
+// A validation rejection of the result (400 INVALID_REQUEST, OUTPUT_TOO_LARGE) is a
 // deterministic answer to this exact body. Dropping the result would leave the attempt RUNNING until
 // its lease expires and burn every attempt. The worker sends ONE fallback failure report for the
 // same attempt and lease token, class PERMANENT, and keeps renewing the lease until it is delivered.
 func TestWorker_ResultRejected400_SendsOneFallbackFailureReport(t *testing.T) {
-	for _, code := range []string{"INVALID_REQUEST", "OUTPUT_TOO_LARGE", "MALFORMED_JSON"} {
+	for _, code := range []string{"INVALID_REQUEST", "OUTPUT_TOO_LARGE"} {
 		code := code
 		t.Run(code, func(t *testing.T) {
 			r := newRig(t, renewed(false), nil)
@@ -91,5 +91,21 @@ func TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted(t *testing.T) 
 				t.Fatalf("result requests = %d, want exactly 1 (no fallback)", got)
 			}
 		})
+	}
+}
+
+// The worker builds the report with json.Marshal, so a 400 MALFORMED_JSON means the body was corrupted
+// in transit: a transient fault, not a verdict on the content. A PERMANENT fallback would turn one
+// corrupted successful result into a FAILED job. The result is dropped as before the fallback
+// existed, the attempt is reclaimed and the task re-runs (at-least-once).
+func TestWorker_ResultRejected400_MalformedJSON_NoFallback(t *testing.T) {
+	r := newRig(t, renewed(false), rejectWith(400, "MALFORMED_JSON"))
+	r.start()
+	close(r.task.release)
+	r.waitDone()
+	r.clk.Advance(time.Minute)
+	time.Sleep(20 * time.Millisecond)
+	if got := r.coord.results(); got != 1 {
+		t.Fatalf("result requests = %d, want exactly 1 (no fallback)", got)
 	}
 }

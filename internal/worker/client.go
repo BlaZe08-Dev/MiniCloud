@@ -512,14 +512,16 @@ func (a *Agent) renewLoop(ctx context.Context, run *attemptRun, asg *coordinator
 }
 
 // isValidationRejection reports a 400 whose code says the content of this result is unacceptable
-// (and will be on every retry), as opposed to a rejection that means the result is no longer wanted
+// (and will be on every retry). MALFORMED_JSON is deliberately not included: the worker encodes the
+// body with json.Marshal, so that answer means the body was corrupted in transit, a transient fault
+// that must not turn a successful result into a permanent failure, as opposed to a rejection that means the result is no longer wanted
 // (stale attempt, terminal job, lost lease, state transition).
 func isValidationRejection(status int, code string) bool {
 	if status != http.StatusBadRequest {
 		return false
 	}
 	switch code {
-	case "INVALID_REQUEST", "OUTPUT_TOO_LARGE", "MALFORMED_JSON":
+	case "INVALID_REQUEST", "OUTPUT_TOO_LARGE":
 		return true
 	}
 	return false
