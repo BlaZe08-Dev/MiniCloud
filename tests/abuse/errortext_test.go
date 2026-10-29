@@ -64,3 +64,33 @@ func TestAbuse_OversizeErrorText_RetryPath(t *testing.T) {
 		sectest.CheckInvariants(t, r, []string{job, job2})
 	})
 }
+
+// TestAbuse_NULBytes (F-4e-19): a NUL byte in worker-supplied text (worker version, result output,
+// result error) must be refused as 400 INVALID_REQUEST on every backend, leaving the attempt
+// committable. PostgreSQL text columns cannot hold NUL, and the driver error used to surface as 500.
+func TestAbuse_NULBytes(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r := sectest.NewRig(t, kind)
+		r.Register("w1", 1)
+		resp := r.Do("POST", "/v1/workers/register", `{"id":"nulw","version":"v\u0000","total_slots":1,"supported_tasks":["echo"]}`)
+		if resp.Status != http.StatusBadRequest {
+			t.Errorf("[%s] worker version with NUL = %s, want 400", kind, resp)
+		}
+		job := r.Submit(2)
+		a := r.Poll("w1")
+		for _, field := range []string{"output", "error"} {
+			m := map[string]any{"lease_token": a.LeaseToken, "worker_id": "w1", "exit_code": 1, "output": "", "error": "e", "error_classification": "TRANSIENT"}
+			m[field] = "x\x00y"
+			resp := r.Do("POST", "/v1/jobs/"+job+"/attempts/"+a.AttemptID+"/result", m)
+			if resp.Status != http.StatusBadRequest || resp.ErrCode() != "INVALID_REQUEST" {
+				t.Errorf("[%s] result %s with NUL = %s, want 400 INVALID_REQUEST", kind, field, resp)
+			}
+			if at := r.Attempts(job)[0]; at.State != domain.AttemptRunning {
+				t.Fatalf("[%s] attempt %s after a rejected NUL, want RUNNING", kind, at.State)
+			}
+		}
+		if resp := r.Result(job, a.AttemptID, a.LeaseToken, "w1", 0, "", ""); resp.Status != http.StatusOK {
+			t.Errorf("[%s] attempt unusable after the rejected NULs: %s", kind, resp)
+		}
+	})
+}
