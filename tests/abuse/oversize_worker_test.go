@@ -156,3 +156,64 @@ func TestAbuse_OversizeOutput_PlainASCII(t *testing.T) {
 		}
 	})
 }
+
+// The four hostile-text cases of the P4-4e fix round 2, through the real worker.
+
+// TestAbuse_WorkerResult_NULEscapeInEchoPayload is case 1 with the built-in echo: a payload holding
+// the JSON escape for NUL. Echo decodes and re-encodes, so its output carries the six characters
+// of the escape, never a raw NUL byte. Required: the job ends SUCCEEDED, output stored as is.
+func TestAbuse_WorkerResult_NULEscapeInEchoPayload(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r, job, elapsed := runOversizeJob(t, kind, nil, `{"m":"a\u0000b"}`)
+		requireClean(t, kind, r, job, elapsed, domain.StateSucceeded)
+		if out := r.Attempts(job)[0].Output; strings.ContainsRune(out, 0) || !strings.Contains(out, `\u0000`) {
+			t.Errorf("[%s] stored output %q, want the escape text and no raw NUL", kind, out)
+		}
+	})
+}
+
+// TestAbuse_WorkerResult_NULByteInOutput is case 1 with a task that returns a raw NUL byte (no
+// built-in task can). The coordinator rejects NUL in output with 400 (F-4e-19). Required: the
+// worker replaces the byte, the job ends SUCCEEDED and the stored output holds U+FFFD.
+func TestAbuse_WorkerResult_NULByteInOutput(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r, job, elapsed := runOversizeJob(t, kind, []executor.Task{bigEchoTask{output: "a\x00b"}}, `{}`)
+		requireClean(t, kind, r, job, elapsed, domain.StateSucceeded)
+		if out := r.Attempts(job)[0].Output; out != "a�b" {
+			t.Errorf("[%s] stored output %q, want %q", kind, out, "a�b")
+		}
+	})
+}
+
+// TestAbuse_WorkerResult_InvalidUTF8InOutput is case 2: no built-in task can return invalid UTF-8
+// (sleep and sha256_loop build JSON with the encoder, echo re-encodes), so a test task does.
+func TestAbuse_WorkerResult_InvalidUTF8InOutput(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r, job, elapsed := runOversizeJob(t, kind, []executor.Task{bigEchoTask{output: "a\xff\xfeb"}}, `{}`)
+		requireClean(t, kind, r, job, elapsed, domain.StateSucceeded)
+		if out := r.Attempts(job)[0].Output; out != "a��b" {
+			t.Errorf("[%s] stored output %q, want %q", kind, out, "a��b")
+		}
+	})
+}
+
+// TestAbuse_WorkerResult_ErrorTextHostile is case 4: a failing task whose error text is near, at
+// and over 10 KiB, made of NUL bytes and invalid bytes. Required: FAILED after one attempt, stored
+// error valid, free of NUL and within 10,240 bytes.
+func TestAbuse_WorkerResult_ErrorTextHostile(t *testing.T) {
+	for _, n := range []int{10*1024 - 100, 10 * 1024, 10*1024 + 1, 40 * 1024} {
+		n := n
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			sectest.EachBackend(t, func(t *testing.T, kind string) {
+				text := strings.Repeat("\x00\xffx", n/3+1)[:n]
+				task := bigEchoTask{err: fmt.Errorf("%w: %s", domain.ErrInvalidRequest, text)}
+				r, job, elapsed := runOversizeJob(t, kind, []executor.Task{task}, `{}`)
+				requireClean(t, kind, r, job, elapsed, domain.StateFailed)
+				e := r.Attempts(job)[0].Error
+				if strings.ContainsRune(e, 0) || len(e) > executor.MaxErrorSizeBytes || !strings.HasPrefix(e, "invalid request") {
+					t.Errorf("[%s] n=%d stored error of %d bytes unusable (NUL %v)", kind, n, len(e), strings.ContainsRune(e, 0))
+				}
+			})
+		})
+	}
+}

@@ -23,6 +23,13 @@ func TestClampText(t *testing.T) {
 		{"cut inside a 4-byte rune backs up", strings.Repeat("😀", 100), 99, ""},
 		{"invalid bytes replaced one for one", strings.Repeat("\xff", 10), 100, strings.Repeat("�", 10)},
 		{"invalid bytes that grow past the limit", strings.Repeat("\xff", 40), 100, ""},
+		{"empty string", "", 100, ""},
+		{"NUL only", "\x00\x00\x00", 100, "\uFFFD\uFFFD\uFFFD"},
+		{"NUL replacement counted before the cut", strings.Repeat("\x00", 100), 100, ""},
+		{"NUL at the cut boundary", strings.Repeat("a", 80) + "\x00" + strings.Repeat("a", 50), 100, ""},
+		{"NUL and invalid bytes with a split multibyte character", strings.Repeat("a", 70) + "\x00\xff€€€€€€€€€€", 100, ""},
+		{"exactly at the limit after replacement", strings.Repeat("\x00", 10), 30, strings.Repeat("\uFFFD", 10)},
+		{"one byte over the limit after replacement", strings.Repeat("\x00", 10) + "a", 30, ""},
 		{"limit smaller than the marker", strings.Repeat("a", 50), 3, TruncationMarker},
 	}
 	for _, c := range cases {
@@ -30,6 +37,9 @@ func TestClampText(t *testing.T) {
 			got := ClampText(c.in, c.limit)
 			if c.want != "" && got != c.want {
 				t.Fatalf("ClampText = %q, want %q", got, c.want)
+			}
+			if strings.IndexByte(got, 0) >= 0 {
+				t.Fatalf("result still holds a NUL byte: %q", got)
 			}
 			if !utf8.ValidString(got) {
 				t.Fatalf("result is not valid UTF-8: %q", got)
