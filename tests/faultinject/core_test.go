@@ -313,46 +313,66 @@ func TestFault_CancelRacesCompletion(t *testing.T) {
 	})
 }
 
-// TestFault_CancelRacesLeaseExpiry races cancel against sweeper ticks on expired leases.
+// TestFault_CancelRacesLeaseExpiry races cancel against sweeper ticks on expired leases, and also
+// runs the deterministic order "cancel first, then the sweep" so the cancel-wins rule of the sweeper
+// is exercised on every run, not only when the race happens to land that way.
 func TestFault_CancelRacesLeaseExpiry(t *testing.T) {
 	sectest.EachBackend(t, func(t *testing.T, kind string) {
-		r := sectest.NewRig(t, kind)
-		const n = 20
-		r.Register("w", n)
-		var ids []string
-		for i := 0; i < n; i++ {
-			ids = append(ids, r.Submit(3))
-		}
-		for i := 0; i < n; i++ {
-			r.Poll("w")
-		}
-		r.Expire()
-		var start, done sync.WaitGroup
-		start.Add(1)
-		done.Add(1)
-		go func() {
-			defer done.Done()
-			start.Wait()
-			for i := 0; i < 3; i++ {
-				if err := r.Sweep(); err != nil {
-					t.Errorf("sweep: %v", err)
+		for _, mode := range []string{"cancel then sweep", "concurrent"} {
+			mode := mode
+			t.Run(mode, func(t *testing.T) {
+				r := sectest.NewRig(t, kind)
+				const n = 20
+				r.Register("w", n)
+				var ids []string
+				for i := 0; i < n; i++ {
+					ids = append(ids, r.Submit(3))
 				}
-			}
-		}()
-		for _, id := range ids {
-			id := id
-			done.Add(1)
-			go func() { defer done.Done(); start.Wait(); r.Cancel(id) }()
+				for i := 0; i < n; i++ {
+					r.Poll("w")
+				}
+				if mode == "cancel then sweep" {
+					for _, id := range ids {
+						if resp := r.Cancel(id); resp.Status != http.StatusOK {
+							t.Fatalf("cancel = %s", resp)
+						}
+						if j := r.Job(id); j.State != domain.StateCancelRequested {
+							t.Fatalf("job %s, want CANCEL_REQUESTED", j.State)
+						}
+					}
+					r.Expire()
+					r.MustSweep()
+				} else {
+					r.Expire()
+					var start, done sync.WaitGroup
+					start.Add(1)
+					done.Add(1)
+					go func() {
+						defer done.Done()
+						start.Wait()
+						for i := 0; i < 3; i++ {
+							if err := r.Sweep(); err != nil {
+								t.Errorf("sweep: %v", err)
+							}
+						}
+					}()
+					for _, id := range ids {
+						id := id
+						done.Add(1)
+						go func() { defer done.Done(); start.Wait(); r.Cancel(id) }()
+					}
+					start.Done()
+					done.Wait()
+					r.MustSweep()
+				}
+				for _, id := range ids {
+					if j := r.Job(id); j.State != domain.StateCancelled {
+						t.Errorf("%s ended %s, want CANCELLED (cancel wins over expiry, never RETRYING)", id, j.State)
+					}
+				}
+				sectest.CheckInvariants(t, r, ids)
+			})
 		}
-		start.Done()
-		done.Wait()
-		r.MustSweep()
-		for _, id := range ids {
-			if j := r.Job(id); j.State != domain.StateCancelled {
-				t.Errorf("%s ended %s, want CANCELLED (cancel wins over expiry, never RETRYING)", id, j.State)
-			}
-		}
-		sectest.CheckInvariants(t, r, ids)
 	})
 }
 
