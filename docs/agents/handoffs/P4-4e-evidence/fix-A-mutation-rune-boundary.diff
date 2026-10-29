@@ -1,0 +1,13 @@
+diff --git a/internal/executor/truncate.go b/internal/executor/truncate.go
+index e9e029d..73c1274 100644
+--- a/internal/executor/truncate.go
++++ b/internal/executor/truncate.go
+@@ -31,7 +31,7 @@ func ClampText(s string, limit int) string {
+ 	if cut < 0 {
+ 		cut = 0
+ 	}
+-	for cut > 0 && !utf8.RuneStart(s[cut]) {
++	for false {
+ 		cut--
+ 	}
+ 	return s[:cut] + TruncationMarker

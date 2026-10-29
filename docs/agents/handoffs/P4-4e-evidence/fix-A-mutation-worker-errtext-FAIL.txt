@@ -1,0 +1,26 @@
+--- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped (6.43s)
+    --- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped/memory (6.43s)
+        oversize_worker_test.go:138: [memory] T+0.00s job/attempts: QUEUED
+        oversize_worker_test.go:138: [memory] T+0.10s job/attempts: RUNNING a1=RUNNING
+        oversize_worker_test.go:138: [memory] T+1.31s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:138: [memory] T+1.41s job/attempts: RETRYING a1=LOST
+        oversize_worker_test.go:138: [memory] T+1.91s job/attempts: RUNNING a1=LOST a2=RUNNING
+        oversize_worker_test.go:138: [memory] T+3.12s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:138: [memory] T+3.22s job/attempts: RETRYING a1=LOST a2=LOST
+        oversize_worker_test.go:138: [memory] T+4.12s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+        oversize_worker_test.go:138: [memory] T+5.33s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:138: [memory] T+5.43s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+        oversize_worker_test.go:138: [memory] worker log: {"time":"2026-10-29T18:39:28.847582052+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_7c1abb4ecf5c","attempt_id":"att_1_14ce7bd420d9","status":400,"err":"report failed with st
+        oversize_worker_test.go:138: [memory] worker log: {"time":"2026-10-29T18:39:30.716007254+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_7c1abb4ecf5c","attempt_id":"att_2_1349d1a870f8","status":400,"err":"report failed with st
+        oversize_worker_test.go:138: [memory] worker log: {"time":"2026-10-29T18:39:32.944959835+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_7c1abb4ecf5c","attempt_id":"att_3_79c9a0c52400","status":400,"err":"report failed with st
+        oversize_worker_test.go:139: [memory] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:139: [memory] attempt 2: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:139: [memory] attempt 3: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:139: [memory] final: job FAILED after 5.43s, 3 attempt(s), 0 result row(s)
+        oversize_worker_test.go:139: [memory] attempt 1 is LOST: the result never reached the coordinator
+        oversize_worker_test.go:139: [memory] attempt 2 is LOST: the result never reached the coordinator
+        oversize_worker_test.go:139: [memory] attempt 3 is LOST: the result never reached the coordinator
+        oversize_worker_test.go:142: [memory] stored error/output not marked as truncated
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	6.434s
+FAIL

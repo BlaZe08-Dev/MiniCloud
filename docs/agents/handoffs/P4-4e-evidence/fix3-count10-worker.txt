@@ -1,0 +1,2 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.286s
+rc=0

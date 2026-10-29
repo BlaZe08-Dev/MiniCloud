@@ -1,0 +1,132 @@
+=== RUN   TestAbuse_WorkerResult_NULEscapeInEchoPayload
+=== RUN   TestAbuse_WorkerResult_NULEscapeInEchoPayload/memory
+    oversize_worker_test.go:167: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:167: [memory] T+0.10s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:167: [memory] worker log: {"time":"2026-10-29T19:01:56.870367523+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_126876865ae6","attempt_id":"att_1_56a8ab7e7a79","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:167: [memory] worker log: {"time":"2026-10-29T19:01:56.870798989+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_126876865ae6","attempt_id":"att_1_56a8ab7e7a79","exit_code":0}
+    oversize_worker_test.go:168: [memory] attempt 1: COMPLETED class= exit=0 output=25 bytes error=""
+    oversize_worker_test.go:168: [memory] final: job SUCCEEDED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_NULEscapeInEchoPayload/postgres
+    oversize_worker_test.go:167: [postgres] T+0.03s job/attempts: QUEUED
+    oversize_worker_test.go:167: [postgres] T+0.35s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:167: [postgres] worker log: {"time":"2026-10-29T19:01:57.887965011+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_eecddfb896cf","attempt_id":"att_job_2_eecddfb896cf_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:167: [postgres] worker log: {"time":"2026-10-29T19:01:57.888420551+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_eecddfb896cf","attempt_id":"att_job_2_eecddfb896cf_1","exit_code":0}
+    oversize_worker_test.go:168: [postgres] attempt 1: COMPLETED class= exit=0 output=25 bytes error=""
+    oversize_worker_test.go:168: [postgres] final: job SUCCEEDED after 0.35s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_NULEscapeInEchoPayload (1.36s)
+    --- PASS: TestAbuse_WorkerResult_NULEscapeInEchoPayload/memory (0.21s)
+    --- PASS: TestAbuse_WorkerResult_NULEscapeInEchoPayload/postgres (1.14s)
+=== RUN   TestAbuse_WorkerResult_NULByteInOutput
+=== RUN   TestAbuse_WorkerResult_NULByteInOutput/memory
+    oversize_worker_test.go:180: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:180: [memory] T+0.10s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:180: [memory] worker log: {"time":"2026-10-29T19:01:58.227811131+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_361c0eeff2f7","attempt_id":"att_1_1d09ad3871ad","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:180: [memory] worker log: {"time":"2026-10-29T19:01:58.228263839+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_361c0eeff2f7","attempt_id":"att_1_1d09ad3871ad","exit_code":0}
+    oversize_worker_test.go:181: [memory] attempt 1: COMPLETED class= exit=0 output=5 bytes error=""
+    oversize_worker_test.go:181: [memory] final: job SUCCEEDED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_NULByteInOutput/postgres
+    oversize_worker_test.go:180: [postgres] T+0.03s job/attempts: QUEUED
+    oversize_worker_test.go:180: [postgres] T+0.24s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:180: [postgres] worker log: {"time":"2026-10-29T19:01:59.129306291+05:30","level":"INFO","msg":"job result committed","job_id":"job_4_1c1bd58aca30","attempt_id":"att_job_4_1c1bd58aca30_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:180: [postgres] worker log: {"time":"2026-10-29T19:01:59.129815218+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_1c1bd58aca30","attempt_id":"att_job_4_1c1bd58aca30_1","exit_code":0}
+    oversize_worker_test.go:181: [postgres] attempt 1: COMPLETED class= exit=0 output=5 bytes error=""
+    oversize_worker_test.go:181: [postgres] final: job SUCCEEDED after 0.24s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_NULByteInOutput (1.38s)
+    --- PASS: TestAbuse_WorkerResult_NULByteInOutput/memory (0.21s)
+    --- PASS: TestAbuse_WorkerResult_NULByteInOutput/postgres (1.16s)
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8InOutput
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8InOutput/memory
+    oversize_worker_test.go:192: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:192: [memory] T+0.10s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:192: [memory] worker log: {"time":"2026-10-29T19:01:59.609022991+05:30","level":"INFO","msg":"job result committed","job_id":"job_5_2270fda04797","attempt_id":"att_1_966b3dfbbfa2","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:192: [memory] worker log: {"time":"2026-10-29T19:01:59.60995311+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_2270fda04797","attempt_id":"att_1_966b3dfbbfa2","exit_code":0}
+    oversize_worker_test.go:193: [memory] attempt 1: COMPLETED class= exit=0 output=8 bytes error=""
+    oversize_worker_test.go:193: [memory] final: job SUCCEEDED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8InOutput/postgres
+    oversize_worker_test.go:192: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:192: [postgres] T+0.13s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:192: [postgres] T+0.24s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:192: [postgres] worker log: {"time":"2026-10-29T19:02:00.325963868+05:30","level":"INFO","msg":"job result committed","job_id":"job_6_82d0beb88edf","attempt_id":"att_job_6_82d0beb88edf_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:192: [postgres] worker log: {"time":"2026-10-29T19:02:00.326697173+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_82d0beb88edf","attempt_id":"att_job_6_82d0beb88edf_1","exit_code":0}
+    oversize_worker_test.go:193: [postgres] attempt 1: COMPLETED class= exit=0 output=8 bytes error=""
+    oversize_worker_test.go:193: [postgres] final: job SUCCEEDED after 0.24s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_InvalidUTF8InOutput (1.37s)
+    --- PASS: TestAbuse_WorkerResult_InvalidUTF8InOutput/memory (0.22s)
+    --- PASS: TestAbuse_WorkerResult_InvalidUTF8InOutput/postgres (1.15s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10140
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10140/memory
+    oversize_worker_test.go:210: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:210: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:01.004810929+05:30","level":"INFO","msg":"job result committed","job_id":"job_7_0c82c22aa879","attempt_id":"att_1_33f890eb246c","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:01.005913401+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_7_0c82c22aa879","attempt_id":"att_1_33f890eb246c","exit_code":1}
+    oversize_worker_test.go:211: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10140/postgres
+    oversize_worker_test.go:210: [postgres] T+0.03s job/attempts: QUEUED
+    oversize_worker_test.go:210: [postgres] T+0.24s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:01.943541739+05:30","level":"INFO","msg":"job result committed","job_id":"job_8_37eb127396cb","attempt_id":"att_job_8_37eb127396cb_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:01.943952312+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_8_37eb127396cb","attempt_id":"att_job_8_37eb127396cb_1","exit_code":1}
+    oversize_worker_test.go:211: [postgres] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [postgres] final: job FAILED after 0.24s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10240
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10240/memory
+    oversize_worker_test.go:210: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:210: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:02.532153176+05:30","level":"INFO","msg":"job result committed","job_id":"job_9_9b60faa1b2ee","attempt_id":"att_1_d725ca23ede5","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:02.533081354+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_9_9b60faa1b2ee","attempt_id":"att_1_d725ca23ede5","exit_code":1}
+    oversize_worker_test.go:211: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10240/postgres
+    oversize_worker_test.go:210: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:210: [postgres] T+0.24s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:03.395558493+05:30","level":"INFO","msg":"job result committed","job_id":"job_10_9db769c2294e","attempt_id":"att_job_10_9db769c2294e_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:03.39640878+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_10_9db769c2294e","attempt_id":"att_job_10_9db769c2294e_1","exit_code":1}
+    oversize_worker_test.go:211: [postgres] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [postgres] final: job FAILED after 0.24s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10241
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10241/memory
+    oversize_worker_test.go:210: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:210: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:03.76956753+05:30","level":"INFO","msg":"job result committed","job_id":"job_11_f20adae68ab4","attempt_id":"att_1_512e8b0515c2","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:03.769995564+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_11_f20adae68ab4","attempt_id":"att_1_512e8b0515c2","exit_code":1}
+    oversize_worker_test.go:211: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=10241/postgres
+    oversize_worker_test.go:210: [postgres] T+0.01s job/attempts: QUEUED
+    oversize_worker_test.go:210: [postgres] T+0.11s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:210: [postgres] T+0.23s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:04.518197624+05:30","level":"INFO","msg":"job result committed","job_id":"job_12_5c5ce4cfaf1f","attempt_id":"att_job_12_5c5ce4cfaf1f_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:04.518652568+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_12_5c5ce4cfaf1f","attempt_id":"att_job_12_5c5ce4cfaf1f_1","exit_code":1}
+    oversize_worker_test.go:211: [postgres] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [postgres] final: job FAILED after 0.23s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=40960
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=40960/memory
+    oversize_worker_test.go:210: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:210: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:05.218176304+05:30","level":"INFO","msg":"job result committed","job_id":"job_13_1c43cbb275d0","attempt_id":"att_1_ccc2461517c3","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [memory] worker log: {"time":"2026-10-29T19:02:05.21874457+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_13_1c43cbb275d0","attempt_id":"att_1_ccc2461517c3","exit_code":1}
+    oversize_worker_test.go:211: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_ErrorTextHostile/n=40960/postgres
+    oversize_worker_test.go:210: [postgres] T+0.04s job/attempts: QUEUED
+    oversize_worker_test.go:210: [postgres] T+0.26s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:06.276551124+05:30","level":"INFO","msg":"job result committed","job_id":"job_14_751215db00db","attempt_id":"att_job_14_751215db00db_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:210: [postgres] worker log: {"time":"2026-10-29T19:02:06.277017984+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_14_751215db00db","attempt_id":"att_job_14_751215db00db_1","exit_code":1}
+    oversize_worker_test.go:211: [postgres] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="invalid request payload or parameters: ��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x��x�"
+    oversize_worker_test.go:211: [postgres] final: job FAILED after 0.26s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_ErrorTextHostile (5.72s)
+    --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10140 (1.54s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10140/memory (0.24s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10140/postgres (1.30s)
+    --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10240 (1.25s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10240/memory (0.23s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10240/postgres (1.02s)
+    --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10241 (1.42s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10241/memory (0.21s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=10241/postgres (1.20s)
+    --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=40960 (1.50s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=40960/memory (0.24s)
+        --- PASS: TestAbuse_WorkerResult_ErrorTextHostile/n=40960/postgres (1.26s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	10.863s

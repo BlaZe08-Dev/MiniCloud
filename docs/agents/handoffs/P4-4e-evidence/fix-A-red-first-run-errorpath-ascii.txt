@@ -1,0 +1,83 @@
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/memory
+    oversize_worker_test.go:119: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:119: [memory] T+0.10s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:119: [memory] T+0.20s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:119: [memory] worker log: {"time":"2026-10-29T18:28:32.955805111+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_57bb880fd21c","attempt_id":"att_1_b42b42ac4c39","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:119: [memory] worker log: {"time":"2026-10-29T18:28:32.957130119+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_57bb880fd21c","attempt_id":"att_1_b42b42ac4c39","exit_code":0}
+    oversize_worker_test.go:120: [memory] final: job SUCCEEDED after 0.20s, 1 attempt(s), 1 result row(s)
+    oversize_worker_test.go:123: [memory] stored output does not end with the truncation marker: tail "\xac€€€€€€€€€€€€\"}}"
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/postgres
+    oversize_worker_test.go:119: [postgres] T+0.03s job/attempts: QUEUED
+    oversize_worker_test.go:119: [postgres] T+0.37s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:119: [postgres] T+0.91s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:119: [postgres] worker log: {"time":"2026-10-29T18:28:35.6478864+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_becbb3f6d577","attempt_id":"att_job_2_becbb3f6d577_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:119: [postgres] worker log: {"time":"2026-10-29T18:28:35.650540933+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_becbb3f6d577","attempt_id":"att_job_2_becbb3f6d577_1","exit_code":0}
+    oversize_worker_test.go:120: [postgres] final: job SUCCEEDED after 0.91s, 1 attempt(s), 1 result row(s)
+    oversize_worker_test.go:123: [postgres] stored output does not end with the truncation marker: tail "\xac€€€€€€€€€€€€\"}}"
+--- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation (3.46s)
+    --- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/memory (0.39s)
+    --- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/postgres (3.07s)
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped/memory
+    oversize_worker_test.go:135: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:135: [memory] T+0.11s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:135: [memory] T+1.32s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [memory] T+1.42s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:135: [memory] T+2.12s job/attempts: RUNNING a1=LOST a2=RUNNING
+    oversize_worker_test.go:135: [memory] T+3.33s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [memory] T+3.43s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+    oversize_worker_test.go:135: [memory] T+4.64s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [memory] T+4.74s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+    oversize_worker_test.go:135: [memory] worker log: {"time":"2026-10-29T18:28:36.312750811+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_3_971e07b4ece4","attempt_id":"att_1_ef3a63407ee4","status":400,"err":"report failed with st
+    oversize_worker_test.go:135: [memory] worker log: {"time":"2026-10-29T18:28:38.362218822+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_3_971e07b4ece4","attempt_id":"att_2_b07084100375","status":400,"err":"report failed with st
+    oversize_worker_test.go:135: [memory] worker log: {"time":"2026-10-29T18:28:39.653633916+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_3_971e07b4ece4","attempt_id":"att_3_ffdd4386d556","status":400,"err":"report failed with st
+    oversize_worker_test.go:136: [memory] final: job FAILED after 4.74s, 3 attempt(s), 0 result row(s)
+    oversize_worker_test.go:136: [memory] attempt 1 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:136: [memory] attempt 2 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:136: [memory] attempt 3 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:139: [memory] stored error/output not marked as truncated
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped/postgres
+    oversize_worker_test.go:135: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:135: [postgres] T+0.34s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:135: [postgres] T+1.59s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [postgres] T+1.83s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:135: [postgres] T+2.55s job/attempts: RUNNING a1=LOST a2=RUNNING
+    oversize_worker_test.go:135: [postgres] T+3.79s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [postgres] T+3.90s job/attempts: RETRYING a1=LOST a2=LOST
+    oversize_worker_test.go:135: [postgres] T+4.62s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+    oversize_worker_test.go:135: [postgres] T+5.85s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:135: [postgres] T+5.97s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+    oversize_worker_test.go:135: [postgres] worker log: {"time":"2026-10-29T18:28:42.974269721+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_4_92a17fa53066","attempt_id":"att_job_4_92a17fa53066_1","status":400,"err":"report failed w
+    oversize_worker_test.go:135: [postgres] worker log: {"time":"2026-10-29T18:28:45.253450248+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_4_92a17fa53066","attempt_id":"att_job_4_92a17fa53066_2","status":400,"err":"report failed w
+    oversize_worker_test.go:135: [postgres] worker log: {"time":"2026-10-29T18:28:47.231304064+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_4_92a17fa53066","attempt_id":"att_job_4_92a17fa53066_3","status":400,"err":"report failed w
+    oversize_worker_test.go:136: [postgres] final: job FAILED after 5.97s, 3 attempt(s), 0 result row(s)
+    oversize_worker_test.go:136: [postgres] attempt 1 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:136: [postgres] attempt 2 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:136: [postgres] attempt 3 is LOST: the result never reached the coordinator
+    oversize_worker_test.go:139: [postgres] stored error/output not marked as truncated
+--- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped (13.44s)
+    --- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped/memory (5.88s)
+    --- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped/postgres (7.55s)
+=== RUN   TestAbuse_OversizeOutput_PlainASCII
+=== RUN   TestAbuse_OversizeOutput_PlainASCII/memory
+    oversize_worker_test.go:149: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:149: [memory] T+0.10s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:149: [memory] worker log: {"time":"2026-10-29T18:28:49.70278049+05:30","level":"INFO","msg":"job result committed","job_id":"job_5_5de81d4e6849","attempt_id":"att_1_4b6f6aad6a11","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:149: [memory] worker log: {"time":"2026-10-29T18:28:49.703237314+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_5de81d4e6849","attempt_id":"att_1_4b6f6aad6a11","exit_code":0}
+    oversize_worker_test.go:150: [memory] final: job SUCCEEDED after 0.10s, 1 attempt(s), 1 result row(s)
+    oversize_worker_test.go:152: [memory] stored 65536 bytes, want exactly 65536 ending in the marker
+=== RUN   TestAbuse_OversizeOutput_PlainASCII/postgres
+    oversize_worker_test.go:149: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:149: [postgres] T+0.13s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:149: [postgres] T+0.23s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:149: [postgres] worker log: {"time":"2026-10-29T18:28:50.426412589+05:30","level":"INFO","msg":"job result committed","job_id":"job_6_eee0c393ae2e","attempt_id":"att_job_6_eee0c393ae2e_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:149: [postgres] worker log: {"time":"2026-10-29T18:28:50.427850048+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_eee0c393ae2e","attempt_id":"att_job_6_eee0c393ae2e_1","exit_code":0}
+    oversize_worker_test.go:150: [postgres] final: job SUCCEEDED after 0.23s, 1 attempt(s), 1 result row(s)
+    oversize_worker_test.go:152: [postgres] stored 65536 bytes, want exactly 65536 ending in the marker
+--- FAIL: TestAbuse_OversizeOutput_PlainASCII (1.17s)
+    --- FAIL: TestAbuse_OversizeOutput_PlainASCII/memory (0.24s)
+    --- FAIL: TestAbuse_OversizeOutput_PlainASCII/postgres (0.93s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	18.141s
+FAIL
