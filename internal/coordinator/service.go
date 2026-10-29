@@ -146,6 +146,11 @@ func (s *Service) DefaultMaxAttempts() int {
 }
 
 const (
+	// BackgroundCallTimeout bounds one iteration of a background loop (lease sweeper tick, worker
+	// reap) against the repository, so a half-open database connection cannot stall the loop
+	// forever (F-4e-5). It matches the API request deadline.
+	BackgroundCallTimeout = 8 * time.Second
+
 	DefaultMaxAttempts    = 3
 	MinMaxAttempts        = 1
 	MaxMaxAttempts        = 20
@@ -355,7 +360,9 @@ func (s *Service) StartReaper(ctx context.Context, interval time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, _ = s.ReapInactiveWorkers(ctx)
+			reapCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)
+			_, _ = s.ReapInactiveWorkers(reapCtx)
+			cancel()
 		}
 	}
 }

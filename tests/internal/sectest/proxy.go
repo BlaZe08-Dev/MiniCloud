@@ -45,6 +45,8 @@ type FaultProxy struct {
 	done  chan struct{}
 
 	Accepted atomic.Int64
+	// ClientChunks counts reads from the client side (each is one flight toward the database).
+	ClientChunks atomic.Int64
 }
 
 // NewFaultProxy starts a proxy to upstream on 127.0.0.1:0 in ModeForward and stops it on cleanup.
@@ -176,6 +178,9 @@ func (p *FaultProxy) serve(client net.Conn) {
 		for {
 			n, err := src.Read(buf)
 			if n > 0 {
+				if src == client {
+					p.ClientChunks.Add(1)
+				}
 				switch p.Mode() {
 				case ModeBlackhole:
 					// swallow: written bytes are accepted and discarded, nothing is answered

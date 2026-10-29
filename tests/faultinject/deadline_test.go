@@ -185,3 +185,33 @@ func TestFault_DBOutage_HalfOpen_RecoveryTime(t *testing.T) {
 	}
 	t.Logf("readyz healthy again %v after healing with the whole pool held by hung requests", time.Since(healed).Round(10*time.Millisecond))
 }
+
+// TestFault_PollCost_DatabaseRoundTrips records how many client-to-database flights one work poll
+// and one empty poll cost (Informational performance observation for the V2 benchmark). The number
+// is the proxy's count of client writes while the poll runs, with an idle pool and no other
+// traffic; it is logged, and only a loose sanity bound is asserted.
+func TestFault_PollCost_DatabaseRoundTrips(t *testing.T) {
+	r, p := outageRig(t)
+	r.Register("w1", 1)
+	r.Submit(3)
+	r.Do("GET", "/healthz", nil)
+	r.Do("POST", "/v1/workers/w1/heartbeat", `{}`) // warm the pool
+	before := p.ClientChunks.Load()
+	if a := r.Poll("w1"); a == nil {
+		t.Fatal("expected work")
+	}
+	withWork := p.ClientChunks.Load() - before
+	r.Register("w2", 1)
+	before = p.ClientChunks.Load()
+	if a := r.Poll("w2"); a != nil {
+		t.Fatal("expected no work")
+	}
+	empty := p.ClientChunks.Load() - before
+	before = p.ClientChunks.Load()
+	r.Submit(3)
+	submit := p.ClientChunks.Load() - before
+	t.Logf("client-to-database flights: work poll %d, empty poll %d, submit %d", withWork, empty, submit)
+	if withWork > 60 {
+		t.Errorf("a work poll costs %d database flights, more than the sanity bound of 60", withWork)
+	}
+}

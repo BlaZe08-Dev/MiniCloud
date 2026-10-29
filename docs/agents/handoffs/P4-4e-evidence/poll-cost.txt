@@ -1,0 +1,10 @@
+=== RUN   TestFault_PollCost_DatabaseRoundTrips
+2026/10/29 15:11:55 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:11:56 INFO job submitted and queued job_id=job_1_b6bf9d076ca6 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:11:56 INFO job dispatched to worker job_id=job_1_b6bf9d076ca6 attempt_id=att_job_1_b6bf9d076ca6_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:11:56 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:11:56 INFO job submitted and queued job_id=job_2_3511efe6e0ed task_type=echo state=QUEUED max_attempts=3
+    deadline_test.go:213: client-to-database flights: work poll 20, empty poll 4, submit 5
+--- PASS: TestFault_PollCost_DatabaseRoundTrips (0.52s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.525s

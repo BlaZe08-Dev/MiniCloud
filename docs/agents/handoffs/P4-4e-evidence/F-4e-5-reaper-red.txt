@@ -1,0 +1,8 @@
+=== RUN   TestFault_Sweeper_ResumesAfterHalfOpenDatabase
+2026/10/29 15:10:31 WARN lease sweeper tick failed err="timeout: context deadline exceeded"
+2026/10/29 15:10:31 WARN lease sweeper opened an outage grace window: reaping suppressed until=2026-10-29T09:41:01.448Z window=30s
+    background_test.go:92: worker reaper did not resume within 60 s of the partition healing (reaps stuck at 2)
+--- FAIL: TestFault_Sweeper_ResumesAfterHalfOpenDatabase (69.30s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	69.315s
+FAIL

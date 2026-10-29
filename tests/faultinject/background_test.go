@@ -24,6 +24,7 @@ import (
 type countingRepo struct {
 	storage.Repository
 	sweeps       atomic.Int64
+	reaps        atomic.Int64
 	ambiguousOne atomic.Bool // next CommitAttempt applies, then returns context.DeadlineExceeded
 }
 
@@ -33,6 +34,14 @@ func (c *countingRepo) SweepExpiredLeases(ctx context.Context, p domain.SweepPar
 		c.sweeps.Add(1)
 	}
 	return res, err
+}
+
+func (c *countingRepo) ReapStaleWorkers(ctx context.Context, d time.Duration) ([]string, error) {
+	ids, err := c.Repository.ReapStaleWorkers(ctx, d)
+	if err == nil {
+		c.reaps.Add(1)
+	}
+	return ids, err
 }
 
 func (c *countingRepo) CommitAttempt(ctx context.Context, jobID, attemptID, token, workerID string, o domain.AttemptOutcome, b domain.BackoffFunc) (*domain.Job, error) {
@@ -63,6 +72,8 @@ func TestFault_Sweeper_ResumesAfterHalfOpenDatabase(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() { defer wg.Done(); svc.StartLeaseSweeper(ctx, 200*time.Millisecond) }()
+	wg.Add(1)
+	go func() { defer wg.Done(); svc.StartReaper(ctx, 200*time.Millisecond) }()
 	t.Cleanup(func() { cancel(); wg.Wait() })
 
 	if !sectest.WaitFor(10*time.Second, func() bool { return repo.sweeps.Load() >= 3 }) {
@@ -71,11 +82,14 @@ func TestFault_Sweeper_ResumesAfterHalfOpenDatabase(t *testing.T) {
 	px.SetMode(sectest.ModeBlackhole)
 	// Let the loop run into the half-open connection (several tick periods).
 	time.Sleep(2 * time.Second)
-	frozen := repo.sweeps.Load()
+	frozen, frozenReaps := repo.sweeps.Load(), repo.reaps.Load()
 	px.SetMode(sectest.ModeForward)
 	healed := time.Now()
 	if !sectest.WaitFor(60*time.Second, func() bool { return repo.sweeps.Load() >= frozen+3 }) {
 		t.Fatalf("sweeper did not resume within 60 s of the partition healing (sweeps stuck at %d)", repo.sweeps.Load())
+	}
+	if !sectest.WaitFor(60*time.Second, func() bool { return repo.reaps.Load() >= frozenReaps+3 }) {
+		t.Fatalf("worker reaper did not resume within 60 s of the partition healing (reaps stuck at %d)", repo.reaps.Load())
 	}
 	t.Logf("sweeper completed 3 new sweeps %v after the partition healed", time.Since(healed).Round(100*time.Millisecond))
 }
