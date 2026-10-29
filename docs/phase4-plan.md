@@ -167,7 +167,9 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 
 ---
 
-### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring
+### Slice 4c: HTTP API Protocol, Worker Lease Renewal & Coordinator Sweeper Wiring (Complete)
+*Status*: Complete. Implemented and merged in two parts: Slice 4c-a (coordinator side: sweeper cadence, dual grace periods, renew route, background sweeper loop wiring) and Slice 4c-b (worker side: periodic renewal loop, lease-loss abort, cancel delivery, bounded delivery budget).
+
 - **Scope**:
   - HTTP API (`internal/api`):
     - Dedicated `POST /v1/jobs/{job_id}/attempts/{attempt_id}/renew` endpoint.
@@ -226,6 +228,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 
 ### Slice 4d: Structured Retries, Failure Classification & Cooperative Cancellation
 - **Scope**:
+  - Slice 4d covers failure classification, bounded automatic retries end to end, cancel-wins and failure presentation (CLI and API presenting failure reasons and attempts used).
+  - Note: The SEC-012 worker timeout clamp is a separate small task scheduled after slice 4d.
   - Implement failure classification:
     - Success (exit code 0) is `AttemptCompleted` without error classification.
     - Validation failures of allowlisted tasks (`echo`, `sleep`, `sha256_loop`) are `ClassPermanent`.
@@ -238,6 +242,8 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
     - Preempted executor returns `context.Canceled`.
     - Any commit on `CANCEL_REQUESTED` closes attempt with reported outcome (Behavior change from today, D-R2-03, ADR-0016 section 1 item 4; Slice 4d builds this cooperative cancellation outcome in `CommitAttempt`): success moves `CANCEL_REQUESTED -> SUCCEEDED` per today's code (`CommitAttempt` in `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt`, permitted by `internal/domain/transition.go` table `allowedTransitions`); failure moves attempt `FAILED` and `CANCEL_REQUESTED -> CANCELLED` (behavior change from today: today `internal/storage/inmemory.go` func `CommitAttempt` and `internal/storage/postgres/repository.go` func `CommitAttempt` move the job to `FAILED`; in Phase 4 cancel wins, never `RETRYING` or `FAILED`). No existing test in the test suite asserts the old outcome (`StateCancelRequested` is tested in `internal/domain/transition_test.go` and `internal/storage/storagetest/conformance.go`). The coordinator requires no special cancel acknowledgement wire signal.
   - Resolve cancellation races (cancel vs completion, cancel vs lease expiry, duplicate cancels).
+  - Failure presentation: present failure reason and attempts used via coordinator API and `mc` CLI.
+
 - **Exit Criteria**:
   - Transient failures retry up to `max_attempts` with verified backoff delay.
   - Permanent failures transition immediately to `FAILED` without retrying.
@@ -294,3 +300,14 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
   - The assignment slice introduces `assigned_worker_id` and `assignment_expires_at` on queued jobs.
   - **Shared Lease Sweeper**: The Phase 4 lease sweeper machinery (`StartLeaseSweeper`) directly powers assignment expiration: if an assigned worker fails to accept a job within its bounded accept window (e.g. 5 seconds), the sweeper revokes the assignment (`assigned_worker_id = NULL`) and re-evaluates the round-robin scheduler.
   - Building assignment after Phase 4 ensures zero throwaway or duplicate recovery logic.
+
+---
+
+## Orchestrator decisions recorded for Phase 4 implementation
+
+1. The worker's result-delivery budget is 60 seconds.
+2. Effective maximum retry backoff is 45 seconds, because the 30 second cap is applied before jitter of up to 1.5x, accepted.
+3. A renewal for an unknown attempt id returns 409 STALE_ATTEMPT_REJECTED.
+4. No minimum lease value is enforced in configuration.
+5. The severities of SEC-025 (Low), SEC-026 (Informational), SEC-027 (Low) and SEC-028 (Informational) were set by the orchestrator.
+

@@ -47,37 +47,35 @@ When writing automated fault injection tests, every test case must explicitly do
 
 ## 4. Worker-Side Result Delivery Protocol During Extended Outages
 
-### The Delivery Gap Under Extended Downtime
-Inspection of the current worker implementation in `internal/worker/client.go:324-355` (`executeAndReport`) reveals that `ReportResult` retries at most 5 times with exponential backoff (100ms * 2^attempt), yielding approximately 3.1 seconds of total retry duration (100ms + 200ms + 400ms + 800ms + 1600ms = 3.1s). If a coordinator restart or database outage lasts longer than 3.1 seconds (e.g., a 15–45 second coordinator crash), any task that completes *during* the outage discards its completed result at the worker side. Even if the coordinator restarts and enables its 30-second startup grace period, no result is delivered, resulting in lost work and redundant retry dispatch.
+### The Delivery Protocol Under Extended Downtime
+In `internal/worker/client.go` function `deliverResult` (called from `ExecuteAndReport`), the worker client retries `ReportResult` with bounded exponential backoff and jitter under a fixed 60-second delivery budget (`ResultDeliveryBudget = 60 * time.Second`). If an extended coordinator restart or database outage occurs (e.g., lasting up to 45 seconds), any task that completes during the outage continues to retry result reporting and concurrently renews its lease until the coordinator recovers. Under the coordinator's startup grace period (`MINICLOUD_STARTUP_GRACE_PERIOD`, 30s) and the symmetric accept-until-swept rule, the completed result is delivered and accepted without lost work or redundant dispatch.
 
-### Designed Worker Delivery Behavior
-To guarantee end-to-end result preservation during coordinator or database outages, Phase 4 specifies the following worker client behavior for finished but unreported results:
+### Implemented Worker Delivery Behavior
+The worker client enforces the following result delivery protocol in `internal/worker/client.go` function `deliverResult`:
 1. **Capped, Jittered Backoff Loop**:
-   When reporting a finished result, transient errors (HTTP 500, 502, 503, 504, connection reset, connection refused, context deadline) trigger retries using exponential backoff with full jitter:
-   `backoff = min(max_report_backoff, base_report_backoff * 2^attempt) * jitter`
-   where `base_report_backoff = 500ms`, `max_report_backoff = 5.0s`, and `jitter` in `[0.5, 1.5]`.
+   When reporting a finished result, transient errors trigger retries using `ComputeBackoffWithJitter` with base `deliveryBackoffBase = 200 * time.Millisecond` and nominal cap `deliveryBackoffMax = 5 * time.Second`. Because the multiplier sequence `1 << (failureCount - 1)` is capped at 16 (`200ms * 16 = 3.2s`), the real ceiling before jitter is 3.2s (the nominal 5.0s cap is never reached). The jitter factor is in `[0.5, 1.0]`.
 2. **Concurrent Ongoing Lease Renewal**:
-   While the worker's result reporting loop retries, the worker's lease renewal mechanism **continues active lease renewal** (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`) every 10 seconds. Under the symmetric accept-until-swept rule (ADR-0014), renewals and commits are accepted while `attempts.state == 'RUNNING'`. Once the coordinator recovers, renewal extends `lease_expires_at` from database time (except on a `CANCEL_REQUESTED` job, where renewal returns the current unextended expiry and the worker halts renewals), ensuring the attempt is never reaped while the worker is actively delivering its completed result (on a `CANCEL_REQUESTED` job, if the lease expires before result delivery completes, the sweeper safely closes the attempt and job as `CANCELLED`).
+   While the worker's result delivery loop (`deliverResult`) retries, the worker's lease renewal mechanism (`renewLoop`) continues active lease renewal (`POST /v1/jobs/{id}/attempts/{attempt_id}/renew`) at its periodic interval (default 10s). Under the symmetric accept-until-swept rule (ADR-0014), renewals and commits are accepted while `attempts.state == 'RUNNING'`. Once the coordinator recovers, renewal extends `lease_expires_at` from database time (except on a `CANCEL_REQUESTED` job, where renewal returns the current unextended expiry and halts renewals), ensuring the attempt is not reaped while the worker is actively delivering its completed result.
 3. **Terminal Rejection Halts Delivery**:
-   On the result reporting path (`ReportResult`), deterministic non-retryable rejections immediately abort the delivery loop without further retries:
+   On the result reporting path (`ReportResult`), deterministic non-retryable rejections (`isTerminalDelivery`) immediately abort the delivery loop without further retries:
    - HTTP 400 Bad Request (`INVALID_REQUEST` / payload limit or schema violation)
    - HTTP 403 Forbidden (`WORKER_MISMATCH`)
    - HTTP 404 Not Found (recognized envelope `JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`, or legacy un-enveloped 404)
    - HTTP 409 Conflict (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`)
    On the lease renewal path (`RenewAttemptLease`):
-   - Terminal 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`), 403 (`WORKER_MISMATCH`), and recognized 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`) halt renewals immediately.
+   - Terminal 409 (`JOB_ALREADY_TERMINAL`, `LEASE_EXPIRED`, `STALE_ATTEMPT_REJECTED`), 403 (`WORKER_MISMATCH`), and recognized 404 (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`) halt renewals immediately and mark the attempt lost, aborting delivery.
    - HTTP 400 (`INVALID_REQUEST`, `WORKER_TASK_UNSUPPORTED`) or legacy un-enveloped 404 causes the worker to cease renewals while letting the task continue running to completion, reporting the final outcome via `ReportResult`.
    - Transient errors (5xx, connection drop) retry on the next renewal interval (10s) until lease expiry.
 4. **Explicit Delivery Bound**:
-   The reporting retry loop is bounded by a cumulative deadline of `lease_duration + grace_window` (default: 30s + 30s = 60s), or terminates early if renewal receives HTTP 409 `LEASE_EXPIRED` (indicating the sweeper reaped the attempt).
+   The reporting retry loop in `deliverResult` is bounded by a fixed cumulative timer of `ResultDeliveryBudget = 60 * time.Second`, or terminates early if renewal receives a terminal rejection or the attempt is declared lost.
 
 ### Existing Test Impact Analysis
-- **Tests Pinning Current Behavior**:
-   - `internal/worker/client_test.go:16-38` (`TestIsNonRetryableReportError`): Currently pins classification of HTTP 403, 404, 409 as terminal/non-retryable and 200, 400, 500, 502, 503, 504 as retryable.
-   - `internal/worker/client_test.go:40-112` (`TestAgent_ReportResult_RejectionHandling`): Pins single-invocation status code rejection handling.
-   - `internal/worker/client.go:324-355` (`executeAndReport`): Implements the current 5-attempt retry loop.
-- **Assertion Impact & Candidate for Owner Approval**:
-   Expanding `executeAndReport` in `internal/worker/client.go:324-355` from a fixed 5-iteration loop to a 60-second time-bounded loop with capped jittered backoff, and updating `IsNonRetryableReportError` to classify deterministic HTTP 400 as non-retryable (so malformed results do not retry for 60 seconds), is submitted as an additive resilience candidate for owner approval in Slice 4c. Zero assertions in existing tests are weakened or removed without owner approval.
+- **Tests Pinning Delivery Behavior**:
+   - `internal/worker/client_test.go` (`TestIsNonRetryableReportError`): Pins classification of HTTP 403, 404, 409 as terminal/non-retryable.
+   - `internal/worker/client_test.go` (`TestAgent_ReportResult_RejectionHandling`): Pins single-invocation status code rejection handling.
+   - `internal/worker/client.go` function `deliverResult`: Implements the 60-second time-bounded delivery loop with capped jittered backoff.
+- **Assertion Impact**:
+   The 60-second time-bounded loop (`deliverResult`) and classifying deterministic HTTP 400 as non-retryable in `isTerminalDelivery` provides delivery durability during coordinator restarts and database outages up to 45 seconds without weakening any existing test assertion.
 
 ### Planned Verification Tests
 - `TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success` (planned test).

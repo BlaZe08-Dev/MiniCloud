@@ -32,8 +32,12 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker | Prior documentation and reports cited nonexistent test names, invalid repository file paths, and obsolete API routes without automated verification. Remediated by standard-library static citation checker (`TestCitations`, `TestFixtures`) and strict allowlist (`tests/docs/citation_allowlist.txt`). | `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/docs/citations_test.go:754`) |
 | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residual limitation documented | Documentation Citation Checker / Rule C Exemption Scope | Rule C's exemption keywords (`proposed`, `future`, `planned`, `designed not executed`, `does not exist`, `nonexistent`, `invented`) initially exempted every test name on the line. Remediated by tightening exemption evaluation to individual table cells and sentence clauses (`[|;]|\. |\.\t|<br\s*/?>`) with identifier token stripping. Residual limitation documented: a fabricated name carrying its own label in the same clause passes by design; exemption is a convention requiring human review. | `TestFixtures/RuleC_SeparateClause_Fail`, `TestFixtures/RuleC_ProposedExemption_Pass` (`tests/docs/citations_test.go:857-888`) |
 | **SEC-022** | Medium | Fixed in slice 4a (executed) | Storage Layer (In-Memory & Postgres) | Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; late commit rejected as terminal without closing attempt, permanently leaking worker slot. | `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` (regression test, executed in slice 4a) |
-| **SEC-023** | Low | Open (executed in P0-01 by Claude Code, plus confirmed by code reading) | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`) |
+| **SEC-023** | Low | Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading of the guard and the test | PostgreSQL Migrator Tests | TestMigrator_PreExistingInvalidRow_ValidationFails lacks _test database-name guardrail; connects to non-_test database without SAFETY VIOLATION. | `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go` func `TestMigrator_PreExistingInvalidRow_ValidationFails`) |
 | **SEC-024** | Informational | Open (within SEC-004; executed in P4-4a audit by Gemini) | Storage Layer / Commit Evaluation Order | In `CommitAttempt` on a terminal job, evaluating terminal state before verifying attempt lease token closes the attempt and records a diagnostic event prior to credential checks. | `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` |
+| **SEC-025** | Low | Open (within SEC-004 until V3; confirmed by code reading) | Storage Layer / Expiry Disclosure | In `CommitAttempt` and `RenewLease`, lease-expired check precedes token verification; because PostgreSQL attempt IDs are deterministically derivable (`att_<jobID>_<attemptNo>`), an unauthenticated caller with a job ID can probe sweep state. Severity Low (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; sources: builder findings F-4b-1 & F-4b-2 and auditor finding F-4b-A4). | Verification step: revisit token verification order and attempt ID derivation during V3 authentication hardening (ADR-0004, SEC-004); 4b auditor reported executing a throwaway probe not preserved in any branch. |
+| **SEC-026** | Informational | Open (confirmed by code reading in P4-4b review) | Storage Layer / Sweeper Unexpected States | Sweeper default branch skips attempts whose jobs are in unexpected states (`QUEUED`, `SUBMITTED`, `RETRYING`) without closing the attempt or freeing the worker slot; unreachable through the normal state machine API. Severity Informational (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; sources: builder finding F-4b-3 [Low], auditor finding F-4b-A3 [Minor]). | Verification step: review sweeper default branch in Slice 4d/Phase 4 hardening. |
+| **SEC-027** | Low | Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review) | Storage Layer / Renew Row Lock Contention | `RenewLease` takes the job row lock before validating the lease token or worker ID, allowing unauthenticated callers with a known attempt ID to serialize or delay legitimate renew requests. Severity Low (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; source: builder finding F-4c-a-1 in P4-4c-a handoff, agreed by auditor in review). | Verification step: revisit at V3 together with SEC-024 under mutual TLS / authentication (source: builder finding F-4c-a-1 in P4-4c-a handoff, agreed by auditor in review). |
+| **SEC-028** | Informational | Open (confirmed by code reading in P4-4c-a review) | Coordinator / Sweeper Multi-Node Architecture | Lease sweeper startup grace and database outage grace state is kept in-process memory, which would behave incorrectly or diverge if multiple coordinator instances run concurrently. Severity Informational (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; source: builder finding F-4c-a-3 [Low] in P4-4c-a handoff, agreed by auditor in review). | Verification step: revisit when horizontal coordinator scaling or shared distributed coordinator state is designed. |
 
 ---
 
@@ -389,17 +393,17 @@ FAIL
 
 ### SEC-023: TestMigrator_PreExistingInvalidRow_ValidationFails Missing _test Database Name Guard
 
-- **Finding**: `TestMigrator_PreExistingInvalidRow_ValidationFails` has no `_test` database-name guard. If `MINICLOUD_TEST_DATABASE_URL` pointed at the dev database, it would create a schema there, run migrations and drop it; every other Postgres test helper refuses such names with `SAFETY VIOLATION`.
+- **Finding**: `TestMigrator_PreExistingInvalidRow_ValidationFails` had no `_test` database-name guard. If `MINICLOUD_TEST_DATABASE_URL` pointed at the dev database, it would create a schema there, run migrations and drop it; every other Postgres test helper refuses such names with `SAFETY VIOLATION`.
 - **Severity**: Low
 - **Category**: Test Safety Guardrails / Database Isolation
-- **Status**: Open (executed plus confirmed by code reading)
-- **Affected Component**: PostgreSQL Migrator Tests (`internal/storage/postgres/migrator_test.go:546-575`)
+- **Status**: Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading of the guard and the test
+- **Affected Component**: PostgreSQL Migrator Tests (`internal/storage/postgres/migrator_test.go` func `TestMigrator_PreExistingInvalidRow_ValidationFails`)
 - **Preconditions**: `MINICLOUD_TEST_DATABASE_URL` is set pointing to a database whose name does not end in `_test` (such as the development database `minicloud`).
 - **Reproduction Steps**:
   1. Set `MINICLOUD_TEST_DATABASE_URL` pointing to a database name not ending in `_test` (e.g. `minicloud_noguard_probe`).
   2. Run `go test -v -race -run TestMigrator_PreExistingInvalidRow_ValidationFails ./internal/storage/postgres`.
   3. Observe that unlike other Postgres tests which fail immediately with `SAFETY VIOLATION: refusing to run test against database...`, this test attempts to connect directly to the database without validating the `_test` suffix.
-- **Evidence**: Executed plus confirmed by code reading of `internal/storage/postgres/migrator_test.go:546-575`.
+- **Evidence**: Executed plus confirmed by code reading of `internal/storage/postgres/migrator_test.go` func `TestMigrator_PreExistingInvalidRow_ValidationFails`.
   When pointing tests at a database name not ending in `_test` (`minicloud_noguard_probe`), 23 `SAFETY VIOLATION` stops occurred across the suite, but `TestMigrator_PreExistingInvalidRow_ValidationFails` reached the connection step without a safety check:
   ```
   --- FAIL: TestMigrator_PreExistingInvalidRow_ValidationFails (0.01s)
@@ -407,8 +411,8 @@ FAIL
   ```
 - **Impact**: If `MINICLOUD_TEST_DATABASE_URL` pointed at the development database `minicloud`, the test would connect, create a `test_migrator_pre_existing_*` schema there, run migrations and drop it. While impact is limited to its own temporary schema, it breaks the invariant guardrail promised in `docs/testing-postgres.md`.
 - **Root Cause**: `TestMigrator_PreExistingInvalidRow_ValidationFails` directly calls `pgx.Connect(ctx, testURL)` after checking `testURL == ""` without extracting the database name or asserting that `strings.HasSuffix(dbName, "_test")`.
-- **Recommended Fix**: Fix is NOT authorized yet; adding the same `_test` suffix check as `TestMigrator_FreshMigrate` and other test helpers is a later small task.
-- **Regression Test**: `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go:546-575`).
+- **Resolution**: Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading of the guard and the test. `TestMigrator_PreExistingInvalidRow_ValidationFails` now parses `MINICLOUD_TEST_DATABASE_URL` with `pgx.ParseConfig` and asserts `isTestDatabaseName(cfg.Database)`, failing immediately with `SAFETY VIOLATION: refusing to run test against database...` if the name does not end in `_test`. Statically guarded by `TestEveryTestURLConsumerHasNameGuard` in `internal/storage/postgres/dbname_guard_test.go`.
+- **Regression Test**: `TestMigrator_PreExistingInvalidRow_ValidationFails` (`internal/storage/postgres/migrator_test.go` func `TestMigrator_PreExistingInvalidRow_ValidationFails`).
 
 ---
 
@@ -427,6 +431,62 @@ FAIL
 - **Impact**: Bounded by SEC-004 (unauthenticated HTTP API). Because the job is already terminal, closing the stranded `RUNNING` attempt and freeing the worker slot prevents permanent cluster slot leaks (SEC-022 remediation). The stored result of the job is never overwritten, and diagnostic event insertion is idempotent (capped at 1 per attempt by a NOT EXISTS check under the job row lock in PostgreSQL and a loop check in memory; the partial unique index idx_job_events_unique_diagnostic_late_result is planned for migration 000004 in slice 4b).
 - **Remediation**: Documented in `docs/adr/0014-lease-model-and-expiry.md` as an accepted evaluation order under SEC-004. In V3, when worker authentication/mTLS is introduced, token/credential validation will precede state inspection.
 - **Verification / Regression Test**: `TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken` in `tests/review/audit_attacks_test.go` (audit probe executed on `agent/gemini/P4-4a-review`).
+
+---
+
+### SEC-025: Lease-Expired Check Preceding Token Check Discloses Sweep State
+
+- **Finding**: In `CommitAttempt` and `RenewLease`, evaluating lease expiration occurs before validating the attempt lease token. Because PostgreSQL attempt IDs are deterministically generated as `att_<jobID>_<attemptNo>`, an unauthenticated caller with knowledge of a job ID can determine whether an attempt was swept and expired.
+- **Severity**: Low (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; sources: builder findings F-4b-1 [Informational] & F-4b-2 [Low], auditor finding F-4b-A4 [Informational]; bounded by SEC-004 accepted risk until V3)
+- **Category**: Authorization / Information Disclosure
+- **Status**: Open (within SEC-004 until V3; confirmed by code reading)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/storage/postgres/repository.go`)
+- **Preconditions**: An unauthenticated network caller knows or guesses a `job_id` and targets attempt number 1 (`att_<jobID>_1`).
+- **Impact**: Bounded by SEC-004. An attacker can observe when an attempt has transitioned to `LOST` by the sweeper, but cannot overwrite results or alter job state without a valid token.
+- **Remediation**: At V3, implement cryptographic or random attempt IDs (SEC-013) and enforce authentication/token validation before revealing state.
+- **Verification**: Confirmed by code reading during Slice P4-4b review (builder findings F-4b-1 & F-4b-2, auditor finding F-4b-A4). The 4b auditor reported executing a throwaway probe that was not preserved in any branch and was not independently reproduced.
+
+---
+
+### SEC-026: Sweeper Default Branch Skips Unexpected Job States Without Freeing Worker Slot
+
+- **Finding**: In the lease sweeper logic (`applySweep` in `internal/storage/postgres/leases.go` and `sweepAttemptLocked` in `internal/storage/inmemory.go`), if an expired running attempt is found under a job in an unexpected state (`QUEUED`, `SUBMITTED`, or `RETRYING`), the `default:` branch returns `nil, nil` (counting `SkippedChanged`). The sweeper rolls back without marking the attempt `LOST` or releasing the allocated worker capacity slot.
+- **Severity**: Informational (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; sources: builder finding F-4b-3 [Low], auditor finding F-4b-A3 [Minor])
+- **Category**: Storage / Sweeper Robustness
+- **Status**: Open (confirmed by code reading in P4-4b review)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`)
+- **Preconditions**: A corrupted or inconsistent database state where a job is in `QUEUED`, `SUBMITTED`, or `RETRYING` while having an active `RUNNING` attempt whose lease expired. Unreachable through the normal state machine API.
+- **Impact**: If reached via out-of-band database mutation, the attempt remains `RUNNING` and permanently occupies a worker slot.
+- **Remediation**: In Slice 4d / Phase 4 follow-up, close any expired attempt under unexpected job states as `LOST` and release the worker capacity slot.
+- **Verification**: Confirmed by code reading during P4-4b review (builder finding F-4b-3, auditor finding F-4b-A3).
+
+---
+
+### SEC-027: RenewLease Takes Job Row Lock Before Attempt Lease Token Check
+
+- **Finding**: `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` (`RenewLease`) locks the job row (`SELECT ... FOR UPDATE` in PostgreSQL or repo lock in memory) before validating the attempt lease token or worker ID.
+- **Severity**: Low (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; bounded by SEC-004 accepted risk until V3)
+- **Category**: Denial of Service / Lock Contention
+- **Status**: Open (within SEC-004 until V3; confirmed by code reading in P4-4c-a review)
+- **Affected Component**: In-Memory & PostgreSQL Repositories (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/api/handlers.go`)
+- **Preconditions**: An unauthenticated network caller submits rapid renew requests referencing a valid job ID and attempt ID with invalid tokens.
+- **Impact**: Unauthenticated requests acquire the row-level lock on the target job, momentarily serializing against legitimate worker renewals or result commits for that job.
+- **Remediation**: Revisit at V3 together with SEC-024 when worker authentication/mTLS is introduced, placing token/credential verification prior to acquiring database row locks.
+- **Verification**: Confirmed by code reading during P4-4c-a (builder finding F-4c-a-1 in P4-4c-a handoff, agreed by auditor in review).
+
+---
+
+### SEC-028: Outage and Startup Grace State is Process-Local
+
+- **Finding**: The coordinator's lease sweeper startup grace period and database outage grace window are maintained in process-local memory. If multiple coordinator instances are run against the shared database, each maintains independent grace state.
+- **Severity**: Informational (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; source: builder finding F-4c-a-3 [Low] in P4-4c-a handoff, agreed by auditor in review)
+- **Category**: Architecture / Multi-Coordinator Distributed State
+- **Status**: Open (confirmed by code reading in P4-4c-a review)
+- **Affected Component**: Coordinator Sweeper Service (`internal/coordinator/sweeper.go`)
+- **Preconditions**: Multiple coordinator processes running against the same database (V3 roadmap).
+- **Impact**: In V1, only a single coordinator process is supported (ADR-0004). With multiple coordinators, a newly started coordinator instance would be in startup grace while an existing coordinator is actively sweeping, or one coordinator could experience an outage window while another does not.
+- **Remediation**: Revisit when multi-coordinator high availability is designed in future milestones, persisting sweeper grace state or electing an active sweeper leader.
+- **Verification**: Confirmed by code reading during P4-4c-a (builder finding F-4c-a-3 in P4-4c-a handoff, agreed by auditor in review).
 
 ---
 
