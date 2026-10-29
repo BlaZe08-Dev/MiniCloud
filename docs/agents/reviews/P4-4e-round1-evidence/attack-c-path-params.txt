@@ -1,0 +1,64 @@
+# cmd: python3 /tmp/p4-4e-attacks/attack_c.py
+Thursday 29 October 2026 12:17:56 PM UTC
+=== Path parameter identifier fuzzing across endpoints ===
+
+--- Endpoint: GET /v1/jobs/{id} ---
+[sql_inject_semi] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[sql_inject_quote] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_slash] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[raw_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[very_long_100kib] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[unicode_cyrillic] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[path_traversal_dotdot] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[crlf] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[spaces] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+
+--- Endpoint: GET /v1/jobs/{id}/attempts ---
+[sql_inject_semi] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[sql_inject_quote] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_slash] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[raw_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[very_long_100kib] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[unicode_cyrillic] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[path_traversal_dotdot] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[crlf] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[spaces] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+
+--- Endpoint: POST /v1/jobs/{id}/cancel ---
+[sql_inject_semi] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[sql_inject_quote] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_slash] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[percent_encoded_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[raw_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[very_long_100kib] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[unicode_cyrillic] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[path_traversal_dotdot] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[crlf] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+[spaces] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid job id"}}
+
+--- Endpoint: POST /v1/workers/{id}/heartbeat ---
+[sql_inject_semi] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[sql_inject_quote] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[percent_encoded_slash] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[percent_encoded_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[raw_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[very_long_100kib] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[unicode_cyrillic] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[path_traversal_dotdot] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[crlf] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[spaces] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+
+--- Endpoint: POST /v1/workers/{id}/poll ---
+[sql_inject_semi] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[sql_inject_quote] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[percent_encoded_slash] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[percent_encoded_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[raw_nul] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[very_long_100kib] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[unicode_cyrillic] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[path_traversal_dotdot] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[crlf] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+[spaces] status=400 body_prefix={"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+rc=0

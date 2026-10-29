@@ -1,0 +1,26 @@
+# cmd: python3 /tmp/p4-4e-attacks/attack_b.py
+Thursday 29 October 2026 12:17:23 PM UTC
+=== 1. Register worker text fields ===
+1a. NUL in version: 400 {"error":{"code":"INVALID_REQUEST","message":"version must not contain NUL bytes"}}
+1b. NUL in supported_tasks: 400 {"error":{"code":"INVALID_REQUEST","message":"invalid request payload or parameters: invalid task name \"echo\\x00bad\" in supported_tasks"}}
+1c. Very long version (>64 chars): 400 {"error":{"code":"INVALID_REQUEST","message":"invalid request payload or parameters: version length cannot exceed 64 characters"}}
+1d. Invalid UTF-8 in version: 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+
+=== 2. Heartbeat worker text fields ===
+2a. NUL in worker_id path parameter: 400 {"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+
+=== 3. Setup running job for report/renew ===
+Created Job: job_1_31b79194d210, Attempt: att_job_3_218181bcc310_1
+
+=== 4. Report Result text fields ===
+4a. NUL in output: 400 {"error":{"code":"INVALID_REQUEST","message":"output and error must not contain NUL bytes"}}
+4b. NUL in error: 400 {"error":{"code":"INVALID_REQUEST","message":"output and error must not contain NUL bytes"}}
+4c. NUL in error_classification: 400 {"error":{"code":"INVALID_REQUEST","message":"output and error must not contain NUL bytes"}}
+4d. Output exceeding 64 KiB: 409 {"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: attempt ID or lease token does not match active attempt"}}
+4e. Error exceeding 10 KiB: 409 {"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: attempt ID or lease token does not match active attempt"}}
+4f. Invalid UTF-8 in output: 409 {"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: attempt ID or lease token does not match active attempt"}}
+
+=== 5. Renew Lease text fields ===
+5a. NUL in lease_token: 409 {"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: attempt ID or lease token does not match active attempt"}}
+5b. Very long lease_token: 409 {"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: attempt ID or lease token does not match active attempt"}}
+rc=0

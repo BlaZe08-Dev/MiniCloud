@@ -1,0 +1,72 @@
+# Mutation PG-M09: loosen MaxMaxAttempts constant from 20 to 200 in coordinator
+# git diff:
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 6ae6427..06909be 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -153,7 +153,7 @@ const (
+ 
+ 	DefaultMaxAttempts    = 3
+ 	MinMaxAttempts        = 1
+-	MaxMaxAttempts        = 20
++	MaxMaxAttempts        = 200
+ 	DefaultTimeoutSeconds = 60
+ 	MinTimeoutSeconds     = 1
+ 	MaxTimeoutSeconds     = 86400
+# cmd: go test -v -race -run 'TestAPI_SubmitJob_BoundaryValues' ./internal/api/...
+Thursday 29 October 2026 12:09:03 PM UTC
+=== RUN   TestAPI_SubmitJob_BoundaryValues
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_zero
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_negative_one
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_one_valid_lower_bound
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_1_888706a9c082 task_type=echo state=QUEUED max_attempts=1
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_valid_upper_bound
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_2_135711a64893 task_type=echo state=QUEUED max_attempts=20
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_one_exceeds_upper_bound
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_3_169e52f85fde task_type=echo state=QUEUED max_attempts=21
+    api_test.go:804: expected status 400, got 201; body: {"id":"job_3_169e52f85fde","task_type":"echo","payload":{},"state":"QUEUED","priority":0,"max_attempts":21,"timeout_seconds":60,"created_at":"2026-10-29T12:09:06.583884341Z","updated_at":"2026-10-29T12:09:06.583957054Z"}
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_max_int
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_absent_defaults_to_3
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_4_f152746d6668 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_null_defaults_to_3
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_5_4a6d3c9bd9b7 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_wrong_json_type_string
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_float
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_zero
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_negative_one
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_one_valid_lower_bound
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_6_2a879665b14f task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_valid_upper_bound
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_7_66ef96bcea96 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_one_exceeds_upper_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_max_int
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_null_defaults_to_60
+2026/10/29 17:39:06 INFO job submitted and queued job_id=job_8_df6717f346b3 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_wrong_json_type_string
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_float
+--- FAIL: TestAPI_SubmitJob_BoundaryValues (0.06s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_zero (0.01s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_negative_one (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_one_valid_lower_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_valid_upper_bound (0.00s)
+    --- FAIL: TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_one_exceeds_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_max_int (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_absent_defaults_to_3 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_null_defaults_to_3 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_wrong_json_type_string (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_float (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_zero (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_negative_one (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_one_valid_lower_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_valid_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_one_exceeds_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_max_int (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_null_defaults_to_60 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_wrong_json_type_string (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_float (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.095s
+FAIL
+rc_test=1
+# restore:
+# git diff --stat after restore:

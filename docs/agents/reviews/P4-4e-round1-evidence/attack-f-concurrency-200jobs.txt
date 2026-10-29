@@ -1,0 +1,12 @@
+# cmd: go run /tmp/p4-4e-attacks/attack_f.go
+Thursday 29 October 2026 12:24:31 PM UTC
+Coordinator running on 127.0.0.1:18085
+Registered 10 workers
+Submitted 200 jobs
+=== Race Phase Completed ===
+Committed successes: 35, Committed lost/conflicts: 0
+Cancel successes: 199, Cancel conflicts/failed: 1
+=== Final Job States across 200 jobs ===
+  SUCCEEDED: 14
+  CANCELLED: 186
+rc=0
