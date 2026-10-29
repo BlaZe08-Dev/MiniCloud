@@ -1,0 +1,7 @@
+gofmt -l . :
+rc=0
+vet rc=0
+build rc=0
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.623s
+test-docs rc=0
