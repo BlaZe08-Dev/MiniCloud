@@ -63,7 +63,7 @@ The allowed `error_class` values in MiniCloud are strictly: `PERMANENT`, `TRANSI
    - Action: Job transitions immediately to `FAILED` without retrying, conserving cluster capacity.
 2. **`ClassTransient` (`"TRANSIENT"`)**:
    - The failure is transient, environmental, or node-specific; repeating execution on the same or another worker has a high probability of success.
-   - Examples: Transient network timeout, database lock contention, temporary downstream service unavailability.
+   - Examples: Transient network timeout, database lock contention, temporary downstream service unavailability, and task deadlines (execution timeouts via `context.DeadlineExceeded` or `domain.ErrTaskTimeout`, classified by `internal/executor/classify.go` func `Classify`, verified by `TestExecutor_Classify`).
    - Action: If `attempt_no < max_attempts`, job transitions to `RETRYING`; if `attempt_no >= max_attempts`, job transitions to `FAILED`.
 3. **`ClassUnknown` (`"UNKNOWN"`)**:
    - The failure cause cannot be definitively determined from the process exit code or error string.

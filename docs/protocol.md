@@ -109,6 +109,8 @@ Returns the complete attempt history for a job.
 }
 ```
 
+On failed, lost, or timed-out attempts, the attempt object also exposes `error_class` (`"PERMANENT"`, `"TRANSIENT"`, `"UNKNOWN"`, or `"LEASE_EXPIRED"`). For successful attempts (`exit_code == 0`), `error_class` is omitted (`omitempty`).
+
 ---
 
 ### 3.4 `POST /v1/jobs/{job_id}/cancel` — Cancel Job
@@ -473,13 +475,13 @@ When processing attempt results (`POST /result`) and lease renewals (`POST /rene
 | 5 | Reporting worker does not exist | 404 Not Found | `WORKER_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
 | 6 | Target job does not exist | 404 Not Found | `JOB_NOT_FOUND` | No | Final: Worker halts execution, does not report result |
 
-*Note on Diagnostic Events and Renewal Rejections*: Renewal rejections (`POST /renew`) write no event to `job_events` under any circumstance (confirmed by code reading in `internal/storage/postgres/leases.go` func `RenewLease` and `internal/storage/inmemory.go` func `RenewLease`); diagnostic events (`DIAGNOSTIC_LATE_RESULT`) are written exclusively on result commits (`POST /result`). An unknown attempt ID on renew returns 409 `STALE_ATTEMPT_REJECTED`, exactly as for commit (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation').
+*Note on Diagnostic Events and Renewal Rejections*: Renewal rejections (`POST /renew`) write no event to `job_events` under any circumstance (confirmed by code reading in `internal/storage/postgres/leases.go` func `RenewLease` and `internal/storage/inmemory.go` func `RenewLease`); diagnostic events (`DIAGNOSTIC_LATE_RESULT`) are written exclusively on result commits (`POST /result`). An unknown attempt ID on renew under a real job returns 409 `STALE_ATTEMPT_REJECTED` (Priority 3), not 404 `ATTEMPT_NOT_FOUND`, exactly as for commit (orchestrator decision; see `docs/phase4-plan.md` section "Orchestrator decisions recorded for Phase 4 implementation" and test `TestAPI_RenewLease_SuccessAndStaleRejection`). Row 6 (`JOB_NOT_FOUND`) applies only when the target job itself does not exist.
 
 *Worker Action on Renewal Responses*:
 - **403 Forbidden or 409 Conflict**: Any 403 or 409 response to a renewal means the lease is lost and the worker aborts: it halts execution immediately, cancels context, marks the attempt lost, frees its capacity slot, and suppresses result delivery.
 - **404 Not Found**: Treated as lease lost only when the response body carries a recognised error code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`), causing the worker to abort and suppress the result. Otherwise (an unrecognised or empty 404 body, indicating an older coordinator lacking the `/renew` route), the worker logs a warning once, stops renewing, runs to completion, and delivers the outcome via `POST /result`.
 - **400 Bad Request**: Stops renewals without aborting the task; the worker runs to completion and delivers the outcome via `POST /result`.
-- **Transient Errors (5xx, Network)**: Retried with bounded exponential backoff (capped at the renewal interval) until context ends or the lease lapses.
+- **Transient Errors (5xx, Network)**: Retried with jittered backoff starting from 1 s and capped at the renewal interval (`renewLoop` in `internal/worker/client.go`) until context ends or the lease lapses.
 
 *Terminal Job Result Rejection Behavior (D-R3-02)*: When a commit (including a retry of a commit that already succeeded) on an already-terminal job is rejected with 409 `JOB_ALREADY_TERMINAL`, the stored result from the initial commit is the single stored result; the retry is rejected; and the worker treats the 409 as final. The repository closes the attempt only if it is still `RUNNING` (and it is the job's current attempt); otherwise no attempt is modified (an attempt already `COMPLETED`, `FAILED`, `CANCELLED` or `LOST` is never overwritten). If the attempt was `RUNNING`, it sets attempt `state = 'CANCELLED'` if `jobs.state == 'CANCELLED'`, or `state = 'LOST'` otherwise, frees the worker capacity slot, and records a diagnostic event (`DIAGNOSTIC_LATE_RESULT`). (Known gap: replaying an identical commit as HTTP 200 is a possible future improvement, not Phase 4).
 

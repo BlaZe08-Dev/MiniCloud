@@ -122,6 +122,7 @@ In the worker agent (`internal/worker/client.go` and `internal/executor`):
   - **Failure / Cancel Outcome**: Any commit on a job in `CANCEL_REQUESTED` with a failure (non-zero exit code or error string, including retryable failures):
     - Closes the attempt with the outcome reported by the worker (attempt `state = 'FAILED'`).
     - Job transitions: `CANCEL_REQUESTED` -> `CANCELLED` (terminal; cancel wins, never `RETRYING` from `CANCEL_REQUESTED`).
+    - Stored in `results`: Because `resolution.Retry` is `false`, a row is stored in `results` capturing the final failure outcome (`internal/storage/postgres/repository.go` func `CommitAttempt` and `internal/storage/inmemory.go` func `CommitAttempt`).
     - Event: `JobEventCancelled` (`"JOB_CANCELLED"`).
 
 #### Race 2: Cancellation vs Lease Expiry (Zombie / Unresponsive Worker)

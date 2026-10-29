@@ -6,6 +6,8 @@ active task may not be edited by any other task.
 Builder rule (AGENTS.md section 7): Claude Code builds complex and hard tasks; Gemini
 builds the rest. The other agent audits.
 
+Report file rule (AGENTS.md section 8): Every agent, before its final chat message, writes its final report to a new file `reports/<agent>/<TASK-ID>.md` at the repo root, commits it alone (`docs(report): ...`), pushes, then sends the final message.
+
 ## Reserved shared touch points
 
 | Resource | Held by | Notes |
@@ -20,7 +22,8 @@ builds the rest. The other agent audits.
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | active |
+| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | merged in PR #28 |
+| P4-06a | Phase 4 docs pass (SEC-029/030, report rule, review imports) | Gemini | Claude Code | agent/gemini/P4-06a | active |
 
 ### P0-01 — Two-agent workflow files
 - Goal: commit the agent rules so both agents read the same file.
@@ -108,6 +111,7 @@ builds the rest. The other agent audits.
 | P4-4d | Phase 4 slice 4d (failure classification, bounded retries, cancel wins, failure presentation) | PR #25, merge commit f13d97f |
 | P4-T1 | Test safety guards, test-db false-green guard, migrator name guard | PR #26, merge commit 9fbbbcf |
 | P4-T2 | Citation checker scoping for frozen review records | PR #27, merge commit 1e20143 |
+| P4-05 | Phase 4 docs pass after slices 4a–4c | PR #28, merge commit c85a58f |
 
 ## Follow-ups
 
