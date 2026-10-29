@@ -8,11 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, and P4-03 (P0-03 round 2 and 3 records deferred pending citation checker scoping; see TASKS.md follow-ups); registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR-0015, state-machine.md, protocol.md, and phase4-plan.md; updated PROJECT_STATE, TASKS, and CHANGELOG true on main.
+- **Citation Checker Scoping for Frozen Review Records (P4-T2, PR #27, `main` at `1e20143`):**
+  - Scoped the citation checker's Rule A markdown link check to live documents, allowing historical review records (`docs/agents/reviews/*.md`) to be preserved as immutable records per ADR-0012 and SEC-005.
+  - Enabled byte-identical import of historical review records (such as P0-03 round 2 and round 3) without requiring modifications to frozen audit artifacts.
+- **Test Safety Guards, test-db False-Green Guard & Migrator Name Guard (P4-T1, PR #26, `main` at `9fbbbcf`):**
+  - Implemented opt-in container restart safety guards in `tests/integration/container_guard_test.go` and `tests/integration/container_guard_unit_test.go` (`requireContainerControl(t)`, `refuseWithoutContainerControl(t)`) requiring both `MINICLOUD_ALLOW_CONTAINER_RESTART=1` and `MINICLOUD_CONFIRM_CONTAINER=minicloud-postgres`.
+  - Implemented database name safety guardrail in `internal/storage/postgres/dbname_guard_test.go` (`isTestDatabaseName`), ensuring `TestMigrator_PreExistingInvalidRow_ValidationFails` refuses databases whose names do not end in `_test` (SEC-023).
+  - Added `-list` check in `Makefile` `test-db` target to prevent false-green passes on non-matching test patterns (F-4c-a-A1), and introduced confirmation-gated `test-outage` target (`CONFIRM=minicloud-postgres`).
+- **Phase 4, Slice 4d — Structured Retries, Failure Classification & Cancellation (P4-4d, PR #25, `main` at `f13d97f`):**
+  - Implemented 4-class failure classification (`domain.ClassPermanent`, `domain.ClassTransient`, `domain.ClassUnknown`, `domain.ClassLeaseExpired`) with executor classifier and CLI presentation.
+  - Implemented bounded retries with exponential backoff and full jitter via `jobs.not_before` gating direct `RETRYING -> RUNNING` pull dispatch.
+  - Swept `LOST` attempts consume an attempt from `max_attempts` budget (`error_class = "LEASE_EXPIRED"`).
+  - Resolved cancel races where client cancellation preempts retries and cooperative cancellation preempts running tasks.
+- **P4-05 (docs):** Imported review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03 round 2 and 3 records (imported after citation checker scoping in P4-T2, PR #27, `main` at `1e20143`); registered security findings SEC-025 through SEC-028; recorded design-doc clarifications for ADR-0014, ADR-0015, state-machine.md, protocol.md, and phase4-plan.md; updated PROJECT_STATE, TASKS, and CHANGELOG true on main.
 - **P0-03 (README refresh, PR #24):** Refreshed repository `README.md` with verified quickstart instructions, environment variable configuration reference, architecture diagram, security posture, and CLI workflows.
 - **Phase 4, Slice 4c-b — Worker Lease Renewal Loop & Result Delivery Budget (P4-4c-b, PR #23):**
   - Periodic background lease renewal loop in worker client computed as `lease_duration_seconds / 3` clamped to `[1s, 10s]` (default 10s).
-  - Immediate context cancellation and task abort on lease loss or renewal rejection with the exact recognised set: 403 WORKER_MISMATCH, 409 LEASE_EXPIRED and STALE_ATTEMPT_REJECTED, and recognised 404 codes (JOB_NOT_FOUND, ATTEMPT_NOT_FOUND, WORKER_NOT_FOUND).
+  - Immediate context cancellation and task abort on lease loss or renewal rejection: any 403 or 409 response to a renewal means the lease is lost and the worker aborts; a 404 means lease lost only when the response body carries a recognised error code (`JOB_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `WORKER_NOT_FOUND`), otherwise the worker logs a warning once, stops renewing, runs to completion, and delivers; a 400 stops renewals without aborting.
   - Single-channel cooperative cancellation delivery: cancels worker execution when renewal response returns `cancel_requested: true`.
   - 60-second time-bounded result delivery budget (`deliverResult`) with capped jittered backoff and concurrent lease renewal during coordinator outages.
 - **P4-03 (docs, PR #22):** Repaired 78 pre-existing test line citations across live docs to stable function/symbol references, synchronized task board and handoff records, imported P4-02 round 1 and round 2 audit records.

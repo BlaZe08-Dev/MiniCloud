@@ -69,7 +69,7 @@ builds the rest. The other agent audits.
 - Out of scope: any Go code, SQL, database migrations, `tests/` or `internal/` code, allowlist changes.
 
 ### P4-05 — Phase 4 docs pass after slices 4a–4c
-- Goal: import review records for P4-4b, P4-4c-a, P4-4c-b, and P4-03 (P0-03 round 2 and round 3 records deferred pending citation checker scoping; see follow-ups); register findings SEC-025 through SEC-028; record design-doc clarifications for slices 4a-4c (ADR-0014, ADR-0015, state-machine.md, protocol.md, phase4-plan.md); update PROJECT_STATE.md, TASKS.md, and CHANGELOG.md true on main; record follow-ups.
+- Goal: import review records for P4-4b, P4-4c-a, P4-4c-b, P4-03, and P0-03 round 2 and round 3 records (imported after citation checker scoping in P4-T2, PR #27, merge commit 1e20143); register findings SEC-025 through SEC-028; record design-doc clarifications for slices 4a-4c (ADR-0014, ADR-0015, state-machine.md, protocol.md, phase4-plan.md); update PROJECT_STATE.md, TASKS.md, and CHANGELOG.md true on main; record follow-ups.
 - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-05`. Status: active.
 - Owned files: `docs/**` (design docs ONLY for listed clarifications), `CHANGELOG.md`, `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md`, `docs/security/findings.md`, `docs/agents/handoffs/P4-05*`, `docs/agents/reviews/**`.
 - Out of scope: all Go code, `Makefile`, migrations, `README.md`.
@@ -106,11 +106,13 @@ builds the rest. The other agent audits.
 | P4-4c-b | Phase 4 slice 4c-b (worker lease renewal & delivery) | PR #23, merge commit 3553c25 |
 | P0-03 | README refresh | PR #24, merge commit 28560f6 |
 | P4-4d | Phase 4 slice 4d (failure classification, bounded retries, cancel wins, failure presentation) | PR #25, merge commit f13d97f |
+| P4-T1 | Test safety guards, test-db false-green guard, migrator name guard | PR #26, merge commit 9fbbbcf |
+| P4-T2 | Citation checker scoping for frozen review records | PR #27, merge commit 1e20143 |
 
 ## Follow-ups
 
-- **F-4c-a-A1 (Makefile `test-db` false-green risk)**: The `test-db` recipe in `Makefile` passes silently with code 0 if the targeted integration test is renamed, moved, or deleted (`[no tests to run]`). Fix: verify `go test -list` outputs the target test name before executing, or inspect test output to guarantee the target ran.
+- **F-4c-a-A1 (Makefile `test-db` false-green risk; Resolved in P4-T1, PR #26, merge commit 9fbbbcf)**: Resolved by adding a `-list` pattern check to `Makefile` `test-db` target.
 - **F-4c-a-A2 (`startBackground` top-level invocation test)**: The top-level invocation of `startBackground` in `cmd/coordinator/main.go` `main()` is not exercised by automated tests. Fix: add a smoke test in `cmd/coordinator/main_test.go` that briefly boots the binary with `MINICLOUD_STORAGE_DRIVER=memory` and verifies background loops start and shut down cleanly.
 - **F-4c-b-2 (Slow delivery race with sweeper after cancellation)**: Source: P4-4c-b handoff finding F-4c-b-2. After cancel is requested the worker stops renewing but reports on an unextended lease, so slow delivery (up to 60s) can outlive the lease and race the sweeper (reaped safely as `CANCELLED`; late commit rejected with 409).
 - **F-4c-b-3 (In-flight result delivery on lost lease)**: Source: P4-4c-b handoff finding F-4c-b-3. A result reported over HTTP while the lease is declared lost cannot be recalled by the worker and is rejected by the coordinator under invariant 3.
-- **Review records citation checker scoping**: Review records from remote audit branches `agent/claude/P0-03-review-2` (P0-03 round 2) and `agent/claude/P0-03-review-3` (P0-03 round 3) are not imported yet. They quote proposed replacement text for the root `README.md` containing relative markdown links starting with `docs/`, triggering Rule A failures in `tests/docs/citations_test.go` because the checker resolves those links relative to `docs/agents/reviews/`. Fix: update `CollectDocFiles` in `tests/docs/citations_test.go` or citation allowlist to handle or exempt historical review records in a separate task that owns `tests/docs`, then import these two records.
+- **Review records citation checker scoping (Resolved in P4-T2, PR #27, merge commit 1e20143)**: Citation checker Rule A link check was scoped to live documents in P4-T2, allowing historical review records to be treated as immutable. Review records for P0-03 round 2 and round 3 (`P0-03-round2.md`, `P0-03-round2-evidence.txt`, `P0-03-round3.md`, `P0-03-round3-evidence.txt`) were imported byte-identical in P4-05.
