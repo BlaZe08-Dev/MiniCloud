@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+import subprocess
+import re
+import sys
+
+# Get all test names across repository
+res = subprocess.run(["go", "test", "-list", ".*", "./..."], capture_output=True, text=True)
+all_tests = set()
+for line in res.stdout.splitlines():
+    line = line.strip()
+    if line.startswith("Test"):
+        all_tests.add(line)
+
+print(f"Total tests found in repo: {len(all_tests)}")
+
+# Read test-security-run1.txt to see PASS / SKIP / FAIL
+sec_results = {}
+with open("docs/agents/reviews/P4-4e-round1-evidence/test-security-run1.txt") as f:
+    for line in f:
+        m = re.match(r"^--- (PASS|SKIP|FAIL): (Test\w+)", line)
+        if m:
+            status, tname = m.groups()
+            sec_results[tname] = status
+
+print(f"Total tests in test-security-run1: {len(sec_results)}")
+
+# The 38 matrix rows and their cited test names from docs/agents/handoffs/P4-4e.md
+matrix_rows = [
+    ("FS-01", "worker dies before or while accepting", ["TestFault_WorkerKill9_LeaseSweepAndRetry", "TestPostgresRepository_Concurrency_SameJobDispatchRaced"]),
+    ("FS-02", "worker kill -9 mid task, sweep, retry elsewhere", ["TestFault_WorkerKill9_LeaseSweepAndRetry"]),
+    ("FS-03", "result lost or delayed, partition", ["TestFault_WorkerPartition_ProxyBlackhole_ZombieAbortsAndLateCommit409"]),
+    ("FS-04", "old worker returns after reassignment", ["TestFault_LateResult_AfterSweep"]),
+    ("FS-05", "coordinator restart, startup grace", ["TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit", "TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit"]),
+    ("FS-06", "crash around the SQL COMMIT", ["TestFault_CoordinatorKill9_DuringCommitStorm_InvariantsAfterRestart", "TestFault_AmbiguousCommit_ReplayIsSafe"]),
+    ("FS-07", "database outage and recovery", ["TestFault_DBOutage_ProxyModes", "TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit", "TestFault_DBOutage_HalfOpen", "TestSecurity_PartD_Outage_MidDispatchAndMidCommit"]),
+    ("FS-08", "heartbeat duplicated or delayed", ["TestFault_Heartbeat_DuplicateAndDelayed"]),
+    ("FS-09", "timeout, huge output, poison repeat", ["TestFault_RetriesExhausted", "TestAbuse_OversizeErrorText_RetryPath", "TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace"]),
+    ("FS-10", "cancel racing completion and expiry", ["TestFault_CancelRacesCompletion", "TestFault_CancelRacesLeaseExpiry"]),
+    ("X-01", "stale, foreign-job, foreign-attempt, foreign-worker tokens", ["TestFault_StaleTokenMatrix"]),
+    ("X-02", "duplicate and replayed commit", ["TestFault_DuplicateAndReplayedCommit"]),
+    ("X-03", "retries exhausted", ["TestFault_RetriesExhausted"]),
+    ("X-04", "many workers, many jobs, invariants", ["TestFault_ManyWorkersManyJobs_Invariants", "TestFault_WorkerCapacityNeverExceeded"]),
+    ("X-05", "lease lost stops worker and suppresses result (F-4c-a-A2)", ["TestFault_WorkerPartition_ProxyBlackhole_ZombieAbortsAndLateCommit409", "TestWorkerLeaseE2E_WorkerWhoseRenewalsStopIsDeclaredLostAndAborts"]),
+    ("X-06", "sweeper lock order deadlock", ["TestFault_CancelRacesLeaseExpiry", "TestFault_ManyWorkersManyJobs_Invariants"]),
+    ("X-07", "sweeper and reaper resume after a half-open database", ["TestFault_Sweeper_ResumesAfterHalfOpenDatabase"]),
+    ("X-08", "request deadline does not cut off legitimate requests", ["TestFault_RequestDeadline_NoLegitimateRequestCutOff"]),
+    ("X-09", "one hung call does not stall the rest", ["TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled"]),
+    ("X-10", "shutdown with a half-open database", ["TestFault_CoordinatorShutdown_HalfOpenDatabase_Bounded"]),
+    ("AB-01", "malformed, truncated JSON, BOM, NUL, wrong type, trailing data", ["TestAbuse_MalformedBodies", "TestAbuse_TrailingDuplicateUnknownFields"]),
+    ("AB-02", "wrong or missing Content-Type", ["TestAbuse_ContentTypes"]),
+    ("AB-03", "wrong methods, unknown paths", ["TestAbuse_MethodsAndPaths"]),
+    ("AB-04", "oversized bodies", ["TestAbuse_OversizedBodies"]),
+    ("AB-05", "deep nesting", ["TestAbuse_DeepNesting"]),
+    ("AB-06", "huge or negative numbers", ["TestAbuse_NumericBounds"]),
+    ("AB-07", "unknown and duplicate fields", ["TestAbuse_TrailingDuplicateUnknownFields"]),
+    ("AB-08", "traversal, control chars, unicode tricks, long ids", ["TestAbuse_PathParameters"]),
+    ("AB-09", "header abuse and framing", ["TestAbuse_HeaderAbuse"]),
+    ("AB-10", "ids of another resource", ["TestAbuse_CrossResourceIDs"]),
+    ("AB-11", "unauthenticated calls to every endpoint (SEC-004)", ["TestAbuse_UnauthenticatedEndpoints"]),
+    ("AB-12", "slow headers, slow body, slowloris", ["TestAbuse_SlowClients"]),
+    ("AB-13", "many simultaneous connections", ["TestAbuse_ManyConnections"]),
+    ("AB-14", "error responses and logs echo input or leak internals", ["TestAbuse_ErrorLeakScan", "TestAbuse_RealBinaryBattery", "TestFault_DBOutage_ProxyModes"]),
+    ("AB-15", "missing rate, size, count limits", ["TestAbuse_MissingLimits"]),
+    ("AB-16", "oversize error text through the retry path", ["TestAbuse_OversizeErrorText_RetryPath"]),
+    ("AB-17", "hostile error text in API and mc output", ["TestAbuse_HostileErrorText_API", "TestAbuse_MCOutput_HostileErrorText"]),
+    ("AB-18", "NUL bytes in worker text", ["TestAbuse_NULBytes"]),
+]
+
+print("\n--- MATRIX ROW VERIFICATION ---")
+for row_id, scenario, tests in matrix_rows:
+    for t in tests:
+        exists = t in all_tests
+        status = sec_results.get(t, "NOT_IN_TEST_SECURITY")
+        print(f"{row_id} | {t} | Exists: {exists} | Status in test-security: {status}")
