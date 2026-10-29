@@ -1,0 +1,13 @@
+=== RUN   TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement
+=== RUN   TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/memory
+2026/10/29 18:36:49 INFO worker registered worker_id=w_utf version="v��1" slots=1 supported_tasks=[echo]
+    workerversion_test.go:39: [memory] API version = "v��1" (hex 76efbfbdefbfbd31)
+=== RUN   TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/postgres
+2026/10/29 18:36:50 INFO worker registered worker_id=w_utf version="v��1" slots=1 supported_tasks=[echo]
+    workerversion_test.go:39: [postgres] API version = "v��1" (hex 76efbfbdefbfbd31)
+    workerversion_test.go:49: [postgres] stored version = "v��1" (8 octets, hex 76efbfbdefbfbd31)
+--- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement (0.68s)
+    --- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/memory (0.01s)
+    --- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/postgres (0.67s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.698s
