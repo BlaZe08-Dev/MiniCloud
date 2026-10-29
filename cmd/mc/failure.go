@@ -23,11 +23,11 @@ func failureSummary(job *domain.Job, attempts []*domain.Attempt) []string {
 	if last != nil {
 		switch {
 		case last.ErrorClass != "" && last.Error != "":
-			reason = fmt.Sprintf("%s (%s)", last.ErrorClass, last.Error)
+			reason = fmt.Sprintf("%s (%s)", last.ErrorClass, sanitize(last.Error))
 		case last.ErrorClass != "":
 			reason = string(last.ErrorClass)
 		case last.Error != "":
-			reason = last.Error
+			reason = sanitize(last.Error)
 		}
 	}
 

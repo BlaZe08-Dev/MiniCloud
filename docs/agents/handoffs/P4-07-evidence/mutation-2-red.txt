@@ -1,0 +1,24 @@
+=== RUN   TestFailureSummary
+=== RUN   TestFailureSummary/sweeper_failed_job_with_no_results_row
+=== RUN   TestFailureSummary/permanent_worker_failure_stops_after_one_attempt
+=== RUN   TestFailureSummary/retrying_shows_the_next_retry_time
+=== RUN   TestFailureSummary/cancelled_after_the_worker_reported_a_failure
+=== RUN   TestFailureSummary/cancelled_by_the_sweeper
+=== RUN   TestFailureSummary/no_attempts_yet
+=== RUN   TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary
+    failure_test.go:83: summary "FAILED: 1 of 3 attempts used\nNote:    permanent failure, not retried\nReason:  PERMANENT (\x1b[2J\x1b[31mbad payload\x1b[0m\r\nfake line)" lacks "\\x1b[2J\\x1b[31mbad payload\\x1b[0m"
+=== RUN   TestFailureSummary/succeeded_job_has_no_failure_section
+=== RUN   TestFailureSummary/running_job_has_no_failure_section
+--- FAIL: TestFailureSummary (0.00s)
+    --- PASS: TestFailureSummary/sweeper_failed_job_with_no_results_row (0.00s)
+    --- PASS: TestFailureSummary/permanent_worker_failure_stops_after_one_attempt (0.00s)
+    --- PASS: TestFailureSummary/retrying_shows_the_next_retry_time (0.00s)
+    --- PASS: TestFailureSummary/cancelled_after_the_worker_reported_a_failure (0.00s)
+    --- PASS: TestFailureSummary/cancelled_by_the_sweeper (0.00s)
+    --- PASS: TestFailureSummary/no_attempts_yet (0.00s)
+    --- FAIL: TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary (0.00s)
+    --- PASS: TestFailureSummary/succeeded_job_has_no_failure_section (0.00s)
+    --- PASS: TestFailureSummary/running_job_has_no_failure_section (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.010s
+FAIL

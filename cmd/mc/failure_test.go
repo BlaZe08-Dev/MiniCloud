@@ -59,6 +59,12 @@ func TestFailureSummary(t *testing.T) {
 			job:  domain.Job{State: domain.StateFailed, MaxAttempts: 3},
 			want: []string{"FAILED", "0 of 3 attempts"},
 		},
+		{
+			name:     "hostile error text is sanitized in failure summary",
+			job:      domain.Job{State: domain.StateFailed, MaxAttempts: 3},
+			attempts: []*domain.Attempt{att(1, domain.AttemptFailed, domain.ClassPermanent, "\x1b[2J\x1b[31mbad payload\x1b[0m\r\nfake line")},
+			want:     []string{"FAILED", "PERMANENT", `\x1b[2J\x1b[31mbad payload\x1b[0m`, "fake line"},
+		},
 		{name: "succeeded job has no failure section", job: domain.Job{State: domain.StateSucceeded, MaxAttempts: 3}, wantNone: true},
 		{name: "running job has no failure section", job: domain.Job{State: domain.StateRunning, MaxAttempts: 3}, wantNone: true},
 	}

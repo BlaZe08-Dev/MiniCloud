@@ -1,0 +1,15 @@
+=== RUN   TestAbuse_MCOutput_HostileErrorText
+=== RUN   TestAbuse_MCOutput_HostileErrorText/memory
+2026/10/29 23:10:09 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 23:10:09 INFO job submitted and queued job_id=job_1_f6efdf859d37 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 23:10:09 INFO job dispatched to worker job_id=job_1_f6efdf859d37 attempt_id=att_1_13785304236c attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 23:10:09 INFO job result committed job_id=job_1_f6efdf859d37 attempt_id=att_1_13785304236c final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 23:10:09 INFO job submitted and queued job_id=job_2_77665e878917 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 23:10:09 INFO job dispatched to worker job_id=job_2_77665e878917 attempt_id=att_2_ec75100c9bc9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 23:10:09 INFO job result committed job_id=job_2_77665e878917 attempt_id=att_2_ec75100c9bc9 final_state=SUCCEEDED exit_code=0 error_class=""
+    resources_test.go:299: [memory] mc [get job_1_f6efdf859d37] printed raw control byte 0x1b at offset 263
+--- FAIL: TestAbuse_MCOutput_HostileErrorText (7.55s)
+    --- FAIL: TestAbuse_MCOutput_HostileErrorText/memory (7.54s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	7.712s
+FAIL
