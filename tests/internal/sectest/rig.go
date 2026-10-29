@@ -340,7 +340,7 @@ func (r *Rig) Expire() {
 func (r *Rig) MakeRetryDue() {
 	r.T.Helper()
 	if r.Clock != nil {
-		r.Clock.Advance(time.Minute)
+		r.Clock.Advance(31 * time.Second) // above the 30 s backoff cap with jitter 0.5; stays under the 3x sweep-gap threshold
 		return
 	}
 	r.PG.Exec(r.T, "UPDATE jobs SET not_before = clock_timestamp() - interval '1 second' WHERE state = 'RETRYING'")
