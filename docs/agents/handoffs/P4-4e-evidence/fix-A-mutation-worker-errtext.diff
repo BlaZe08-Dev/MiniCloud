@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index fd21e67..a2031e2 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -542,7 +542,7 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
+ 	output = executor.ClampText(output, executor.MaxOutputSizeBytes)
+ 	errSummary := ""
+ 	if err != nil {
+-		errSummary = executor.ClampText(err.Error(), executor.MaxErrorSizeBytes)
++		errSummary = err.Error()
+ 	}
+ 	// A failed outcome carries its class; a success carries none (ADR-0015).
+ 	errorClass := executor.Classify(err)
