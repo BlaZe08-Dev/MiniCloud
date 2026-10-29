@@ -1,0 +1,20 @@
+# cmd: python3 /tmp/p4-4e-attacks/attack_e.py
+Thursday 29 October 2026 12:21:56 PM UTC
+=== Attack E: Trace Oversize Result (>64 KiB) Delivery ===
+1. Register worker w_over_1793276517 status: 200
+2. Submitted job job_1_2a4179db4658, max_attempts=2, initial state=QUEUED
+3. Worker poll status: 200, body: {"assignment":{"job_id":"job_6_456ee8591869","attempt_id":"att_job_6_456ee8591869_1","attempt_no":1,"lease_token":"i6LIHl8-vurNmBwRZcnbc-xwdSHe8h9VZdH-EZBxeTU","task_type":"echo","payload":{"m":"ec"},"timeout_seconds":60,"lease_expires_at":"2026-10-29T17:52:02.674227+05:30","lease_duration_seconds":5}}
+3. Worker polled job job_6_456ee8591869: attempt=att_job_6_456ee8591869_1
+4. Result delivery HTTP status: 400
+   Response body: {"error":{"code":"OUTPUT_TOO_LARGE","message":"output exceeds maximum allowed size"}}
+5. Job state immediately after rejection: RUNNING
+6. Waiting 7 seconds for sweeper to reclaim expired attempt...
+   Job state after sweeper: RUNNING
+   Attempt 1 state: RUNNING, error=None
+7. Attempt 2 claimed: att_job_7_cc1f8ac56389_1 on job job_7_cc1f8ac56389
+   Attempt 2 delivery HTTP status: 400 (rejected)
+8. Waiting 7 seconds for sweeper to exhaust max_attempts...
+   Final job state after attempt exhaustion: RUNNING
+   Total attempts: 1
+   - Attempt 1 (att_job_7_cc1f8ac56389_1): state=RUNNING, error=None
+rc=0

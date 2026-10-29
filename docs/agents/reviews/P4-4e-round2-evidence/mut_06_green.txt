@@ -1,0 +1,15 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./tests/abuse -run TestAbuse_OversizeOutput_ErrorPathUncapped ===
+=== TIMESTAMP: 2026-10-29T14:24:37Z ===
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped/memory
+    oversize_worker_test.go:156: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:156: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:156: [memory] worker log: {"time":"2026-10-29T19:54:35.790174683+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_42f79a962e5d","attempt_id":"att_1_e3e69856ed4f","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:156: [memory] worker log: {"time":"2026-10-29T19:54:35.790651378+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_42f79a962e5d","attempt_id":"att_1_e3e69856ed4f","exit_code":1}
+    oversize_worker_test.go:157: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=65536 bytes error="invalid request payload or parameters: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    oversize_worker_test.go:157: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_OversizeOutput_ErrorPathUncapped (0.23s)
+    --- PASS: TestAbuse_OversizeOutput_ErrorPathUncapped/memory (0.23s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	1.249s
+=== EXIT CODE: 0 ===

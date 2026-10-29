@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import urllib.request
+import urllib.error
+
+# Read test database URL from .env
+with open(".env") as f:
+    for line in f:
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            db_url = line.strip().split("=", 1)[1]
+            break
+
+port = 18081
+addr = f"127.0.0.1:{port}"
+
+# Start coordinator
+env = os.environ.copy()
+env["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+env["MINICLOUD_DATABASE_URL"] = db_url
+env["MINICLOUD_HTTP_ADDR"] = addr
+
+proc = subprocess.Popen(["bin/coordinator"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+
+def do_req(method, path, body_dict=None, raw_body=None):
+    url = f"http://{addr}{path}"
+    headers = {"Content-Type": "application/json"}
+    if body_dict is not None:
+        data = json.dumps(body_dict).encode("utf-8")
+    elif raw_body is not None:
+        data = raw_body
+    else:
+        data = None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
+
+try:
+    print("=== 1. Register worker text fields ===")
+    status, body = do_req("POST", "/v1/workers/register", {"id":"w_nul_ver","version":"v1\u0000bad","total_slots":1,"supported_tasks":["echo"]})
+    print("1a. NUL in version:", status, body.strip())
+
+    status, body = do_req("POST", "/v1/workers/register", {"id":"w_nul_task","version":"v1","total_slots":1,"supported_tasks":["echo\u0000bad"]})
+    print("1b. NUL in supported_tasks:", status, body.strip())
+
+    status, body = do_req("POST", "/v1/workers/register", {"id":"w_long_ver","version":"v"*100,"total_slots":1,"supported_tasks":["echo"]})
+    print("1c. Very long version (>64 chars):", status, body.strip())
+
+    status, body = do_req("POST", "/v1/workers/register", raw_body=b'{"id":"w_bad_utf8","version":"\xff\xfe","total_slots":1,"supported_tasks":["echo"]}')
+    print("1d. Invalid UTF-8 in version:", status, body.strip())
+
+    print("\n=== 2. Heartbeat worker text fields ===")
+    status, body = do_req("POST", "/v1/workers/w%00bad/heartbeat", {"available_slots": 1})
+    print("2a. NUL in worker_id path parameter:", status, body.strip())
+
+    print("\n=== 3. Setup running job for report/renew ===")
+    do_req("POST", "/v1/workers/register", {"id":"w_worker_b","version":"v1","total_slots":2,"supported_tasks":["echo"]})
+    status, body = do_req("POST", "/v1/jobs", {"task_type":"echo","payload":{"message":"atk_b"}})
+    job_id = json.loads(body)["id"]
+    status, body = do_req("POST", "/v1/workers/w_worker_b/poll")
+    assignment = json.loads(body, strict=False)["assignment"]
+    att_id = assignment["attempt_id"]
+    token = assignment["lease_token"]
+    print(f"Created Job: {job_id}, Attempt: {att_id}")
+
+    print("\n=== 4. Report Result text fields ===")
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_worker_b","lease_token":token,"exit_code":0,"output":"hello\u0000world"})
+    print("4a. NUL in output:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_worker_b","lease_token":token,"exit_code":1,"output":"","error":"fail\u0000boom","error_classification":"PERMANENT"})
+    print("4b. NUL in error:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_worker_b","lease_token":token,"exit_code":1,"output":"","error":"boom","error_classification":"PERM\u0000ANENT"})
+    print("4c. NUL in error_classification:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_worker_b","lease_token":token,"exit_code":0,"output":"x"*70000})
+    print("4d. Output exceeding 64 KiB:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_worker_b","lease_token":token,"exit_code":1,"output":"","error":"x"*15000,"error_classification":"PERMANENT"})
+    print("4e. Error exceeding 10 KiB:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          raw_body=b'{"worker_id":"w_worker_b","lease_token":"' + token.encode() + b'","exit_code":0,"output":"bad \xff\xfe utf8"}')
+    print("4f. Invalid UTF-8 in output:", status, body.strip())
+
+    print("\n=== 5. Renew Lease text fields ===")
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/renew",
+                          {"worker_id":"w_worker_b","lease_token":"tok\u0000bad"})
+    print("5a. NUL in lease_token:", status, body.strip())
+
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/renew",
+                          {"worker_id":"w_worker_b","lease_token":"t"*2000})
+    print("5b. Very long lease_token:", status, body.strip())
+
+finally:
+    proc.kill()
+    proc.wait()

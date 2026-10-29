@@ -1,0 +1,4 @@
+# cmd: test -z "$(gofmt -l .)"
+Thursday 29 October 2026 11:35:22 AM UTC
+gofmt OK
+rc=0

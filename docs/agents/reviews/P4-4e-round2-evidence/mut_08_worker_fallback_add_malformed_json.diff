@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 09f4511..a692170 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -521,7 +521,7 @@ func isValidationRejection(status int, code string) bool {
+ 		return false
+ 	}
+ 	switch code {
+-	case "INVALID_REQUEST", "OUTPUT_TOO_LARGE":
++	case "INVALID_REQUEST", "OUTPUT_TOO_LARGE", "MALFORMED_JSON":
+ 		return true
+ 	}
+ 	return false

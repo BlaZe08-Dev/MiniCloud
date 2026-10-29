@@ -1,0 +1,11 @@
+diff --git a/internal/executor/executor.go b/internal/executor/executor.go
+index 1088270..6904c8f 100644
+--- a/internal/executor/executor.go
++++ b/internal/executor/executor.go
+@@ -105,5 +105,5 @@ func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte,
+ 		return ClampText(output, MaxOutputSizeBytes), 1, err
+ 	}
+ 
+-	return ClampText(output, MaxOutputSizeBytes), 0, nil
++	return output, 0, nil
+ }

@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 09f4511..b6112cf 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -572,6 +572,8 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
+ 	}
+ 	// A failed outcome carries its class; a success carries none (ADR-0015).
+ 	errorClass := executor.Classify(err)
++	stopRenew()
++	wg.Wait()
+ 	// deliverResult drops the result without any request when the attempt was declared lost.
+ 	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary, errorClass)
+ }

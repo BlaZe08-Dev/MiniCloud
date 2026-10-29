@@ -1,0 +1,9 @@
+=== COMMAND: make test-security (single rename) ===
+=== TIMESTAMP: 2026-10-29T14:37:37Z ===
+FALSE-GREEN GUARD: pattern '^(TestFault_|TestAbuse_)' does not match tests/security-tests.list
+missing (in the list, not found by go test -list):
+  TestAbuse_OversizeOutput_PlainASCII
+extra (found by go test -list, not in the list):
+  TestAbuse_OversizeOutput_PlainASCIIRenamed
+make: *** [Makefile:91: test-security] Error 1
+=== EXIT CODE: 2 ===

@@ -1,0 +1,9 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestRegistryExecute_OutputCapOnFailure ===
+=== TIMESTAMP: 2026-10-29T14:24:26Z ===
+=== RUN   TestRegistryExecute_OutputCapOnFailure
+    truncate_test.go:70: failed task output is 196608 bytes, want 65536 ending in the marker
+--- FAIL: TestRegistryExecute_OutputCapOnFailure (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.023s
+FAIL
+=== EXIT CODE: 1 ===

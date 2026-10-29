@@ -1,0 +1,10 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop ===
+=== TIMESTAMP: 2026-10-29T14:24:42Z ===
+=== RUN   TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop
+2026/10/29 19:54:41 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:54:41 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/10/29 19:54:41 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+--- PASS: TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop (0.03s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.057s
+=== EXIT CODE: 0 ===
