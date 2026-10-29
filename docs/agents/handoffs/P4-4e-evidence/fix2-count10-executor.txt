@@ -1,0 +1,2 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.087s
+rc=0

@@ -1,0 +1,9 @@
+=== RUN   TestFault_DBOutage_HalfOpen
+2026/10/29 14:51:12 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 14:51:12 INFO job submitted and queued job_id=job_1_2fd333e773f8 task_type=echo state=QUEUED max_attempts=3
+    outage_test.go:169: GET /readyz: Get "http://127.0.0.1:37023/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+2026/10/29 14:51:27 ERROR readiness probe failed err="context canceled"
+--- FAIL: TestFault_DBOutage_HalfOpen (30.47s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	30.490s
+FAIL

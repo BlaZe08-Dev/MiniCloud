@@ -55,6 +55,7 @@ type fakeCoordinator struct {
 	resultCalls  int
 	renewBodies  []map[string]string
 	resultBodies []map[string]any
+	resultPaths  []string
 	renew        func(n int, w http.ResponseWriter, r *http.Request)
 	result       func(n int, w http.ResponseWriter, r *http.Request)
 }
@@ -80,6 +81,7 @@ func (f *fakeCoordinator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(body, &m)
 		f.mu.Lock()
 		f.resultBodies = append(f.resultBodies, m)
+		f.resultPaths = append(f.resultPaths, r.URL.Path)
 		f.resultCalls++
 		n := f.resultCalls
 		h := f.result
@@ -593,16 +595,23 @@ func TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately(t *testing.T
 		{"409 LEASE_EXPIRED", 409, "LEASE_EXPIRED"},
 		{"403 WORKER_MISMATCH", 403, "WORKER_MISMATCH"},
 		{"404 JOB_NOT_FOUND", 404, "JOB_NOT_FOUND"},
+		{"400 INVALID_STATE_TRANSITION", 400, "INVALID_STATE_TRANSITION"},
+		// A validation 400 gets exactly one fallback failure report, which is rejected here too:
+		// 2 requests, then it halts (see fallback_test.go).
 		{"400 INVALID_REQUEST", 400, "INVALID_REQUEST"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			want := 1
+			if tc.code == "INVALID_REQUEST" {
+				want = 2
+			}
 			r := newRig(t, renewed(false), rejectWith(tc.status, tc.code))
 			r.start()
 			close(r.task.release)
 			r.waitDone() // no clock movement at all: no backoff, no retry
-			if r.coord.results() != 1 {
-				t.Fatalf("delivery attempts = %d, want exactly 1", r.coord.results())
+			if r.coord.results() != want {
+				t.Fatalf("delivery attempts = %d, want exactly %d", r.coord.results(), want)
 			}
 		})
 	}

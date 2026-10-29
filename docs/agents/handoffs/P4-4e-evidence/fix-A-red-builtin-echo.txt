@@ -1,0 +1,46 @@
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/memory
+    oversize_worker_test.go:122: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:122: [memory] T+0.10s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:122: [memory] T+1.31s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [memory] T+1.41s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:122: [memory] T+2.42s job/attempts: RUNNING a1=LOST a2=RUNNING
+    oversize_worker_test.go:122: [memory] T+3.62s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [memory] T+3.73s job/attempts: RETRYING a1=LOST a2=LOST
+    oversize_worker_test.go:122: [memory] T+5.14s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+    oversize_worker_test.go:122: [memory] T+6.38s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [memory] T+6.48s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+    oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:29:48.96637867+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_c96f3f685960","attempt_id":"att_1_20174c589e14","status":400,"err":"report failed with sta
+    oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:29:51.363911384+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_c96f3f685960","attempt_id":"att_2_de7feb3a264c","status":400,"err":"report failed with st
+    oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:29:54.104079075+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_c96f3f685960","attempt_id":"att_3_0544d4519143","status":400,"err":"report failed with st
+    oversize_worker_test.go:123: [memory] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [memory] attempt 2: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [memory] attempt 3: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [memory] final: job FAILED after 6.48s, 3 attempt(s), 0 result row(s)
+    oversize_worker_test.go:123: [memory] job ended FAILED, want SUCCEEDED
+=== RUN   TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/postgres
+    oversize_worker_test.go:122: [postgres] T+0.03s job/attempts: QUEUED
+    oversize_worker_test.go:122: [postgres] T+0.25s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:122: [postgres] T+1.54s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [postgres] T+1.76s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:122: [postgres] T+2.40s job/attempts: RUNNING a1=LOST a2=RUNNING
+    oversize_worker_test.go:122: [postgres] T+3.66s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [postgres] T+3.80s job/attempts: RETRYING a1=LOST a2=LOST
+    oversize_worker_test.go:122: [postgres] T+4.98s job/attempts: RETRYING a1=LOST a2=LOST a3=RUNNING
+    oversize_worker_test.go:122: [postgres] T+5.11s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+    oversize_worker_test.go:122: [postgres] T+6.26s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:122: [postgres] T+6.42s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+    oversize_worker_test.go:122: [postgres] worker log: {"time":"2026-10-29T18:29:57.036255765+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_2_726952d186e4","attempt_id":"att_job_2_726952d186e4_1","status":400,"err":"report failed w
+    oversize_worker_test.go:122: [postgres] worker log: {"time":"2026-10-29T18:29:59.213859249+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_2_726952d186e4","attempt_id":"att_job_2_726952d186e4_2","status":400,"err":"report failed w
+    oversize_worker_test.go:122: [postgres] worker log: {"time":"2026-10-29T18:30:01.879965818+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_2_726952d186e4","attempt_id":"att_job_2_726952d186e4_3","status":400,"err":"report failed w
+    oversize_worker_test.go:123: [postgres] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [postgres] attempt 2: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [postgres] attempt 3: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:123: [postgres] final: job FAILED after 6.42s, 3 attempt(s), 0 result row(s)
+    oversize_worker_test.go:123: [postgres] job ended FAILED, want SUCCEEDED
+--- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation (15.61s)
+    --- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/memory (7.28s)
+    --- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/postgres (8.33s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	15.642s
+FAIL

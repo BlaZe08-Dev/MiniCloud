@@ -106,7 +106,13 @@ func (w *LeaseSweeper) Run(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
 	for {
-		if err := w.Tick(ctx); err != nil && ctx.Err() == nil {
+		// A deadline per tick: a database connection that went half-open must fail the tick, not
+		// park this loop for good (F-4e-5). A timed-out tick is a failed tick and so opens the
+		// outage grace window on the first success afterwards.
+		tickCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)
+		err := w.Tick(tickCtx)
+		cancel()
+		if err != nil && ctx.Err() == nil {
 			slog.Warn("lease sweeper tick failed", "err", err)
 		}
 		select {

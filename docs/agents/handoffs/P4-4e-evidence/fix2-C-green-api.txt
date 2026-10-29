@@ -1,0 +1,22 @@
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/memory
+    oversize_worker_test.go:262: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:262: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:20.445784481+05:30","level":"WARN","msg":"coordinator rejected the result as invalid; sending one fallback failure report","job_id":"job_1_925cb0053c83","attempt_id":"att_1_372afdf085da","status":400,"cod
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:20.446912679+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_925cb0053c83","attempt_id":"att_1_372afdf085da","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:20.447627763+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_925cb0053c83","attempt_id":"att_1_372afdf085da","exit_code":1}
+    oversize_worker_test.go:263: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="result rejected by coordinator: HTTP 400 INVALID_REQUEST"
+    oversize_worker_test.go:263: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/postgres
+    oversize_worker_test.go:262: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:262: [postgres] T+0.13s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:21.515919649+05:30","level":"WARN","msg":"coordinator rejected the result as invalid; sending one fallback failure report","job_id":"job_2_12b56c3cd352","attempt_id":"att_job_2_12b56c3cd352_1","status":40
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:21.538449483+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_12b56c3cd352","attempt_id":"att_job_2_12b56c3cd352_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:21.540005384+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_12b56c3cd352","attempt_id":"att_job_2_12b56c3cd352_1","exit_code":1}
+    oversize_worker_test.go:263: [postgres] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="result rejected by coordinator: HTTP 400 INVALID_REQUEST"
+    oversize_worker_test.go:263: [postgres] final: job FAILED after 0.13s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob (1.48s)
+    --- PASS: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/memory (0.22s)
+    --- PASS: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/postgres (1.26s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	2.511s

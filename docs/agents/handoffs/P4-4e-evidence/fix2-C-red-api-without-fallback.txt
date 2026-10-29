@@ -1,0 +1,34 @@
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/memory
+    oversize_worker_test.go:262: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:262: [memory] T+0.10s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:262: [memory] T+1.31s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:262: [memory] T+1.41s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:262: [memory] T+2.12s job/attempts: SUCCEEDED a1=LOST a2=COMPLETED
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:33.465043692+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_1421a7bf4599","attempt_id":"att_1_3b510f0ac47c","status":400,"err":"report failed with st
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:35.569226066+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_1421a7bf4599","attempt_id":"att_2_2c1ec360a72c","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:262: [memory] worker log: {"time":"2026-10-29T19:04:35.570793811+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_1421a7bf4599","attempt_id":"att_2_2c1ec360a72c","exit_code":0}
+    oversize_worker_test.go:263: [memory] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:263: [memory] attempt 2: COMPLETED class= exit=0 output=18 bytes error=""
+    oversize_worker_test.go:263: [memory] final: job SUCCEEDED after 2.12s, 2 attempt(s), 1 result row(s)
+    oversize_worker_test.go:263: [memory] job ended SUCCEEDED, want FAILED
+=== RUN   TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/postgres
+    oversize_worker_test.go:262: [postgres] T+0.01s job/attempts: QUEUED
+    oversize_worker_test.go:262: [postgres] T+0.23s job/attempts: RUNNING a1=RUNNING
+    oversize_worker_test.go:262: [postgres] T+1.49s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+    oversize_worker_test.go:262: [postgres] T+1.81s job/attempts: RETRYING a1=LOST
+    oversize_worker_test.go:262: [postgres] T+2.22s job/attempts: RETRYING a1=LOST a2=RUNNING
+    oversize_worker_test.go:262: [postgres] T+2.33s job/attempts: SUCCEEDED a1=LOST a2=COMPLETED
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:36.553962329+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_2_3b5b004b319e","attempt_id":"att_job_2_3b5b004b319e_1","status":400,"err":"report failed w
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:38.649090789+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_3b5b004b319e","attempt_id":"att_job_2_3b5b004b319e_2","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:262: [postgres] worker log: {"time":"2026-10-29T19:04:38.650761229+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_3b5b004b319e","attempt_id":"att_job_2_3b5b004b319e_2","exit_code":0}
+    oversize_worker_test.go:263: [postgres] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+    oversize_worker_test.go:263: [postgres] attempt 2: COMPLETED class= exit=0 output=18 bytes error=""
+    oversize_worker_test.go:263: [postgres] final: job SUCCEEDED after 2.33s, 2 attempt(s), 1 result row(s)
+    oversize_worker_test.go:263: [postgres] job ended SUCCEEDED, want FAILED
+--- FAIL: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob (5.63s)
+    --- FAIL: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/memory (2.31s)
+    --- FAIL: TestAbuse_WorkerResult_RejectedResultBecomesFailedJob/postgres (3.33s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	5.662s
+FAIL

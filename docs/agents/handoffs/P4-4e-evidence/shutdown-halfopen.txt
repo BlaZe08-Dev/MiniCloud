@@ -1,0 +1,5 @@
+=== RUN   TestFault_CoordinatorShutdown_HalfOpenDatabase_Bounded
+    shutdown_test.go:37: graceful shutdown with a half-open database and one hung request took 17.1s
+--- PASS: TestFault_CoordinatorShutdown_HalfOpenDatabase_Bounded (19.97s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	19.990s

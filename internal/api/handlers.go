@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
@@ -132,6 +134,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 		return http.StatusBadRequest, "UNKNOWN_TASK_TYPE", err.Error()
 	case errors.Is(err, domain.ErrPayloadTooLarge):
 		return http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", err.Error()
+	case errors.Is(err, domain.ErrOutputTooLarge):
+		return http.StatusBadRequest, "OUTPUT_TOO_LARGE", err.Error()
 	case errors.Is(err, domain.ErrNoQueuedJobs):
 		return http.StatusNoContent, "NO_QUEUED_JOBS", err.Error()
 	case errors.Is(err, domain.ErrNoWorkersAvailable):
@@ -299,6 +303,13 @@ func (h *Handler) HandleRegisterWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PostgreSQL text cannot hold a NUL byte; reject it for every backend rather than surface a
+	// driver error as a 500 (F-4e-19).
+	if strings.ContainsRune(worker.Version, 0) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "version must not contain NUL bytes")
+		return
+	}
+
 	if err := h.coord.RegisterWorker(r.Context(), &worker); err != nil {
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)
@@ -391,6 +402,16 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidIdentifier(req.WorkerID) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+	if strings.ContainsRune(req.Output, 0) || strings.ContainsRune(req.Error, 0) || strings.ContainsRune(req.ErrorClassification, 0) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "output and error must not contain NUL bytes")
+		return
+	}
+	// attempts.exit_code is a 32-bit column; a wider value would surface as an unmapped driver
+	// error and a 500 (F-4e-16).
+	if req.ExitCode < math.MinInt32 || req.ExitCode > math.MaxInt32 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "exit_code out of range")
 		return
 	}
 
@@ -493,6 +514,18 @@ func maxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requestDeadlineMiddleware gives every request a context deadline so repository calls cannot
+// wait forever on a database connection that accepts bytes and never answers (F-4e-2).
+func requestDeadlineMiddleware(d time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), d)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

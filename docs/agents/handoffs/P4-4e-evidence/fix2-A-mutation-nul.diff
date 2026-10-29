@@ -1,0 +1,26 @@
+diff --git a/internal/executor/truncate.go b/internal/executor/truncate.go
+index e9e029d..898738b 100644
+--- a/internal/executor/truncate.go
++++ b/internal/executor/truncate.go
+@@ -6,8 +6,10 @@ import (
+ )
+ 
+ // ClampText returns s as the coordinator will store it, within limit bytes. Every invalid UTF-8
+-// byte becomes U+FFFD (3 bytes), exactly as JSON encoding does on the wire, so a cut or invalid
+-// input can never grow past limit in transit. A text over limit is cut at a rune boundary and
++// byte and every NUL byte becomes U+FFFD (3 bytes): JSON encoding does the former on the wire, and
++// the coordinator rejects the latter with 400 (a PostgreSQL text value cannot hold NUL). The
++// length is measured after those replacements and before the cut, so the text can never grow
++// past limit in transit. A text over limit is cut at a rune boundary and
+ // ends with TruncationMarker; a text within limit is returned unchanged apart from that
+ // replacement.
+ func ClampText(s string, limit int) string {
+@@ -15,7 +17,7 @@ func ClampText(s string, limit int) string {
+ 		var b strings.Builder
+ 		for i := 0; i < len(s); {
+ 			r, w := utf8.DecodeRuneInString(s[i:])
+-			if r == utf8.RuneError && w == 1 {
++			if (r == utf8.RuneError && w == 1) {
+ 				b.WriteRune(utf8.RuneError)
+ 			} else {
+ 				b.WriteString(s[i : i+w])

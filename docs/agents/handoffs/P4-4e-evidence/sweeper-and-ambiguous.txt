@@ -1,0 +1,38 @@
+=== RUN   TestFault_Sweeper_ResumesAfterHalfOpenDatabase
+    background_test.go:78: sweeper did not resume within 60 s of the partition healing (sweeps stuck at 3)
+--- FAIL: TestFault_Sweeper_ResumesAfterHalfOpenDatabase (62.95s)
+=== RUN   TestFault_AmbiguousCommit_ReplayIsSafe
+=== RUN   TestFault_AmbiguousCommit_ReplayIsSafe/memory
+2026/10/29 15:09:13 INFO worker registered worker_id=w1 version=sec slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:09:13 INFO job submitted and queued job_id=job_1_b5569e086cff task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:09:13 INFO job dispatched to worker job_id=job_1_b5569e086cff attempt_id=att_1_f6029927abe8 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:09:13 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_1_b5569e086cff attempt_id=att_1_f6029927abe8
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_1_b5569e086cff attempt_id=att_1_f6029927abe8
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_1_b5569e086cff attempt_id=att_1_f6029927abe8
+2026/10/29 15:09:13 INFO job submitted and queued job_id=job_2_75e7425178c6 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:09:13 INFO job dispatched to worker job_id=job_2_75e7425178c6 attempt_id=att_2_1a951dfa9cfc attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:09:13 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_2_75e7425178c6 attempt_id=att_2_1a951dfa9cfc
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_2_75e7425178c6 attempt_id=att_2_1a951dfa9cfc
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_2_75e7425178c6 attempt_id=att_2_1a951dfa9cfc
+=== RUN   TestFault_AmbiguousCommit_ReplayIsSafe/postgres
+2026/10/29 15:09:13 INFO worker registered worker_id=w1 version=sec slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:09:13 INFO job submitted and queued job_id=job_3_92c9f1b46e47 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:09:13 INFO job dispatched to worker job_id=job_3_92c9f1b46e47 attempt_id=att_job_3_92c9f1b46e47_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:09:13 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_3_92c9f1b46e47 attempt_id=att_job_3_92c9f1b46e47_1
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_3_92c9f1b46e47 attempt_id=att_job_3_92c9f1b46e47_1
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_3_92c9f1b46e47 attempt_id=att_job_3_92c9f1b46e47_1
+2026/10/29 15:09:13 INFO job submitted and queued job_id=job_4_82e87911011b task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:09:13 INFO job dispatched to worker job_id=job_4_82e87911011b attempt_id=att_job_4_82e87911011b_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:09:13 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_4_82e87911011b attempt_id=att_job_4_82e87911011b_1
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_4_82e87911011b attempt_id=att_job_4_82e87911011b_1
+2026/10/29 15:09:13 WARN rejecting result for already-terminal job job_id=job_4_82e87911011b attempt_id=att_job_4_82e87911011b_1
+--- PASS: TestFault_AmbiguousCommit_ReplayIsSafe (0.85s)
+    --- PASS: TestFault_AmbiguousCommit_ReplayIsSafe/memory (0.07s)
+    --- PASS: TestFault_AmbiguousCommit_ReplayIsSafe/postgres (0.78s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	63.853s
+FAIL
