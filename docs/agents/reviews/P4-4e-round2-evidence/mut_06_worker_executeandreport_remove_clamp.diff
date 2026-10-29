@@ -1,0 +1,17 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 09f4511..565cea5 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -565,10 +565,10 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
+ 	// Defensive clamp at the wire boundary: the coordinator answers a deterministic 400 for an
+ 	// oversize field and the result would be dropped, the attempt lost and retried until the
+ 	// budget is spent. Whatever an executor returned, what leaves the worker fits the limits.
+-	output = executor.ClampText(output, executor.MaxOutputSizeBytes)
++	// output unclamped
+ 	errSummary := ""
+ 	if err != nil {
+-		errSummary = executor.ClampText(err.Error(), executor.MaxErrorSizeBytes)
++		errSummary = err.Error()
+ 	}
+ 	// A failed outcome carries its class; a success carries none (ADR-0015).
+ 	errorClass := executor.Classify(err)

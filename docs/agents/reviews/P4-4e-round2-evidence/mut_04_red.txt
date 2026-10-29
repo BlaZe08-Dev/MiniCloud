@@ -1,0 +1,9 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestExecutor_OutputCapped ===
+=== TIMESTAMP: 2026-10-29T14:24:21Z ===
+=== RUN   TestExecutor_OutputCapped
+    executor_test.go:144: expected output length capped at 65536, got 102400
+--- FAIL: TestExecutor_OutputCapped (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.017s
+FAIL
+=== EXIT CODE: 1 ===

@@ -1,0 +1,7 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestExecutor_OutputCapped ===
+=== TIMESTAMP: 2026-10-29T14:24:24Z ===
+=== RUN   TestExecutor_OutputCapped
+--- PASS: TestExecutor_OutputCapped (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.080s
+=== EXIT CODE: 0 ===

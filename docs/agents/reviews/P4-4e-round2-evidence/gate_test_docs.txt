@@ -1,0 +1,5 @@
+=== COMMAND: make test-docs ===
+=== TIMESTAMP: 2026-10-29T14:53:09Z ===
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.108s
+=== EXIT CODE: 0 ===

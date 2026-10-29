@@ -1,0 +1,44 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText ===
+=== TIMESTAMP: 2026-10-29T14:24:04Z ===
+=== RUN   TestClampText
+=== RUN   TestClampText/short_unchanged
+=== RUN   TestClampText/exactly_at_limit_unchanged
+=== RUN   TestClampText/ascii_over_limit
+=== RUN   TestClampText/cut_inside_a_3-byte_rune_backs_up
+=== RUN   TestClampText/cut_inside_a_4-byte_rune_backs_up
+=== RUN   TestClampText/invalid_bytes_replaced_one_for_one
+=== RUN   TestClampText/invalid_bytes_that_grow_past_the_limit
+=== RUN   TestClampText/empty_string
+=== RUN   TestClampText/NUL_only
+    truncate_test.go:39: ClampText = "\x00\x00\x00", want "���"
+=== RUN   TestClampText/NUL_replacement_counted_before_the_cut
+    truncate_test.go:42: result still holds a NUL byte: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+=== RUN   TestClampText/NUL_at_the_cut_boundary
+    truncate_test.go:42: result still holds a NUL byte: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00aaaaaaa\n[truncated]"
+=== RUN   TestClampText/NUL_and_invalid_bytes_with_a_split_multibyte_character
+    truncate_test.go:42: result still holds a NUL byte: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00�€€€€\n[truncated]"
+=== RUN   TestClampText/exactly_at_the_limit_after_replacement
+    truncate_test.go:39: ClampText = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", want "����������"
+=== RUN   TestClampText/one_byte_over_the_limit_after_replacement
+    truncate_test.go:42: result still holds a NUL byte: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00a"
+=== RUN   TestClampText/limit_smaller_than_the_marker
+--- FAIL: TestClampText (0.01s)
+    --- PASS: TestClampText/short_unchanged (0.00s)
+    --- PASS: TestClampText/exactly_at_limit_unchanged (0.00s)
+    --- PASS: TestClampText/ascii_over_limit (0.00s)
+    --- PASS: TestClampText/cut_inside_a_3-byte_rune_backs_up (0.00s)
+    --- PASS: TestClampText/cut_inside_a_4-byte_rune_backs_up (0.00s)
+    --- PASS: TestClampText/invalid_bytes_replaced_one_for_one (0.00s)
+    --- PASS: TestClampText/invalid_bytes_that_grow_past_the_limit (0.00s)
+    --- PASS: TestClampText/empty_string (0.00s)
+    --- FAIL: TestClampText/NUL_only (0.00s)
+    --- FAIL: TestClampText/NUL_replacement_counted_before_the_cut (0.00s)
+    --- FAIL: TestClampText/NUL_at_the_cut_boundary (0.00s)
+    --- FAIL: TestClampText/NUL_and_invalid_bytes_with_a_split_multibyte_character (0.00s)
+    --- FAIL: TestClampText/exactly_at_the_limit_after_replacement (0.00s)
+    --- FAIL: TestClampText/one_byte_over_the_limit_after_replacement (0.00s)
+    --- PASS: TestClampText/limit_smaller_than_the_marker (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.034s
+FAIL
+=== EXIT CODE: 1 ===

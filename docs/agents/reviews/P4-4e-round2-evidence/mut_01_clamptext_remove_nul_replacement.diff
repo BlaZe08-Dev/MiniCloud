@@ -1,0 +1,13 @@
+diff --git a/internal/executor/truncate.go b/internal/executor/truncate.go
+index 4b82ba9..c0989da 100644
+--- a/internal/executor/truncate.go
++++ b/internal/executor/truncate.go
+@@ -17,7 +17,7 @@ func ClampText(s string, limit int) string {
+ 		var b strings.Builder
+ 		for i := 0; i < len(s); {
+ 			r, w := utf8.DecodeRuneInString(s[i:])
+-			if (r == utf8.RuneError && w == 1) || r == 0 {
++			if (r == utf8.RuneError && w == 1) {
+ 				b.WriteRune(utf8.RuneError)
+ 			} else {
+ 				b.WriteString(s[i : i+w])

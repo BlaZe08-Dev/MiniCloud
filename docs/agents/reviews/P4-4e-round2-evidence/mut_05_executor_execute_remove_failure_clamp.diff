@@ -1,0 +1,13 @@
+diff --git a/internal/executor/executor.go b/internal/executor/executor.go
+index 1088270..91895aa 100644
+--- a/internal/executor/executor.go
++++ b/internal/executor/executor.go
+@@ -102,7 +102,7 @@ func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte,
+ 		if execCtx.Err() == context.DeadlineExceeded {
+ 			return "", 1, domain.ErrTaskTimeout
+ 		}
+-		return ClampText(output, MaxOutputSizeBytes), 1, err
++		return output, 1, err
+ 	}
+ 
+ 	return ClampText(output, MaxOutputSizeBytes), 0, nil

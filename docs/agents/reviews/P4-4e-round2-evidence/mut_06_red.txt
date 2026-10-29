@@ -1,0 +1,18 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./tests/abuse -run TestAbuse_OversizeOutput_ErrorPathUncapped ===
+=== TIMESTAMP: 2026-10-29T14:24:32Z ===
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped
+=== RUN   TestAbuse_OversizeOutput_ErrorPathUncapped/memory
+    oversize_worker_test.go:156: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:156: [memory] T+0.10s job/attempts: FAILED a1=FAILED
+    oversize_worker_test.go:156: [memory] worker log: {"time":"2026-10-29T19:54:32.324535301+05:30","level":"WARN","msg":"coordinator rejected the result as invalid; sending one fallback failure report","job_id":"job_1_c051baa488eb","attempt_id":"att_1_531efa8cb155","status":400,"cod
+    oversize_worker_test.go:156: [memory] worker log: {"time":"2026-10-29T19:54:32.325493458+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_c051baa488eb","attempt_id":"att_1_531efa8cb155","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+    oversize_worker_test.go:156: [memory] worker log: {"time":"2026-10-29T19:54:32.326152833+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_c051baa488eb","attempt_id":"att_1_531efa8cb155","exit_code":1}
+    oversize_worker_test.go:157: [memory] attempt 1: FAILED class=PERMANENT exit=1 output=0 bytes error="result rejected by coordinator: HTTP 400 INVALID_REQUEST"
+    oversize_worker_test.go:157: [memory] final: job FAILED after 0.10s, 1 attempt(s), 1 result row(s)
+    oversize_worker_test.go:160: [memory] stored error/output not marked as truncated
+--- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped (0.25s)
+    --- FAIL: TestAbuse_OversizeOutput_ErrorPathUncapped/memory (0.25s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.292s
+FAIL
+=== EXIT CODE: 1 ===

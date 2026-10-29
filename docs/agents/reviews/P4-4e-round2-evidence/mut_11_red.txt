@@ -1,0 +1,20 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport ===
+=== TIMESTAMP: 2026-10-29T14:25:03Z ===
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST
+2026/10/29 19:55:03 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:55:03 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/10/29 19:55:03 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+    fallback_test.go:50: only 1 timers pending when the fallback arrived: renewals stopped before it was delivered
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE
+2026/10/29 19:55:03 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:55:03 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=OUTPUT_TOO_LARGE
+2026/10/29 19:55:03 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+    fallback_test.go:50: only 1 timers pending when the fallback arrived: renewals stopped before it was delivered
+--- FAIL: TestWorker_ResultRejected400_SendsOneFallbackFailureReport (0.01s)
+    --- FAIL: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST (0.01s)
+    --- FAIL: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.039s
+FAIL
+=== EXIT CODE: 1 ===

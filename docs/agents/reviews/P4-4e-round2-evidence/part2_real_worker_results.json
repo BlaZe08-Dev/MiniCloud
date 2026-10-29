@@ -1,0 +1,114 @@
+{
+  "case_a_mid_rune_truncation": {
+    "description": "65,535-byte payload ending in 3-byte characters (mid-character cut)",
+    "job_id": "job_1_394032e56e0e",
+    "final_state": "SUCCEEDED",
+    "attempts_count": 1,
+    "attempts": [
+      {
+        "attempt_no": 1,
+        "state": "COMPLETED",
+        "exit_code": 0,
+        "output_bytes": 65347
+      }
+    ],
+    "result_rows_count": 1,
+    "result_rows": [
+      {
+        "count": 1,
+        "exit_code": 0,
+        "output_bytes": 65535,
+        "output_tail": "\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\u20ac\n[truncated]"
+      }
+    ],
+    "lost_attempts": 0,
+    "elapsed_sec": 0.242
+  },
+  "case_b_json_escape_nul": {
+    "description": "JSON string containing escape \\u0000",
+    "job_id": "job_2_9d48deaf845a",
+    "final_state": "SUCCEEDED",
+    "attempts_count": 1,
+    "attempts": [
+      {
+        "attempt_no": 1,
+        "state": "COMPLETED",
+        "exit_code": 0,
+        "output_bytes": 25
+      }
+    ],
+    "result_rows_count": 1,
+    "result_rows": [
+      {
+        "count": 1,
+        "exit_code": 0,
+        "output_bytes": 25,
+        "output_tail": "{\"echo\":{\"m\":\"a\\u0000b\"}}"
+      }
+    ],
+    "lost_attempts": 0,
+    "elapsed_sec": 0.232
+  },
+  "case_c_non_object_invalid_utf8": {
+    "description": "Non-object payload returning invalid UTF-8",
+    "job_id": "job_3_3a445928c67c",
+    "final_state": "SUCCEEDED",
+    "attempts_count": 1,
+    "attempts": [
+      {
+        "attempt_no": 1,
+        "state": "COMPLETED",
+        "exit_code": 0,
+        "output_bytes": 5
+      }
+    ],
+    "result_rows_count": 1,
+    "result_rows": [
+      {
+        "count": 1,
+        "exit_code": 0,
+        "output_bytes": 7,
+        "output_tail": "\"a\ufffdb\""
+      }
+    ],
+    "lost_attempts": 0,
+    "elapsed_sec": 0.219
+  },
+  "case_d1_ascii_exact_limit": {
+    "description": "ASCII payload at exactly the 64 KiB limit (65,536 bytes)",
+    "job_id": "job_4_b621553d17eb",
+    "final_state": "SUCCEEDED",
+    "attempts_count": 1,
+    "attempts": [
+      {
+        "attempt_no": 1,
+        "state": "COMPLETED",
+        "exit_code": 0,
+        "output_bytes": 65536
+      }
+    ],
+    "result_rows_count": 1,
+    "result_rows": [
+      {
+        "count": 1,
+        "exit_code": 0,
+        "output_bytes": 65536,
+        "output_tail": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n[truncated]"
+      }
+    ],
+    "lost_attempts": 0,
+    "elapsed_sec": 0.428
+  },
+  "case_d2_ascii_one_byte_over": {
+    "description": "ASCII payload at one byte over limit (65,537 bytes)",
+    "status": "REJECTED_413",
+    "response": {
+      "error": {
+        "code": "PAYLOAD_TOO_LARGE",
+        "message": "payload exceeds maximum allowed size"
+      }
+    },
+    "elapsed_sec": 0.009,
+    "lost_attempts": 0
+  }
+}
