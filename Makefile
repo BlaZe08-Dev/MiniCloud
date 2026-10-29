@@ -1,4 +1,4 @@
-.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage
+.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage test-security
 
 BIN_DIR := bin
 
@@ -73,6 +73,22 @@ test-db:
 	if [ "$$N" != "$(GRACE_TEST_COUNT)" ]; then echo "FALSE-GREEN GUARD: pattern '$(GRACE_TEST)' lists $$N tests in ./tests/integration/, expected $(GRACE_TEST_COUNT); was the test renamed?" >&2; exit 1; fi; \
 	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 ./internal/storage/postgres/... ./internal/coordinator/...; \
 	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -run '$(GRACE_TEST)' ./tests/integration/
+
+# P4-4e executed fault-injection and API-abuse security suite, against the .env test database only.
+# The fault proxy simulates every outage; this target never touches the shared container and never
+# sets the container-control variables. The -list check fails the target if the pattern matches a
+# different number of tests than expected (a rename would otherwise pass silently).
+SECURITY_TESTS := ^(TestFault_|TestAbuse_)
+SECURITY_TEST_COUNT := 42
+
+test-security:
+	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+	@set -e; \
+	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	N=$$(env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/ | grep -c '^Test' || true); \
+	if [ "$$N" != "$(SECURITY_TEST_COUNT)" ]; then echo "FALSE-GREEN GUARD: pattern '$(SECURITY_TESTS)' lists $$N tests, expected $(SECURITY_TEST_COUNT)" >&2; exit 1; fi; \
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -timeout 20m -run '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/
 
 # DANGEROUS: runs the tests that stop and start the SHARED minicloud-postgres container.
 # Never part of test-db or any default target. Requires CONFIRM=minicloud-postgres.
