@@ -1,0 +1,20 @@
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho/memory
+    oversize_worker_test.go:284: [memory] T+0.00s job/attempts: QUEUED
+    oversize_worker_test.go:284: [memory] T+0.10s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:284: [memory] worker log: {"time":"2026-10-29T19:16:21.778171228+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_5162c39a81af","attempt_id":"att_1_2dd612103c72","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:284: [memory] worker log: {"time":"2026-10-29T19:16:21.778530585+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_5162c39a81af","attempt_id":"att_1_2dd612103c72","exit_code":0}
+    oversize_worker_test.go:285: [memory] attempt 1: COMPLETED class= exit=0 output=7 bytes error=""
+    oversize_worker_test.go:285: [memory] final: job SUCCEEDED after 0.10s, 1 attempt(s), 1 result row(s)
+=== RUN   TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho/postgres
+    oversize_worker_test.go:284: [postgres] T+0.02s job/attempts: QUEUED
+    oversize_worker_test.go:284: [postgres] T+0.13s job/attempts: SUCCEEDED a1=COMPLETED
+    oversize_worker_test.go:284: [postgres] worker log: {"time":"2026-10-29T19:16:22.735305475+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_e4f1caec2fed","attempt_id":"att_job_2_e4f1caec2fed_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+    oversize_worker_test.go:284: [postgres] worker log: {"time":"2026-10-29T19:16:22.735730944+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_e4f1caec2fed","attempt_id":"att_job_2_e4f1caec2fed_1","exit_code":0}
+    oversize_worker_test.go:285: [postgres] attempt 1: COMPLETED class= exit=0 output=7 bytes error=""
+    oversize_worker_test.go:285: [postgres] final: job SUCCEEDED after 0.13s, 1 attempt(s), 1 result row(s)
+--- PASS: TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho (1.34s)
+    --- PASS: TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho/memory (0.21s)
+    --- PASS: TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho/postgres (1.13s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	2.373s
