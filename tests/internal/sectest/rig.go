@@ -405,3 +405,25 @@ func AssignmentOf(r Resp) (job, attempt, token string) {
 	_ = json.Unmarshal(r.Body, &env)
 	return env.Assignment.JobID, env.Assignment.AttemptID, env.Assignment.LeaseToken
 }
+
+// DoRaw performs a GET and returns the status, or 0 on a transport error.
+func DoRaw(url string) int {
+	c := &http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get(url)
+	if err != nil {
+		return 0
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
+
+// PostRaw posts a JSON body and returns the status, or 0 on a transport error.
+func PostRaw(url, body string) int {
+	c := &http.Client{Timeout: 5 * time.Second}
+	resp, err := c.Post(url+"/v1/jobs", "application/json", strings.NewReader(body))
+	if err != nil {
+		return 0
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
