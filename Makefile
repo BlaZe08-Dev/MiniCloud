@@ -79,7 +79,7 @@ test-db:
 # sets the container-control variables. The -list check fails the target if the pattern matches a
 # different number of tests than expected (a rename would otherwise pass silently).
 SECURITY_TESTS := ^(TestFault_|TestAbuse_)
-SECURITY_TEST_COUNT := 42
+SECURITY_TEST_COUNT := 43
 
 test-security:
 	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi

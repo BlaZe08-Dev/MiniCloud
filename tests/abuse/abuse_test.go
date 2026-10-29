@@ -231,6 +231,11 @@ func TestAbuse_OversizedBodies(t *testing.T) {
 		if queued(t, r) != 0 {
 			t.Error("an oversized body created a job")
 		}
+		// Valid JSON that is small except for an ignored field: only the 1 MiB body limit can refuse it.
+		padded := r.Do("POST", "/v1/jobs", `{"task_type":"echo","payload":{"message":"x"},"pad":"`+big+`"}`)
+		if padded.Status == http.StatusCreated || queued(t, r) != 0 {
+			t.Errorf("a valid job padded past 1 MiB was accepted: %d (the body limit is the only defence)", padded.Status)
+		}
 		if resp := r.Do("POST", "/v1/jobs", `{"task_type":"echo","payload":"`+strings.Repeat("a", 65536-2)+`"}`); resp.Status != http.StatusCreated {
 			t.Errorf("payload of exactly 65536 bytes = %d, want 201", resp.Status)
 		}

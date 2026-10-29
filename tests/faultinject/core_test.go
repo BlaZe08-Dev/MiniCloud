@@ -288,8 +288,16 @@ func TestFault_CancelRacesCompletion(t *testing.T) {
 					t.Errorf("%s: cancel status %d, want 200 or 409", it.job, c)
 				}
 			}
-			if it.fail && j.State != domain.StateFailed && j.State != domain.StateCancelled {
-				t.Errorf("%s: failed commit raced with cancel ended %s, want FAILED or CANCELLED", it.job, j.State)
+			// If the cancel took effect before the commit (a JOB_CANCEL_REQUESTED event exists) the failed
+			// commit must end CANCELLED (cancel wins, never FAILED or RETRYING); if the commit won, FAILED.
+			if it.fail {
+				want := domain.StateFailed
+				if r.CountEvents(it.job, domain.JobEventCancelRequested) == 1 {
+					want = domain.StateCancelled
+				}
+				if j.State != want {
+					t.Errorf("%s: failed commit raced with cancel ended %s, want %s", it.job, j.State, want)
+				}
 			}
 			if !it.fail && j.State != domain.StateSucceeded {
 				t.Errorf("%s: success commit raced with cancel ended %s, want SUCCEEDED", it.job, j.State)
