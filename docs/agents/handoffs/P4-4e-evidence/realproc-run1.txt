@@ -1,0 +1,19 @@
+=== RUN   TestFault_WorkerKill9_LeaseSweepAndRetry
+--- PASS: TestFault_WorkerKill9_LeaseSweepAndRetry (10.09s)
+=== RUN   TestFault_WorkerPartition_ProxyBlackhole_ZombieAbortsAndLateCommit409
+--- PASS: TestFault_WorkerPartition_ProxyBlackhole_ZombieAbortsAndLateCommit409 (14.74s)
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/within_grace
+    realproc_test.go:200: register: 400 {"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/control_after_grace_ends
+    realproc_test.go:200: register: 400 {"error":{"code":"INVALID_REQUEST","message":"invalid worker id"}}
+--- FAIL: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit (0.71s)
+    --- FAIL: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/within_grace (0.35s)
+    --- FAIL: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/control_after_grace_ends (0.35s)
+=== RUN   TestFault_CoordinatorKill9_DuringCommitStorm_InvariantsAfterRestart
+    realproc_test.go:245: seed 1793266550380261447
+    realproc_test.go:324: 120 jobs stored, kill after 57 acknowledged submissions
+--- PASS: TestFault_CoordinatorKill9_DuringCommitStorm_InvariantsAfterRestart (2.92s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	28.491s
+FAIL

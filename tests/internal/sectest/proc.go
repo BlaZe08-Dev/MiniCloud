@@ -196,3 +196,16 @@ func WaitFor(timeout time.Duration, cond func() bool) bool {
 		time.Sleep(50 * time.Millisecond) // bounded poll interval
 	}
 }
+
+// Term sends SIGTERM to this process only.
+func (p *Proc) Term() { _ = p.cmd.Process.Signal(syscall.SIGTERM) }
+
+// WaitExit waits up to timeout for the process to exit and reports whether it did.
+func (p *Proc) WaitExit(timeout time.Duration) bool {
+	select {
+	case <-p.done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
