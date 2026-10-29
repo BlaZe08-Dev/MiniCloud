@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import urllib.request
+import urllib.error
+import urllib.parse
+
+with open(".env") as f:
+    for line in f:
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            db_url = line.strip().split("=", 1)[1]
+            break
+
+port = 18082
+addr = f"127.0.0.1:{port}"
+
+env = os.environ.copy()
+env["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+env["MINICLOUD_DATABASE_URL"] = db_url
+env["MINICLOUD_HTTP_ADDR"] = addr
+
+proc = subprocess.Popen(["bin/coordinator"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+
+def do_req(method, path):
+    url = f"http://{addr}{path}"
+    req = urllib.request.Request(url, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return 999, str(e)
+
+fuzz_ids = [
+    ("sql_inject_semi", "job_1;DROP TABLE jobs;--"),
+    ("sql_inject_quote", "job' OR '1'='1"),
+    ("percent_encoded_slash", "job%2Fattempt"),
+    ("percent_encoded_nul", "job%00bad"),
+    ("raw_nul", "job\x00bad"),
+    ("very_long_100kib", "a" * 102400),
+    ("unicode_cyrillic", "работа_123"),
+    ("path_traversal_dotdot", "..%2F..%2Fetc%2Fpasswd"),
+    ("crlf", "job\r\nheader:injected"),
+    ("spaces", "job 123"),
+]
+
+endpoints = [
+    ("GET", "/v1/jobs/{id}"),
+    ("GET", "/v1/jobs/{id}/attempts"),
+    ("POST", "/v1/jobs/{id}/cancel"),
+    ("POST", "/v1/workers/{id}/heartbeat"),
+    ("POST", "/v1/workers/{id}/poll"),
+]
+
+try:
+    print("=== Path parameter identifier fuzzing across endpoints ===")
+    for ep_method, ep_pattern in endpoints:
+        print(f"\n--- Endpoint: {ep_method} {ep_pattern} ---")
+        for name, bad_id in fuzz_ids:
+            # Escape path component if needed for valid URL
+            quoted = urllib.parse.quote(bad_id, safe="")
+            path = ep_pattern.replace("{id}", quoted)
+            status, body = do_req(ep_method, path)
+            # Ensure no 500 error and no stack traces or leaks
+            print(f"[{name}] status={status} body_prefix={body[:80].strip()}")
+            if status >= 500:
+                print(f"!!! SERVER ERROR 5XX on {name}: {status} {body}")
+finally:
+    proc.kill()
+    proc.wait()

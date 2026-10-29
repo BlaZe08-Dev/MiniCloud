@@ -10,11 +10,17 @@ MiniCloud uses HTTP/1.1 with JSON payloads for both the public Client API and th
 - **Content-Type:** `application/json` required for all request and response bodies.
 - **Maximum Request Body Size:** 1 MiB (hard server limit via `http.MaxBytesReader`).
 - **Maximum Task Payload Size:** 64 KiB.
-- **Maximum Task Output Size:** 64 KiB (output truncated if task exceeds limit).
-- **Default Server Timeouts:**
+- **Maximum Task Output Size:** 64 KiB (clamped via `ClampText`).
+- **Maximum Attempt Error Text Size:** 10 KiB (10,240 bytes clamped via `ClampText`).
+- **ClampText Semantics:** Task outputs and error strings are clamped defensively using `ClampText` (`internal/executor/truncate.go`). Any raw NUL (`\x00`) bytes and invalid UTF-8 byte sequences are replaced with `\uFFFD` (Unicode Replacement Character, 3 bytes in UTF-8). String length is measured after byte replacement; if it exceeds the limit (64 KiB for output, 10 KiB for error text), it is cut backward to the nearest valid UTF-8 rune boundary and suffixed with `\n[truncated]` such that the final total byte length does not exceed the limit.
+- **Default Server Timeouts & Deadlines:**
   - Read Timeout: 5s
   - Write Timeout: 10s
   - Idle Timeout: 60s
+  - Read Header Timeout: 2s (mitigating Slowloris delays)
+  - Request Timeout (`RequestTimeout`): 8s context deadline enforced across all HTTP API requests (`requestDeadlineMiddleware` in `internal/api/handlers.go`). Requests that block on database queries or locks for >8s are aborted and return HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and an opaque error body. Documented limit (F-4e-3 / SEC-033): After a half-open database partition heals, pgx connection recovery may take up to ~15s due to internal `asyncClose` cleanup.
+  - Background Call Timeout (`BackgroundCallTimeout`): 8s context deadline per iteration on background sweeper ticks and worker reaper iterations (`internal/coordinator/service.go`), preventing hung database connections from blocking background maintenance indefinitely.
+- **Work-Poll Database Cost:** A work poll dispatch costs approximately 20 client-to-database network round trips (flights) when claiming a job, an empty poll costs 4 round trips, and a job submission costs 5 round trips. On networks with latency >400ms per round trip, polling operations approach the 8s request deadline.
 - **Structured Error Format:** All non-2xx responses return a standardized JSON error envelope:
 ```json
 {
@@ -216,7 +222,7 @@ Invoked periodically by the worker (default: every 2 seconds).
   "available_slots": 3
 }
 ```
-*Note:* The `available_slots` field in the heartbeat request is accepted for `/v1` protocol compatibility but ignored by the coordinator; capacity is dynamically derived from active `RUNNING` attempts to guarantee zero counter drift (ADR-0011).
+*Note on Available Slots (Informational):* The `available_slots` field in the heartbeat request is accepted for `/v1` protocol compatibility (any integer value accepted without validation) but ignored by both in-memory and PostgreSQL coordinator backends; capacity is dynamically derived from active `RUNNING` attempts to guarantee zero counter drift (ADR-0011, SEC-055, Informational).
 
 **Response (200 OK):**
 ```json
@@ -325,6 +331,17 @@ Worker reports task completion or failure.
 }
 ```
 *Note:* Permanent error. When an attempt lease has expired and been reaped to `LOST`, late results are strictly rejected and never committed to `results`. Worker clients treat 409 as non-retryable and must not loop.
+
+**Response (400 Bad Request — Validation Rejection & Worker Fallback):**
+When the coordinator rejects a result report with HTTP 400 and error code `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`:
+- The worker sends exactly **one fallback failure report** for the same attempt and lease: exit code 1, empty output, error class `PERMANENT`, and error summary `result rejected by coordinator: HTTP 400 <code>`.
+- The worker's renewal goroutine continues renewing the lease until fallback delivery completes.
+- If accepted, the job transitions to `FAILED` immediately on attempt 1, recording a single result row and preventing a poison loop of repeated lease expiries.
+- If the fallback report itself receives an HTTP 400 or other terminal rejection, the worker halts delivery and exits with status 1.
+- *Exclusion of `MALFORMED_JSON`*: When the coordinator answers 400 `MALFORMED_JSON`, no fallback report is sent. Because the worker always marshals valid JSON via `json.Marshal`, a malformed JSON response indicates transport-level corruption. The worker drops the result, the lease expires and is reaped to `LOST`, and the task re-runs safely (at-least-once).
+
+**Response (409 Conflict — Ambiguous Commit Replay / Job Already Terminal):**
+When a worker retries a commit whose original request succeeded in the database but whose response was dropped or delayed across a network partition, the coordinator returns HTTP 409 `JOB_ALREADY_TERMINAL`. The single stored result from the initial commit stands, no duplicate result rows or attempt records are created, and the retry is safe and idempotent (SEC-031, Informational).
 
 ---
 

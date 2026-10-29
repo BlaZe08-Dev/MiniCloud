@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+python3 docs/agents/reviews/P4-4e-round1-evidence/scripts/attack_b_round2.py.txt > docs/agents/reviews/P4-4e-round1-evidence/attack-b-round2-worker-text-fields.txt 2>&1

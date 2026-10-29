@@ -1,0 +1,59 @@
+# cmd: python3 /tmp/p4-4e-attacks/attack_d.py
+Thursday 29 October 2026 12:18:20 PM UTC
+=== Attack D: Numeric Boundaries ===
+
+--- Field 1: max_attempts in POST /v1/jobs ---
+[negative_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[negative_100] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[zero] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[float_pi] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[string_num] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[max_int32] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[max_int32_plus_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[max_int64] status=400 body={"error":{"code":"INVALID_REQUEST","message":"max_attempts must be bet
+[max_int64_plus_1] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+
+--- Field 2: timeout_seconds in POST /v1/jobs ---
+[negative_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[negative_100] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[zero] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[float_pi] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[string_num] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[max_int32] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[max_int32_plus_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[max_int64] status=400 body={"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be
+[max_int64_plus_1] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+
+--- Field 3: total_slots in POST /v1/workers/register ---
+[negative_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[negative_100] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[zero] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[float_pi] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[string_num] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[max_int32] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[max_int32_plus_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[max_int64] status=400 body={"error":{"code":"INVALID_REQUEST","message":"invalid request payload
+[max_int64_plus_1] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+
+--- Field 4: available_slots in POST /v1/workers/{id}/heartbeat ---
+[negative_1] status=200 body={"status":"ACK"}
+[negative_100] status=200 body={"status":"ACK"}
+[zero] status=200 body={"status":"ACK"}
+[float_pi] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[string_num] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[max_int32] status=200 body={"status":"ACK"}
+[max_int32_plus_1] status=200 body={"status":"ACK"}
+[max_int64] status=200 body={"status":"ACK"}
+[max_int64_plus_1] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+
+--- Field 5: exit_code in POST /v1/jobs/{id}/attempts/{id}/result ---
+[negative_1] status=409 body={"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: at
+[negative_100] status=409 body={"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: at
+[zero] status=409 body={"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: at
+[float_pi] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[string_num] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+[max_int32] status=409 body={"error":{"code":"STALE_ATTEMPT_REJECTED","message":"stale attempt: at
+[max_int32_plus_1] status=400 body={"error":{"code":"INVALID_REQUEST","message":"exit_code out of range"}
+[max_int64] status=400 body={"error":{"code":"INVALID_REQUEST","message":"exit_code out of range"}
+[max_int64_plus_1] status=400 body={"error":{"code":"MALFORMED_JSON","message":"malformed JSON request bo
+rc=0

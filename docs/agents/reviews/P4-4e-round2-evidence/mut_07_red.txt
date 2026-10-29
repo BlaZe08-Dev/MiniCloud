@@ -1,0 +1,7 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop ===
+=== TIMESTAMP: 2026-10-29T14:24:38Z ===
+# github.com/BlaZe08-Dev/Minicloud/internal/worker
+internal/worker/client.go:599:2: fallbackSent declared and not used
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker [build failed]
+FAIL
+=== EXIT CODE: 1 ===

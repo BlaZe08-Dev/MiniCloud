@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 09f4511..04afd86 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -607,7 +607,7 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
+ 			slog.Info("result successfully committed", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "exit_code", exitCode)
+ 			return
+ 		}
+-		if !fallbackSent && isValidationRejection(status, code) {
++		if isValidationRejection(status, code) {
+ 			// Last resort: the coordinator will never accept this body. One failure report for the
+ 			// same attempt and lease, PERMANENT so the job ends FAILED now instead of losing every
+ 			// attempt. The renewal goroutine keeps running until it is delivered (it ends with

@@ -1,0 +1,13 @@
+# cmd: MINICLOUD_SEC_DEMO_F4E18=1 env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -run 'TestAbuse_MCOutput_HostileErrorText' ./tests/abuse
+Thursday 29 October 2026 12:11:54 PM UTC
+=== RUN   TestAbuse_MCOutput_HostileErrorText
+2026/10/29 17:41:56 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 17:41:56 INFO job submitted and queued job_id=job_1_3ac451379aad task_type=echo state=QUEUED max_attempts=1
+2026/10/29 17:41:56 INFO job dispatched to worker job_id=job_1_3ac451379aad attempt_id=att_1_f885df4fd8e6 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 17:41:56 INFO job result committed job_id=job_1_3ac451379aad attempt_id=att_1_f885df4fd8e6 final_state=FAILED exit_code=1 error_class=PERMANENT
+    resources_test.go:296: mc [get job_1_3ac451379aad] printed raw control byte 0x1b at offset 263
+--- FAIL: TestAbuse_MCOutput_HostileErrorText (3.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	3.041s
+FAIL
+rc=1

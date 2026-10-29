@@ -1,0 +1,24 @@
+diff --git a/internal/executor/truncate.go b/internal/executor/truncate.go
+index 4b82ba9..0d3cc91 100644
+--- a/internal/executor/truncate.go
++++ b/internal/executor/truncate.go
+@@ -13,6 +13,9 @@ import (
+ // ends with TruncationMarker; a text within limit is returned unchanged apart from that
+ // replacement.
+ func ClampText(s string, limit int) string {
++	if len(s) <= limit {
++		return s
++	}
+ 	if !utf8.ValidString(s) || strings.IndexByte(s, 0) >= 0 {
+ 		var b strings.Builder
+ 		for i := 0; i < len(s); {
+@@ -26,9 +29,6 @@ func ClampText(s string, limit int) string {
+ 		}
+ 		s = b.String()
+ 	}
+-	if len(s) <= limit {
+-		return s
+-	}
+ 	cut := limit - len(TruncationMarker)
+ 	if cut < 0 {
+ 		cut = 0

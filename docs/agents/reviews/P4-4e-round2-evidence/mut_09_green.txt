@@ -1,0 +1,17 @@
+=== COMMAND: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport ===
+=== TIMESTAMP: 2026-10-29T14:24:55Z ===
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST
+2026/10/29 19:54:54 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:54:54 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/10/29 19:54:54 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE
+2026/10/29 19:54:54 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/10/29 19:54:54 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=OUTPUT_TOO_LARGE
+2026/10/29 19:54:54 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+--- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport (0.01s)
+    --- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST (0.01s)
+    --- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.046s
+=== EXIT CODE: 0 ===

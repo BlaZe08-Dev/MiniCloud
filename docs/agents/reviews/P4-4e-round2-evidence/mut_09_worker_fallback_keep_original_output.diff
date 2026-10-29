@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 09f4511..21c7793 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -613,7 +613,7 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
+ 			// attempt. The renewal goroutine keeps running until it is delivered (it ends with
+ 			// ExecuteAndReport). If this is rejected too, the branch below behaves as before.
+ 			fallbackSent = true
+-			exitCode, output = 1, ""
++			exitCode = 1
+ 			errSummary = executor.ClampText(fmt.Sprintf("result rejected by coordinator: HTTP %d %s", status, code), executor.MaxErrorSizeBytes)
+ 			errorClass = domain.ClassPermanent
+ 			slog.Warn("coordinator rejected the result as invalid; sending one fallback failure report",

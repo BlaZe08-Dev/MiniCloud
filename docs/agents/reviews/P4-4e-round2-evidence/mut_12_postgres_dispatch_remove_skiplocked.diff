@@ -1,0 +1,31 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index c6efaf9..f913128 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -783,7 +783,7 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
+ //
+ // Deadlock Prevention Lock Order:
+ //  1. Unlocked pre-check of worker (worker_capacity) to preserve error precedence (SEC-002) without taking locks.
+-//  2. Begin transaction and lock candidate job row FOR UPDATE SKIP LOCKED.
++//  2. Begin transaction and lock candidate job row FOR UPDATE.
+ //  3. Lock worker row FOR UPDATE (jobs row is already locked, preserving jobs -> workers hierarchy).
+ //  4. Re-check worker health and capacity under lock. If recheck fails, transaction rolls back.
+ //  5. Insert attempt and update job.
+@@ -830,7 +830,7 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
+ 	}
+ 	defer tx.Rollback(ctx)
+ 
+-	// Step 3: SELECT next eligible QUEUED job FOR UPDATE SKIP LOCKED
++	// Step 3: SELECT next eligible QUEUED job FOR UPDATE
+ 	// Lock candidate job row FIRST to adhere to jobs -> workers lock order.
+ 	const selectJobQuery = `
+ 		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at
+@@ -840,7 +840,7 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
+ 		  AND task_type = ANY($1::text[])
+ 		ORDER BY created_at ASC, id ASC
+ 		LIMIT 1
+-		FOR UPDATE SKIP LOCKED;
++		FOR UPDATE;
+ 	`
+ 	var (
+ 		job      domain.Job

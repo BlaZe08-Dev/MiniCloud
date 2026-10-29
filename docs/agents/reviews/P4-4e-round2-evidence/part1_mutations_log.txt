@@ -1,0 +1,110 @@
+
+--- Running Mutation 1: clamptext_remove_nul_replacement ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_01_clamptext_remove_nul_replacement.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Red test exit code: 1
+Mutation 1 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Green test exit code: 0
+
+--- Running Mutation 2: clamptext_measure_before_replacement ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_02_clamptext_measure_before_replacement.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Red test exit code: 1
+Mutation 2 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Green test exit code: 0
+
+--- Running Mutation 3: clamptext_cut_without_rune_boundary ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_03_clamptext_cut_without_rune_boundary.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Red test exit code: 1
+Mutation 3 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestClampText
+Green test exit code: 0
+
+--- Running Mutation 4: executor_execute_remove_success_clamp ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_04_executor_execute_remove_success_clamp.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestExecutor_OutputCapped
+Red test exit code: 1
+Mutation 4 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestExecutor_OutputCapped
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestExecutor_OutputCapped
+Green test exit code: 0
+
+--- Running Mutation 5: executor_execute_remove_failure_clamp ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_05_executor_execute_remove_failure_clamp.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestRegistryExecute_OutputCapOnFailure
+Red test exit code: 1
+Mutation 5 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestRegistryExecute_OutputCapOnFailure
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/executor -run TestRegistryExecute_OutputCapOnFailure
+Green test exit code: 0
+
+--- Running Mutation 6: worker_executeandreport_remove_clamp ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_06_worker_executeandreport_remove_clamp.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./tests/abuse -run TestAbuse_OversizeOutput_ErrorPathUncapped
+Red test exit code: 1
+Mutation 6 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./tests/abuse -run TestAbuse_OversizeOutput_ErrorPathUncapped
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./tests/abuse -run TestAbuse_OversizeOutput_ErrorPathUncapped
+Green test exit code: 0
+
+--- Running Mutation 7: worker_fallback_remove_guard_loop ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_07_worker_fallback_remove_guard_loop.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop
+Red test exit code: 1
+Mutation 7 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop
+Green test exit code: 0
+
+--- Running Mutation 8: worker_fallback_add_malformed_json ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_08_worker_fallback_add_malformed_json.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_MalformedJSON_NoFallback
+Red test exit code: 1
+Mutation 8 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_MalformedJSON_NoFallback
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_MalformedJSON_NoFallback
+Green test exit code: 0
+
+--- Running Mutation 9: worker_fallback_keep_original_output ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_09_worker_fallback_keep_original_output.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Red test exit code: 1
+Mutation 9 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Green test exit code: 0
+
+--- Running Mutation 10: worker_fallback_error_class_not_permanent ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_10_worker_fallback_error_class_not_permanent.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Red test exit code: 1
+Mutation 10 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Green test exit code: 0
+
+--- Running Mutation 11: worker_fallback_stop_renewal_early ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_11_worker_fallback_stop_renewal_early.diff
+Executing red test: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Red test exit code: 1
+Mutation 11 KILLED by test env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Executing green test to prove restore: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./internal/worker -run TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+Green test exit code: 0
+
+--- Running Mutation 12: postgres_dispatch_remove_skiplocked ---
+Saved diff to /home/blazeee/MiniCloud-gemini/docs/agents/reviews/P4-4e-round2-evidence/mut_12_postgres_dispatch_remove_skiplocked.diff
+Executing red test: make test-db
+Red test exit code: 2
+Mutation 12 KILLED by test make test-db
+Executing green test to prove restore: make test-db
+Green test exit code: 0
+
+================== SUMMARY ==================
+Mutation 01 (clamptext_remove_nul_replacement): KILLED
+Mutation 02 (clamptext_measure_before_replacement): KILLED
+Mutation 03 (clamptext_cut_without_rune_boundary): KILLED
+Mutation 04 (executor_execute_remove_success_clamp): KILLED
+Mutation 05 (executor_execute_remove_failure_clamp): KILLED
+Mutation 06 (worker_executeandreport_remove_clamp): KILLED
+Mutation 07 (worker_fallback_remove_guard_loop): KILLED
+Mutation 08 (worker_fallback_add_malformed_json): KILLED
+Mutation 09 (worker_fallback_keep_original_output): KILLED
+Mutation 10 (worker_fallback_error_class_not_permanent): KILLED
+Mutation 11 (worker_fallback_stop_renewal_early): KILLED
+Mutation 12 (postgres_dispatch_remove_skiplocked): KILLED

@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import urllib.request
+import urllib.error
+
+with open(".env") as f:
+    for line in f:
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            db_url = line.strip().split("=", 1)[1]
+            break
+
+port = 18083
+addr = f"127.0.0.1:{port}"
+
+env = os.environ.copy()
+env["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+env["MINICLOUD_DATABASE_URL"] = db_url
+env["MINICLOUD_HTTP_ADDR"] = addr
+
+proc = subprocess.Popen(["bin/coordinator"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+
+def do_req(method, path, body):
+    url = f"http://{addr}{path}"
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return 999, str(e)
+
+test_values = [
+    ("negative_1", -1),
+    ("negative_100", -100),
+    ("zero", 0),
+    ("float_pi", 3.14),
+    ("string_num", "10"),
+    ("max_int32", 2147483647),
+    ("max_int32_plus_1", 2147483648),
+    ("max_int64", 9223372036854775807),
+    ("max_int64_plus_1", 9223372036854775808),
+]
+
+try:
+    print("=== Attack D: Numeric Boundaries ===")
+
+    print("\n--- Field 1: max_attempts in POST /v1/jobs ---")
+    for name, val in test_values:
+        status, body = do_req("POST", "/v1/jobs", {"task_type":"echo","payload":{},"max_attempts":val})
+        print(f"[{name}] status={status} body={body[:70].strip()}")
+
+    print("\n--- Field 2: timeout_seconds in POST /v1/jobs ---")
+    for name, val in test_values:
+        status, body = do_req("POST", "/v1/jobs", {"task_type":"echo","payload":{},"timeout_seconds":val})
+        print(f"[{name}] status={status} body={body[:70].strip()}")
+
+    print("\n--- Field 3: total_slots in POST /v1/workers/register ---")
+    for name, val in test_values:
+        status, body = do_req("POST", "/v1/workers/register", {"id":f"w_slot_{name}","total_slots":val,"supported_tasks":["echo"]})
+        print(f"[{name}] status={status} body={body[:70].strip()}")
+
+    print("\n--- Field 4: available_slots in POST /v1/workers/{id}/heartbeat ---")
+    do_req("POST", "/v1/workers/register", {"id":"w_hb_test","total_slots":10,"supported_tasks":["echo"]})
+    for name, val in test_values:
+        status, body = do_req("POST", "/v1/workers/w_hb_test/heartbeat", {"available_slots":val})
+        print(f"[{name}] status={status} body={body[:70].strip()}")
+
+    print("\n--- Field 5: exit_code in POST /v1/jobs/{id}/attempts/{id}/result ---")
+    # Register worker and submit/claim job
+    do_req("POST", "/v1/workers/register", {"id":"w_ec_test","total_slots":10,"supported_tasks":["echo"]})
+    for name, val in test_values:
+        _, sub = do_req("POST", "/v1/jobs", {"task_type":"echo","payload":{"m":"ec"}})
+        jid = json.loads(sub)["id"]
+        _, pol = do_req("POST", "/v1/workers/w_ec_test/poll", {})
+        ass = json.loads(pol)["assignment"]
+        aid = ass["attempt_id"]
+        tok = ass["lease_token"]
+        status, body = do_req("POST", f"/v1/jobs/{jid}/attempts/{aid}/result",
+                              {"worker_id":"w_ec_test","lease_token":tok,"exit_code":val,"output":""})
+        print(f"[{name}] status={status} body={body[:70].strip()}")
+
+finally:
+    proc.kill()
+    proc.wait()

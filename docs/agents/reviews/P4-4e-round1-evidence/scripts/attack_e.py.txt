@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+import json
+import os
+import subprocess
+import time
+import urllib.request
+import urllib.error
+
+with open(".env") as f:
+    for line in f:
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            db_url = line.strip().split("=", 1)[1]
+            break
+
+port = 18084
+addr = f"127.0.0.1:{port}"
+
+env = os.environ.copy()
+env["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+env["MINICLOUD_DATABASE_URL"] = db_url
+env["MINICLOUD_HTTP_ADDR"] = addr
+env["MINICLOUD_LEASE_DURATION"] = "5s"
+env["MINICLOUD_SWEEPER_INTERVAL"] = "1s"
+
+proc = subprocess.Popen(["bin/coordinator"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+
+def do_req(method, path, body):
+    url = f"http://{addr}{path}"
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return 999, str(e)
+
+try:
+    print("=== Attack E: Trace Oversize Result (>64 KiB) Delivery ===")
+
+    # 1. Register worker
+    status, _ = do_req("POST", "/v1/workers/register", {"id":"w_oversize","version":"v1","total_slots":1,"supported_tasks":["echo"]})
+    print("1. Register worker status:", status)
+
+    # 2. Submit job with max_attempts=2
+    status, body = do_req("POST", "/v1/jobs", {"task_type":"echo","payload":{"message":"oversize_trace"},"max_attempts":2})
+    job = json.loads(body)
+    job_id = job["id"]
+    print(f"2. Submitted job {job_id}, max_attempts=2, initial state={job['state']}")
+
+    # 3. Worker polls job
+    status, body = do_req("POST", "/v1/workers/w_oversize/poll", {})
+    ass = json.loads(body)["assignment"]
+    att_id = ass["attempt_id"]
+    tok = ass["lease_token"]
+    print(f"3. Worker polled job: attempt={att_id}")
+
+    # 4. Worker delivers result with 70 KiB output
+    oversize_output = "A" * 70000
+    status, body = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id}/result",
+                          {"worker_id":"w_oversize","lease_token":tok,"exit_code":0,"output":oversize_output})
+    print(f"4. Result delivery HTTP status: {status}")
+    print(f"   Response body: {body.strip()}")
+    # Status is 400 with OUTPUT_TOO_LARGE. In worker/client.go:
+    # isTerminalDelivery(400) == true, so worker logs 'coordinator permanently rejected result'
+    # and abandons delivery without marking attempt failed or retrying!
+
+    # 5. Check job state immediately
+    _, body = do_req("GET", f"/v1/jobs/{job_id}", {})
+    j_after = json.loads(body)
+    print(f"5. Job state immediately after 400 rejection: {j_after['state']}")
+
+    # 6. Wait for sweeper to detect expired lease (5s lease + 1s sweep)
+    print("6. Waiting 7 seconds for sweeper to reclaim expired attempt...")
+    time.sleep(7)
+
+    _, body = do_req("GET", f"/v1/jobs/{job_id}", {})
+    j_swept = json.loads(body)
+    print(f"   Job state after sweeper: {j_swept['state']}")
+
+    # Check attempts
+    _, body = do_req("GET", f"/v1/jobs/{job_id}/attempts", {})
+    attempts = json.loads(body)
+    print(f"   Attempt 1 state: {attempts[0]['state']}, error={attempts[0].get('error')}")
+
+    # 7. Worker polls again -> gets attempt 2 (retry)
+    status, body = do_req("POST", "/v1/workers/w_oversize/poll", {})
+    ass2 = json.loads(body)["assignment"]
+    att_id2 = ass2["attempt_id"]
+    tok2 = ass2["lease_token"]
+    print(f"7. Attempt 2 claimed: {att_id2}")
+
+    # Worker delivers 70 KiB again -> 400 again
+    status, _ = do_req("POST", f"/v1/jobs/{job_id}/attempts/{att_id2}/result",
+                       {"worker_id":"w_oversize","lease_token":tok2,"exit_code":0,"output":oversize_output})
+    print(f"   Attempt 2 delivery HTTP status: {status} (rejected)")
+
+    # 8. Wait for sweeper again
+    print("8. Waiting 7 seconds for sweeper to exhaust max_attempts...")
+    time.sleep(7)
+
+    _, body = do_req("GET", f"/v1/jobs/{job_id}", {})
+    j_final = json.loads(body)
+    print(f"   Final job state after attempt exhaustion: {j_final['state']}")
+
+    _, body = do_req("GET", f"/v1/jobs/{job_id}/attempts", {})
+    attempts = json.loads(body)
+    print(f"   Total attempts: {len(attempts)}")
+    for i, a in enumerate(attempts):
+        print(f"   - Attempt {i+1} ({a['id']}): state={a['state']}, error={a.get('error')}")
+
+finally:
+    proc.kill()
+    proc.wait()

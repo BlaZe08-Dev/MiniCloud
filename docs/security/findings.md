@@ -40,6 +40,34 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-028** | Informational | Open (confirmed by code reading in P4-4c-a review) | Coordinator / Sweeper Multi-Node Architecture | Lease sweeper startup grace and database outage grace state is kept in-process memory, which would behave incorrectly or diverge if multiple coordinator instances run concurrently. Severity Informational (orchestrator decision; see docs/phase4-plan.md section 'Orchestrator decisions recorded for Phase 4 implementation'; source: builder finding F-4c-a-3 [Low] in P4-4c-a handoff, agreed by auditor in review). | Verification step: revisit when horizontal coordinator scaling or shared distributed coordinator state is designed. |
 | **SEC-029** | Informational | Open (confirmed by code reading) | Developer Tooling / Makefile | The dev Makefile targets `db-reset-test` and `db-down` are destructive and take no confirmation. | Verification step: add confirmation requirement (e.g. `CONFIRM=minicloud-postgres`) to destructive Makefile targets. |
 | **SEC-030** | Low | Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading | Test Safety / Integration Tests | `TestSecurity_PartD_LeakScan` stopped the shared container without an opt-in safety guard. | `TestSecurity_PartD_LeakScan` (`tests/integration/part_d_security_test.go` func `TestSecurity_PartD_LeakScan`) and AST guard `TestEveryContainerRestartingTestCallsTheGuard` (`tests/integration/container_guard_unit_test.go`). |
+| **SEC-031** | Informational | Open (docs pass) | Storage / API Protocol | F-4e-1: An unknown attempt ID under an existing job answers HTTP 409 `STALE_ATTEMPT_REJECTED`, not HTTP 404 `ATTEMPT_NOT_FOUND`. | `TestFault_StaleTokenMatrix` (`tests/faultinject/core_test.go`) |
+| **SEC-032** | Medium | Confirmed, Fixed (Slice 4e) | HTTP Server / API Handlers | F-4e-2: A half-open database connection accepting bytes and never answering made coordinator API requests hang indefinitely; fixed via `requestDeadlineMiddleware` enforcing 8s `RequestTimeout`. | `TestFault_DBOutage_HalfOpen` (`tests/faultinject/outage_test.go`) |
+| **SEC-033** | Low | Accepted Risk (V1) | PostgreSQL Driver / Outage Recovery | F-4e-3: After a half-open partition heals, connection pool recovery takes up to approximately 15 s (measured 15.07 s) due to pgx internal `asyncClose` deadline. Documented limit. | `TestFault_DBOutage_HalfOpen_RecoveryTime` (`tests/faultinject/deadline_test.go`) |
+| **SEC-034** | Informational | Recorded | Coordinator Lifecycle | F-4e-4: Graceful shutdown of coordinator with a half-open database connection and an in-flight request took 17.1 s (bounded, not unbounded). | `TestFault_CoordinatorShutdown_HalfOpenDatabase_Bounded` (`tests/faultinject/shutdown_test.go`) |
+| **SEC-035** | High | Confirmed, Fixed (Slice 4e) | Coordinator Background Loops | F-4e-5: Lease sweeper and worker reaper background loops lacked deadlines, causing them to stall forever on a half-open database connection; fixed via 8s `BackgroundCallTimeout`. | `TestFault_Sweeper_ResumesAfterHalfOpenDatabase` (`tests/faultinject/background_test.go`) |
+| **SEC-036** | Informational | Recorded | Coordinator Service Mutex | F-4e-6: `PollWork` and `CommitResult` hold a single service mutex across database calls, serializing poll and commit operations during hung database calls until request deadline. | `TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled` (`tests/faultinject/deadline_test.go`) |
+| **SEC-037** | Informational | Recorded | Database Dispatch Transport | F-4e-7: A work poll costs 20 database network flights, an empty poll 4, and a job submission 5. High-latency database connections (>400ms round trips) risk hitting the 8s request deadline. | `TestFault_PollCost_DatabaseRoundTrips` (`tests/faultinject/deadline_test.go`) |
+| **SEC-038** | Informational | Open | HTTP API JSON Decoding | F-4e-8: Trailing data after the first valid JSON value in request body is ignored by Go JSON decoder; only first value is processed. | `TestAbuse_TrailingDuplicateUnknownFields` (`tests/abuse/abuse_test.go`) |
+| **SEC-039** | Informational | Open | HTTP API JSON Decoding | F-4e-9: Duplicate JSON keys in request payload: last value wins; unknown keys are ignored and never stored or echoed. | `TestAbuse_TrailingDuplicateUnknownFields` (`tests/abuse/abuse_test.go`) |
+| **SEC-040** | Informational | Open | HTTP API Routing | F-4e-10: Route responses for 404 Not Found and 405 Method Not Allowed return plain text rather than standard JSON error envelope. | `TestAbuse_MethodsAndPaths` (`tests/abuse/transport_test.go`) |
+| **SEC-041** | Low | Confirmed, Fixed (Slice 4e) | Coordinator Input Validation | F-4e-11: An oversized `task_type` (up to 1 MiB) was reflected in the HTTP 400 error response body; fixed by validating task type charset and length prior to error generation. | `TestAbuse_OversizedBodies` (`tests/abuse/abuse_test.go`) |
+| **SEC-042** | Informational | Open | HTTP API Request Validation | F-4e-12: `Content-Type: application/json` is not strictly enforced on request endpoints. | `TestAbuse_ContentTypes` (`tests/abuse/abuse_test.go`) |
+| **SEC-043** | Informational | Open | HTTP API Body Limits | F-4e-13: Request bodies exceeding 1 MiB return HTTP 400 `MALFORMED_JSON` instead of HTTP 413 `PAYLOAD_TOO_LARGE` due to `http.MaxBytesReader` error wrapping. | `TestAbuse_OversizedBodies` (`tests/abuse/abuse_test.go`) |
+| **SEC-044** | Low | Confirmed, Fixed (Slice 4e) | In-Memory Storage Bounds | F-4e-14: In-memory repository stored attempt error strings exceeding 10,240 bytes (violating PostgreSQL parity); fixed by enforcing `MaxErrorSizeBytes`. | `TestAbuse_OversizeErrorText_RetryPath` (`tests/abuse/errortext_test.go`) |
+| **SEC-045** | Low | Confirmed, Fixed (Slice 4e) | HTTP API Error Mapping | F-4e-15: Output exceeding 64 KiB mapped to HTTP 500 `INTERNAL_ERROR` on PostgreSQL; fixed to return HTTP 400 `OUTPUT_TOO_LARGE` and clamped in in-memory repository. | `TestAbuse_OversizeErrorText_RetryPath` (`tests/abuse/errortext_test.go`) |
+| **SEC-046** | Low | Confirmed, Fixed (Slice 4e) | HTTP API Numeric Validation | F-4e-16: `exit_code` values outside signed 32-bit integer range caused SQL integer overflow (HTTP 500) on PostgreSQL; fixed with explicit boundary check. | `TestAbuse_NumericBounds` (`tests/abuse/abuse_test.go`) |
+| **SEC-047** | Low | Open | HTTP API / Resource Limits | F-4e-17: Coordinator lacks application-level rate limiting, connection caps, or job queue caps; `GET /v1/workers` is unpaginated (related to SEC-010). | `TestAbuse_MissingLimits`, `TestAbuse_ManyConnections` (`tests/abuse/resources_test.go`, `tests/abuse/transport_test.go`) |
+| **SEC-048** | Low | Open | Operator CLI Presentation | F-4e-18: `mc get` and `mc attempts` print worker-supplied error strings raw to terminal without escaping ANSI control codes or escapes; reachable by unauthenticated workers under SEC-004. | `TestAbuse_MCOutput_HostileErrorText` (`tests/abuse/resources_test.go`) |
+| **SEC-049** | Low | Confirmed, Fixed (Slice 4e) | HTTP API Validation | F-4e-19: Unescaped NUL (`\x00`) bytes in worker text fields (version, output, error) produced HTTP 500 on PostgreSQL; fixed by rejecting raw NUL bytes with HTTP 400 `INVALID_REQUEST`. | `TestAbuse_NULBytes` (`tests/abuse/errortext_test.go`) |
+| **SEC-050** | Informational | Withdrawn | Storage / Sweeper Lock Order | F-4e-20: Hypothesis that reversed sweeper lock order (M18) survives testing was withdrawn; `TestPostgresRepository_Sweeper_CanonicalLockOrder` kills M18 under `make test-db`. Recorded as withdrawn, not as a finding. | `TestPostgresRepository_Sweeper_CanonicalLockOrder` (`internal/storage/postgres/sweeper_test.go`) |
+| **SEC-051** | Medium | Confirmed, Fixed (Slice 4e) | Executor & Worker Text Bounds | F-4e-21: Truncation at 64 KiB boundary mid-rune caused JSON encoder expansion beyond 64 KiB, triggering coordinator 400 rejections and poison retry loops where every attempt was marked `LOST`; fixed with `ClampText` (rune-safe cut, U+FFFD replacement, `\n[truncated]` marker). | `TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation`, `TestClampText` (`tests/abuse/oversize_worker_test.go`, `internal/executor/truncate_test.go`) |
+| **SEC-052** | Low | Confirmed, Fixed (Slice 4e) | PostgreSQL Dispatch Tests | F-4e-22: Mutation removing `FOR UPDATE SKIP LOCKED` from `DispatchNextJob` survived test suites; fixed by adding `TestPostgresRepository_DispatchNextJob_SkipsLockedHead`. | `TestPostgresRepository_DispatchNextJob_SkipsLockedHead` (`internal/storage/postgres/dispatch_skiplocked_test.go`) |
+| **SEC-053** | Low | Confirmed, Fixed (Slice 4e) | Developer Tooling / Makefile | F-4e-23: `make test-security` guard verified test count only, allowing simultaneous test rename and addition to pass; fixed by comparing sorted test names against `tests/security-tests.list`. | Verified via Makefile target `test-security` |
+| **SEC-054** | Informational | Recorded | Worker Registration | F-4e-24: Worker `version` containing invalid UTF-8 bytes is repaired by Go JSON decoder to U+FFFD before database insertion; stored value is valid UTF-8. | `TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement` (`tests/abuse/workerversion_test.go`) |
+| **SEC-055** | Informational | Recorded | Worker Heartbeat | F-4e-25: Heartbeat payload accepts arbitrary `available_slots` integers; field is ignored by coordinator as capacity is computed dynamically from active attempts. | Confirmed by code reading (`internal/api/handlers.go`, `internal/storage/postgres/repository.go`) |
+| **SEC-056** | Medium | Confirmed, Fixed (Slice 4e) | Executor & Worker Validation | F-4e-26: Raw NUL bytes in task outputs or error strings were rejected by coordinator with HTTP 400, causing worker result drop and attempt `LOST` poison loop; fixed by having `ClampText` replace NUL bytes with `\uFFFD`. | `TestAbuse_WorkerResult_NULByteInOutput`, `TestClampText` (`tests/abuse/oversize_worker_test.go`, `internal/executor/truncate_test.go`) |
+| **SEC-057** | Medium | Confirmed, Fixed (Slice 4e) | Worker Result Delivery Protocol | F-4e-27: Coordinator validation rejections (HTTP 400 `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`) caused worker to drop results without renewal, leaving attempt running until lease expiry and burning all retries as `LOST`; fixed by worker fallback failure report (exit code 1, class `PERMANENT`). | `TestWorker_ResultRejected400_SendsOneFallbackFailureReport`, `TestAbuse_WorkerResult_RejectedResultBecomesFailedJob` (`internal/worker/client_test.go`, `tests/abuse/oversize_worker_test.go`) |
+| **SEC-058** | Informational | Confirmed, Handled (Slice 4e) | Worker Result Delivery Protocol | F-4e-28: Result body corrupted in transit (HTTP 400 `MALFORMED_JSON`) does not trigger fallback failure report, allowing at-least-once retry after lease expiration instead of falsely marking computation as permanently failed. | `TestWorker_ResultRejected400_MalformedJSON_NoFallback` (`internal/worker/client_test.go`) |
 
 ---
 
@@ -489,6 +517,81 @@ FAIL
 - **Impact**: In V1, only a single coordinator process is supported (ADR-0004). With multiple coordinators, a newly started coordinator instance would be in startup grace while an existing coordinator is actively sweeping, or one coordinator could experience an outage window while another does not.
 - **Remediation**: Revisit when multi-coordinator high availability is designed in future milestones, persisting sweeper grace state or electing an active sweeper leader.
 - **Verification**: Confirmed by code reading during P4-4c-a (builder finding F-4c-a-3 in P4-4c-a handoff, agreed by auditor in review).
+
+---
+
+### SEC-032: Half-Open Database Socket Causes Unbounded Request Hanging (F-4e-2)
+
+- **Finding**: A half-open database connection (which accepts bytes from the coordinator but never answers) caused all coordinator HTTP API requests touching the database to hang indefinitely without bound.
+- **Severity**: Medium
+- **Category**: Availability / Denial of Service / Connection Lifecycle
+- **Status**: Confirmed, Fixed (Slice 4e): `TestFault_DBOutage_HalfOpen` failed before the fix and passes after the fix (HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` returned after 8.0s; fast recovery 23ms to 115ms).
+- **Affected Component**: HTTP API Server (`internal/api/handlers.go`, `internal/api/server.go`)
+- **Preconditions**: A network partition or database host freeze leaves a TCP socket in a half-open state where the client can write request bytes but the database server never returns an answer.
+- **Impact**: Coordinator handler goroutines servicing incoming client requests remain blocked indefinitely waiting for the database, leaking goroutines and preventing API clients from receiving responses across all endpoints.
+- **Root Cause**: The coordinator HTTP request pipeline lacked an end-to-end context deadline on request handling.
+- **Remediation**: Added `requestDeadlineMiddleware` in `internal/api/handlers.go` enforcing a default 8-second context deadline (`RequestTimeout = 8 * time.Second` in `internal/api/server.go`). Upon deadline expiry, the handler aborts execution and returns HTTP 503 `SERVICE_UNAVAILABLE` with `Retry-After: 1` and an opaque error body.
+- **Regression Test**: `TestFault_DBOutage_HalfOpen` in `tests/faultinject/outage_test.go`.
+
+---
+
+### SEC-035: Lease Sweeper and Worker Reaper Loops Stall Indefinitely on Half-Open Database Connection (F-4e-5)
+
+- **Finding**: The coordinator's background lease sweeper loop and worker reaper loop ran repository operations without per-iteration context deadlines. A single half-open database connection stalled both loops forever, preventing expired leases from being reclaimed and unhealthy workers from being detected until the coordinator process was restarted.
+- **Severity**: High
+- **Category**: Reliability / Liveness / Deadlock
+- **Status**: Confirmed, Fixed (Slice 4e): `TestFault_Sweeper_ResumesAfterHalfOpenDatabase` stalled forever before the fix and resumes cleanly within 6.6s after database restoration after the fix.
+- **Affected Component**: Coordinator Background Loops (`internal/coordinator/service.go`, `internal/coordinator/sweeper.go`)
+- **Preconditions**: A half-open TCP socket between the coordinator and PostgreSQL.
+- **Impact**: Complete failure of cluster fault recovery: expired attempts are never marked `LOST` or retried, dead worker slots are never reclaimed, and task execution stalls indefinitely across the entire fleet until manual restart.
+- **Root Cause**: `LeaseSweeper.Run` in `internal/coordinator/sweeper.go` and `Service.StartReaper` in `internal/coordinator/service.go` invoked repository methods using the parent service context without per-tick deadlines.
+- **Remediation**: Introduced `BackgroundCallTimeout = 8 * time.Second` in `internal/coordinator/service.go`. Both `LeaseSweeper.Run` in `internal/coordinator/sweeper.go` and `StartReaper` in `internal/coordinator/service.go` now wrap each loop iteration with `context.WithTimeout(ctx, BackgroundCallTimeout)`.
+- **Regression Test**: `TestFault_Sweeper_ResumesAfterHalfOpenDatabase` in `tests/faultinject/outage_test.go`.
+
+---
+
+### SEC-051: Mid-Rune Truncation and JSON Expansion Triggers Worker Result Poison Loop (F-4e-21)
+
+- **Finding**: Task output exceeding 64 KiB cut at an arbitrary byte boundary in the middle of a multi-byte UTF-8 rune resulted in invalid trailing UTF-8 bytes. During JSON marshaling, the Go standard library replaced each invalid byte with the 3-byte replacement character `\uFFFD`, expanding the payload beyond the coordinator's strict 64 KiB limit on the wire. The coordinator rejected the result with HTTP 400 `OUTPUT_TOO_LARGE`. The worker treated the 400 rejection as terminal, dropped the result, and stopped lease renewals. Consequently, the attempt remained `RUNNING` until lease expiry, was swept to `LOST`, and repeated across subsequent attempts until `max_attempts` was exhausted, transitioning the job to `FAILED` with 0 results stored.
+- **Severity**: Medium
+- **Category**: Data Integrity / Protocol Encoding / Retry Exhaustion
+- **Status**: Confirmed, Fixed (Slice 4e): `TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation` failed before the fix with 3 attempts `LOST` and passes after the fix with 1 attempt `COMPLETED` and valid truncated output.
+- **Affected Component**: Executor and Worker Client (`internal/executor/truncate.go`, `internal/executor/executor.go`, `internal/worker/client.go`)
+- **Preconditions**: A task (including the built-in `echo` task) produces output near or exceeding 64 KiB with multi-byte runes near the truncation boundary.
+- **Impact**: Legitimate task outputs are rejected, worker compute is wasted across repeated lease expirations, and jobs fail permanently without storing any output or error details.
+- **Root Cause**: `Registry.Execute` performed a raw byte slice truncation (`out[:limit]`) without respecting rune boundaries, causing byte expansion upon JSON encoding.
+- **Remediation**: Implemented `ClampText` in `internal/executor/truncate.go`, which: (1) replaces raw NUL and invalid UTF-8 bytes with `\uFFFD`, (2) checks byte length against the limit, (3) cuts backward to a valid UTF-8 rune boundary if truncation is required, and (4) appends `\n[truncated]` while guaranteeing the total length does not exceed the limit. Applied to success and failure outputs in `internal/executor/executor.go` and `internal/worker/client.go`.
+- **Regression Test**: `TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation`, `TestAbuse_OversizeOutput_ErrorPathUncapped`, `TestClampText`.
+
+---
+
+### SEC-056: Raw NUL Bytes in Worker Output Trigger Result Rejection Poison Loop (F-4e-26)
+
+- **Finding**: A task returning a raw NUL byte (`\x00`) in its output or error string bypassed initial UTF-8 checks (since NUL is technically valid UTF-8). However, the coordinator HTTP API strictly rejects NUL bytes in worker text fields with HTTP 400 `INVALID_REQUEST` (SEC-049). Prior to the fix, the worker treated this 400 rejection as terminal, dropped the result without renewing the lease, and caused all attempts to expire as `LOST` until retry exhaustion.
+- **Severity**: Medium
+- **Category**: Data Sanitization / Poison Loop
+- **Status**: Confirmed, Fixed (Slice 4e): `TestAbuse_WorkerResult_NULByteInOutput` and `TestAbuse_WorkerResult_ErrorTextHostile` failed before the fix with attempts `LOST` and pass after the fix.
+- **Affected Component**: Executor Truncation (`internal/executor/truncate.go`)
+- **Preconditions**: A task execution emits raw NUL bytes in its stdout or error text.
+- **Impact**: Any task emitting NUL bytes enters an unrecoverable poison loop, exhausting all retry attempts and failing the job with 0 results stored.
+- **Root Cause**: `ClampText` initially only replaced invalid UTF-8 bytes, leaving valid ASCII control characters like NUL intact.
+- **Remediation**: Updated `ClampText` in `internal/executor/truncate.go` to replace all raw NUL bytes (`\x00`) with `\uFFFD` in the same pass as invalid UTF-8 bytes, measuring length after replacement and before rune-safe truncation.
+- **Regression Test**: `TestAbuse_WorkerResult_NULByteInOutput`, `TestAbuse_WorkerResult_ErrorTextHostile`, `TestClampText`.
+
+---
+
+### SEC-057: Worker Lacks Fallback Reporting on Deterministic Validation Rejection (F-4e-27)
+
+- **Finding**: If the coordinator rejected a result report with a deterministic HTTP 400 validation error (such as `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`), the worker client classified the 400 as non-retryable, stopped lease renewals, and abandoned the result. The attempt remained in `RUNNING` state until its lease expired, at which point the sweeper swept it to `LOST` and requeued it. The next worker picked up the job, executed the exact same task, produced the exact same rejected output, and the cycle repeated until `max_attempts` was exhausted.
+- **Severity**: Medium
+- **Category**: Worker Protocol / Distributed Error Recovery / Poison Loop
+- **Status**: Confirmed, Fixed (Slice 4e): `TestWorker_ResultRejected400_SendsOneFallbackFailureReport` and `TestAbuse_WorkerResult_RejectedResultBecomesFailedJob` verify that the job immediately transitions to `FAILED` on attempt 1 without burning retries.
+- **Affected Component**: Worker Client (`internal/worker/client.go` func `deliverResult`)
+- **Preconditions**: A task result is rejected by coordinator validation with HTTP 400 `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`.
+- **Impact**: Complete waste of cluster compute and delayed failure reporting across all retry attempts for a deterministically invalid result.
+- **Root Cause**: The worker had no fallback reporting mechanism to inform the coordinator of the execution failure when its primary result payload was rejected.
+- **Remediation**: Added a fallback reporting mechanism in `internal/worker/client.go` function `deliverResult`. When a result is rejected with HTTP 400 and error code `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`, the worker sends exactly one fallback failure report for the same attempt and lease (exit code 1, empty output, error class `PERMANENT`, error summary `result rejected by coordinator: HTTP 400 <code>`). Lease renewals continue until this fallback is delivered. If the fallback report is also rejected, the worker ceases delivery and exits without looping. `MALFORMED_JSON` is explicitly excluded from fallback triggers (SEC-058).
+- **Regression Test**: `TestWorker_ResultRejected400_SendsOneFallbackFailureReport`, `TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop`, `TestAbuse_WorkerResult_RejectedResultBecomesFailedJob`.
 
 ---
 

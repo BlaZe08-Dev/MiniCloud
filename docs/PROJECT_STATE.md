@@ -2,20 +2,32 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `main`
-- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, P4-03, P0-03, P4-T1, P4-T2, and P4-05 merged.
+- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, 4e (PR #29), P4-03, P0-03, P4-T1, P4-T2, P4-05, P4-06a (PR #30), and P4-06b merged/active.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Phase 4, Slice 4e — End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review (P4-4e, PR #29, `main` at `69396e5`):**
+  - Implemented 10 fault-injection test scenarios in `tests/faultinject/` covering blueprint scenarios FS-01 through FS-10.
+  - Implemented adversarial security attack test suite in `tests/abuse/` covering 18 attack vectors.
+  - Implemented defensive text clamping (`ClampText` in `internal/executor/truncate.go`), replacing NUL bytes and invalid UTF-8 sequences with `\uFFFD`, cutting cleanly at rune boundaries, and appending `\n[truncated]` to bound outputs to 64 KiB and error text to 10 KiB.
+  - Implemented worker fallback failure report in `internal/worker/client.go` on HTTP 400 validation rejection (`INVALID_REQUEST`, `OUTPUT_TOO_LARGE`), sending exactly one fallback report (exit 1, empty output, `PERMANENT`, citing the rejection) with ongoing renewals to avoid burn-out of attempt budgets; explicitly excluded `MALFORMED_JSON` to permit at-least-once retry upon transport corruption.
+  - Enforced `RequestTimeout` (8s) across all HTTP API requests in `internal/api/handlers.go` func `requestDeadlineMiddleware` and `BackgroundCallTimeout` (8s) per iteration on sweeper ticks and worker reaper cycles in `internal/coordinator/service.go`.
+  - Benchmarked work-poll database costs: ~20 round trips when claiming a job, 4 for empty poll, 5 for submit.
+  - Disclosed 28 security findings F-4e-1 to F-4e-28 registered as SEC-031 through SEC-058.
+- **Phase 4 Documentation Pass (P4-06a, PR #30, `main` at `92f9a73`):**
+  - Added permanent report file rule in `AGENTS.md` and `docs/agents/TASKS.md` requiring each agent to commit its final report to a new file `reports/<agent>/<TASK-ID>.md` at the repo root before sending its final message.
+  - Registered findings SEC-029 (destructive dev Makefile targets) and SEC-030 (container restart guard in `TestSecurity_PartD_LeakScan`).
+  - Imported review records and evidence for P4-4d.
+- **Phase 4 Documentation & Review Records Pass (P4-06b):**
+  - Registered findings SEC-031 through SEC-058 in `docs/security/findings.md` and `docs/PROJECT_STATE.md`.
+  - Updated `docs/protocol.md` and `docs/failure-model.md` with protocol timeouts, `ClampText` semantics, worker fallback protocol, replay 409 semantics, and work-poll database cost.
+  - Imported Gemini P4-4e audit records and evidence (`P4-4e-round1.md`, `P4-4e-round2.md`, evidence directories) with documented corrections.
 - **Phase 4 Documentation Pass (P4-05, PR #28, `main` at `c85a58f`):**
   - Updated Phase 4 documentation and protocol specs across ADR-0014, ADR-0015, `docs/protocol.md`, `docs/failure-model.md`, and `docs/state-machine.md`.
   - Byte-identical import of review records for P0-03 (rounds 2 and 3), P4-03, P4-4b, P4-4c-a, and P4-4c-b under `docs/agents/reviews/`.
   - Verified and recorded the five orchestrator decisions in `docs/phase4-plan.md` and registered findings SEC-025, SEC-026, SEC-027, and SEC-028.
-- **Workflow & Report File Rule (P4-06a):**
-  - Added permanent report file rule in `AGENTS.md` and `docs/agents/TASKS.md` requiring each agent to commit its final report to a new file `reports/<agent>/<TASK-ID>.md` at the repo root before sending its final message.
-- **Dispatch Poll Database Cost Note:**
-  - A work poll costs about 20 database round trips (measured by the 4e slice: 20 client-to-database flights for a work poll, 4 for an empty poll, 5 for a submit; reported by the 4e builder, not yet merged).
 - **Citation Checker Scoping for Frozen Review Records (P4-T2, PR #27, `main` at `1e20143`):**
   - Scoped the citation checker's Rule A markdown link check to live documents, allowing historical review records (`docs/agents/reviews/*.md`) to be preserved as immutable records per ADR-0012 and SEC-005.
   - Enabled byte-identical import of historical review records (such as P0-03 round 2 and round 3) without requiring modifications to frozen audit artifacts.
@@ -255,7 +267,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - Automated fault injection suite covering all 10 blueprint scenarios (FS-01 through FS-10).
   - Model-based property tests against real storage backends (>= 1,000 iterations).
   - Formal security review per ADR-0012: SEC-004 accepted risks, renewal flood boundaries, late result isolation.
-- **Exit Criteria:** All 10 fault scenarios verified with concrete logs; zero invariant violations across property test transitions; full test suite passes `-race -count=1`; Phase 4 security gate certified before release tagging. Mandatory mutation proofs for stale attempt rejection and sweeper lock ordering.
+- **Exit Criteria:** All 10 fault scenarios verified with concrete logs; zero invariant violations across property test transitions; full test suite passes `-race -count=1`; Phase 4 security gate certified before release tagging. Mandatory mutation proofs for stale attempt rejection and sweeper lock ordering. (**SATISFIED**, PR #29, merge `69396e5`)
 
 ---
 
@@ -273,11 +285,15 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in memory (`AvailableSlots`) and in SQL (`worker_capacity` view) rather than relying on mutable increment/decrement counters (**Completed in Slice 3a**; persisted in 3b/3c).
 4. **Honest FIFO Pull & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Dispatch logs record real facts only. See [Section 5](#5-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
 5. **Lease Expiry & Automated Requeue:** Dead workers' expired attempts are reaped by the coordinator sweeper (`internal/coordinator/sweeper.go` using repository `SweepExpiredLeases`), transitioning attempts to `LOST` and rescheduling retries (`RETRYING` with exponential backoff) up to `max_attempts` (Phase 4 slices 4b, 4c-a, 4d; see ADR-0014 and ADR-0015).
+6. **Make test-security Shared Database Guard**: `make test-security` prints 47 failures when run against the shared database (`minicloud_test`). Follow-up: add check to print one clear line refusing execution on the shared database. Note: `make test-security` must be run from a worktree with its own `minicloud_<agent>_test` database; `make test-db` is the suite for the shared one.
+7. **CLI Output Sanitization (F-4e-18, OPEN)**: CLI `cmd/mc` lacks ANSI terminal escape sequence sanitization for untrusted task outputs and error strings.
+8. **Rate and Connection Limits (F-4e-17, OPEN)**: HTTP endpoints lack rate limiting and connection bounding (accepted risk under SEC-004 until V3).
+9. **Next Slices (Post-Phase 4)**: Phase 4 core is complete. Next milestone is the Post-Phase 4 Assignment-Based Round-Robin Slice (Candidate A pre-assignment with bounded accept window) required before V1 release tagging.
 
 ---
 
 ## 7. Known Defects, Limitations & Open Security Findings
-- **Fixed Security Findings (Slice 3d, Slice 4a, P4-T1):**
+- **Fixed Security Findings (Slice 3d, Slice 4a, P4-T1, Slice 4e):**
   - **SEC-003 (Informational, Confirmed, Fixed):** Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`) with explicit `--env-file .env` passed in Makefile and test helpers, eliminating blank password startup risk.
   - **SEC-007 (Low, Fixed):** Unmapped repository and driver errors mapped to HTTP 500 `INTERNAL_ERROR` with opaque message; sanitized server logging; fixed malformed JSON message (`internal/api/handlers.go:19-75`). Tested in `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_OutageMapping_503RetryAfterOpaqueBody`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go`).
   - **SEC-008 (Low, Fixed):** Worker IDs and route parameters strictly bounded (<= 128 chars) and validated against `^[a-zA-Z0-9_-]+$` at API boundary (`internal/api/handlers.go:27-39,105-248`). Tested in `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go`).
@@ -293,6 +309,19 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-022 (Medium, Fixed in slice 4a (executed)):** Duplicate CancelJob on CANCEL_REQUESTED marks job CANCELLED prematurely while attempt remains RUNNING; remediated as idempotent HTTP 200 no-op under row lock and terminal commit attempt closing (`internal/storage/inmemory.go` func `CancelJob`, `internal/storage/postgres/repository.go` func `CancelJob`). Tested in `TestReviewP400_SEC022_DoubleCancelLeaksWorkerSlot` and `TestConformance_CancelJob_IdempotentCancelRequested`.
   - **SEC-023 (Low, Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading of the guard and the test):** `TestMigrator_PreExistingInvalidRow_ValidationFails` lacked `_test` database-name guardrail; resolved by `isTestDatabaseName` in `internal/storage/postgres/dbname_guard_test.go` and enforced in `internal/storage/postgres/migrator_test.go` func `TestMigrator_PreExistingInvalidRow_ValidationFails`. Tested in `TestIsTestDatabaseName` and `TestEveryTestURLConsumerHasNameGuard`.
   - **SEC-030 (Low, Resolved by P4-T1 (PR #26, merge 9fbbbcf); confirmed by code reading):** `TestSecurity_PartD_LeakScan` stopped the shared container without an opt-in safety guard; resolved by adding `requireContainerControl(t)` to `TestSecurity_PartD_LeakScan` in `tests/integration/part_d_security_test.go` and verified by AST scanner `TestEveryContainerRestartingTestCallsTheGuard` in `tests/integration/container_guard_unit_test.go`.
+  - **SEC-032 (Medium, Fixed in Slice 4e, PR #29):** A half-open database connection accepting bytes and never answering made coordinator API requests hang indefinitely; fixed via `requestDeadlineMiddleware` enforcing 8s `RequestTimeout` (`internal/api/handlers.go`). Tested in `TestFault_DBOutage_HalfOpen` (`tests/faultinject/outage_test.go`).
+  - **SEC-035 (High, Fixed in Slice 4e, PR #29):** Lease sweeper and worker reaper background loops lacked deadlines, causing them to stall forever on a half-open database connection; fixed via 8s `BackgroundCallTimeout` (`internal/coordinator/service.go`). Tested in `TestFault_Sweeper_ResumesAfterHalfOpenDatabase` (`tests/faultinject/background_test.go`).
+  - **SEC-041 (Low, Fixed in Slice 4e, PR #29):** Oversized `task_type` (up to 1 MiB) reflected in HTTP 400 error body; fixed by validating task type charset and length prior to error generation (`internal/coordinator/service.go`). Tested in `TestAbuse_OversizedBodies` (`tests/abuse/abuse_test.go`).
+  - **SEC-044 (Low, Fixed in Slice 4e, PR #29):** In-memory repository stored attempt error strings exceeding 10,240 bytes (violating PostgreSQL parity); fixed by enforcing `MaxErrorSizeBytes` (`internal/storage/inmemory.go`). Tested in `TestAbuse_OversizeErrorText_RetryPath` (`tests/abuse/errortext_test.go`).
+  - **SEC-045 (Low, Fixed in Slice 4e, PR #29):** Output exceeding 64 KiB mapped to HTTP 500 `INTERNAL_ERROR` on PostgreSQL; fixed to return HTTP 400 `OUTPUT_TOO_LARGE` and clamped in in-memory repository (`internal/storage/postgres/repository.go`, `internal/storage/inmemory.go`). Tested in `TestAbuse_OversizeErrorText_RetryPath` (`tests/abuse/errortext_test.go`).
+  - **SEC-046 (Low, Fixed in Slice 4e, PR #29):** `exit_code` values outside signed 32-bit integer range caused SQL integer overflow on PostgreSQL; fixed with explicit boundary check (`internal/api/handlers.go`). Tested in `TestAbuse_NumericBounds` (`tests/abuse/abuse_test.go`).
+  - **SEC-049 (Low, Fixed in Slice 4e, PR #29):** Unescaped NUL (`\x00`) bytes in worker text fields (version, output, error) produced HTTP 500 on PostgreSQL; fixed by rejecting raw NUL bytes with HTTP 400 `INVALID_REQUEST` (`internal/api/handlers.go`). Tested in `TestAbuse_NULBytes` (`tests/abuse/errortext_test.go`).
+  - **SEC-051 (Medium, Fixed in Slice 4e, PR #29):** Truncation at 64 KiB boundary mid-rune caused JSON encoder expansion beyond 64 KiB, triggering coordinator 400 rejections and poison retry loops where every attempt was marked `LOST`; fixed with `ClampText` in `internal/executor/truncate.go` (rune-safe cut, U+FFFD replacement, `\n[truncated]` marker). Tested in `TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation`, `TestClampText` (`tests/abuse/oversize_worker_test.go`, `internal/executor/truncate_test.go`).
+  - **SEC-052 (Low, Fixed in Slice 4e, PR #29):** Mutation removing `FOR UPDATE SKIP LOCKED` from `DispatchNextJob` survived test suites; fixed by adding `TestPostgresRepository_DispatchNextJob_SkipsLockedHead`. Tested in `TestPostgresRepository_DispatchNextJob_SkipsLockedHead` (`internal/storage/postgres/dispatch_skiplocked_test.go`).
+  - **SEC-053 (Low, Fixed in Slice 4e, PR #29):** `make test-security` guard verified test count only, allowing simultaneous test rename and addition to pass; fixed by comparing sorted test names against `tests/security-tests.list` (verified via Makefile target `test-security`).
+  - **SEC-056 (Medium, Fixed in Slice 4e, PR #29):** Raw NUL bytes in task outputs or error strings were rejected by coordinator with HTTP 400, causing worker result drop and attempt `LOST` poison loop; fixed by having `ClampText` replace NUL bytes with `\uFFFD` (`internal/executor/truncate.go`). Tested in `TestAbuse_WorkerResult_NULByteInOutput`, `TestClampText` (`tests/abuse/oversize_worker_test.go`, `internal/executor/truncate_test.go`).
+  - **SEC-057 (Medium, Fixed in Slice 4e, PR #29):** Coordinator validation rejections (HTTP 400 `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`) caused worker to drop results without renewal, leaving attempt running until lease expiry and burning all retries as `LOST`; fixed by worker fallback failure report (exit code 1, class `PERMANENT`; `internal/worker/client.go` func `deliverResult`). Tested in `TestWorker_ResultRejected400_SendsOneFallbackFailureReport`, `TestAbuse_WorkerResult_RejectedResultBecomesFailedJob` (`internal/worker/client_test.go`, `tests/abuse/oversize_worker_test.go`).
+  - **SEC-058 (Informational, Handled in Slice 4e, PR #29):** Result body corrupted in transit (HTTP 400 `MALFORMED_JSON`) does not trigger fallback failure report, allowing at-least-once retry after lease expiration instead of falsely marking computation as permanently failed (`internal/worker/client.go` func `isValidationRejection`). Tested in `TestWorker_ResultRejected400_MalformedJSON_NoFallback` (`internal/worker/client_test.go`).
 - **Open Security Findings (Not Authorized Yet / In Backlog):**
   - **SEC-004 (Medium, Accepted Risk until V3):** All HTTP API and worker coordination endpoints are unauthenticated; mitigated by default localhost binding (`127.0.0.1:8080`). Phase 4 renewal flood mitigation is designed (token auth, per-attempt state short-circuit, indexed lookup on primary key, statement_timeout) but unauthenticated endpoints and missing application-level rate limiting are accepted risks under SEC-004 for V1.
   - **SEC-006 (Informational, Open):** Test helper builds `CREATE SCHEMA` / `DROP SCHEMA` with `fmt.Sprintf` from in-process generated hex string (`internal/storage/postgres/testhelper_test.go:52-61`).
@@ -305,6 +334,21 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-027 (Low, Open, within SEC-004 until V3):** `RenewLease` acquires job row lock before validating attempt lease token, allowing unauthenticated caller with known attempt ID to serialize against legitimate operations (`internal/storage/postgres/leases.go`, `internal/api/handlers.go`).
   - **SEC-028 (Informational, Open):** Sweeper startup and outage grace windows are process-local; multiple coordinator processes against the same database would have independent grace states (`internal/coordinator/sweeper.go`).
   - **SEC-029 (Informational, Open; confirmed by code reading):** The dev Makefile targets `db-reset-test` and `db-down` are destructive and take no confirmation (targets `db-reset-test` and `db-down` in `Makefile`).
+  - **SEC-031 (Informational, Open):** An unknown attempt ID under an existing job answers HTTP 409 `STALE_ATTEMPT_REJECTED`, not HTTP 404 `ATTEMPT_NOT_FOUND`. Tested in `TestFault_StaleTokenMatrix` (`tests/faultinject/core_test.go`).
+  - **SEC-033 (Low, Accepted Risk in V1):** After a half-open partition heals, connection pool recovery takes up to approximately 15 s (measured 15.07 s) due to pgx internal `asyncClose` deadline. Documented limit. Tested in `TestFault_DBOutage_HalfOpen_RecoveryTime` (`tests/faultinject/deadline_test.go`).
+  - **SEC-034 (Informational, Recorded):** Graceful shutdown of coordinator with a half-open database connection and an in-flight request took 17.1 s (bounded, not unbounded). Tested in `TestFault_CoordinatorShutdown_HalfOpenDatabase_Bounded` (`tests/faultinject/shutdown_test.go`).
+  - **SEC-036 (Informational, Recorded):** `PollWork` and `CommitResult` hold a single service mutex across database calls, serializing poll and commit operations during hung database calls until request deadline. Tested in `TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled` (`tests/faultinject/deadline_test.go`).
+  - **SEC-037 (Informational, Recorded):** A work poll costs 20 database network flights, an empty poll 4, and a job submission 5. High-latency database connections (>400ms round trips) risk hitting the 8s request deadline. Tested in `TestFault_PollCost_DatabaseRoundTrips` (`tests/faultinject/deadline_test.go`).
+  - **SEC-038 (Informational, Open):** Trailing data after the first valid JSON value in request body is ignored by Go JSON decoder; only first value is processed. Tested in `TestAbuse_TrailingDuplicateUnknownFields` (`tests/abuse/abuse_test.go`).
+  - **SEC-039 (Informational, Open):** Duplicate JSON keys in request payload: last value wins; unknown keys are ignored and never stored or echoed. Tested in `TestAbuse_TrailingDuplicateUnknownFields` (`tests/abuse/abuse_test.go`).
+  - **SEC-040 (Informational, Open):** Route responses for 404 Not Found and 405 Method Not Allowed return plain text rather than standard JSON error envelope. Tested in `TestAbuse_MethodsAndPaths` (`tests/abuse/transport_test.go`).
+  - **SEC-042 (Informational, Open):** `Content-Type: application/json` is not strictly enforced on request endpoints. Tested in `TestAbuse_ContentTypes` (`tests/abuse/abuse_test.go`).
+  - **SEC-043 (Informational, Open):** Request bodies exceeding 1 MiB return HTTP 400 `MALFORMED_JSON` instead of HTTP 413 `PAYLOAD_TOO_LARGE` due to `http.MaxBytesReader` error wrapping. Tested in `TestAbuse_OversizedBodies` (`tests/abuse/abuse_test.go`).
+  - **SEC-047 (Low, Open, within SEC-004):** Coordinator lacks application-level rate limiting, connection caps, or job queue caps; `GET /v1/workers` is unpaginated (F-4e-17). Tested in `TestAbuse_MissingLimits`, `TestAbuse_ManyConnections` (`tests/abuse/resources_test.go`, `tests/abuse/transport_test.go`).
+  - **SEC-048 (Low, Open):** `mc get` and `mc attempts` print worker-supplied error strings raw to terminal without escaping ANSI control codes or escapes (F-4e-18); reachable by unauthenticated workers under SEC-004. Tested in `TestAbuse_MCOutput_HostileErrorText` (`tests/abuse/resources_test.go`).
+  - **SEC-050 (Informational, Withdrawn):** Hypothesis that reversed sweeper lock order (M18) survives testing was withdrawn; `TestPostgresRepository_Sweeper_CanonicalLockOrder` kills M18 under `make test-db`. Recorded as withdrawn, not as a finding. Tested in `TestPostgresRepository_Sweeper_CanonicalLockOrder` (`internal/storage/postgres/sweeper_test.go`).
+  - **SEC-054 (Informational, Recorded):** Worker `version` containing invalid UTF-8 bytes is repaired by Go JSON decoder to U+FFFD before database insertion; stored value is valid UTF-8. Tested in `TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement` (`tests/abuse/workerversion_test.go`).
+  - **SEC-055 (Informational, Recorded):** Heartbeat payload accepts arbitrary `available_slots` integers; field is ignored by coordinator as capacity is computed dynamically from active attempts. Confirmed by code reading (`internal/api/handlers.go`, `internal/storage/postgres/repository.go`).
 - **Distributed & Architectural Limitations:**
   - PostgreSQL repository and coordinator durable dispatch are fully wired (`fifo_pull`).
   - Dead workers' jobs have their leases reaped by the coordinator sweeper once expired (`SweepExpiredLeases`), transitioning the attempt to `LOST` and scheduling retries (`RETRYING`) up to `max_attempts` (Phase 4 slices 4b–4d; see ADR-0014 and ADR-0015).
