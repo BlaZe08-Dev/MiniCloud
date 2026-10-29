@@ -185,6 +185,11 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 		return nil, domain.ErrPayloadTooLarge
 	}
 
+	// A task name outside the allowlist character set and length is rejected without being echoed
+	// back in the error message (F-4e-11).
+	if !isValidTaskName(taskType) {
+		return nil, domain.ErrUnknownTaskType
+	}
 	task, err := s.executorReg.Get(taskType)
 	if err != nil {
 		return nil, err

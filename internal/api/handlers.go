@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"regexp"
@@ -394,6 +395,12 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidIdentifier(req.WorkerID) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+	// attempts.exit_code is a 32-bit column; a wider value would surface as an unmapped driver
+	// error and a 500 (F-4e-16).
+	if req.ExitCode < math.MinInt32 || req.ExitCode > math.MaxInt32 {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "exit_code out of range")
 		return
 	}
 

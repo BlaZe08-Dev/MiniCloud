@@ -1,0 +1,118 @@
+=== RUN   TestAbuse_MalformedBodies
+=== RUN   TestAbuse_MalformedBodies/memory
+2026/10/29 15:19:26 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:26 INFO job submitted and queued job_id=job_1_2baffacf9509 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:26 INFO job dispatched to worker job_id=job_1_2baffacf9509 attempt_id=att_1_76239115f49d attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAbuse_MalformedBodies/postgres
+2026/10/29 15:19:27 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_2_36e8c42eabf3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job dispatched to worker job_id=job_2_36e8c42eabf3 attempt_id=att_job_2_36e8c42eabf3_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAbuse_MalformedBodies (0.51s)
+    --- PASS: TestAbuse_MalformedBodies/memory (0.03s)
+    --- PASS: TestAbuse_MalformedBodies/postgres (0.48s)
+=== RUN   TestAbuse_TrailingDuplicateUnknownFields
+=== RUN   TestAbuse_TrailingDuplicateUnknownFields/memory
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_3_9d816bd89687 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_4_56769a2a0719 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_5_1a280134d1cc task_type=sleep state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_6_11bb845f7f74 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAbuse_TrailingDuplicateUnknownFields/postgres
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_7_78ca00fb1040 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_8_b4f601f622c5 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_9_3df0092399dc task_type=sleep state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_10_3b3ce6df27c4 task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestAbuse_TrailingDuplicateUnknownFields (0.37s)
+    --- PASS: TestAbuse_TrailingDuplicateUnknownFields/memory (0.00s)
+    --- PASS: TestAbuse_TrailingDuplicateUnknownFields/postgres (0.37s)
+=== RUN   TestAbuse_ContentTypes
+=== RUN   TestAbuse_ContentTypes/memory
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_11_b28191beded0 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_12_6a3a431ae4b9 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_13_c087d16e8718 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_14_627bdb7075f1 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_15_2d2fde80721f task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:27 INFO job submitted and queued job_id=job_16_8bfa21bd55e3 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAbuse_ContentTypes/postgres
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_17_8b19f178da8b task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_18_efcd932a579c task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_19_90b33ee125de task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_20_bc39af9a3dc2 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_21_3a79459363cd task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_22_12633c170409 task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestAbuse_ContentTypes (0.42s)
+    --- PASS: TestAbuse_ContentTypes/memory (0.00s)
+    --- PASS: TestAbuse_ContentTypes/postgres (0.42s)
+=== RUN   TestAbuse_NumericBounds
+=== RUN   TestAbuse_NumericBounds/memory
+2026/10/29 15:19:28 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_23_b87191a872e2 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_23_b87191a872e2 attempt_id=att_1_31e66eea1170 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_23_b87191a872e2 attempt_id=att_1_31e66eea1170 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_24_2305a90db508 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_24_2305a90db508 attempt_id=att_2_4743ac078ee4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_24_2305a90db508 attempt_id=att_2_4743ac078ee4 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_25_6be36251eb46 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_25_6be36251eb46 attempt_id=att_3_b5018f5928f4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_25_6be36251eb46 attempt_id=att_3_b5018f5928f4 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_26_0098d82eef5a task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_26_0098d82eef5a attempt_id=att_4_9e417b7f4269 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_26_0098d82eef5a attempt_id=att_4_9e417b7f4269 final_state=FAILED exit_code=-1 error_class=PERMANENT
+=== RUN   TestAbuse_NumericBounds/postgres
+2026/10/29 15:19:28 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_27_c16a19ee72db task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_27_c16a19ee72db attempt_id=att_job_27_c16a19ee72db_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_27_c16a19ee72db attempt_id=att_job_27_c16a19ee72db_1 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_28_c42ba14505b8 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_28_c42ba14505b8 attempt_id=att_job_28_c42ba14505b8_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_28_c42ba14505b8 attempt_id=att_job_28_c42ba14505b8_1 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_29_c4364b50bced task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_29_c4364b50bced attempt_id=att_job_29_c4364b50bced_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_29_c4364b50bced attempt_id=att_job_29_c4364b50bced_1 final_state=FAILED exit_code=1 error_class=PERMANENT
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_30_a5f2490b77c8 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:19:28 INFO job dispatched to worker job_id=job_30_a5f2490b77c8 attempt_id=att_job_30_a5f2490b77c8_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:28 INFO job result committed job_id=job_30_a5f2490b77c8 attempt_id=att_job_30_a5f2490b77c8_1 final_state=FAILED exit_code=-1 error_class=PERMANENT
+--- PASS: TestAbuse_NumericBounds (0.53s)
+    --- PASS: TestAbuse_NumericBounds/memory (0.01s)
+    --- PASS: TestAbuse_NumericBounds/postgres (0.52s)
+=== RUN   TestAbuse_OversizedBodies
+=== RUN   TestAbuse_OversizedBodies/memory
+2026/10/29 15:19:28 INFO job submitted and queued job_id=job_31_9b61a7231aa0 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAbuse_OversizedBodies/postgres
+2026/10/29 15:19:29 INFO job submitted and queued job_id=job_32_b744c04c94f6 task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestAbuse_OversizedBodies (1.47s)
+    --- PASS: TestAbuse_OversizedBodies/memory (0.52s)
+    --- PASS: TestAbuse_OversizedBodies/postgres (0.94s)
+=== RUN   TestAbuse_DeepNesting
+=== RUN   TestAbuse_DeepNesting/memory
+2026/10/29 15:19:30 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:30 INFO job submitted and queued job_id=job_33_66161b2e0bce task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAbuse_DeepNesting/postgres
+2026/10/29 15:19:30 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:30 INFO job submitted and queued job_id=job_34_e9060b1ed1e4 task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestAbuse_DeepNesting (1.46s)
+    --- PASS: TestAbuse_DeepNesting/memory (0.52s)
+    --- PASS: TestAbuse_DeepNesting/postgres (0.94s)
+=== RUN   TestAbuse_OversizeErrorText_RetryPath
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/memory
+2026/10/29 15:19:31 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:31 INFO job submitted and queued job_id=job_35_8605a5659696 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:31 INFO job dispatched to worker job_id=job_35_8605a5659696 attempt_id=att_1_97f55576ac58 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:31 INFO job result committed job_id=job_35_8605a5659696 attempt_id=att_1_97f55576ac58 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 15:19:31 INFO job dispatched to worker job_id=job_35_8605a5659696 attempt_id=att_2_a5d070710086 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:31 INFO job result committed job_id=job_35_8605a5659696 attempt_id=att_2_a5d070710086 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/10/29 15:19:31 INFO job submitted and queued job_id=job_36_319212b56a82 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:19:31 INFO job dispatched to worker job_id=job_36_319212b56a82 attempt_id=att_3_bbd3195d0ea7 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/postgres
+2026/10/29 15:19:31 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:19:31 INFO job submitted and queued job_id=job_37_c44870b1eec3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:19:31 INFO job dispatched to worker job_id=job_37_c44870b1eec3 attempt_id=att_job_37_c44870b1eec3_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:32 INFO job result committed job_id=job_37_c44870b1eec3 attempt_id=att_job_37_c44870b1eec3_1 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 15:19:32 INFO job dispatched to worker job_id=job_37_c44870b1eec3 attempt_id=att_job_37_c44870b1eec3_2 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:19:32 INFO job result committed job_id=job_37_c44870b1eec3 attempt_id=att_job_37_c44870b1eec3_2 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/10/29 15:19:32 INFO job submitted and queued job_id=job_38_0440805c26e5 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:19:32 INFO job dispatched to worker job_id=job_38_0440805c26e5 attempt_id=att_job_38_0440805c26e5_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAbuse_OversizeErrorText_RetryPath (0.66s)
+    --- PASS: TestAbuse_OversizeErrorText_RetryPath/memory (0.07s)
+    --- PASS: TestAbuse_OversizeErrorText_RetryPath/postgres (0.59s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	5.438s
