@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index c6efaf9..96560f7 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -840,7 +840,7 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
+ 		  AND task_type = ANY($1::text[])
+ 		ORDER BY created_at ASC, id ASC
+ 		LIMIT 1
+-		FOR UPDATE SKIP LOCKED;
++		FOR UPDATE;
+ 	`
+ 	var (
+ 		job      domain.Job

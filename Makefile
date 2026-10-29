@@ -76,18 +76,29 @@ test-db:
 
 # P4-4e executed fault-injection and API-abuse security suite, against the .env test database only.
 # The fault proxy simulates every outage; this target never touches the shared container and never
-# sets the container-control variables. The -list check fails the target if the pattern matches a
-# different number of tests than expected (a rename would otherwise pass silently).
+# sets the container-control variables. The sorted names printed by go test -list for the pattern
+# must equal tests/security-tests.list exactly: a count alone would stay green when one test is
+# renamed and another added, and go test -run exits 0 for a pattern that matches nothing. On a
+# difference the target prints the missing and the extra names and fails. After adding, removing or
+# renaming a security test, regenerate the list with:
+#   env -u MINICLOUD_TEST_DATABASE_URL go test -list '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > tests/security-tests.list
 SECURITY_TESTS := ^(TestFault_|TestAbuse_)
-SECURITY_TEST_COUNT := 44
+SECURITY_TEST_LIST := tests/security-tests.list
 
 test-security:
 	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+	@if [ ! -f $(SECURITY_TEST_LIST) ]; then echo "$(SECURITY_TEST_LIST) missing" >&2; exit 1; fi
 	@set -e; \
 	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
 	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
-	N=$$(env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/ | grep -c '^Test' || true); \
-	if [ "$$N" != "$(SECURITY_TEST_COUNT)" ]; then echo "FALSE-GREEN GUARD: pattern '$(SECURITY_TESTS)' lists $$N tests, expected $(SECURITY_TEST_COUNT)" >&2; exit 1; fi; \
+	ACT=$$(mktemp); trap 'rm -f "$$ACT"' EXIT; \
+	env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > "$$ACT" || true; \
+	if ! diff -q $(SECURITY_TEST_LIST) "$$ACT" >/dev/null; then \
+		echo "FALSE-GREEN GUARD: pattern '$(SECURITY_TESTS)' does not match $(SECURITY_TEST_LIST)" >&2; \
+		echo "missing (in the list, not found by go test -list):" >&2; LC_ALL=C comm -23 $(SECURITY_TEST_LIST) "$$ACT" | sed 's/^/  /' >&2; \
+		echo "extra (found by go test -list, not in the list):" >&2; LC_ALL=C comm -13 $(SECURITY_TEST_LIST) "$$ACT" | sed 's/^/  /' >&2; \
+		exit 1; \
+	fi; \
 	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -timeout 20m -run '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/
 
 # DANGEROUS: runs the tests that stop and start the SHARED minicloud-postgres container.
