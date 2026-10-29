@@ -273,3 +273,18 @@ func TestAbuse_WorkerResult_RejectedResultBecomesFailedJob(t *testing.T) {
 		}
 	})
 }
+
+// TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho is case 2 with the built-in echo, which CAN return
+// invalid UTF-8: json.Valid accepts raw non-UTF-8 bytes inside a string, and for a payload that is
+// not an object echo returns the payload text as is. A raw NUL byte cannot get there (json.Valid
+// rejects control characters), so the NUL case needs a test task (TestAbuse_WorkerResult_NULByteInOutput).
+// Required: the job ends SUCCEEDED and the stored output holds U+FFFD instead of the raw bytes.
+func TestAbuse_WorkerResult_InvalidUTF8ViaBuiltinEcho(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r, job, elapsed := runOversizeJob(t, kind, nil, "\"a\xffb\"")
+		requireClean(t, kind, r, job, elapsed, domain.StateSucceeded)
+		if out := r.Attempts(job)[0].Output; out != "\"a�b\"" {
+			t.Errorf("[%s] stored output %q, want %q", kind, out, "\"a�b\"")
+		}
+	})
+}
