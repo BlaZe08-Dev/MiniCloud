@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -238,6 +239,49 @@ func CollectFileLineCounts(fsys fs.FS) (map[string]int, error) {
 	return counts, err
 }
 
+// frozenReviewDir holds audit records that are frozen historical evidence. They quote
+// text from other documents verbatim (for example README links written relative to the
+// repository root), so their markdown link targets cannot be resolved relative to the
+// record itself. Rule A skips link-target existence for these files only; every other
+// rule and every other directory is checked as before.
+const frozenReviewDir = "docs/agents/reviews/"
+
+// IsFrozenReviewRecord reports whether rel (a slash path as produced by fs.WalkDir) is a
+// regular file directly or transitively inside frozenReviewDir. The match is on the exact
+// directory prefix including the trailing slash (so docs/agents/reviews-old/ does not
+// match), requires an already-clean path (so ../ and ./ forms do not match), and refuses
+// any path with a symlink in it, so a link cannot place a live file into the directory.
+func IsFrozenReviewRecord(fsys fs.FS, rel string) bool {
+	if rel != path.Clean(rel) || !strings.HasPrefix(rel, frozenReviewDir) {
+		return false
+	}
+	parts := strings.Split(rel, "/")
+	for i := range parts {
+		dir := "."
+		if i > 0 {
+			dir = strings.Join(parts[:i], "/")
+		}
+		entries, err := fs.ReadDir(fsys, dir)
+		if err != nil {
+			return false
+		}
+		found := false
+		for _, e := range entries {
+			if e.Name() == parts[i] {
+				if e.Type()&fs.ModeSymlink != 0 {
+					return false
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 func fileExists(fsys fs.FS, path string) bool {
 	clean := filepath.ToSlash(filepath.Clean(path))
 	clean = strings.TrimPrefix(clean, "./")
@@ -255,6 +299,7 @@ func CheckRuleA(fsys fs.FS, allowlist Allowlist) []Violation {
 
 	for _, docRel := range docFiles {
 		docDir := filepath.Dir(docRel)
+		frozen := IsFrozenReviewRecord(fsys, docRel)
 		content, err := fs.ReadFile(fsys, docRel)
 		if err != nil {
 			continue
@@ -263,8 +308,11 @@ func CheckRuleA(fsys fs.FS, allowlist Allowlist) []Violation {
 		for i, line := range lines {
 			lineNum := i + 1
 
-			// 1. Markdown link targets: [text](target)
+			// 1. Markdown link targets: [text](target). Skipped for frozen review records.
 			for _, m := range linkRe.FindAllStringSubmatch(line, -1) {
+				if frozen {
+					break
+				}
 				target := m[2]
 				if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "mailto:") {
 					continue
