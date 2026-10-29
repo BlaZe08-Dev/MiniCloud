@@ -303,6 +303,13 @@ func (h *Handler) HandleRegisterWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PostgreSQL text cannot hold a NUL byte; reject it for every backend rather than surface a
+	// driver error as a 500 (F-4e-19).
+	if strings.ContainsRune(worker.Version, 0) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "version must not contain NUL bytes")
+		return
+	}
+
 	if err := h.coord.RegisterWorker(r.Context(), &worker); err != nil {
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)
@@ -395,6 +402,10 @@ func (h *Handler) HandleReportResult(w http.ResponseWriter, r *http.Request) {
 
 	if !isValidIdentifier(req.WorkerID) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
+		return
+	}
+	if strings.ContainsRune(req.Output, 0) || strings.ContainsRune(req.Error, 0) || strings.ContainsRune(req.ErrorClassification, 0) {
+		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "output and error must not contain NUL bytes")
 		return
 	}
 	// attempts.exit_code is a 32-bit column; a wider value would surface as an unmapped driver

@@ -244,7 +244,7 @@ func mcRun(t *testing.T, url string, args ...string) string {
 	return string(out)
 }
 
-const hostileError = "\x1b[2J\x1b[31mRED\x1b[0m\x1b]0;pwned-title\x07 first line\r\nFAKE: Result: Exit Code: 0\x00\x08\x08\x08tail"
+const hostileError = "\x1b[2J\x1b[31mRED\x1b[0m\x1b]0;pwned-title\x07 first line\r\nFAKE: Result: Exit Code: 0\x01\x08\x08\x08tail"
 
 // TestAbuse_HostileErrorText_API: the API itself carries the hostile text safely: JSON escapes every
 // control character, so no raw control byte is ever served, and the stored text is bounded.
