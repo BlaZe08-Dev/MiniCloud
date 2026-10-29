@@ -1,0 +1,36 @@
+=== RUN   TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled
+2026/10/29 15:02:31 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:02:31 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:02:31 INFO job submitted and queued job_id=job_1_97d90a6a93f5 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:02:39 ERROR database outage or connection failure err="timeout: context deadline exceeded"
+2026/10/29 15:02:39 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:02:39 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:02:39 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:02:39 ERROR database outage or connection failure err="context deadline exceeded"
+    deadline_test.go:135: all hung requests answered 8.308871042s after the fault started
+    deadline_test.go:138: healthz (no database)                          200 in 0s
+    deadline_test.go:138: poll #1 (hangs holding the service mutex)      503 in 8.01s
+    deadline_test.go:138: poll #2 (queued behind the mutex)              503 in 8.01s
+    deadline_test.go:138: commit (queued behind the mutex)               503 in 8.01s
+    deadline_test.go:138: get job (database, no mutex)                   503 in 8.01s
+    deadline_test.go:138: heartbeat (database)                           503 in 8.01s
+--- PASS: TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled (9.00s)
+=== RUN   TestFault_DBOutage_HalfOpen_RecoveryTime
+2026/10/29 15:02:40 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:02:40 INFO job submitted and queued job_id=job_2_5c37d0e519c5 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:02:48 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 15:02:48 ERROR database outage or connection failure err="timeout: context deadline exceeded"
+2026/10/29 15:02:56 ERROR readiness probe failed err="context deadline exceeded"
+    deadline_test.go:186: readyz healthy again 15.07s after healing with the whole pool held by hung requests
+--- PASS: TestFault_DBOutage_HalfOpen_RecoveryTime (23.63s)
+=== RUN   TestFault_DBOutage_HalfOpen
+    outage_test.go:167: rig ready after 223.504576ms
+2026/10/29 15:03:04 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:03:04 INFO job submitted and queued job_id=job_3_1cbb0fcc6e9b task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:03:12 ERROR readiness probe failed err="timeout: context deadline exceeded"
+    outage_test.go:176: readyz over a half-open database: 503 {"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}} after 8.007605202s
+    outage_test.go:184: recovery after the proxy healed took 115.081682ms
+    outage_test.go:165: test body finished 8.434742813s after start
+--- PASS: TestFault_DBOutage_HalfOpen (8.56s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	42.229s

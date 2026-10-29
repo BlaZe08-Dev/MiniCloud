@@ -387,3 +387,21 @@ func CaptureLogs(t testing.TB) *SafeBuffer {
 	t.Cleanup(func() { slog.SetDefault(prev) })
 	return buf
 }
+
+// JobID extracts the job id from a submit response.
+func JobID(r Resp) string {
+	var j struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(r.Body, &j)
+	return j.ID
+}
+
+// AssignmentOf extracts job id, attempt id and lease token from a poll response.
+func AssignmentOf(r Resp) (job, attempt, token string) {
+	var env struct {
+		Assignment coordinator.WorkAssignment `json:"assignment"`
+	}
+	_ = json.Unmarshal(r.Body, &env)
+	return env.Assignment.JobID, env.Assignment.AttemptID, env.Assignment.LeaseToken
+}

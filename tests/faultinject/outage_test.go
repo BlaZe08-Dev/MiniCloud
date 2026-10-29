@@ -17,6 +17,9 @@ func outageRig(t *testing.T) (*sectest.Rig, *sectest.FaultProxy) {
 	p := sectest.NewFaultProxy(t, pg.UpstreamAddr())
 	r := sectest.NewRig(t, sectest.KindPostgres, sectest.Options{PG: pg, PoolURL: pg.URLVia(p.Addr()), PoolMaxConns: 4, Lease: 30 * time.Second})
 	r.Client.Timeout = 20 * time.Second
+	// Registered after the rig so it runs first: pgxpool.Close waits up to 15 s for a connection
+	// that went half-open, so the proxy must sever it before the pool closes (measured: 14.99 s).
+	t.Cleanup(p.Close)
 	return r, p
 }
 
@@ -158,7 +161,10 @@ func TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit(t *testing.T) 
 // hanging with the request, must not stay blocked once the network heals, and a hung call must not
 // stall other requests.
 func TestFault_DBOutage_HalfOpen(t *testing.T) {
+	t0 := time.Now()
+	defer func() { t.Logf("test body finished %v after start", time.Since(t0)) }()
 	r, p := outageRig(t)
+	t.Logf("rig ready after %v", time.Since(t0))
 	r.Register("w1", 1)
 	job := r.Submit(3)
 	r.Do("GET", "/readyz", nil) // warm the pool
@@ -174,6 +180,8 @@ func TestFault_DBOutage_HalfOpen(t *testing.T) {
 	assertNoLeak(t, "readyz", resp)
 
 	p.SetMode(sectest.ModeForward)
+	healed := time.Now()
+	defer func() { t.Logf("recovery after the proxy healed took %v", time.Since(healed)) }()
 	deadline := time.Now().Add(20 * time.Second)
 	for r.Do("GET", "/readyz", nil).Status != http.StatusOK {
 		if time.Now().After(deadline) {

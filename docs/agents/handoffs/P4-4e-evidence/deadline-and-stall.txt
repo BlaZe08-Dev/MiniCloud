@@ -1,0 +1,46 @@
+=== RUN   TestFault_RequestDeadline_NoLegitimateRequestCutOff
+2026/10/29 14:59:31 INFO worker registered worker_id=w1 version=sec slots=2 supported_tasks="[echo sleep sha256_loop]"
+    deadline_test.go:49: healthz                      200 in 1ms
+    deadline_test.go:50: readyz                       200 in 102ms
+2026/10/29 14:59:31 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+    deadline_test.go:51: register worker              200 in 109ms
+    deadline_test.go:52: heartbeat                    200 in 208ms
+    deadline_test.go:53: list workers                 200 in 210ms
+2026/10/29 14:59:32 INFO job submitted and queued job_id=job_1_4fd61e79e98f task_type=echo state=QUEUED max_attempts=3
+    deadline_test.go:55: submit job                   201 in 728ms
+    deadline_test.go:60: get job                      200 in 411ms
+2026/10/29 14:59:35 INFO job dispatched to worker job_id=job_1_4fd61e79e98f attempt_id=att_job_1_4fd61e79e98f_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+    deadline_test.go:62: poll with work               200 in 2.066s
+    deadline_test.go:67: renew                        200 in 824ms
+    deadline_test.go:68: list attempts                200 in 419ms
+2026/10/29 14:59:37 INFO job cancellation requested job_id=job_1_4fd61e79e98f state=CANCEL_REQUESTED
+    deadline_test.go:69: cancel running job           200 in 836ms
+2026/10/29 14:59:39 INFO job result committed job_id=job_1_4fd61e79e98f attempt_id=att_job_1_4fd61e79e98f_1 final_state=SUCCEEDED exit_code=0 error_class=""
+    deadline_test.go:70: commit 64 KiB output         200 in 2.107s
+2026/10/29 14:59:39 INFO job submitted and queued job_id=job_2_210f713fd791 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 14:59:41 INFO job dispatched to worker job_id=job_2_210f713fd791 attempt_id=att_job_2_210f713fd791_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 14:59:42 INFO job result committed job_id=job_2_210f713fd791 attempt_id=att_job_2_210f713fd791_1 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+    deadline_test.go:77: commit failure, 10 KiB error 200 in 932ms
+    deadline_test.go:83: poll with no work (no long poll) 204 in 4ms
+    deadline_test.go:87: slowest legitimate request under a 50 ms-each-way database: 2.107s; request deadline 8s; server write timeout 10s
+--- PASS: TestFault_RequestDeadline_NoLegitimateRequestCutOff (11.03s)
+=== RUN   TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled
+2026/10/29 14:59:42 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 14:59:42 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 14:59:42 INFO job submitted and queued job_id=job_3_1f5808a04781 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 14:59:50 ERROR database outage or connection failure err="timeout: context deadline exceeded"
+2026/10/29 14:59:50 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 14:59:50 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 14:59:50 ERROR database outage or connection failure err="context deadline exceeded"
+2026/10/29 14:59:50 ERROR database outage or connection failure err="context deadline exceeded"
+    deadline_test.go:136: healthz (no database)                          200 in 0s
+    deadline_test.go:136: poll #1 (hangs holding the service mutex)      503 in 8.01s
+    deadline_test.go:136: heartbeat (database)                           503 in 8.01s
+    deadline_test.go:136: commit (queued behind the mutex)               503 in 8.01s
+    deadline_test.go:136: poll #2 (queued behind the mutex)              503 in 8.01s
+    deadline_test.go:136: get job (database, no mutex)                   503 in 8.01s
+2026/10/29 14:59:58 ERROR readiness probe failed err="context deadline exceeded"
+2026/10/29 15:00:05 INFO job dispatched to worker job_id=job_3_1f5808a04781 attempt_id=att_job_3_1f5808a04781_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestFault_DBOutage_HalfOpen_OtherRequestsNotStalled (23.62s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	35.676s
