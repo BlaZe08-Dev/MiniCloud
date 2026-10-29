@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
@@ -493,6 +494,18 @@ func maxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requestDeadlineMiddleware gives every request a context deadline so repository calls cannot
+// wait forever on a database connection that accepts bytes and never answers (F-4e-2).
+func requestDeadlineMiddleware(d time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), d)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
