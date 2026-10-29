@@ -1,0 +1,218 @@
+=== M01 stale lease-token check removed (memory CommitAttempt)
+file: internal/storage/inmemory.go
+- if subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {
++ if false && subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {
+command: go test -race -count=1 -run 'TestFault_StaleTokenMatrix' ./tests/faultinject
+rc=1 (7s) => KILLED (test failed)
+--- FAIL: TestFault_StaleTokenMatrix (0.94s)
+    --- FAIL: TestFault_StaleTokenMatrix/memory (0.05s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.970s
+FAIL
+
+=== M02 lease-expired check removed from the commit path (memory)
+file: internal/storage/inmemory.go
+- ok && lost.JobID == job.ID && lost.State == domain.AttemptLost {
++ ok && false && lost.JobID == job.ID && lost.State == domain.AttemptLost {
+command: go test -race -count=1 -run 'TestFault_LateResult_AfterSweep' ./tests/faultinject
+rc=1 (5s) => KILLED (test failed)
+--- FAIL: TestFault_LateResult_AfterSweep (0.74s)
+    --- FAIL: TestFault_LateResult_AfterSweep/memory (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.761s
+FAIL
+
+=== M03 1 MiB request body limit removed
+file: internal/api/handlers.go
+- r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
++ _ = maxBytes
+command: go test -race -count=1 -run 'TestAbuse_OversizedBodies' ./tests/abuse
+rc=1 (3s) => KILLED (test failed)
+--- FAIL: TestAbuse_OversizedBodies (2.30s)
+    --- FAIL: TestAbuse_OversizedBodies/memory (0.66s)
+    --- FAIL: TestAbuse_OversizedBodies/postgres (1.64s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	2.338s
+FAIL
+
+=== M04 cancel-wins rule removed from commit resolution
+file: internal/domain/failure.go
+- if job == StateCancelRequested {
++ if false {
+command: go test -race -count=1 -run 'TestFault_CancelRacesCompletion' ./tests/faultinject
+rc=1 (6s) => KILLED (test failed)
+--- FAIL: TestFault_CancelRacesCompletion (3.31s)
+    --- FAIL: TestFault_CancelRacesCompletion/memory (0.27s)
+    --- FAIL: TestFault_CancelRacesCompletion/postgres (3.03s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.358s
+FAIL
+
+=== M05 cancel-wins rule removed from the sweeper (memory)
+file: internal/storage/inmemory.go
+- case job.State == domain.StateCancelRequested:
++ case false:
+command: go test -race -count=1 -run 'TestFault_CancelRacesLeaseExpiry' ./tests/faultinject
+rc=1 (5s) => KILLED (test failed)
+--- FAIL: TestFault_CancelRacesLeaseExpiry (2.66s)
+    --- FAIL: TestFault_CancelRacesLeaseExpiry/memory (0.17s)
+        --- FAIL: TestFault_CancelRacesLeaseExpiry/memory/cancel_then_sweep (0.09s)
+        --- FAIL: TestFault_CancelRacesLeaseExpiry/memory/concurrent (0.08s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	2.690s
+FAIL
+
+=== M06 request deadline middleware removed
+file: internal/api/server.go
+- handler = requestDeadlineMiddleware(RequestTimeout)(handler)
++ 
+command: go test -race -count=1 -run 'TestFault_DBOutage_HalfOpen$' ./tests/faultinject
+rc=1 (18s) => KILLED (test failed)
+--- FAIL: TestFault_DBOutage_HalfOpen (15.99s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	16.025s
+FAIL
+
+=== M07 sweeper per-tick deadline removed
+file: internal/coordinator/sweeper.go
+- tickCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)
++ tickCtx, cancel := context.WithCancel(ctx)
+command: go test -race -count=1 -run 'TestFault_Sweeper_ResumesAfterHalfOpenDatabase' ./tests/faultinject
+rc=1 (65s) => KILLED (test failed)
+--- FAIL: TestFault_Sweeper_ResumesAfterHalfOpenDatabase (63.07s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	63.123s
+FAIL
+
+=== M08 reaper per-iteration deadline removed
+file: internal/coordinator/service.go
+- reapCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)
++ reapCtx, cancel := context.WithCancel(ctx)
+command: go test -race -count=1 -run 'TestFault_Sweeper_ResumesAfterHalfOpenDatabase' ./tests/faultinject
+rc=1 (74s) => KILLED (test failed)
+--- FAIL: TestFault_Sweeper_ResumesAfterHalfOpenDatabase (69.64s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	69.702s
+FAIL
+
+=== M09 startup grace ignored by the sweeper check
+file: internal/domain/sweep.go
+- if now.Before(g.StartupGraceUntil) {
++ if false {
+command: go test -race -count=1 -run 'TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit' ./tests/faultinject
+rc=1 (17s) => KILLED (test failed)
+--- FAIL: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit (14.49s)
+    --- FAIL: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/within_grace (13.77s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	14.515s
+FAIL
+
+=== M10 outage grace window never opens
+file: internal/coordinator/sweeper.go
+- if trigger && !now.Before(st.windowUntil) && !now.Before(st.cooldownUntil) {
++ if false && trigger {
+command: go test -race -count=1 -run 'TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit' ./tests/faultinject
+rc=1 (5s) => KILLED (test failed)
+--- FAIL: TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit (1.20s)
+    --- FAIL: TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit/outage_then_recovery (0.64s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	1.227s
+FAIL
+
+=== M11 NUL-byte check removed from the result handler
+file: internal/api/handlers.go
+- if strings.ContainsRune(req.Output, 0) ||
++ if false && strings.ContainsRune(req.Output, 0) ||
+command: go test -race -count=1 -run 'TestAbuse_NULBytes' ./tests/abuse
+rc=1 (2s) => KILLED (test failed)
+--- FAIL: TestAbuse_NULBytes (0.63s)
+    --- FAIL: TestAbuse_NULBytes/memory (0.01s)
+    --- FAIL: TestAbuse_NULBytes/postgres (0.62s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.656s
+FAIL
+
+=== M12 identifier validation disabled
+file: internal/api/handlers.go
+- func isValidIdentifier(id string) bool {
++ func isValidIdentifier(id string) bool {
+	return true
+command: go test -race -count=1 -run 'TestAbuse_PathParameters' ./tests/abuse
+rc=1 (2s) => KILLED (test failed)
+--- FAIL: TestAbuse_PathParameters (0.25s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.284s
+FAIL
+
+=== M13 exit_code range check removed
+file: internal/api/handlers.go
+- if req.ExitCode < math.MinInt32 || req.ExitCode > math.MaxInt32 {
++ if req.ExitCode < math.MinInt32 && false || req.ExitCode > math.MaxInt32 && false {
+command: go test -race -count=1 -run 'TestAbuse_NumericBounds' ./tests/abuse
+rc=1 (2s) => KILLED (test failed)
+--- FAIL: TestAbuse_NumericBounds (0.61s)
+    --- FAIL: TestAbuse_NumericBounds/postgres (0.54s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.637s
+FAIL
+
+=== M14 task-name echo guard removed
+file: internal/coordinator/service.go
+- if !isValidTaskName(taskType) {
++ if false {
+command: go test -race -count=1 -run 'TestAbuse_OversizedBodies' ./tests/abuse
+rc=1 (3s) => KILLED (test failed)
+--- FAIL: TestAbuse_OversizedBodies (2.02s)
+    --- FAIL: TestAbuse_OversizedBodies/memory (0.76s)
+    --- FAIL: TestAbuse_OversizedBodies/postgres (1.26s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	2.046s
+FAIL
+
+=== M15 worker capacity check removed from dispatch (memory)
+file: internal/storage/inmemory.go
+- if availSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
++ if false && availSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
+command: go test -race -count=1 -run 'TestFault_ManyWorkersManyJobs_Invariants' ./tests/faultinject
+rc=0 (10s) => SURVIVED (tests still pass)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	6.150s
+
+=== M16 terminal-job rejection removed from commit (memory)
+file: internal/storage/inmemory.go
+- if job.State.IsTerminal() {
+		r.rejectTerminalCommitLocked(
++ if false {
+		r.rejectTerminalCommitLocked(
+command: go test -race -count=1 -run 'TestFault_DuplicateAndReplayedCommit' ./tests/faultinject
+rc=1 (2s) => KILLED (test failed)
+--- FAIL: TestFault_DuplicateAndReplayedCommit (0.63s)
+    --- FAIL: TestFault_DuplicateAndReplayedCommit/memory (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.662s
+FAIL
+
+=== M17 error-text size limit removed (memory)
+file: internal/storage/inmemory.go
+- if len(outcome.Error) > maxAttemptErrorBytes {
++ if false {
+command: go test -race -count=1 -run 'TestAbuse_OversizeErrorText_RetryPath' ./tests/abuse
+rc=1 (2s) => KILLED (test failed)
+--- FAIL: TestAbuse_OversizeErrorText_RetryPath (0.75s)
+    --- FAIL: TestAbuse_OversizeErrorText_RetryPath/memory (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.772s
+FAIL
+
+=== M18 sweeper takes the attempts lock before the jobs lock (PostgreSQL lock order)
+file: internal/storage/postgres/leases.go
+- // 1. jobs, SKIP LOCKED:
++ if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {
+		return nil, 0, mapPgError(lerr)
+	}
+	// 1. jobs, SKIP LOCKED:
+command: go test -race -count=1 -run 'TestFault_ManyWorkersManyJobs_Invariants|TestFault_CancelRacesLeaseExpiry' ./tests/faultinject
+rc=0 (8s) => SURVIVED (tests still pass)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	5.873s
+

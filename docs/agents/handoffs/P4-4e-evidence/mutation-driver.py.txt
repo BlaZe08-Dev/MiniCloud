@@ -1,0 +1,53 @@
+import subprocess, sys, os, re, time
+WT = os.path.expanduser('~/mc-mut-claude')
+OUT = os.path.expanduser('~/MiniCloud-claude/docs/agents/handoffs/P4-4e-evidence/mutations.txt')
+env = dict(os.environ)
+for line in open(os.path.join(WT, '.env')):
+    if line.startswith('MINICLOUD_TEST_DATABASE_URL='):
+        env['MINICLOUD_TEST_DATABASE_URL'] = line.strip().split('=', 1)[1]
+M = [
+ ("M01 stale lease-token check removed (memory CommitAttempt)", "internal/storage/inmemory.go", "if subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {", "if false && subtle.ConstantTimeCompare([]byte(att.LeaseTokenHash), []byte(providedHashHex)) != 1 {", "./tests/faultinject", "TestFault_StaleTokenMatrix"),
+ ("M02 lease-expired check removed from the commit path (memory)", "internal/storage/inmemory.go", "ok && lost.JobID == job.ID && lost.State == domain.AttemptLost {", "ok && false && lost.JobID == job.ID && lost.State == domain.AttemptLost {", "./tests/faultinject", "TestFault_LateResult_AfterSweep"),
+ ("M03 1 MiB request body limit removed", "internal/api/handlers.go", "r.Body = http.MaxBytesReader(w, r.Body, maxBytes)", "_ = maxBytes", "./tests/abuse", "TestAbuse_OversizedBodies"),
+ ("M04 cancel-wins rule removed from commit resolution", "internal/domain/failure.go", "if job == StateCancelRequested {", "if false {", "./tests/faultinject", "TestFault_CancelRacesCompletion"),
+ ("M05 cancel-wins rule removed from the sweeper (memory)", "internal/storage/inmemory.go", "case job.State == domain.StateCancelRequested:", "case false:", "./tests/faultinject", "TestFault_CancelRacesLeaseExpiry"),
+ ("M06 request deadline middleware removed", "internal/api/server.go", "handler = requestDeadlineMiddleware(RequestTimeout)(handler)", "", "./tests/faultinject", "TestFault_DBOutage_HalfOpen$"),
+ ("M07 sweeper per-tick deadline removed", "internal/coordinator/sweeper.go", "tickCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)", "tickCtx, cancel := context.WithCancel(ctx)", "./tests/faultinject", "TestFault_Sweeper_ResumesAfterHalfOpenDatabase"),
+ ("M08 reaper per-iteration deadline removed", "internal/coordinator/service.go", "reapCtx, cancel := context.WithTimeout(ctx, BackgroundCallTimeout)", "reapCtx, cancel := context.WithCancel(ctx)", "./tests/faultinject", "TestFault_Sweeper_ResumesAfterHalfOpenDatabase"),
+ ("M09 startup grace ignored by the sweeper check", "internal/domain/sweep.go", "if now.Before(g.StartupGraceUntil) {", "if false {", "./tests/faultinject", "TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit"),
+ ("M10 outage grace window never opens", "internal/coordinator/sweeper.go", "if trigger && !now.Before(st.windowUntil) && !now.Before(st.cooldownUntil) {", "if false && trigger {", "./tests/faultinject", "TestFault_DBOutage_OutageGraceWindow_ProtectsSurvivingCommit"),
+ ("M11 NUL-byte check removed from the result handler", "internal/api/handlers.go", "if strings.ContainsRune(req.Output, 0) ||", "if false && strings.ContainsRune(req.Output, 0) ||", "./tests/abuse", "TestAbuse_NULBytes"),
+ ("M12 identifier validation disabled", "internal/api/handlers.go", "func isValidIdentifier(id string) bool {", "func isValidIdentifier(id string) bool {\n\treturn true", "./tests/abuse", "TestAbuse_PathParameters"),
+ ("M13 exit_code range check removed", "internal/api/handlers.go", "if req.ExitCode < math.MinInt32 || req.ExitCode > math.MaxInt32 {", "if req.ExitCode < math.MinInt32 && false || req.ExitCode > math.MaxInt32 && false {", "./tests/abuse", "TestAbuse_NumericBounds"),
+ ("M14 task-name echo guard removed", "internal/coordinator/service.go", "if !isValidTaskName(taskType) {", "if false {", "./tests/abuse", "TestAbuse_OversizedBodies"),
+ ("M15 worker capacity check removed from dispatch (memory)", "internal/storage/inmemory.go", "if availSlots <= 0 {\n\t\treturn nil, nil, domain.ErrWorkerNoCapacity", "if false && availSlots <= 0 {\n\t\treturn nil, nil, domain.ErrWorkerNoCapacity", "./tests/faultinject", "TestFault_WorkerCapacityNeverExceeded"),
+ ("M16 terminal-job rejection removed from commit (memory)", "internal/storage/inmemory.go", "if job.State.IsTerminal() {\n\t\tr.rejectTerminalCommitLocked(", "if false {\n\t\tr.rejectTerminalCommitLocked(", "./tests/faultinject", "TestFault_DuplicateAndReplayedCommit"),
+ ("M17 error-text size limit removed (memory)", "internal/storage/inmemory.go", "if len(outcome.Error) > maxAttemptErrorBytes {", "if false {", "./tests/abuse", "TestAbuse_OversizeErrorText_RetryPath"),
+ ("M18 sweeper takes the attempts lock before the jobs lock (PostgreSQL lock order)", "internal/storage/postgres/leases.go", "// 1. jobs, SKIP LOCKED:", "if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {\n\t\treturn nil, 0, mapPgError(lerr)\n\t}\n\t// 1. jobs, SKIP LOCKED:", "./tests/faultinject", "TestFault_ManyWorkersManyJobs_Invariants|TestFault_CancelRacesLeaseExpiry"),
+ ("M19 sweeper takes the attempts lock first and waits for the jobs lock (blocking, no SKIP LOCKED)", "internal/storage/postgres/leases.go", "// 1. jobs, SKIP LOCKED:", "if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {\n\t\treturn nil, 0, mapPgError(lerr)\n\t}\n\t// 1. jobs, SKIP LOCKED:", "./tests/faultinject", "TestFault_ManyWorkersManyJobs_Invariants|TestFault_CancelRacesLeaseExpiry", ("FROM jobs WHERE id = $1 FOR UPDATE SKIP LOCKED;", "FROM jobs WHERE id = $1 FOR UPDATE;")),
+]
+only = sys.argv[1:]
+with open(OUT, 'a') as out:
+    for entry in M:
+        name, f, old, new, pkg, pat = entry[:6]
+        extra = entry[6] if len(entry) > 6 else None
+        mid = name.split()[0]
+        if only and mid not in only: continue
+        path = os.path.join(WT, f)
+        src = open(path).read()
+        if old not in src:
+            out.write(f"=== {name}\nSKIPPED: pattern not found in {f}\n\n"); out.flush(); continue
+        mut = src.replace(old, new, 1)
+        if extra: mut = mut.replace(extra[0], extra[1], 1)
+        open(path, 'w').write(mut)
+        out.write(f"=== {name}\nfile: {f}\n- {old}\n+ {new}\ncommand: go test -race -count=1 -run '{pat}' {pkg}\n"); out.flush()
+        t = time.time()
+        try:
+            r = subprocess.run(['go','test','-race','-count=1','-timeout','280s','-run',pat,pkg], cwd=WT, env=env, capture_output=True, text=True, timeout=300)
+            text = r.stdout + r.stderr; rc = r.returncode
+        except subprocess.TimeoutExpired as e:
+            text = 'TIMEOUT'; rc = 124
+        subprocess.run(['git','checkout','--',f], cwd=WT)
+        invalid = rc != 0 and ('[build failed]' in text or 'TIMEOUT' == text)
+        keep = [l for l in text.splitlines() if re.match(r'^\s*(--- FAIL|FAIL|ok|panic)|_test.go:\d+', l)][:12]
+        out.write(f"rc={rc} ({time.time()-t:.0f}s) => {'INVALID (build failed, not counted)' if invalid else ('KILLED (test failed)' if rc != 0 else 'SURVIVED (tests still pass)')}\n" + "\n".join(keep) + "\n\n"); out.flush()
