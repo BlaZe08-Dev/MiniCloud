@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -426,4 +427,39 @@ func PostRaw(url, body string) int {
 	}
 	_ = resp.Body.Close()
 	return resp.StatusCode
+}
+
+// StartRealServer serves the coordinator API with its real http.Server (read-header, read, write
+// and idle timeouts included) on 127.0.0.1:0 and returns the address. httptest servers do not
+// apply those timeouts, so slow-client tests need this.
+func StartRealServer(t testing.TB, svc *coordinator.Service) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srv := api.NewServer(ln.Addr().String(), svc)
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
+	})
+	return ln.Addr().String()
+}
+
+// RawExchange writes raw bytes to addr, half-closes nothing, and reads until EOF, error or the
+// timeout; it returns whatever was read.
+func RawExchange(addr string, payload []byte, timeout time.Duration) (string, error) {
+	c, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	if err != nil {
+		return "", err
+	}
+	defer c.Close()
+	_ = c.SetDeadline(time.Now().Add(timeout))
+	if _, err := c.Write(payload); err != nil {
+		return "", err
+	}
+	data, err := io.ReadAll(c)
+	return string(data), err
 }

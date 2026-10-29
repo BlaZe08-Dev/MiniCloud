@@ -1,0 +1,26 @@
+=== RUN   TestAbuse_OversizeErrorText_RetryPath
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/memory
+2026/10/29 15:17:04 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:17:04 INFO job submitted and queued job_id=job_1_c65e15237187 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:17:04 INFO job dispatched to worker job_id=job_1_c65e15237187 attempt_id=att_1_c2c14114b621 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:04 INFO job result committed job_id=job_1_c65e15237187 attempt_id=att_1_c2c14114b621 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+    errortext_test.go:26: [memory] error text of 10241 bytes = 200 {"job_state":"RETRYING","status":"COMMITTED"}
+        , want 400 INVALID_REQUEST
+    errortext_test.go:33: after the 10241-byte error text the attempt is FAILED with 10241 stored error bytes, want untouched RUNNING
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/postgres
+2026/10/29 15:17:05 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:17:05 INFO job submitted and queued job_id=job_2_11286c0c32d2 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:17:05 INFO job dispatched to worker job_id=job_2_11286c0c32d2 attempt_id=att_job_2_11286c0c32d2_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:05 INFO job result committed job_id=job_2_11286c0c32d2 attempt_id=att_job_2_11286c0c32d2_1 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 15:17:05 INFO job dispatched to worker job_id=job_2_11286c0c32d2 attempt_id=att_job_2_11286c0c32d2_2 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:05 INFO job result committed job_id=job_2_11286c0c32d2 attempt_id=att_job_2_11286c0c32d2_2 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/10/29 15:17:05 INFO job submitted and queued job_id=job_3_2de1602975f4 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:17:05 INFO job dispatched to worker job_id=job_3_2de1602975f4 attempt_id=att_job_3_2de1602975f4_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:05 ERROR internal server error err="output exceeds maximum allowed size"
+    errortext_test.go:59: [postgres] output of 65537 bytes = 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}, want a 4xx rejection
+--- FAIL: TestAbuse_OversizeErrorText_RetryPath (1.11s)
+    --- FAIL: TestAbuse_OversizeErrorText_RetryPath/memory (0.01s)
+    --- FAIL: TestAbuse_OversizeErrorText_RetryPath/postgres (1.11s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	1.122s
+FAIL
