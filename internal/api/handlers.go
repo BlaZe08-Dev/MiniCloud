@@ -133,6 +133,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 		return http.StatusBadRequest, "UNKNOWN_TASK_TYPE", err.Error()
 	case errors.Is(err, domain.ErrPayloadTooLarge):
 		return http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE", err.Error()
+	case errors.Is(err, domain.ErrOutputTooLarge):
+		return http.StatusBadRequest, "OUTPUT_TOO_LARGE", err.Error()
 	case errors.Is(err, domain.ErrNoQueuedJobs):
 		return http.StatusNoContent, "NO_QUEUED_JOBS", err.Error()
 	case errors.Is(err, domain.ErrNoWorkersAvailable):
