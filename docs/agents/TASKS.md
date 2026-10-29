@@ -22,8 +22,23 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-05 | Phase 4 docs pass after slices 4a–4c | Gemini | Claude Code | agent/gemini/P4-05 | merged in PR #28 |
-| P4-06a | Phase 4 docs pass (SEC-029/030, report rule, review imports) | Gemini | Claude Code | agent/gemini/P4-06a | active |
+| P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | active |
+
+### P4-06b — Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model)
+- Goal: Register findings SEC-031 through SEC-058 from P4-4e; update `docs/protocol.md` and `docs/failure-model.md` with timeouts, `ClampText` semantics, worker fallback, and work-poll costs; import Gemini P4-4e review records and evidence with corrections; update `docs/agents/TASKS.md` and `docs/PROJECT_STATE.md`.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-06b`. Status: active.
+- Owned files: `docs/security/findings.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/agents/reviews/P4-4e*`, `docs/agents/handoffs/P4-06b*`.
+- Out of scope: production code, database migrations, allowlist changes.
+
+### P4-06a — Phase 4 docs pass (SEC-029/030, report rule, review imports)
+- Goal: Permanent report file rule in `AGENTS.md` and `docs/agents/TASKS.md`; register findings SEC-029 and SEC-030; import review records and evidence for P4-4d.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-06a`. Status: merged in PR #30.
+- Owned files: `AGENTS.md`, `docs/agents/TASKS.md`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/reviews/P4-4d*`, `docs/agents/handoffs/P4-06a*`.
+
+### P4-4e — Phase 4 slice 4e (fault-injection suite, adversarial abuse suite, security review)
+- Goal: Automated fault injection suite covering blueprint scenarios (FS-01 to FS-10); adversarial abuse suite covering 18 attack vectors; text clamping (`ClampText`); worker fallback failure report on HTTP 400 validation rejection; request and background timeouts (8s); benchmark work-poll database costs.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-4e`. Status: merged in PR #29.
+- Owned files: `tests/faultinject/**`, `tests/abuse/**`, `internal/executor/**`, `internal/worker/**`, `internal/api/**`, `internal/coordinator/**`, `docs/agents/handoffs/P4-4e*`.
 
 ### P0-01 — Two-agent workflow files
 - Goal: commit the agent rules so both agents read the same file.
@@ -112,9 +127,16 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-T1 | Test safety guards, test-db false-green guard, migrator name guard | PR #26, merge commit 9fbbbcf |
 | P4-T2 | Citation checker scoping for frozen review records | PR #27, merge commit 1e20143 |
 | P4-05 | Phase 4 docs pass after slices 4a–4c | PR #28, merge commit c85a58f |
+| P4-4e | Phase 4 slice 4e (fault-injection suite, adversarial abuse suite, security review) | PR #29, merge commit 69396e5 |
+| P4-06a | Phase 4 docs pass (SEC-029/030, report rule, review imports) | PR #30, merge commit 92f9a73 |
 
 ## Follow-ups
 
 - **F-4c-a-A1 (Makefile `test-db` false-green risk; Resolved in P4-T1, PR #26, merge commit 9fbbbcf)**: Resolved by adding a `-list` pattern check to `Makefile` `test-db` target.
 - **F-4c-a-A2 (`startBackground` top-level invocation test)**: The top-level invocation of `startBackground` in `cmd/coordinator/main.go` `main()` is not exercised by automated tests. Fix: add a smoke test in `cmd/coordinator/main_test.go` that briefly boots the binary with `MINICLOUD_STORAGE_DRIVER=memory` and verifies background loops start and shut down cleanly.
 - **Review records citation checker scoping (Resolved in P4-T2, PR #27, merge commit 1e20143)**: Citation checker Rule A link check was scoped to live documents in P4-T2, allowing historical review records to be treated as immutable. Review records for P0-03 round 2 and round 3 (`P0-03-round2.md`, `P0-03-round2-evidence.txt`, `P0-03-round3.md`, `P0-03-round3-evidence.txt`) were imported byte-identical in P4-05.
+- **F-4e-18 (CLI ANSI terminal escape sequence sanitization; OPEN)**: CLI `cmd/mc` does not strip or sanitize ANSI escape sequences from task outputs or error strings before printing to stdout/stderr. Risk: untrusted tasks could emit terminal escape sequences (cursor relocation, clear screen, OSC title setting) when output is viewed in an interactive terminal. Fix: implement terminal sanitization in `cmd/mc` to escape or strip non-printable/control sequences.
+- **F-4e-17 (Rate limiting and connection bounding on unauthenticated endpoints; OPEN)**: All HTTP endpoints currently lack application-level rate limiting or connection bounding. Risk: an aggressive client or network flooder could starve connection pool or saturate coordinator memory. Mitigated in V1 by default localhost binding (`127.0.0.1:8080`) under SEC-004 accepted risk. Planned for V2/V3 hardening.
+- **`make test-security` shared database detection**: `make test-security` prints 47 failures when inadvertently run against the shared database (`minicloud_test`) rather than a dedicated per-agent test database. Fix: update `make test-security` runner or preflight to check the database name and print exactly one clear explanatory error line refusing execution on the shared database.
+- **Per-worktree test database note**: `make test-security` must be run from a worktree configured with its own `minicloud_<agent>_test` database (e.g. `minicloud_gemini_test` or `minicloud_claude_test`). `make test-db` is the appropriate suite for the shared database.
+- **Next Slices (Post-Phase 4)**: Phase 4 core is complete. Next milestone is the Post-Phase 4 Assignment-Based Round-Robin Slice (Candidate A pre-assignment with bounded accept window) required before V1 release tagging.
