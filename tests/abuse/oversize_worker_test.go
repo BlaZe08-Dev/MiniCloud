@@ -1,9 +1,16 @@
 package abuse_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,15 +40,26 @@ func (b bigEchoTask) Execute(_ context.Context, _ []byte) (string, error) {
 // attempt has stayed RUNNING for 1.2 s of real time, which a delivered result never does.
 func runOversizeJob(t *testing.T, kind string, tasks []executor.Task, payload string) (*sectest.Rig, string, time.Duration) {
 	t.Helper()
+	return runJobVia(t, kind, tasks, payload, nil)
+}
+
+// runJobVia is runOversizeJob with the worker talking to the coordinator through the URL that via
+// returns for the rig (nil: straight to the rig).
+func runJobVia(t *testing.T, kind string, tasks []executor.Task, payload string, via func(*sectest.Rig) string) (*sectest.Rig, string, time.Duration) {
+	t.Helper()
 	logs := sectest.CaptureLogs(t)
 	r := sectest.NewRig(t, kind, sectest.Options{Lease: 30 * time.Second, Tasks: tasks})
+	url := r.Srv.URL
+	if via != nil {
+		url = via(r)
+	}
 	job := r.SubmitTask("echo", payload, 3)
 
 	reg := executor.NewRegistry()
 	for _, task := range tasks {
 		reg.Register(task)
 	}
-	agent := worker.NewAgent(&config.WorkerConfig{WorkerID: "w1", CoordinatorURL: r.Srv.URL, HeartbeatInterval: time.Second, TotalSlots: 1}, reg)
+	agent := worker.NewAgent(&config.WorkerConfig{WorkerID: "w1", CoordinatorURL: url, HeartbeatInterval: time.Second, TotalSlots: 1}, reg)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { defer close(done); _ = agent.Run(ctx) }()
@@ -216,4 +234,42 @@ func TestAbuse_WorkerResult_ErrorTextHostile(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestAbuse_WorkerResult_RejectedResultBecomesFailedJob goes through the real API and storage. A
+// proxy in front of the coordinator corrupts the first result request (a NUL escape appears in the
+// output, standing in for any content the worker did not anticipate), so the real coordinator
+// answers 400 INVALID_REQUEST. Required: the worker sends its fallback failure report, the job ends
+// FAILED on the first attempt (class PERMANENT, no retry) with the fallback text, nothing LOST.
+func TestAbuse_WorkerResult_RejectedResultBecomesFailedJob(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		var corrupted atomic.Int32
+		via := func(r *sectest.Rig) string {
+			target, _ := url.Parse(r.Srv.URL)
+			rp := httputil.NewSingleHostReverseProxy(target)
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				if strings.HasSuffix(req.URL.Path, "/result") && corrupted.Add(1) == 1 {
+					body, _ := io.ReadAll(req.Body)
+					body = []byte(strings.Replace(string(body), `"output":"`, `"output":"\u0000`, 1))
+					req.Body = io.NopCloser(bytes.NewReader(body))
+					req.ContentLength = int64(len(body))
+				}
+				rp.ServeHTTP(w, req)
+			}))
+			t.Cleanup(ts.Close)
+			return ts.URL
+		}
+		r, job, elapsed := runJobVia(t, kind, nil, `{"m":"x"}`, via)
+		requireClean(t, kind, r, job, elapsed, domain.StateFailed)
+		atts := r.Attempts(job)
+		if len(atts) != 1 || atts[0].State != domain.AttemptFailed || atts[0].ErrorClass != domain.ClassPermanent {
+			t.Fatalf("[%s] attempts = %d, first %s class %s; want 1 FAILED PERMANENT", kind, len(atts), atts[0].State, atts[0].ErrorClass)
+		}
+		if want := "result rejected by coordinator: HTTP 400 INVALID_REQUEST"; atts[0].Error != want {
+			t.Errorf("[%s] stored error %q, want %q", kind, atts[0].Error, want)
+		}
+		if n := corrupted.Load(); n != 2 {
+			t.Errorf("[%s] result requests = %d, want the corrupted original and one fallback", kind, n)
+		}
+	})
 }

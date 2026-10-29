@@ -321,6 +321,13 @@ func IsNonRetryableReportError(statusCode int) bool {
 // classification of a failed outcome (PERMANENT, TRANSIENT or UNKNOWN) and is omitted from the
 // request for a success; the coordinator validates it and never trusts it blindly.
 func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken string, exitCode int, output, errSummary string, errorClass domain.ErrorClass) (int, error) {
+	status, _, err := a.reportResult(ctx, jobID, attemptID, leaseToken, exitCode, output, errSummary, errorClass)
+	return status, err
+}
+
+// reportResult is ReportResult that also returns the error code of the coordinator's envelope
+// ("" when the answer has none).
+func (a *Agent) reportResult(ctx context.Context, jobID, attemptID, leaseToken string, exitCode int, output, errSummary string, errorClass domain.ErrorClass) (int, string, error) {
 	body := map[string]any{
 		"lease_token": leaseToken,
 		"worker_id":   a.cfg.WorkerID,
@@ -336,25 +343,28 @@ func (a *Agent) ReportResult(ctx context.Context, jobID, attemptID, leaseToken s
 	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
 	if reqErr != nil {
-		return 0, reqErr
+		return 0, "", reqErr
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, respErr := a.httpClient.Do(req)
 	if respErr != nil {
-		return 0, respErr
+		return 0, "", respErr
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		return resp.StatusCode, nil
+		return resp.StatusCode, "", nil
 	}
+
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	code := errorCode(raw)
 
 	if IsNonRetryableReportError(resp.StatusCode) {
-		return resp.StatusCode, fmt.Errorf("non-retryable report rejection (HTTP %d)", resp.StatusCode)
+		return resp.StatusCode, code, fmt.Errorf("non-retryable report rejection (HTTP %d)", resp.StatusCode)
 	}
 
-	return resp.StatusCode, fmt.Errorf("report failed with status %d", resp.StatusCode)
+	return resp.StatusCode, code, fmt.Errorf("report failed with status %d", resp.StatusCode)
 }
 
 // renewalInterval is one third of the lease duration the coordinator advertised in the poll
@@ -501,6 +511,20 @@ func (a *Agent) renewLoop(ctx context.Context, run *attemptRun, asg *coordinator
 	}
 }
 
+// isValidationRejection reports a 400 whose code says the content of this result is unacceptable
+// (and will be on every retry), as opposed to a rejection that means the result is no longer wanted
+// (stale attempt, terminal job, lost lease, state transition).
+func isValidationRejection(status int, code string) bool {
+	if status != http.StatusBadRequest {
+		return false
+	}
+	switch code {
+	case "INVALID_REQUEST", "OUTPUT_TOO_LARGE", "MALFORMED_JSON":
+		return true
+	}
+	return false
+}
+
 // isTerminalDelivery reports a rejection the coordinator will never answer differently: the 409
 // family, 403, 404 and a deterministic 400 (protocol 6.3, R-11).
 func isTerminalDelivery(status int) bool {
@@ -568,16 +592,31 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
 	}()
 
 	var status int
+	var code string
 	var reportErr error
+	fallbackSent := false
 	for n := 1; ; n++ {
 		if run.isLost() {
 			slog.Warn("lease lost while delivering; dropping the result", "job_id", asg.JobID, "attempt_id", asg.AttemptID)
 			return
 		}
-		status, reportErr = a.ReportResult(dctx, asg.JobID, asg.AttemptID, asg.LeaseToken, exitCode, output, errSummary, errorClass)
+		status, code, reportErr = a.reportResult(dctx, asg.JobID, asg.AttemptID, asg.LeaseToken, exitCode, output, errSummary, errorClass)
 		if reportErr == nil {
 			slog.Info("result successfully committed", "job_id", asg.JobID, "attempt_id", asg.AttemptID, "exit_code", exitCode)
 			return
+		}
+		if !fallbackSent && isValidationRejection(status, code) {
+			// Last resort: the coordinator will never accept this body. One failure report for the
+			// same attempt and lease, PERMANENT so the job ends FAILED now instead of losing every
+			// attempt. The renewal goroutine keeps running until it is delivered (it ends with
+			// ExecuteAndReport). If this is rejected too, the branch below behaves as before.
+			fallbackSent = true
+			exitCode, output = 1, ""
+			errSummary = executor.ClampText(fmt.Sprintf("result rejected by coordinator: HTTP %d %s", status, code), executor.MaxErrorSizeBytes)
+			errorClass = domain.ClassPermanent
+			slog.Warn("coordinator rejected the result as invalid; sending one fallback failure report",
+				"job_id", asg.JobID, "attempt_id", asg.AttemptID, "status", status, "code", code)
+			continue
 		}
 		if isTerminalDelivery(status) {
 			slog.Warn("coordinator permanently rejected result (non-retryable)",
