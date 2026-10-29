@@ -108,6 +108,7 @@ func setupPostgresTestSchema(t *testing.T) (string, *pgxpool.Pool, string) {
 
 func stopPostgresContainer(t *testing.T) {
 	t.Helper()
+	refuseWithoutContainerControl(t)
 	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "stop", "postgres")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to stop postgres container: %v, output: %s", err, string(out))
@@ -116,6 +117,7 @@ func stopPostgresContainer(t *testing.T) {
 
 func startPostgresContainer(t *testing.T) {
 	t.Helper()
+	refuseWithoutContainerControl(t)
 	cmd := exec.Command("docker", "compose", "--env-file", "../../.env", "-f", "../../deployments/docker-compose.yml", "start", "postgres")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to start postgres container: %v, output: %s", err, string(out))
@@ -348,6 +350,7 @@ func TestPostgresWiring_CoordinatorRestartRecovery(t *testing.T) {
 // 7. Coordinator automatically recovers without restart; /readyz returns 200 OK.
 // 8. New job submissions succeed immediately.
 func TestPostgresWiring_DatabaseOutageAndRecovery(t *testing.T) {
+	requireContainerControl(t)
 	schemaURL, pool, _ := setupPostgresTestSchema(t)
 
 	// Absolute safety guard: always restart container on test cleanup
