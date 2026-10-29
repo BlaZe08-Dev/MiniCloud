@@ -1,0 +1,8 @@
+=== RUN   TestFault_DBOutage_HalfOpen
+2026/10/29 14:52:20 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 14:52:20 INFO job submitted and queued job_id=job_1_262cec97854f task_type=echo state=QUEUED max_attempts=3
+2026/10/29 14:52:28 ERROR readiness probe failed err="timeout: context deadline exceeded"
+    outage_test.go:170: readyz over a half-open database: 503 {"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}} after 8.00890461s
+--- PASS: TestFault_DBOutage_HalfOpen (23.80s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	24.908s

@@ -1,0 +1,705 @@
+=== RUN   TestPostgresRepository_Concurrency_SameJobDispatchRaced
+--- PASS: TestPostgresRepository_Concurrency_SameJobDispatchRaced (3.31s)
+=== RUN   TestPostgresRepository_Concurrency_WorkerCapacityRaced
+--- PASS: TestPostgresRepository_Concurrency_WorkerCapacityRaced (2.39s)
+=== RUN   TestPostgresRepository_Concurrency_DuplicateCommitRaced
+--- PASS: TestPostgresRepository_Concurrency_DuplicateCommitRaced (3.55s)
+=== RUN   TestPostgresRepository_Concurrency_MixedOperationsStress
+    concurrency_test.go:597: stress: 0 attempts swept, 15 candidates skipped on locks
+--- PASS: TestPostgresRepository_Concurrency_MixedOperationsStress (3.62s)
+=== RUN   TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier
+--- PASS: TestPostgresRepository_Concurrency_DispatchNextJob_StartBarrier (1.70s)
+=== RUN   TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace
+    concurrency_test.go:911: race outcomes (attempt/job): map[COMPLETED/SUCCEEDED:23 LOST/FAILED:1]
+--- PASS: TestPostgresRepository_Concurrency_SweeperRenewCommitCancelRace (2.28s)
+=== RUN   TestIsTestDatabaseName
+--- PASS: TestIsTestDatabaseName (0.00s)
+=== RUN   TestEveryTestURLConsumerHasNameGuard
+--- PASS: TestEveryTestURLConsumerHasNameGuard (0.09s)
+=== RUN   TestPostgresRepository_DispatchNextJob_SkipsLockedHead
+--- PASS: TestPostgresRepository_DispatchNextJob_SkipsLockedHead (0.57s)
+=== RUN   TestMigrator_Migration000004_FreshSchema
+=== RUN   TestMigrator_Migration000004_FreshSchema/lease_expires_at_is_required
+=== RUN   TestMigrator_Migration000004_FreshSchema/error_class_accepts_exactly_the_four_values
+=== RUN   TestMigrator_Migration000004_FreshSchema/last_error_is_bounded_to_10KiB
+=== RUN   TestMigrator_Migration000004_FreshSchema/diagnostic_late_result_is_unique_per_job_and_attempt
+--- PASS: TestMigrator_Migration000004_FreshSchema (0.37s)
+    --- PASS: TestMigrator_Migration000004_FreshSchema/lease_expires_at_is_required (0.00s)
+    --- PASS: TestMigrator_Migration000004_FreshSchema/error_class_accepts_exactly_the_four_values (0.02s)
+    --- PASS: TestMigrator_Migration000004_FreshSchema/last_error_is_bounded_to_10KiB (0.00s)
+    --- PASS: TestMigrator_Migration000004_FreshSchema/diagnostic_late_result_is_unique_per_job_and_attempt (0.02s)
+=== RUN   TestMigrator_Migration000004_UpgradeFrom000003_WithExistingRows
+--- PASS: TestMigrator_Migration000004_UpgradeFrom000003_WithExistingRows (0.46s)
+=== RUN   TestMigrator_Migration000004_PreExistingDuplicateDiagnostic_FailsLoudly
+--- PASS: TestMigrator_Migration000004_PreExistingDuplicateDiagnostic_FailsLoudly (0.33s)
+=== RUN   TestMigrator_FreshMigrate
+--- PASS: TestMigrator_FreshMigrate (0.28s)
+=== RUN   TestMigrator_IdempotentReRun
+--- PASS: TestMigrator_IdempotentReRun (0.35s)
+=== RUN   TestMigrator_ChecksumTamperingDetected
+--- PASS: TestMigrator_ChecksumTamperingDetected (0.41s)
+=== RUN   TestMigrator_ConcurrentMigrators_ExactlyOneApplies
+--- PASS: TestMigrator_ConcurrentMigrators_ExactlyOneApplies (0.40s)
+=== RUN   TestSchemaInvariants_SQLViolations
+=== RUN   TestSchemaInvariants_SQLViolations/SecondActiveAttemptForJob_RejectedByPartialIndex
+=== RUN   TestSchemaInvariants_SQLViolations/DuplicateJobAttemptNo_RejectedByUniqueConstraint
+=== RUN   TestSchemaInvariants_SQLViolations/SecondResultForJob_RejectedByPrimaryKey
+=== RUN   TestSchemaInvariants_SQLViolations/OversizedPayload_RejectedByCheckConstraint
+=== RUN   TestSchemaInvariants_SQLViolations/OversizedOutput_RejectedByCheckConstraint
+=== RUN   TestSchemaInvariants_SQLViolations/InvalidStateValues_RejectedByCheckConstraints
+=== RUN   TestSchemaInvariants_SQLViolations/WorkerSlotsRange_RejectedByCheckConstraints
+=== RUN   TestSchemaInvariants_SQLViolations/WorkerVersionLength_RejectedByCheckConstraint
+=== RUN   TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint
+--- PASS: TestSchemaInvariants_SQLViolations (0.31s)
+    --- PASS: TestSchemaInvariants_SQLViolations/SecondActiveAttemptForJob_RejectedByPartialIndex (0.01s)
+    --- PASS: TestSchemaInvariants_SQLViolations/DuplicateJobAttemptNo_RejectedByUniqueConstraint (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/SecondResultForJob_RejectedByPrimaryKey (0.01s)
+    --- PASS: TestSchemaInvariants_SQLViolations/OversizedPayload_RejectedByCheckConstraint (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/OversizedOutput_RejectedByCheckConstraint (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/InvalidStateValues_RejectedByCheckConstraints (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/WorkerSlotsRange_RejectedByCheckConstraints (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/WorkerVersionLength_RejectedByCheckConstraint (0.00s)
+    --- PASS: TestSchemaInvariants_SQLViolations/WorkerSupportedTasksCount_RejectedByCheckConstraint (0.00s)
+=== RUN   TestMigrator_PreExistingInvalidRow_ValidationFails
+--- PASS: TestMigrator_PreExistingInvalidRow_ValidationFails (0.39s)
+=== RUN   TestMigrator_NotSubjectToCoordinatorQueryTimeout
+    migrator_test.go:699: Migrator session timeouts: statement_timeout=0, lock_timeout=0
+--- PASS: TestMigrator_NotSubjectToCoordinatorQueryTimeout (0.74s)
+=== RUN   TestPostgresRepository_Conformance
+=== RUN   TestPostgresRepository_Conformance/SubmitJob_SuccessAndInvariants
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotFound
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotQueued
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNotFound
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerUnhealthy
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/TaskUnsupported
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNoCapacity
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_JobNotQueued_Before_WorkerUnhealthyAndNoCapacity
+=== RUN   TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_WorkerUnhealthy_Before_TaskUnsupportedAndNoCapacity
+=== RUN   TestPostgresRepository_Conformance/CommitAttempt_ValidationsAndOutcome
+=== RUN   TestPostgresRepository_Conformance/CancelJob_QueuedAndRunning
+=== RUN   TestPostgresRepository_Conformance/WorkerReapAndHeartbeatRecovery
+=== RUN   TestPostgresRepository_Conformance/DispatchNextJob_PreconditionsAndFIFO
+--- PASS: TestPostgresRepository_Conformance (2.79s)
+    --- PASS: TestPostgresRepository_Conformance/SubmitJob_SuccessAndInvariants (0.48s)
+    --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence (0.41s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotFound (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotQueued (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNotFound (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerUnhealthy (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/TaskUnsupported (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNoCapacity (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_JobNotQueued_Before_WorkerUnhealthyAndNoCapacity (0.00s)
+        --- PASS: TestPostgresRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_WorkerUnhealthy_Before_TaskUnsupportedAndNoCapacity (0.00s)
+    --- PASS: TestPostgresRepository_Conformance/CommitAttempt_ValidationsAndOutcome (0.51s)
+    --- PASS: TestPostgresRepository_Conformance/CancelJob_QueuedAndRunning (0.40s)
+    --- PASS: TestPostgresRepository_Conformance/WorkerReapAndHeartbeatRecovery (0.45s)
+    --- PASS: TestPostgresRepository_Conformance/DispatchNextJob_PreconditionsAndFIFO (0.54s)
+=== RUN   TestConformance_Dispatch_StampsLease
+=== RUN   TestConformance_Dispatch_StampsLease/DispatchJob
+=== RUN   TestConformance_Dispatch_StampsLease/DispatchNextJob
+--- PASS: TestConformance_Dispatch_StampsLease (0.78s)
+    --- PASS: TestConformance_Dispatch_StampsLease/DispatchJob (0.38s)
+    --- PASS: TestConformance_Dispatch_StampsLease/DispatchNextJob (0.40s)
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/extends_from_repository_now_and_records_no_event
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/accepted_after_the_lease_passed_while_unswept
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/cancel_requested_returns_flag_and_does_not_extend
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_token
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_worker
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_attempt
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_of_another_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/terminal_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_COMPLETED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_FAILED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_CANCELLED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_TIMED_OUT
+--- PASS: TestConformance_RenewLease_AcceptUntilSwept (6.34s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/extends_from_repository_now_and_records_no_event (0.43s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/accepted_after_the_lease_passed_while_unswept (0.59s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/cancel_requested_returns_flag_and_does_not_extend (0.88s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched (4.43s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_token (0.39s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_worker (0.42s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_job (0.46s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_attempt (0.44s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_of_another_job (0.57s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/terminal_job (0.46s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_COMPLETED (0.41s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_FAILED (0.42s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_CANCELLED (0.39s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_TIMED_OUT (0.46s)
+=== RUN   TestConformance_RenewLease_RejectedAfterLost
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt
+--- PASS: TestConformance_RenewLease_RejectedAfterLost (1.45s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying (0.45s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt (0.51s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt (0.49s)
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/retry_when_attempts_remain
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/redispatch_once_not_before_reached_uses_attempt_number_2
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/fail_when_attempts_exhausted
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/lost_attempts_consume_max_attempts
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/cancel_requested_records_only_job_cancelled
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/CANCELLED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/SUCCEEDED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/FAILED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/candidates_are_only_expired_running_attempts
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/limit_bounds_the_batch_oldest_lease_first
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/nil_backoff_is_rejected_and_nothing_changes
+--- PASS: TestConformance_SweepExpiredLeases_RetryOrFail (7.14s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/retry_when_attempts_remain (0.47s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/redispatch_once_not_before_reached_uses_attempt_number_2 (0.51s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/fail_when_attempts_exhausted (0.56s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/lost_attempts_consume_max_attempts (0.61s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/cancel_requested_records_only_job_cancelled (0.63s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job (1.87s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/CANCELLED (0.53s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/SUCCEEDED (0.56s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/FAILED (0.78s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/candidates_are_only_expired_running_attempts (0.79s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/limit_bounds_the_batch_oldest_lease_first (1.08s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/nil_backoff_is_rejected_and_nothing_changes (0.61s)
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job
+--- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping (2.32s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running (0.78s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested (0.59s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job (0.95s)
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/swept_attempt_is_lease_expired_with_one_bounded_diagnostic
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_is_evaluated_before_token_mismatch_and_supersession
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/terminal_job_beats_lost_attempt
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/non_lost_non_running_and_unknown_attempts_are_stale_without_diagnostic
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_attempt_of_another_job_is_not_disclosed_or_recorded
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/expired_but_unswept_attempt_still_commits
+--- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder (6.86s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/swept_attempt_is_lease_expired_with_one_bounded_diagnostic (0.85s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_is_evaluated_before_token_mismatch_and_supersession (0.99s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/terminal_job_beats_lost_attempt (0.74s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/non_lost_non_running_and_unknown_attempts_are_stale_without_diagnostic (3.18s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_attempt_of_another_job_is_not_disclosed_or_recorded (0.59s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/expired_but_unswept_attempt_still_commits (0.51s)
+=== RUN   TestConformance_CancelJob_IdempotentCancelRequested
+--- PASS: TestConformance_CancelJob_IdempotentCancelRequested (0.51s)
+=== RUN   TestConformance_CancelJob_RetryingImmediatelyCancelled
+--- PASS: TestConformance_CancelJob_RetryingImmediatelyCancelled (0.47s)
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_TRANSIENT_goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_UNKNOWN_goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class__goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/permanent_fails_at_once_and_never_asks_for_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_bounds_retries_and_each_retry_asks_for_its_own_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_1_never_retries
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/lost_attempts_share_the_budget_with_reported_failures
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/a_retryable_failure_without_a_backoff_function_is_rejected_and_changes_nothing
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/worker_cannot_report_LEASE_EXPIRED_or_an_unknown_class
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/a_class_on_a_success_is_rejected
+--- PASS: TestConformance_CommitAttempt_FailureRetryOrFail (5.96s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_TRANSIENT_goes_to_RETRYING_with_backoff (0.46s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_UNKNOWN_goes_to_RETRYING_with_backoff (0.63s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class__goes_to_RETRYING_with_backoff (0.64s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/permanent_fails_at_once_and_never_asks_for_backoff (0.59s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_bounds_retries_and_each_retry_asks_for_its_own_backoff (0.43s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_1_never_retries (0.50s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/lost_attempts_share_the_budget_with_reported_failures (0.84s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/a_retryable_failure_without_a_backoff_function_is_rejected_and_changes_nothing (0.82s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/worker_cannot_report_LEASE_EXPIRED_or_an_unknown_class (0.47s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/a_class_on_a_success_is_rejected (0.59s)
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_TRANSIENT
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_UNKNOWN
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_PERMANENT
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/cancel_wins_on_the_last_attempt_too
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/a_success_on_CANCEL_REQUESTED_still_succeeds
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/LEASE_EXPIRED_is_still_rejected_while_cancel_requested
+--- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob (3.71s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_TRANSIENT (0.43s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_UNKNOWN (0.48s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_PERMANENT (0.68s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_ (0.57s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/cancel_wins_on_the_last_attempt_too (0.46s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/a_success_on_CANCEL_REQUESTED_still_succeeds (0.56s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/LEASE_EXPIRED_is_still_rejected_while_cancel_requested (0.53s)
+=== RUN   TestConformance_CommitAttempt_TerminalJob
+=== RUN   TestConformance_CommitAttempt_TerminalJob/cancelled_job_closes_attempt_cancelled
+=== RUN   TestConformance_CommitAttempt_TerminalJob/succeeded_job_closes_attempt_lost
+=== RUN   TestConformance_CommitAttempt_TerminalJob/failed_job_closes_attempt_lost
+=== RUN   TestConformance_CommitAttempt_TerminalJob/completed_attempt_never_overwritten
+=== RUN   TestConformance_CommitAttempt_TerminalJob/foreign_attempt_is_not_closed
+=== RUN   TestConformance_CommitAttempt_TerminalJob/unknown_attempt_records_nothing
+--- PASS: TestConformance_CommitAttempt_TerminalJob (2.90s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/cancelled_job_closes_attempt_cancelled (0.49s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/succeeded_job_closes_attempt_lost (0.68s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/failed_job_closes_attempt_lost (0.48s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/completed_attempt_never_overwritten (0.39s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/foreign_attempt_is_not_closed (0.44s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/unknown_attempt_records_nothing (0.42s)
+=== RUN   TestProperty_StateMachine_ModelConformance
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_1
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_2
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_3
+--- PASS: TestProperty_StateMachine_ModelConformance (3.68s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_1 (1.20s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_2 (1.13s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_3 (1.36s)
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/COMPLETED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/FAILED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/CANCELLED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/TIMED_OUT
+--- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt (1.77s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/COMPLETED (0.42s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/FAILED (0.50s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/CANCELLED (0.44s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/TIMED_OUT (0.42s)
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/before_not_before_not_listed_not_dispatchable
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/after_not_before_listed_and_dispatchable_by_id
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/cancel_during_backoff_clears_the_gate
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/cancel_requested_at_is_stamped_once
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/queued_cancel_has_no_cancel_requested_at
+--- PASS: TestConformance_RetryingJob_DispatchAndCancelParity (2.07s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/before_not_before_not_listed_not_dispatchable (0.45s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/after_not_before_listed_and_dispatchable_by_id (0.39s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/cancel_during_backoff_clears_the_gate (0.39s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/cancel_requested_at_is_stamped_once (0.38s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/queued_cancel_has_no_cancel_requested_at (0.47s)
+=== RUN   TestConformance_Now_IsRepositoryClock
+--- PASS: TestConformance_Now_IsRepositoryClock (0.40s)
+=== RUN   TestPostgresRepository_Security_SQLInjectionChallenge
+--- PASS: TestPostgresRepository_Security_SQLInjectionChallenge (0.44s)
+=== RUN   TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits
+--- PASS: TestPostgresRepository_Security_PayloadAndOutputBoundaryLimits (0.74s)
+=== RUN   TestPostgresRepository_Security_ForgedTokenAndReplayAttacks
+--- PASS: TestPostgresRepository_Security_ForgedTokenAndReplayAttacks (0.53s)
+=== RUN   TestPostgresRepository_Security_ContextCancellationAtomicity
+--- PASS: TestPostgresRepository_Security_ContextCancellationAtomicity (0.45s)
+=== RUN   TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation
+    security_test.go:642: PASS: positive fixture "good_batch_queue" verified (0 violations)
+    security_test.go:642: PASS: positive fixture "good_migrator_allowlist" verified (0 violations)
+    security_test.go:642: PASS: positive fixture "good_literal" verified (0 violations)
+    security_test.go:642: PASS: positive fixture "good_const" verified (0 violations)
+    security_test.go:642: PASS: positive fixture "good_var" verified (0 violations)
+    security_test.go:784: PASS: negative fixture "bad_batch_queue_sprintf" successfully flagged: fixture.go:7: Queue query argument is constructed via dynamic function call
+    security_test.go:784: PASS: negative fixture "bad_migrator_call_site" successfully flagged: migrator.go:9: Exec query argument is constructed via dynamic function call
+    security_test.go:784: PASS: negative fixture "bad_repository_using_allowlist_outside_migrator" successfully flagged: repository.go:10: Exec query argument expression of type *ast.SelectorExpr is unsafe
+    security_test.go:784: PASS: negative fixture "bad_sprintf_variable" successfully flagged: fixture.go:9: Exec query argument "query" has unsafe assignment(s)
+    security_test.go:784: PASS: negative fixture "bad_direct_sprintf" successfully flagged: fixture.go:8: Exec query argument is constructed via dynamic function call
+    security_test.go:784: PASS: negative fixture "bad_concat_direct" successfully flagged: fixture.go:7: Exec query argument uses string concatenation (+)
+    security_test.go:784: PASS: negative fixture "bad_concat_var" successfully flagged: fixture.go:8: Exec query argument "query" has unsafe assignment(s)
+    security_test.go:784: PASS: negative fixture "bad_param_passthrough" successfully flagged: fixture.go:7: Exec query argument "query" is a function parameter
+    security_test.go:803: PASS: verified SQL safety for production file: leases.go (0 violations)
+    security_test.go:803: PASS: verified SQL safety for production file: migrator.go (0 violations)
+    security_test.go:803: PASS: verified SQL safety for production file: repository.go (0 violations)
+--- PASS: TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation (0.05s)
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_zero
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_negative
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_exceeds_20
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_zero
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_negative
+=== RUN   TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_exceeds_86400
+--- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds (0.60s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_zero (0.06s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_negative (0.00s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/max_attempts_exceeds_20 (0.00s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_zero (0.00s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_negative (0.00s)
+    --- PASS: TestPostgresRepository_Security_CheckConstraints_NumericBounds/timeout_seconds_exceeds_86400 (0.00s)
+=== RUN   TestPostgresRepository_Security_WorkerCheckConstraints
+=== RUN   TestPostgresRepository_Security_WorkerCheckConstraints/total_slots_zero_rejected
+=== RUN   TestPostgresRepository_Security_WorkerCheckConstraints/total_slots_1025_rejected
+=== RUN   TestPostgresRepository_Security_WorkerCheckConstraints/version_65_chars_rejected
+=== RUN   TestPostgresRepository_Security_WorkerCheckConstraints/supported_tasks_17_items_rejected
+--- PASS: TestPostgresRepository_Security_WorkerCheckConstraints (0.36s)
+    --- PASS: TestPostgresRepository_Security_WorkerCheckConstraints/total_slots_zero_rejected (0.05s)
+    --- PASS: TestPostgresRepository_Security_WorkerCheckConstraints/total_slots_1025_rejected (0.00s)
+    --- PASS: TestPostgresRepository_Security_WorkerCheckConstraints/version_65_chars_rejected (0.00s)
+    --- PASS: TestPostgresRepository_Security_WorkerCheckConstraints/supported_tasks_17_items_rejected (0.00s)
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder/blocked_on_workers_holds_jobs_but_not_attempts
+    sweeper_test.go:193: the sweeper holds the attempts lock while still waiting for workers: attempts must be locked after workers
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder/blocked_on_attempts_holds_jobs_and_workers
+    sweeper_test.go:208: while waiting for the attempts lock the sweeper does not hold the jobs lock
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder/locked_job_is_skipped_without_waiting_and_is_not_an_error
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder/lock_timeout_on_workers_skips_the_candidate_and_is_not_an_error
+=== RUN   TestPostgresRepository_Sweeper_CanonicalLockOrder/lock_timeout_on_attempts_skips_the_candidate_and_is_not_an_error
+    sweeper_test.go:247: sweep returned an error: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)
+--- FAIL: TestPostgresRepository_Sweeper_CanonicalLockOrder (3.48s)
+    --- FAIL: TestPostgresRepository_Sweeper_CanonicalLockOrder/blocked_on_workers_holds_jobs_but_not_attempts (0.53s)
+    --- FAIL: TestPostgresRepository_Sweeper_CanonicalLockOrder/blocked_on_attempts_holds_jobs_and_workers (0.62s)
+    --- PASS: TestPostgresRepository_Sweeper_CanonicalLockOrder/locked_job_is_skipped_without_waiting_and_is_not_an_error (0.54s)
+    --- PASS: TestPostgresRepository_Sweeper_CanonicalLockOrder/lock_timeout_on_workers_skips_the_candidate_and_is_not_an_error (0.94s)
+    --- FAIL: TestPostgresRepository_Sweeper_CanonicalLockOrder/lock_timeout_on_attempts_skips_the_candidate_and_is_not_an_error (0.85s)
+=== RUN   TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck
+=== RUN   TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/renewal_landed_after_the_scan
+=== RUN   TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/commit_landed_after_the_scan
+--- PASS: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck (1.02s)
+    --- PASS: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/renewal_landed_after_the_scan (0.50s)
+    --- PASS: TestPostgresRepository_Sweeper_ConcurrentRenewalRecheck/commit_landed_after_the_scan (0.52s)
+=== RUN   TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt
+=== RUN   TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/cancelled_job_closes_attempt_cancelled
+=== RUN   TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/succeeded_job_closes_attempt_lost
+=== RUN   TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/failed_job_closes_attempt_lost
+--- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt (3.46s)
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/cancelled_job_closes_attempt_cancelled (1.18s)
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/succeeded_job_closes_attempt_lost (1.12s)
+    --- PASS: TestPostgresRepository_CommitAttempt_TerminalJobClosesAttempt/failed_job_closes_attempt_lost (1.16s)
+=== RUN   TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex
+--- PASS: TestPostgresRepository_CommitAttempt_LostAttemptDiagnosticBoundedByIndex (1.31s)
+=== RUN   TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool
+--- PASS: TestPostgresRepository_Sweeper_LockTimeoutDoesNotLeakToPool (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	83.661s
+=== RUN   TestCoordinator_RetryBackoffWithJitter
+=== RUN   TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_1_cadcb1510124 task_type=echo state=QUEUED max_attempts=4
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_1_cadcb1510124 attempt_id=att_1_5c17ff4748a4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_1_cadcb1510124 attempt_id=att_1_5c17ff4748a4 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_1_cadcb1510124 attempt_id=att_2_11efbadd9663 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_1_cadcb1510124 attempt_id=att_2_11efbadd9663 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_1_cadcb1510124 attempt_id=att_3_fd4923e0fdf6 attempt_no=3 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_1_cadcb1510124 attempt_id=att_3_fd4923e0fdf6 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+=== RUN   TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_2_8fb5ef8d1fea task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_2_8fb5ef8d1fea attempt_id=att_1_f64619483018 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_2_8fb5ef8d1fea attempt_id=att_1_f64619483018 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_3_996dcf781e31 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_3_996dcf781e31 attempt_id=att_1_085000ef821f attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_3_996dcf781e31 attempt_id=att_1_085000ef821f final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_4_edb1a6282922 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_4_edb1a6282922 attempt_id=att_1_0395eab21fb4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_4_edb1a6282922 attempt_id=att_1_0395eab21fb4 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_5_0af469962ed3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_5_0af469962ed3 attempt_id=att_1_8aafaf84678b attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_5_0af469962ed3 attempt_id=att_1_8aafaf84678b final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_6_c63a19e5c029 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_6_c63a19e5c029 attempt_id=att_1_31b111ff24e9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_6_c63a19e5c029 attempt_id=att_1_31b111ff24e9 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_7_7d2d8f9d8423 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_7_7d2d8f9d8423 attempt_id=att_1_1d2e3523fafc attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_7_7d2d8f9d8423 attempt_id=att_1_1d2e3523fafc final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_8_25b49cce2af3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_8_25b49cce2af3 attempt_id=att_1_6d2abc266d7d attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_8_25b49cce2af3 attempt_id=att_1_6d2abc266d7d final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_9_6489b871b26f task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_9_6489b871b26f attempt_id=att_1_b65f1c2f8c77 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_9_6489b871b26f attempt_id=att_1_b65f1c2f8c77 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_10_bc336cf09702 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_10_bc336cf09702 attempt_id=att_1_5829e8ba23a4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_10_bc336cf09702 attempt_id=att_1_5829e8ba23a4 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_11_afc8a00c6c38 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_11_afc8a00c6c38 attempt_id=att_1_4615097632ab attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_11_afc8a00c6c38 attempt_id=att_1_4615097632ab final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_12_d9026110372a task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_12_d9026110372a attempt_id=att_1_877a381a865e attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_12_d9026110372a attempt_id=att_1_877a381a865e final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_13_53f91a7b51c3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_13_53f91a7b51c3 attempt_id=att_1_8d4c1b86c45e attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_13_53f91a7b51c3 attempt_id=att_1_8d4c1b86c45e final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_14_ea48f14459ab task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_14_ea48f14459ab attempt_id=att_1_48ee6b13ae31 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_14_ea48f14459ab attempt_id=att_1_48ee6b13ae31 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_15_64fd108b6182 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_15_64fd108b6182 attempt_id=att_1_e65bbb055ce9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_15_64fd108b6182 attempt_id=att_1_e65bbb055ce9 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_16_e84e32912eb4 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_16_e84e32912eb4 attempt_id=att_1_09642665dbb3 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_16_e84e32912eb4 attempt_id=att_1_09642665dbb3 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_17_ee728e0a955b task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_17_ee728e0a955b attempt_id=att_1_90a45656fbfc attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_17_ee728e0a955b attempt_id=att_1_90a45656fbfc final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_18_adcd198bd319 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_18_adcd198bd319 attempt_id=att_1_d8420e89b32b attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_18_adcd198bd319 attempt_id=att_1_d8420e89b32b final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_19_1797b336b3ce task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_19_1797b336b3ce attempt_id=att_1_252ce89f8ac8 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_19_1797b336b3ce attempt_id=att_1_252ce89f8ac8 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_20_71120e626352 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_20_71120e626352 attempt_id=att_1_8c3fc2be1ebd attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_20_71120e626352 attempt_id=att_1_8c3fc2be1ebd final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_21_618ff3d9522f task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_21_618ff3d9522f attempt_id=att_1_8cf287b16da2 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_21_618ff3d9522f attempt_id=att_1_8cf287b16da2 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_22_89de55ebca20 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_22_89de55ebca20 attempt_id=att_1_50102b6c51aa attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_22_89de55ebca20 attempt_id=att_1_50102b6c51aa final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_23_52ac7d91d3fc task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_23_52ac7d91d3fc attempt_id=att_1_e166757fdf20 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_23_52ac7d91d3fc attempt_id=att_1_e166757fdf20 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_24_3e7310dbb276 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_24_3e7310dbb276 attempt_id=att_1_61246250625d attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_24_3e7310dbb276 attempt_id=att_1_61246250625d final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_25_c2ed3d29b4ae task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_25_c2ed3d29b4ae attempt_id=att_1_fc8035a997d2 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_25_c2ed3d29b4ae attempt_id=att_1_fc8035a997d2 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_26_c1395f84d805 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_26_c1395f84d805 attempt_id=att_1_3ad288f7c445 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_26_c1395f84d805 attempt_id=att_1_3ad288f7c445 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_27_14a1cdd49088 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_27_14a1cdd49088 attempt_id=att_1_90977b4244c9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_27_14a1cdd49088 attempt_id=att_1_90977b4244c9 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_28_8707f35c1b7d task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_28_8707f35c1b7d attempt_id=att_1_b6539feda581 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_28_8707f35c1b7d attempt_id=att_1_b6539feda581 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_29_0d8dd3229416 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_29_0d8dd3229416 attempt_id=att_1_7e5e5d17360d attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_29_0d8dd3229416 attempt_id=att_1_7e5e5d17360d final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_30_9a835f67d07b task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_30_9a835f67d07b attempt_id=att_1_c79cfeb6d85f attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_30_9a835f67d07b attempt_id=att_1_c79cfeb6d85f final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_31_9894464248b2 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_31_9894464248b2 attempt_id=att_1_f1f16d29f965 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_31_9894464248b2 attempt_id=att_1_f1f16d29f965 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_32_322c76b6e82a task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_32_322c76b6e82a attempt_id=att_1_abdf0c15639e attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_32_322c76b6e82a attempt_id=att_1_abdf0c15639e final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_33_c353a9c47565 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_33_c353a9c47565 attempt_id=att_1_fa619d9b9bfd attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_33_c353a9c47565 attempt_id=att_1_fa619d9b9bfd final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_34_d4f3f0f55ac0 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_34_d4f3f0f55ac0 attempt_id=att_1_ccd4fdf82479 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_34_d4f3f0f55ac0 attempt_id=att_1_ccd4fdf82479 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_35_67d6bfafae61 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_35_67d6bfafae61 attempt_id=att_1_73abe3d30c4f attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_35_67d6bfafae61 attempt_id=att_1_73abe3d30c4f final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_36_821ce19f2003 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_36_821ce19f2003 attempt_id=att_1_34b87ccb5ef6 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_36_821ce19f2003 attempt_id=att_1_34b87ccb5ef6 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_37_10d47f6cd8b4 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_37_10d47f6cd8b4 attempt_id=att_1_b321ea47bc80 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_37_10d47f6cd8b4 attempt_id=att_1_b321ea47bc80 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_38_a219670eacad task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_38_a219670eacad attempt_id=att_1_a8ec839bfed2 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_38_a219670eacad attempt_id=att_1_a8ec839bfed2 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_39_4e6ecfacc889 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_39_4e6ecfacc889 attempt_id=att_1_39bfee5d5e79 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_39_4e6ecfacc889 attempt_id=att_1_39bfee5d5e79 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_40_1efff1a21af0 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_40_1efff1a21af0 attempt_id=att_1_1c04d81462d9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_40_1efff1a21af0 attempt_id=att_1_1c04d81462d9 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_41_b76dabfd6c6f task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_41_b76dabfd6c6f attempt_id=att_1_8eba5f66f4c3 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_41_b76dabfd6c6f attempt_id=att_1_8eba5f66f4c3 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_42_71a92b416849 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_42_71a92b416849 attempt_id=att_1_7ad590c01985 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_42_71a92b416849 attempt_id=att_1_7ad590c01985 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_43_dd2534bd9fce task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_43_dd2534bd9fce attempt_id=att_1_c61a2abd28c0 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_43_dd2534bd9fce attempt_id=att_1_c61a2abd28c0 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_44_d57fe1b41983 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_44_d57fe1b41983 attempt_id=att_1_e835c796ff3d attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_44_d57fe1b41983 attempt_id=att_1_e835c796ff3d final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_45_b78b16cc4900 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_45_b78b16cc4900 attempt_id=att_1_673df2c529f7 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_45_b78b16cc4900 attempt_id=att_1_673df2c529f7 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_46_06cc4cd02883 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_46_06cc4cd02883 attempt_id=att_1_964c13992040 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_46_06cc4cd02883 attempt_id=att_1_964c13992040 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_47_5c10b9f179ea task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_47_5c10b9f179ea attempt_id=att_1_7c8576a7b6a8 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_47_5c10b9f179ea attempt_id=att_1_7c8576a7b6a8 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_48_fbd60c2fa312 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_48_fbd60c2fa312 attempt_id=att_1_ea6991ed9d6a attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_48_fbd60c2fa312 attempt_id=att_1_ea6991ed9d6a final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_49_3af8394a7fdb task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_49_3af8394a7fdb attempt_id=att_1_77a9a8ba3900 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_49_3af8394a7fdb attempt_id=att_1_77a9a8ba3900 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_50_9251d613d001 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_50_9251d613d001 attempt_id=att_1_9666d0f5ee8f attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_50_9251d613d001 attempt_id=att_1_9666d0f5ee8f final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_51_2e21f2c7d1d2 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_51_2e21f2c7d1d2 attempt_id=att_1_06e04beb5375 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_51_2e21f2c7d1d2 attempt_id=att_1_06e04beb5375 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+--- PASS: TestCoordinator_RetryBackoffWithJitter (0.06s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt (0.01s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range (0.05s)
+=== RUN   TestCoordinator_CommitResult_FailureClassification
+=== RUN   TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_52_c27471bf89b8 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_52_c27471bf89b8 attempt_id=att_1_4ab076fee804 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_52_c27471bf89b8 attempt_id=att_1_4ab076fee804 final_state=FAILED exit_code=1 error_class=PERMANENT
+=== RUN   TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_53_4f0a3600c4e3 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_53_4f0a3600c4e3 attempt_id=att_1_1b1dac5a8526 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_53_4f0a3600c4e3 attempt_id=att_1_1b1dac5a8526 final_state=RETRYING exit_code=1 error_class=UNKNOWN
+=== RUN   TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_54_33571013968c task_type=echo state=QUEUED max_attempts=2
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_54_33571013968c attempt_id=att_1_327a5a4ce2b4 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_54_33571013968c attempt_id=att_1_327a5a4ce2b4 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_54_33571013968c attempt_id=att_2_b1fcb4d462e8 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_54_33571013968c attempt_id=att_2_b1fcb4d462e8 final_state=FAILED exit_code=1 error_class=TRANSIENT
+=== RUN   TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_55_db82479030ef task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 WARN result rejected: invalid error classification job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371
+2026/10/29 18:37:52 WARN result rejected: invalid error classification job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371
+2026/10/29 18:37:52 WARN result rejected: invalid error classification job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371
+2026/10/29 18:37:52 WARN result rejected: invalid error classification job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371
+2026/10/29 18:37:52 WARN result rejected: invalid error classification job_id=job_55_db82479030ef attempt_id=att_1_46c620fef371
+--- PASS: TestCoordinator_CommitResult_FailureClassification (0.01s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing (0.00s)
+=== RUN   TestCoordinator_CommitResult_CancelWinsOverRetry
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_56_1ca420b26675 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_56_1ca420b26675 attempt_id=att_1_adfc1b97f35e attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job cancellation requested job_id=job_56_1ca420b26675 state=CANCEL_REQUESTED
+2026/10/29 18:37:52 INFO job result committed job_id=job_56_1ca420b26675 attempt_id=att_1_adfc1b97f35e final_state=CANCELLED exit_code=1 error_class=TRANSIENT
+--- PASS: TestCoordinator_CommitResult_CancelWinsOverRetry (0.00s)
+=== RUN   TestCoordinator_DefaultMaxAttempts_Configurable
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_57_912e85e2cd8c task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestCoordinator_DefaultMaxAttempts_Configurable (0.00s)
+=== RUN   TestCoordinator_TransientFailureThenSuccess
+2026/10/29 18:37:52 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_58_44d024557cea task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_58_44d024557cea attempt_id=att_1_059bee756ba3 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_58_44d024557cea attempt_id=att_1_059bee756ba3 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_58_44d024557cea attempt_id=att_2_b96123a86490 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 INFO job result committed job_id=job_58_44d024557cea attempt_id=att_2_b96123a86490 final_state=SUCCEEDED exit_code=0 error_class=""
+--- PASS: TestCoordinator_TransientFailureThenSuccess (0.00s)
+=== RUN   TestService_WorkerLiveness_ReaperAndRecovery
+2026/10/29 18:37:52 INFO worker registered worker_id=worker-1 version="" slots=2 supported_tasks=[echo]
+2026/10/29 18:37:52 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[worker-1] timeout=10s
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_59_50d4c618d283 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_59_50d4c618d283 attempt_id=att_1_398c3195b6a3 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestService_WorkerLiveness_ReaperAndRecovery (0.00s)
+=== RUN   TestService_UnhealthyWorker_CommitAccepted
+2026/10/29 18:37:52 INFO worker registered worker_id=worker-1 version="" slots=2 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_60_2161bd475a05 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_60_2161bd475a05 attempt_id=att_1_7918fe516fb0 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 18:37:52 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[worker-1] timeout=10s
+2026/10/29 18:37:52 INFO job result committed job_id=job_60_2161bd475a05 attempt_id=att_1_7918fe516fb0 final_state=SUCCEEDED exit_code=0 error_class=""
+--- PASS: TestService_UnhealthyWorker_CommitAccepted (0.00s)
+=== RUN   TestService_WorkerMismatch_Rejected
+2026/10/29 18:37:52 INFO worker registered worker_id=worker-1 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO worker registered worker_id=worker-2 version="" slots=1 supported_tasks=[echo]
+2026/10/29 18:37:52 INFO job submitted and queued job_id=job_61_763758a8fd7a task_type=echo state=QUEUED max_attempts=3
+2026/10/29 18:37:52 INFO job dispatched to worker job_id=job_61_763758a8fd7a attempt_id=att_1_1d9bb16539e2 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestService_WorkerMismatch_Rejected (0.00s)
+=== RUN   TestService_ReaperHeartbeatRace
+--- PASS: TestService_ReaperHeartbeatRace (0.10s)
+=== RUN   TestService_Claim_JobNoLongerQueued_Dropped
+--- PASS: TestService_Claim_JobNoLongerQueued_Dropped (0.00s)
+=== RUN   TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased
+--- PASS: TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased (0.00s)
+=== RUN   TestService_Claim_Redelivery_NoDuplicateAttempt
+--- PASS: TestService_Claim_Redelivery_NoDuplicateAttempt (0.00s)
+=== RUN   TestService_CommitResult_AckOnlyOnAccepted
+--- PASS: TestService_CommitResult_AckOnlyOnAccepted (0.00s)
+=== RUN   TestService_ClaimOutcome_TransientFailure_QueueReleased
+--- PASS: TestService_ClaimOutcome_TransientFailure_QueueReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased
+--- PASS: TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released
+--- PASS: TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released (0.00s)
+=== RUN   TestService_PollWork_DispatchesDueRetryingJob
+--- PASS: TestService_PollWork_DispatchesDueRetryingJob (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock
+--- PASS: TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness
+--- PASS: TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read
+--- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick
+--- PASS: TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace
+--- PASS: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt
+--- PASS: TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow
+--- PASS: TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery
+--- PASS: TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn
+--- PASS: TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel
+--- PASS: TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel (0.01s)
+=== RUN   TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt
+--- PASS: TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping
+--- PASS: TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery
+--- PASS: TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.299s
+FAIL
+make: *** [Makefile:69: test-db] Error 1
+rc=2

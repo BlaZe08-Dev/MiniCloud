@@ -1,0 +1,3 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	39.183s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	254.697s
+rc=0

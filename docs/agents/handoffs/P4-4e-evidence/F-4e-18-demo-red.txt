@@ -1,0 +1,10 @@
+=== RUN   TestAbuse_MCOutput_HostileErrorText
+2026/10/29 15:23:59 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:23:59 INFO job submitted and queued job_id=job_1_e143a74ea871 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:24:00 INFO job dispatched to worker job_id=job_1_e143a74ea871 attempt_id=att_1_ce6b85e7a22b attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:24:00 INFO job result committed job_id=job_1_e143a74ea871 attempt_id=att_1_ce6b85e7a22b final_state=FAILED exit_code=1 error_class=PERMANENT
+    resources_test.go:296: mc [get job_1_e143a74ea871] printed raw control byte 0x1b at offset 263
+--- FAIL: TestAbuse_MCOutput_HostileErrorText (2.70s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	2.712s
+FAIL

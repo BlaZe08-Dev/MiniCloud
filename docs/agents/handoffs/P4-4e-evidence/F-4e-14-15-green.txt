@@ -1,0 +1,24 @@
+=== RUN   TestAbuse_OversizeErrorText_RetryPath
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/memory
+2026/10/29 15:17:27 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:17:27 INFO job submitted and queued job_id=job_1_d5e783e0894e task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_1_d5e783e0894e attempt_id=att_1_e465d7b05fa8 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:27 INFO job result committed job_id=job_1_d5e783e0894e attempt_id=att_1_e465d7b05fa8 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_1_d5e783e0894e attempt_id=att_2_b747228ebf9b attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:27 INFO job result committed job_id=job_1_d5e783e0894e attempt_id=att_2_b747228ebf9b final_state=SUCCEEDED exit_code=0 error_class=""
+2026/10/29 15:17:27 INFO job submitted and queued job_id=job_2_a38f763656d3 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_2_a38f763656d3 attempt_id=att_3_ad32a83906fe attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAbuse_OversizeErrorText_RetryPath/postgres
+2026/10/29 15:17:27 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:17:27 INFO job submitted and queued job_id=job_3_584c56639bd1 task_type=echo state=QUEUED max_attempts=3
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_3_584c56639bd1 attempt_id=att_job_3_584c56639bd1_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:27 INFO job result committed job_id=job_3_584c56639bd1 attempt_id=att_job_3_584c56639bd1_1 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_3_584c56639bd1 attempt_id=att_job_3_584c56639bd1_2 attempt_no=2 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:17:27 INFO job result committed job_id=job_3_584c56639bd1 attempt_id=att_job_3_584c56639bd1_2 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/10/29 15:17:27 INFO job submitted and queued job_id=job_4_1d0e20787c07 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:17:27 INFO job dispatched to worker job_id=job_4_1d0e20787c07 attempt_id=att_job_4_1d0e20787c07_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAbuse_OversizeErrorText_RetryPath (0.60s)
+    --- PASS: TestAbuse_OversizeErrorText_RetryPath/memory (0.04s)
+    --- PASS: TestAbuse_OversizeErrorText_RetryPath/postgres (0.56s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.614s

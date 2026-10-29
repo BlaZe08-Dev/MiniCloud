@@ -1,0 +1,12 @@
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/within_grace
+=== RUN   TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/control_after_grace_ends
+--- PASS: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit (7.41s)
+    --- PASS: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/within_grace (3.72s)
+    --- PASS: TestFault_CoordinatorKill9_StartupGrace_SurvivingCommit/control_after_grace_ends (3.69s)
+=== RUN   TestFault_CoordinatorKill9_DuringCommitStorm_InvariantsAfterRestart
+    realproc_test.go:245: seed 1793266579180901187
+    realproc_test.go:334: 120 jobs stored, kill after >= 22 acknowledged submissions with 2 attempts RUNNING
+--- PASS: TestFault_CoordinatorKill9_DuringCommitStorm_InvariantsAfterRestart (8.17s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	16.610s

@@ -1,0 +1,7 @@
+# MiniCloud-related processes after all runs (Thursday 29 October 2026 04:43:40 PM IST)
+# filter: command path contains minicloud-sectest-bin, go-build test binaries (faultinject.test, abuse.test), or the cmd/coordinator, cmd/worker, cmd/mc binaries
+none
+# leftover sectest build directories in /tmp:
+none
+# leftover port lock files are plain files, not processes:
+120

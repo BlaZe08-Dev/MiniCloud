@@ -1,0 +1,43 @@
+=== M15 worker capacity check removed from dispatch (memory)
+file: internal/storage/inmemory.go
+- if availSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
++ if false && availSlots <= 0 {
+		return nil, nil, domain.ErrWorkerNoCapacity
+command: go test -race -count=1 -run 'TestFault_WorkerCapacityNeverExceeded' ./tests/faultinject
+rc=1 (3s) => KILLED (test failed)
+--- FAIL: TestFault_WorkerCapacityNeverExceeded (0.57s)
+    --- FAIL: TestFault_WorkerCapacityNeverExceeded/memory (0.02s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.599s
+FAIL
+
+=== M18 sweeper takes the attempts lock before the jobs lock (PostgreSQL lock order)
+file: internal/storage/postgres/leases.go
+- // 1. jobs, SKIP LOCKED:
++ if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {
+		return nil, 0, mapPgError(lerr)
+	}
+	// 1. jobs, SKIP LOCKED:
+command: go test -race -count=1 -run 'TestFault_ManyWorkersManyJobs_Invariants|TestFault_CancelRacesLeaseExpiry' ./tests/faultinject
+rc=0 (8s) => SURVIVED (tests still pass)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	6.680s
+
+=== M19 sweeper takes the attempts lock first and waits for the jobs lock (blocking, no SKIP LOCKED)
+file: internal/storage/postgres/leases.go
+- // 1. jobs, SKIP LOCKED:
++ if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {
+		return nil, 0, mapPgError(lerr)
+	}
+	// 1. jobs, SKIP LOCKED:
+command: go test -race -count=1 -run 'TestFault_ManyWorkersManyJobs_Invariants|TestFault_CancelRacesLeaseExpiry' ./tests/faultinject
+rc=1 (41s) => KILLED (test failed)
+--- FAIL: TestFault_CancelRacesLeaseExpiry (3.73s)
+    --- FAIL: TestFault_CancelRacesLeaseExpiry/postgres (3.56s)
+        --- FAIL: TestFault_CancelRacesLeaseExpiry/postgres/concurrent (2.23s)
+--- FAIL: TestFault_ManyWorkersManyJobs_Invariants (34.00s)
+    --- FAIL: TestFault_ManyWorkersManyJobs_Invariants/postgres (33.70s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	37.779s
+FAIL
+

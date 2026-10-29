@@ -1,0 +1,9 @@
+gofmt -l .
+--- vet
+rc=0
+--- build
+rc=0
+--- make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	0.775s
+rc=0

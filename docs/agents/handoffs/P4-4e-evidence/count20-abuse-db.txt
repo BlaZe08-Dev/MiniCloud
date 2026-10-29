@@ -1,0 +1,2 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	463.359s
+rc=0

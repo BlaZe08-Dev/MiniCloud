@@ -13,6 +13,11 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 )
 
+const (
+	maxAttemptOutputBytes = 64 * 1024
+	maxAttemptErrorBytes  = 10 * 1024
+)
+
 // InMemoryRepository is a thread-safe, in-memory implementation of the Repository interface.
 //
 // NOTE: This storage implementation is NON-DURABLE and TEMPORARY for Milestone 1 / Slice 3a.
@@ -654,6 +659,15 @@ func (r *InMemoryRepository) CommitAttempt(ctx context.Context, jobID, attemptID
 			AssignedWorker:  att.WorkerID,
 			ReportingWorker: workerID,
 		}
+	}
+
+	// Field limits of docs/security/field-limits.md, enforced here as PostgreSQL's check
+	// constraints enforce them (F-4e-14).
+	if len(outcome.Output) > maxAttemptOutputBytes {
+		return nil, domain.ErrOutputTooLarge
+	}
+	if len(outcome.Error) > maxAttemptErrorBytes {
+		return nil, fmt.Errorf("%w: error text exceeds %d bytes", domain.ErrInvalidRequest, maxAttemptErrorBytes)
 	}
 
 	failed := domain.IsFailedOutcome(outcome)

@@ -1,0 +1,31 @@
+--- FAIL: TestClampText (0.00s)
+    --- FAIL: TestClampText/cut_inside_a_3-byte_rune_backs_up (0.00s)
+        truncate_test.go:35: result is not valid UTF-8: "€€€€€€€€€€€€€€€€€€€€€€€€€€€€€\xe2\n[truncated]"
+    --- FAIL: TestClampText/cut_inside_a_4-byte_rune_backs_up (0.00s)
+        truncate_test.go:35: result is not valid UTF-8: "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\xf0\x9f\x98\n[truncated]"
+    --- FAIL: TestClampText/invalid_bytes_that_grow_past_the_limit (0.00s)
+        truncate_test.go:35: result is not valid UTF-8: "�����������������������������\xef\n[truncated]"
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.005s
+--- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation (5.26s)
+    --- FAIL: TestAbuse_OversizeOutput_BuiltinEchoMidRuneTruncation/memory (5.26s)
+        oversize_worker_test.go:122: [memory] T+0.00s job/attempts: QUEUED
+        oversize_worker_test.go:122: [memory] T+0.10s job/attempts: RUNNING a1=RUNNING
+        oversize_worker_test.go:122: [memory] T+1.31s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:122: [memory] T+1.41s job/attempts: RUNNING a1=LOST a2=RUNNING
+        oversize_worker_test.go:122: [memory] T+2.61s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:122: [memory] T+2.71s job/attempts: RETRYING a1=LOST a2=LOST
+        oversize_worker_test.go:122: [memory] T+3.82s job/attempts: RUNNING a1=LOST a2=LOST a3=RUNNING
+        oversize_worker_test.go:122: [memory] T+5.03s attempt stuck RUNNING with no result stored; expiring its lease and sweeping
+        oversize_worker_test.go:122: [memory] T+5.13s job/attempts: FAILED a1=LOST a2=LOST a3=LOST
+        oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:39:38.108637551+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_896650068c01","attempt_id":"att_1_e8255af92dca","status":400,"err":"report failed with st
+        oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:39:39.418673869+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_896650068c01","attempt_id":"att_2_3b9bacdf617b","status":400,"err":"report failed with st
+        oversize_worker_test.go:122: [memory] worker log: {"time":"2026-10-29T18:39:41.889085022+05:30","level":"WARN","msg":"coordinator permanently rejected result (non-retryable)","job_id":"job_1_896650068c01","attempt_id":"att_3_65481d49e507","status":400,"err":"report failed with st
+        oversize_worker_test.go:123: [memory] attempt 1: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:123: [memory] attempt 2: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:123: [memory] attempt 3: LOST class=LEASE_EXPIRED exit=0 output=0 bytes error="lease expired: worker failed to renew"
+        oversize_worker_test.go:123: [memory] final: job FAILED after 5.13s, 3 attempt(s), 0 result row(s)
+        oversize_worker_test.go:123: [memory] job ended FAILED, want SUCCEEDED
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	5.268s
+FAIL

@@ -1,0 +1,2 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	3.810s
+rc=0

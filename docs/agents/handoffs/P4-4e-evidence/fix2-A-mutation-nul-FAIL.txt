@@ -1,0 +1,16 @@
+--- FAIL: TestClampText (0.00s)
+    --- FAIL: TestClampText/NUL_only (0.00s)
+        truncate_test.go:39: ClampText = "\x00\x00\x00", want "���"
+    --- FAIL: TestClampText/NUL_replacement_counted_before_the_cut (0.00s)
+        truncate_test.go:42: result still holds a NUL byte: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    --- FAIL: TestClampText/NUL_at_the_cut_boundary (0.00s)
+        truncate_test.go:42: result still holds a NUL byte: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00aaaaaaa\n[truncated]"
+    --- FAIL: TestClampText/NUL_and_invalid_bytes_with_a_split_multibyte_character (0.00s)
+        truncate_test.go:42: result still holds a NUL byte: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\x00�€€€€\n[truncated]"
+    --- FAIL: TestClampText/exactly_at_the_limit_after_replacement (0.00s)
+        truncate_test.go:39: ClampText = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", want "����������"
+    --- FAIL: TestClampText/one_byte_over_the_limit_after_replacement (0.00s)
+        truncate_test.go:42: result still holds a NUL byte: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00a"
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/executor	0.010s
+FAIL

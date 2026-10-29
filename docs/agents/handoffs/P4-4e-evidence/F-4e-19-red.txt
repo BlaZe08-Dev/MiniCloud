@@ -1,0 +1,42 @@
+=== RUN   TestAbuse_NULBytes
+=== RUN   TestAbuse_NULBytes/memory
+2026/10/29 15:22:48 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:22:48 INFO worker registered worker_id=nulw version="v\x00" slots=1 supported_tasks=[echo]
+    errortext_test.go:77: [memory] worker version with NUL = 200 {"heartbeat_interval_seconds":2,"status":"REGISTERED"}, want 400
+2026/10/29 15:22:48 INFO job submitted and queued job_id=job_1_8c91f408036a task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:22:48 INFO job dispatched to worker job_id=job_1_8c91f408036a attempt_id=att_1_e7aca44b40b0 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:22:48 INFO job result committed job_id=job_1_8c91f408036a attempt_id=att_1_e7aca44b40b0 final_state=RETRYING exit_code=1 error_class=TRANSIENT
+    errortext_test.go:86: [memory] result output with NUL = 200 {"job_state":"RETRYING","status":"COMMITTED"}, want 400 INVALID_REQUEST
+    errortext_test.go:89: [memory] attempt FAILED after a rejected NUL, want RUNNING
+=== RUN   TestAbuse_NULBytes/postgres
+2026/10/29 15:22:48 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:22:48 ERROR internal server error err="ERROR: invalid byte sequence for encoding \"UTF8\": 0x00 (SQLSTATE 22021)"
+    errortext_test.go:77: [postgres] worker version with NUL = 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}, want 400
+2026/10/29 15:22:48 INFO job submitted and queued job_id=job_2_fef0a5e59813 task_type=echo state=QUEUED max_attempts=2
+2026/10/29 15:22:48 INFO job dispatched to worker job_id=job_2_fef0a5e59813 attempt_id=att_job_2_fef0a5e59813_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:22:48 ERROR internal server error err="ERROR: invalid byte sequence for encoding \"UTF8\": 0x00 (SQLSTATE 22021)"
+    errortext_test.go:86: [postgres] result output with NUL = 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}, want 400 INVALID_REQUEST
+2026/10/29 15:22:48 ERROR internal server error err="ERROR: invalid byte sequence for encoding \"UTF8\": 0x00 (SQLSTATE 22021)"
+    errortext_test.go:86: [postgres] result error with NUL = 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}, want 400 INVALID_REQUEST
+2026/10/29 15:22:48 INFO job result committed job_id=job_2_fef0a5e59813 attempt_id=att_job_2_fef0a5e59813_1 final_state=SUCCEEDED exit_code=0 error_class=""
+--- FAIL: TestAbuse_NULBytes (0.38s)
+    --- FAIL: TestAbuse_NULBytes/memory (0.00s)
+    --- FAIL: TestAbuse_NULBytes/postgres (0.38s)
+=== RUN   TestAbuse_HostileErrorText_API
+=== RUN   TestAbuse_HostileErrorText_API/memory
+2026/10/29 15:22:48 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:22:48 INFO job submitted and queued job_id=job_3_512c918f3bd5 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:22:48 INFO job dispatched to worker job_id=job_3_512c918f3bd5 attempt_id=att_1_7df35dd2a944 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:22:48 INFO job result committed job_id=job_3_512c918f3bd5 attempt_id=att_1_7df35dd2a944 final_state=FAILED exit_code=1 error_class=PERMANENT
+=== RUN   TestAbuse_HostileErrorText_API/postgres
+2026/10/29 15:22:48 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/10/29 15:22:48 INFO job submitted and queued job_id=job_4_62aa3a64e8e9 task_type=echo state=QUEUED max_attempts=1
+2026/10/29 15:22:48 INFO job dispatched to worker job_id=job_4_62aa3a64e8e9 attempt_id=att_job_4_62aa3a64e8e9_1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/10/29 15:22:48 ERROR internal server error err="ERROR: invalid byte sequence for encoding \"UTF8\": 0x00 (SQLSTATE 22021)"
+    resources_test.go:259: commit = 500 {"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}
+--- FAIL: TestAbuse_HostileErrorText_API (0.49s)
+    --- PASS: TestAbuse_HostileErrorText_API/memory (0.00s)
+    --- FAIL: TestAbuse_HostileErrorText_API/postgres (0.48s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.872s
+FAIL

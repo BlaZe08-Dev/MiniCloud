@@ -1,0 +1,14 @@
+diff --git a/internal/storage/postgres/leases.go b/internal/storage/postgres/leases.go
+index f09e948..6bc4f0d 100644
+--- a/internal/storage/postgres/leases.go
++++ b/internal/storage/postgres/leases.go
+@@ -218,6 +218,9 @@ func (r *Repository) sweepCandidate(ctx context.Context, c sweepCandidate, param
+ 		return nil, 0, mapPgError(err)
+ 	}
+ 
++	if _, lerr := tx.Exec(ctx, `SELECT 1 FROM attempts WHERE id = $1 FOR UPDATE;`, c.attemptID); lerr != nil {
++		return nil, 0, mapPgError(lerr)
++	}
+ 	// 1. jobs, SKIP LOCKED: a job locked by a concurrent commit, renewal, cancel or dispatch is
+ 	// left for the next tick.
+ 	var (

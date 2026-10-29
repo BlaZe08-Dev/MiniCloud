@@ -1,0 +1,2 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	2733.223s
+rc=0
