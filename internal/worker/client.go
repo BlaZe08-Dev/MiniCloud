@@ -536,9 +536,13 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
 	output, exitCode, err := a.registry.Execute(taskCtx, assignment.TaskType, assignment.Payload, timeout)
 
+	// Defensive clamp at the wire boundary: the coordinator answers a deterministic 400 for an
+	// oversize field and the result would be dropped, the attempt lost and retried until the
+	// budget is spent. Whatever an executor returned, what leaves the worker fits the limits.
+	output = executor.ClampText(output, executor.MaxOutputSizeBytes)
 	errSummary := ""
 	if err != nil {
-		errSummary = err.Error()
+		errSummary = executor.ClampText(err.Error(), executor.MaxErrorSizeBytes)
 	}
 	// A failed outcome carries its class; a success carries none (ADR-0015).
 	errorClass := executor.Classify(err)

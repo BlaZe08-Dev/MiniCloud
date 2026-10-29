@@ -16,6 +16,12 @@ const (
 	// MaxOutputSizeBytes is the hard limit on task output (64 KiB).
 	MaxOutputSizeBytes = 64 * 1024
 
+	// MaxErrorSizeBytes is the hard limit on an attempt's error text (10 KiB).
+	MaxErrorSizeBytes = 10 * 1024
+
+	// TruncationMarker ends any output or error text that was cut to its limit.
+	TruncationMarker = "\n[truncated]"
+
 	// DefaultMaxTimeout is the fallback execution timeout if not specified.
 	DefaultMaxTimeout = 60 * time.Second
 )
@@ -63,11 +69,12 @@ func (r *Registry) Get(name string) (Task, error) {
 }
 
 // Execute runs the requested task with safety bounds:
-// 1. Enforces MaxPayloadSizeBytes.
-// 2. Looks up task in allowlist (rejects unknown task types).
-// 3. Validates payload structure.
-// 4. Enforces execution timeout via context.
-// 5. Caps output to MaxOutputSizeBytes.
+//  1. Enforces MaxPayloadSizeBytes.
+//  2. Looks up task in allowlist (rejects unknown task types).
+//  3. Validates payload structure.
+//  4. Enforces execution timeout via context.
+//  5. Caps output to MaxOutputSizeBytes on success and failure, cutting at a rune boundary and
+//     ending with TruncationMarker (ClampText).
 //
 // Never runs arbitrary shell commands on the host.
 func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte, timeout time.Duration) (string, int, error) {
@@ -95,13 +102,8 @@ func (r *Registry) Execute(ctx context.Context, taskName string, payload []byte,
 		if execCtx.Err() == context.DeadlineExceeded {
 			return "", 1, domain.ErrTaskTimeout
 		}
-		return output, 1, err
+		return ClampText(output, MaxOutputSizeBytes), 1, err
 	}
 
-	// Truncate output if it exceeds MaxOutputSizeBytes
-	if len(output) > MaxOutputSizeBytes {
-		output = output[:MaxOutputSizeBytes]
-	}
-
-	return output, 0, nil
+	return ClampText(output, MaxOutputSizeBytes), 0, nil
 }
