@@ -250,7 +250,7 @@ Every agent, before its final chat message, writes its final report to a NEW fil
 the exact final message; commit it alone (`docs(report): ...`), push, then send
 the final message; never overwrite an existing report; plain relative paths, no
 `file://` links; if a gate fails because of the new directory remove the file
-and say so.
+and say so. Follow-up reports use the suffixes `-review`, `-roundN`, `-recheck`.
 
 ## 9. Per-worktree test database
 

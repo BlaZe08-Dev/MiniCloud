@@ -304,7 +304,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-026 (Informational, Open):** Sweeper default branch skips attempts with unexpected job states (`QUEUED`, `SUBMITTED`, `RETRYING`) without marking attempt `LOST` or freeing slot; unreachable via normal API (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`).
   - **SEC-027 (Low, Open, within SEC-004 until V3):** `RenewLease` acquires job row lock before validating attempt lease token, allowing unauthenticated caller with known attempt ID to serialize against legitimate operations (`internal/storage/postgres/leases.go`, `internal/api/handlers.go`).
   - **SEC-028 (Informational, Open):** Sweeper startup and outage grace windows are process-local; multiple coordinator processes against the same database would have independent grace states (`internal/coordinator/sweeper.go`).
-  - **SEC-029 (Informational, Open; confirmed by code reading):** The dev Makefile targets `db-reset-test` and `db-down` are destructive and take no confirmation (`Makefile:45,52`).
+  - **SEC-029 (Informational, Open; confirmed by code reading):** The dev Makefile targets `db-reset-test` and `db-down` are destructive and take no confirmation (targets `db-reset-test` and `db-down` in `Makefile`).
 - **Distributed & Architectural Limitations:**
   - PostgreSQL repository and coordinator durable dispatch are fully wired (`fifo_pull`).
   - Dead workers' jobs have their leases reaped by the coordinator sweeper once expired (`SweepExpiredLeases`), transitioning the attempt to `LOST` and scheduling retries (`RETRYING`) up to `max_attempts` (Phase 4 slices 4b–4d; see ADR-0014 and ADR-0015).
