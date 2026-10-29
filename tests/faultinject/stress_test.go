@@ -144,3 +144,55 @@ func TestFault_ManyWorkersManyJobs_Invariants(t *testing.T) {
 		sectest.CheckInvariants(t, r, ids)
 	})
 }
+
+// TestFault_WorkerCapacityNeverExceeded: a worker with 2 slots polled by 16 concurrent callers while
+// 6 jobs are queued receives exactly 2 assignments; every other poll is refused for lack of capacity,
+// and the stored state shows exactly 2 RUNNING attempts. After one commit exactly one more slot opens.
+func TestFault_WorkerCapacityNeverExceeded(t *testing.T) {
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r := sectest.NewRig(t, kind)
+		r.Register("w", 2)
+		var ids []string
+		for i := 0; i < 6; i++ {
+			ids = append(ids, r.Submit(3))
+		}
+		var mu sync.Mutex
+		var got []string
+		var refused int
+		var start, done sync.WaitGroup
+		start.Add(1)
+		for i := 0; i < 16; i++ {
+			done.Add(1)
+			go func() {
+				defer done.Done()
+				start.Wait()
+				resp := r.Do("POST", "/v1/workers/w/poll", "")
+				mu.Lock()
+				defer mu.Unlock()
+				if resp.Status == http.StatusOK {
+					_, att, _ := sectest.AssignmentOf(resp)
+					got = append(got, att)
+				} else if resp.Status == http.StatusServiceUnavailable && resp.ErrCode() == "NO_WORKERS_AVAILABLE" {
+					refused++
+				}
+			}()
+		}
+		start.Done()
+		done.Wait()
+		if len(got) != 2 || refused != 14 {
+			t.Fatalf("16 concurrent polls gave %d assignments and %d capacity refusals, want 2 and 14", len(got), refused)
+		}
+		running := 0
+		for _, id := range ids {
+			for _, a := range r.Attempts(id) {
+				if a.State == domain.AttemptRunning {
+					running++
+				}
+			}
+		}
+		if running != 2 {
+			t.Fatalf("%d RUNNING attempts stored for a 2-slot worker", running)
+		}
+		sectest.CheckInvariants(t, r, ids)
+	})
+}
