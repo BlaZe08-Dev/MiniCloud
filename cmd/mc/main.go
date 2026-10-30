@@ -14,6 +14,12 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 )
 
+var (
+	stdout   io.Writer = os.Stdout
+	stderr   io.Writer = os.Stderr
+	exitFunc           = os.Exit
+)
+
 func getCoordinatorURL() string {
 	if url := os.Getenv("MINICLOUD_COORDINATOR_URL"); url != "" {
 		return url
@@ -24,7 +30,7 @@ func getCoordinatorURL() string {
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	command := os.Args[1]
@@ -40,14 +46,14 @@ func main() {
 	case "help", "-h", "--help":
 		printUsage()
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n", command)
+		fmt.Fprintf(stderr, "unknown command: %s\n", command)
 		printUsage()
-		os.Exit(1)
+		exitFunc(1)
 	}
 }
 
 func printUsage() {
-	fmt.Println(`MiniCloud CLI (mc)
+	fmt.Fprintln(stdout, `MiniCloud CLI (mc)
 
 Usage:
   mc submit --task <type> --payload <json> [--timeout <sec>] [--max-attempts <num>]
@@ -60,24 +66,30 @@ Environment Variables:
 }
 
 func handleSubmit(args []string) {
-	fs := flag.NewFlagSet("submit", flag.ExitOnError)
+	fs := flag.NewFlagSet("submit", flag.ContinueOnError)
+	fs.SetOutput(stderr)
 	taskType := fs.String("task", "", "Allowlisted task type (echo, sleep, sha256_loop)")
 	payload := fs.String("payload", "{}", "JSON payload string")
 	timeoutSec := fs.Int("timeout", 60, "Task execution timeout in seconds")
 	maxAttempts := fs.Int("max-attempts", 0, "Maximum execution attempts (0 = the coordinator's default, MINICLOUD_DEFAULT_MAX_ATTEMPTS)")
 	coordURL := fs.String("coordinator-url", getCoordinatorURL(), "Coordinator URL")
 
-	_ = fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		exitFunc(1)
+		return
+	}
 
 	if *taskType == "" {
-		fmt.Fprintln(os.Stderr, "Error: --task is required")
+		fmt.Fprintln(stderr, "Error: --task is required")
 		fs.Usage()
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	if !json.Valid([]byte(*payload)) {
-		fmt.Fprintln(os.Stderr, "Error: --payload must be valid JSON")
-		os.Exit(1)
+		fmt.Fprintln(stderr, "Error: --payload must be valid JSON")
+		exitFunc(1)
+		return
 	}
 
 	req := map[string]any{
@@ -92,82 +104,87 @@ func handleSubmit(args []string) {
 
 	resp, err := http.Post(*coordURL+"/v1/jobs", "application/json", bytes.NewReader(reqBody))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error submitting job: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error submitting job: %v\n", err)
+		exitFunc(1)
+		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated {
-		fmt.Fprintf(os.Stderr, "Job submission failed (HTTP %d): %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Job submission failed (HTTP %d): %s\n", resp.StatusCode, sanitize(string(body)))
+		exitFunc(1)
+		return
 	}
 
 	var job domain.Job
 	if err := json.Unmarshal(body, &job); err != nil {
-		fmt.Println(string(body))
+		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
 		return
 	}
 
-	fmt.Printf("Job Submitted Successfully!\n")
-	fmt.Printf("  ID:           %s\n", job.ID)
-	fmt.Printf("  Task:         %s\n", sanitize(job.TaskType))
-	fmt.Printf("  State:        %s\n", job.State)
-	fmt.Printf("  Max Attempts: %d\n", job.MaxAttempts)
+	fmt.Fprintf(stdout, "Job Submitted Successfully!\n")
+	fmt.Fprintf(stdout, "  ID:           %s\n", job.ID)
+	fmt.Fprintf(stdout, "  Task:         %s\n", sanitize(job.TaskType))
+	fmt.Fprintf(stdout, "  State:        %s\n", job.State)
+	fmt.Fprintf(stdout, "  Max Attempts: %d\n", job.MaxAttempts)
 }
 
 func handleGet(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: mc get <job_id>")
-		os.Exit(1)
+		fmt.Fprintln(stderr, "Usage: mc get <job_id>")
+		exitFunc(1)
+		return
 	}
 	jobID := args[0]
 	coordURL := getCoordinatorURL()
 
 	resp, err := http.Get(fmt.Sprintf("%s/v1/jobs/%s", coordURL, jobID))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error querying job: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error querying job: %v\n", err)
+		exitFunc(1)
+		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, sanitize(string(body)))
+		exitFunc(1)
+		return
 	}
 
 	var job domain.Job
 	if err := json.Unmarshal(body, &job); err != nil {
-		fmt.Println(string(body))
+		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
 		return
 	}
 
-	fmt.Printf("Job Details:\n")
-	fmt.Printf("  ID:           %s\n", job.ID)
-	fmt.Printf("  Task:         %s\n", sanitize(job.TaskType))
-	fmt.Printf("  State:        %s\n", job.State)
-	fmt.Printf("  Attempt ID:   %s\n", job.CurrentAttemptID)
-	fmt.Printf("  Created At:   %s\n", job.CreatedAt.Format(time.RFC3339))
-	fmt.Printf("  Updated At:   %s\n", job.UpdatedAt.Format(time.RFC3339))
+	fmt.Fprintf(stdout, "Job Details:\n")
+	fmt.Fprintf(stdout, "  ID:           %s\n", job.ID)
+	fmt.Fprintf(stdout, "  Task:         %s\n", sanitize(job.TaskType))
+	fmt.Fprintf(stdout, "  State:        %s\n", job.State)
+	fmt.Fprintf(stdout, "  Attempt ID:   %s\n", job.CurrentAttemptID)
+	fmt.Fprintf(stdout, "  Created At:   %s\n", job.CreatedAt.Format(time.RFC3339))
+	fmt.Fprintf(stdout, "  Updated At:   %s\n", job.UpdatedAt.Format(time.RFC3339))
 	if job.Result != nil {
-		fmt.Printf("  Result:\n")
-		fmt.Printf("    Exit Code:  %d\n", job.Result.ExitCode)
-		fmt.Printf("    Output:     %s\n", sanitize(job.Result.Output))
+		fmt.Fprintf(stdout, "  Result:\n")
+		fmt.Fprintf(stdout, "    Exit Code:  %d\n", job.Result.ExitCode)
+		fmt.Fprintf(stdout, "    Output:     %s\n", sanitize(job.Result.Output))
 		if job.Result.Error != "" {
-			fmt.Printf("    Error:      %s\n", sanitize(job.Result.Error))
+			fmt.Fprintf(stdout, "    Error:      %s\n", sanitize(job.Result.Error))
 		}
 	}
 	if job.State == domain.StateFailed || job.State == domain.StateCancelled || job.State == domain.StateRetrying {
 		attempts, err := fetchAttempts(coordURL, jobID)
 		if err != nil {
-			fmt.Printf("  Failure:      attempt history unavailable (%v)\n", err)
+			fmt.Fprintf(stdout, "  Failure:      attempt history unavailable (%v)\n", err)
 			return
 		}
 		if lines := failureSummary(&job, attempts); len(lines) > 0 {
-			fmt.Printf("  Failure:\n")
+			fmt.Fprintf(stdout, "  Failure:\n")
 			for _, l := range lines {
-				fmt.Printf("    %s\n", l)
+				fmt.Fprintf(stdout, "    %s\n", l)
 			}
 		}
 	}
@@ -195,23 +212,26 @@ func fetchAttempts(coordURL, jobID string) ([]*domain.Attempt, error) {
 
 func handleAttempts(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: mc attempts <job_id>")
-		os.Exit(1)
+		fmt.Fprintln(stderr, "Usage: mc attempts <job_id>")
+		exitFunc(1)
+		return
 	}
 	jobID := args[0]
 	coordURL := getCoordinatorURL()
 
 	resp, err := http.Get(fmt.Sprintf("%s/v1/jobs/%s/attempts", coordURL, jobID))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error querying attempts: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error querying attempts: %v\n", err)
+		exitFunc(1)
+		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, sanitize(string(body)))
+		exitFunc(1)
+		return
 	}
 
 	var res struct {
@@ -219,12 +239,12 @@ func handleAttempts(args []string) {
 		Attempts []*domain.Attempt `json:"attempts"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
-		fmt.Println(string(body))
+		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
 		return
 	}
 
-	fmt.Printf("Attempts for Job %s (%d total):\n", res.JobID, len(res.Attempts))
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintf(stdout, "Attempts for Job %s (%d total):\n", res.JobID, len(res.Attempts))
+	w := tabwriter.NewWriter(stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NO\tATTEMPT ID\tWORKER\tSTATE\tCLASS\tEXIT\tSTARTED")
 	for _, att := range res.Attempts {
 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%d\t%s\n",
@@ -244,27 +264,29 @@ func handleWorkers(args []string) {
 	coordURL := getCoordinatorURL()
 	resp, err := http.Get(coordURL + "/v1/workers")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error querying workers: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error querying workers: %v\n", err)
+		exitFunc(1)
+		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		fmt.Fprintf(os.Stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, sanitize(string(body)))
+		exitFunc(1)
+		return
 	}
 
 	var res struct {
 		Workers []*domain.Worker `json:"workers"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
-		fmt.Println(string(body))
+		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
 		return
 	}
 
-	fmt.Printf("Registered Workers (%d total):\n", len(res.Workers))
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintf(stdout, "Registered Workers (%d total):\n", len(res.Workers))
+	w := tabwriter.NewWriter(stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "WORKER ID\tSTATUS\tAVAILABLE/TOTAL\tLAST HEARTBEAT\tTASKS")
 	for _, worker := range res.Workers {
 		tasks := make([]string, len(worker.SupportedTasks))
