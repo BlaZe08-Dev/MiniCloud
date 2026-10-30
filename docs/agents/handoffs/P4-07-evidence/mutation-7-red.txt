@@ -1,0 +1,6 @@
+=== RUN   TestHandleWorkers_SanitizesSupportedTasks
+    main_test.go:235: handleWorkers printed raw escape sequence in supported tasks: "Registered Workers (1 total):\nWORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS\nworker-1    HEALTHY   1/2               23:30:20         [\x1b[35mtask-1\x1b[0m]\n"
+--- FAIL: TestHandleWorkers_SanitizesSupportedTasks (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
+FAIL

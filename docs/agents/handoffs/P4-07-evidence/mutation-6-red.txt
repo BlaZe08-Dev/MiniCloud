@@ -1,0 +1,6 @@
+=== RUN   TestHandleWorkers_SanitizesWorkerID
+    main_test.go:202: handleWorkers printed raw escape sequence in worker ID: "Registered Workers (1 total):\nWORKER ID           STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS\n\x1b[34mworker-1\x1b[0m   HEALTHY   1/2               23:30:19         [echo]\n"
+--- FAIL: TestHandleWorkers_SanitizesWorkerID (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.007s
+FAIL

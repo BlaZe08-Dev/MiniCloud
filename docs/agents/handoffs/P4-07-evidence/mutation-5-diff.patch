@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..dab0cf6 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -250,7 +250,7 @@ func handleAttempts(args []string) {
+ 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%d\t%s\n",
+ 			att.AttemptNo,
+ 			att.ID,
+-			sanitize(att.WorkerID),
++			att.WorkerID,
+ 			att.State,
+ 			att.ErrorClass,
+ 			att.ExitCode,

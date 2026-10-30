@@ -1,13 +1,4 @@
-=== RUN   TestAbuse_MCOutput_HostileErrorText
-=== RUN   TestAbuse_MCOutput_HostileErrorText/memory
-2026/10/29 23:10:41 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
-2026/10/29 23:10:41 INFO job submitted and queued job_id=job_1_41a2f92812f8 task_type=echo state=QUEUED max_attempts=1
-2026/10/29 23:10:41 INFO job dispatched to worker job_id=job_1_41a2f92812f8 attempt_id=att_1_061ad567aaa9 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
-2026/10/29 23:10:41 INFO job result committed job_id=job_1_41a2f92812f8 attempt_id=att_1_061ad567aaa9 final_state=FAILED exit_code=1 error_class=PERMANENT
-2026/10/29 23:10:41 INFO job submitted and queued job_id=job_2_f4c002e6d2ed task_type=echo state=QUEUED max_attempts=1
-2026/10/29 23:10:41 INFO job dispatched to worker job_id=job_2_f4c002e6d2ed attempt_id=att_2_18c0e75da4e0 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
-2026/10/29 23:10:41 INFO job result committed job_id=job_2_f4c002e6d2ed attempt_id=att_2_18c0e75da4e0 final_state=SUCCEEDED exit_code=0 error_class=""
---- PASS: TestAbuse_MCOutput_HostileErrorText (5.65s)
-    --- PASS: TestAbuse_MCOutput_HostileErrorText/memory (5.65s)
+=== RUN   TestHandleSubmit_SanitizesTaskType
+--- PASS: TestHandleSubmit_SanitizesTaskType (0.00s)
 PASS
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	6.702s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s

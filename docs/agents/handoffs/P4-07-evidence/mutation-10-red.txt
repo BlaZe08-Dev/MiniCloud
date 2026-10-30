@@ -1,0 +1,8 @@
+=== RUN   TestFailureSummary
+=== RUN   TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary
+    failure_test.go:83: summary "FAILED: 1 of 3 attempts used\nNote:    permanent failure, not retried\nReason:  PERMANENT (\x1b[2J\x1b[31mbad payload\x1b[0m\r\nfake line)" lacks "\\x1b[2J\\x1b[31mbad payload\\x1b[0m"
+--- FAIL: TestFailureSummary (0.00s)
+    --- FAIL: TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s
+FAIL

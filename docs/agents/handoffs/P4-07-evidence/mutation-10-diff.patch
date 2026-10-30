@@ -1,0 +1,18 @@
+diff --git a/cmd/mc/failure.go b/cmd/mc/failure.go
+index 8d07bca..398aeb4 100644
+--- a/cmd/mc/failure.go
++++ b/cmd/mc/failure.go
+@@ -23,11 +23,11 @@ func failureSummary(job *domain.Job, attempts []*domain.Attempt) []string {
+ 	if last != nil {
+ 		switch {
+ 		case last.ErrorClass != "" && last.Error != "":
+-			reason = fmt.Sprintf("%s (%s)", last.ErrorClass, sanitize(last.Error))
++			reason = fmt.Sprintf("%s (%s)", last.ErrorClass, last.Error)
+ 		case last.ErrorClass != "":
+ 			reason = string(last.ErrorClass)
+ 		case last.Error != "":
+-			reason = sanitize(last.Error)
++			reason = last.Error
+ 		}
+ 	}
+ 

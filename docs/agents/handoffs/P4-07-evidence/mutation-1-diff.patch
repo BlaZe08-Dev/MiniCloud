@@ -1,60 +1,20 @@
 diff --git a/cmd/mc/main.go b/cmd/mc/main.go
-index 8b0d8e0..166f415 100644
+index 6e69a28..7cac575 100644
 --- a/cmd/mc/main.go
 +++ b/cmd/mc/main.go
-@@ -111,7 +111,7 @@ func handleSubmit(args []string) {
+@@ -119,13 +119,13 @@ func handleSubmit(args []string) {
  
- 	fmt.Printf("Job Submitted Successfully!\n")
- 	fmt.Printf("  ID:           %s\n", job.ID)
--	fmt.Printf("  Task:         %s\n", job.TaskType)
-+	fmt.Printf("  Task:         %s\n", sanitize(job.TaskType))
- 	fmt.Printf("  State:        %s\n", job.State)
- 	fmt.Printf("  Max Attempts: %d\n", job.MaxAttempts)
- }
-@@ -145,7 +145,7 @@ func handleGet(args []string) {
- 
- 	fmt.Printf("Job Details:\n")
- 	fmt.Printf("  ID:           %s\n", job.ID)
--	fmt.Printf("  Task:         %s\n", job.TaskType)
-+	fmt.Printf("  Task:         %s\n", sanitize(job.TaskType))
- 	fmt.Printf("  State:        %s\n", job.State)
- 	fmt.Printf("  Attempt ID:   %s\n", job.CurrentAttemptID)
- 	fmt.Printf("  Created At:   %s\n", job.CreatedAt.Format(time.RFC3339))
-@@ -153,7 +153,7 @@ func handleGet(args []string) {
- 	if job.Result != nil {
- 		fmt.Printf("  Result:\n")
- 		fmt.Printf("    Exit Code:  %d\n", job.Result.ExitCode)
--		fmt.Printf("    Output:     %s\n", job.Result.Output)
-+		fmt.Printf("    Output:     %s\n", sanitize(job.Result.Output))
- 		if job.Result.Error != "" {
- 			fmt.Printf("    Error:      %s\n", job.Result.Error)
- 		}
-@@ -230,7 +230,7 @@ func handleAttempts(args []string) {
- 		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%d\t%s\n",
- 			att.AttemptNo,
- 			att.ID,
--			att.WorkerID,
-+			sanitize(att.WorkerID),
- 			att.State,
- 			att.ErrorClass,
- 			att.ExitCode,
-@@ -267,13 +267,17 @@ func handleWorkers(args []string) {
- 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
- 	fmt.Fprintln(w, "WORKER ID\tSTATUS\tAVAILABLE/TOTAL\tLAST HEARTBEAT\tTASKS")
- 	for _, worker := range res.Workers {
-+		tasks := make([]string, len(worker.SupportedTasks))
-+		for i, t := range worker.SupportedTasks {
-+			tasks[i] = sanitize(t)
-+		}
- 		fmt.Fprintf(w, "%s\t%s\t%d/%d\t%s\t%v\n",
--			worker.ID,
-+			sanitize(worker.ID),
- 			worker.Status,
- 			worker.AvailableSlots,
- 			worker.TotalSlots,
- 			worker.LastHeartbeatAt.Format("15:04:05"),
--			worker.SupportedTasks,
-+			tasks,
- 		)
+ 	var job domain.Job
+ 	if err := json.Unmarshal(body, &job); err != nil {
+-		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
++		fmt.Fprintln(stdout, string(body))
+ 		return
  	}
- 	_ = w.Flush()
+ 
+ 	fmt.Fprintf(stdout, "Job Submitted Successfully!\n")
+ 	fmt.Fprintf(stdout, "  ID:           %s\n", job.ID)
+-	fmt.Fprintf(stdout, "  Task:         %s\n", sanitize(job.TaskType))
++	fmt.Fprintf(stdout, "  Task:         %s\n", job.TaskType)
+ 	fmt.Fprintf(stdout, "  State:        %s\n", job.State)
+ 	fmt.Fprintf(stdout, "  Max Attempts: %d\n", job.MaxAttempts)
+ }

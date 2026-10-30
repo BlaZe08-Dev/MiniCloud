@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..7fd8013 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -149,7 +149,7 @@ func handleGet(args []string) {
+ 
+ 	body, _ := io.ReadAll(resp.Body)
+ 	if resp.StatusCode != http.StatusOK {
+-		fmt.Fprintf(stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, sanitize(string(body)))
++		fmt.Fprintf(stderr, "Query failed (HTTP %d): %s\n", resp.StatusCode, string(body))
+ 		exitFunc(1)
+ 		return
+ 	}

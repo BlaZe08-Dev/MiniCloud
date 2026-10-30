@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..73e48ad 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -156,7 +156,7 @@ func handleGet(args []string) {
+ 
+ 	var job domain.Job
+ 	if err := json.Unmarshal(body, &job); err != nil {
+-		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
++		fmt.Fprintln(stdout, string(body))
+ 		return
+ 	}
+ 

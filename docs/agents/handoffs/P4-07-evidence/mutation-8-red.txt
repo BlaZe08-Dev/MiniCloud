@@ -1,0 +1,6 @@
+=== RUN   TestHandleHTTPError_SanitizesErrorBody
+    main_test.go:278: handleGet printed raw escape sequence in HTTP error body: "Query failed (HTTP 500): \x1b[2J\x1b[31minternal server failure\x1b[0m\n"
+--- FAIL: TestHandleHTTPError_SanitizesErrorBody (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s
+FAIL

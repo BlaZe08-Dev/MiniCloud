@@ -1,0 +1,6 @@
+=== RUN   TestHandleRawJSON_SanitizesC1AndDEL
+    main_test.go:257: raw JSON printed unescaped DEL or C1 characters: "[\"item\x7f\", \"item\u0080\u009b\"]\n"
+--- FAIL: TestHandleRawJSON_SanitizesC1AndDEL (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s
+FAIL

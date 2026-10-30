@@ -181,12 +181,12 @@ func TestHandleWorkers_SanitizesWorkerID(t *testing.T) {
 		}{
 			Workers: []*domain.Worker{
 				{
-					ID:               "\x1b[34mworker-1\x1b[0m",
-					Status:           domain.WorkerStatusHealthy,
-					AvailableSlots:   1,
-					TotalSlots:       2,
-					LastHeartbeatAt:  time.Now(),
-					SupportedTasks:   []string{"echo"},
+					ID:              "\x1b[34mworker-1\x1b[0m",
+					Status:          domain.WorkerStatusHealthy,
+					AvailableSlots:  1,
+					TotalSlots:      2,
+					LastHeartbeatAt: time.Now(),
+					SupportedTasks:  []string{"echo"},
 				},
 			},
 		}
@@ -214,12 +214,12 @@ func TestHandleWorkers_SanitizesSupportedTasks(t *testing.T) {
 		}{
 			Workers: []*domain.Worker{
 				{
-					ID:               "worker-1",
-					Status:           domain.WorkerStatusHealthy,
-					AvailableSlots:   1,
-					TotalSlots:       2,
-					LastHeartbeatAt:  time.Now(),
-					SupportedTasks:   []string{"\x1b[35mtask-1\x1b[0m"},
+					ID:              "worker-1",
+					Status:          domain.WorkerStatusHealthy,
+					AvailableSlots:  1,
+					TotalSlots:      2,
+					LastHeartbeatAt: time.Now(),
+					SupportedTasks:  []string{"\x1b[35mtask-1\x1b[0m"},
 				},
 			},
 		}

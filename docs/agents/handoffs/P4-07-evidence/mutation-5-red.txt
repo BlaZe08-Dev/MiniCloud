@@ -1,0 +1,6 @@
+=== RUN   TestHandleAttempts_SanitizesWorkerID
+    main_test.go:169: handleAttempts printed raw escape sequence in worker ID: "Attempts for Job job_1_test (1 total):\nNO   ATTEMPT ID   WORKER              STATE     CLASS   EXIT   STARTED\n1    att_1_test   \x1b[33mworker-1\x1b[0m   RUNNING           0      23:30:17\n"
+--- FAIL: TestHandleAttempts_SanitizesWorkerID (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
+FAIL

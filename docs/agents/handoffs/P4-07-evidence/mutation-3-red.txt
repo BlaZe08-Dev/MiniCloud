@@ -1,15 +1,6 @@
-=== RUN   TestAbuse_MCOutput_HostileErrorText
-=== RUN   TestAbuse_MCOutput_HostileErrorText/memory
-2026/10/29 23:12:44 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
-2026/10/29 23:12:44 INFO job submitted and queued job_id=job_1_abff9664f186 task_type=echo state=QUEUED max_attempts=1
-2026/10/29 23:12:44 INFO job dispatched to worker job_id=job_1_abff9664f186 attempt_id=att_1_0ea766ded77e attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
-2026/10/29 23:12:44 INFO job result committed job_id=job_1_abff9664f186 attempt_id=att_1_0ea766ded77e final_state=FAILED exit_code=1 error_class=PERMANENT
-2026/10/29 23:12:44 INFO job submitted and queued job_id=job_2_6a9c4b2dc38a task_type=echo state=QUEUED max_attempts=1
-2026/10/29 23:12:44 INFO job dispatched to worker job_id=job_2_6a9c4b2dc38a attempt_id=att_2_9373e68380b1 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
-2026/10/29 23:12:44 INFO job result committed job_id=job_2_6a9c4b2dc38a attempt_id=att_2_9373e68380b1 final_state=SUCCEEDED exit_code=0 error_class=""
-    resources_test.go:299: [memory] mc [get job_2_6a9c4b2dc38a] printed raw control byte 0x1b at offset 248
---- FAIL: TestAbuse_MCOutput_HostileErrorText (4.53s)
-    --- FAIL: TestAbuse_MCOutput_HostileErrorText/memory (4.53s)
+=== RUN   TestHandleGet_SanitizesResultOutput
+    main_test.go:105: handleGet printed raw escape sequence in result output: "Job Details:\n  ID:           job_1_test\n  Task:         echo\n  State:        SUCCEEDED\n  Attempt ID:   \n  Created At:   2026-10-30T23:30:15+05:30\n  Updated At:   2026-10-30T23:30:15+05:30\n  Result:\n    Exit Code:  0\n    Output:     \x1b[32mOK\x1b[0m\n"
+--- FAIL: TestHandleGet_SanitizesResultOutput (0.00s)
 FAIL
-FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	4.566s
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
 FAIL
