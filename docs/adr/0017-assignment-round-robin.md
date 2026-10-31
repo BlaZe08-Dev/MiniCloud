@@ -715,7 +715,7 @@ Specifically, [docs/phase4-plan.md](../phase4-plan.md) Section 3 says the lease 
 
 ### 8.1 Orchestrator answers (revision 1)
 
-The orchestrator answered every question in revision 0. The answers below are the decisions of record. Where an answer changes this design, the change is noted.
+The orchestrator answered every question in revision 1 (R7). The answers below are the decisions of record. Where an answer changes this design, the change is noted.
 
 | # | Question | Recommendation (rev 0) | **Orchestrator answer (rev 1)** | Effect on this design |
 |---|---|---|---|---|
