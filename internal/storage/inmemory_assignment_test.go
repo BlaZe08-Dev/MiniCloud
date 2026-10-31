@@ -504,3 +504,218 @@ func TestConformance_ClaimAssigned_ConcurrentPollsOneWinner(t *testing.T) {
 		t.Fatalf("attempts = %d, want 1", len(attempts))
 	}
 }
+
+// ADR-0017 Sections 2.2 and 3.2: the claim applies the worker capacity check. A one-slot worker
+// with a RUNNING attempt cannot claim a second job, even by a fallback arm (F-5a-2).
+func TestConformance_Claim_RespectsWorkerCapacity(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	ctx := context.Background()
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	submitAssign(t, repo, "job_a", "echo")
+	submitAssign(t, repo, "job_b", "echo")
+	for _, id := range []string{"job_a", "job_b"} {
+		j := mustJob(t, repo, id)
+		j.AssignmentLapses = testMaxLapses
+		if err := repo.UpdateJob(ctx, j); err != nil {
+			t.Fatalf("UpdateJob(%s): %v", id, err)
+		}
+	}
+	pollAssign(t, repo, clk, "w_1")
+	if _, err := repo.ClaimForPoll(ctx, "w_1", claimOpts(false)); err != nil {
+		t.Fatalf("control: first claim: %v", err)
+	}
+	if c, err := repo.ClaimForPoll(ctx, "w_1", claimOpts(false)); !errors.Is(err, domain.ErrWorkerNoCapacity) {
+		t.Fatalf("one-slot worker with a RUNNING attempt claimed again: claim=%v err=%v", c, err)
+	}
+}
+
+// ADR-0017 implementation note 1 (D9): a job at the lapse limit is excluded from the candidate
+// read even when another job of its type keeps the type in the pass (F-5a-3).
+func TestConformance_AssignPass_ExcludesJobAtLapseLimit(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	addAssignWorker(t, repo, clk, "w_2", 1, "echo")
+	pollAssign(t, repo, clk, "w_1")
+	pollAssign(t, repo, clk, "w_2")
+	submitAssign(t, repo, "job_limit", "echo")
+	submitAssign(t, repo, "job_fresh", "echo")
+	j := mustJob(t, repo, "job_limit")
+	j.AssignmentLapses = testMaxLapses
+	if err := repo.UpdateJob(context.Background(), j); err != nil {
+		t.Fatalf("UpdateJob: %v", err)
+	}
+	runPass(t, repo)
+	if got := mustJob(t, repo, "job_limit"); got.AssignedWorkerID != nil {
+		t.Fatalf("job at the lapse limit was reserved to %s", *got.AssignedWorkerID)
+	}
+	if got := mustJob(t, repo, "job_fresh"); got.AssignedWorkerID == nil {
+		t.Fatalf("control: job below the limit was not reserved")
+	}
+}
+
+// ADR-0017 D9 lower boundary: a job at L-1 lapses is not claimable by the lapse arm (F-5a-3).
+func TestConformance_ClaimLapseArm_ClosedBelowLimit(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	submitAssign(t, repo, "job_1", "echo")
+	j := mustJob(t, repo, "job_1")
+	j.AssignmentLapses = testMaxLapses - 1
+	if err := repo.UpdateJob(context.Background(), j); err != nil {
+		t.Fatalf("UpdateJob: %v", err)
+	}
+	pollAssign(t, repo, clk, "w_1")
+	if _, err := repo.ClaimForPoll(context.Background(), "w_1", claimOpts(false)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("job at L-1 lapses was claimed by the lapse arm: err=%v", err)
+	}
+}
+
+// ADR-0017 D8 and Section 3.4: revoking the reservation of a worker that is no longer HEALTHY does
+// not count a lapse (F-5a-4).
+func TestConformance_AssignPass_UnhealthyRevokeCountsNoLapse(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	ctx := context.Background()
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	pollAssign(t, repo, clk, "w_1")
+	submitAssign(t, repo, "job_1", "echo")
+	runPass(t, repo)
+	if mustJob(t, repo, "job_1").AssignedWorkerID == nil {
+		t.Fatalf("control: job was not reserved")
+	}
+	if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w_1", Version: "v1.0.0", TotalSlots: 1, Status: domain.WorkerStatusUnhealthy, SupportedTasks: []string{"echo"}, LastHeartbeatAt: clk.Now()}); err != nil {
+		t.Fatalf("UpsertWorker: %v", err)
+	}
+	res := runPass(t, repo)
+	got := mustJob(t, repo, "job_1")
+	if res.Revoked != 1 || got.AssignedWorkerID != nil {
+		t.Fatalf("control: revoke did not happen: revoked=%d assigned=%v", res.Revoked, got.AssignedWorkerID)
+	}
+	if got.AssignmentLapses != 0 {
+		t.Fatalf("revoke for an UNHEALTHY worker counted a lapse: lapses=%d", got.AssignmentLapses)
+	}
+}
+
+// ADR-0017 Sections 1.3 and 3.2: the own arm needs assignment_expires_at > now, so a reservation
+// is not claimable at the exact instant it expires (F-5a-5).
+func TestConformance_ClaimOwnArm_ClosedAtExactExpiry(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	submitAssign(t, repo, "job_1", "echo")
+	setReservation(t, repo, "job_1", "w_1", clk.Now())
+	if _, err := repo.ClaimForPoll(context.Background(), "w_1", claimOpts(false)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("reservation claimed at its exact expiry: err=%v", err)
+	}
+}
+
+// ADR-0017 Section 3.2: dispatchable_since is GREATEST(created_at, not_before). A RETRYING job
+// whose not_before has only just passed is not aged, however old created_at is (F-5a-6).
+func TestConformance_ClaimAgeArm_UsesNotBefore(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	submitAssign(t, repo, "job_1", "echo")
+	clk.Advance(testFallbackAge + time.Minute)
+	j := mustJob(t, repo, "job_1")
+	j.State = domain.StateRetrying
+	nb := clk.Now()
+	j.NotBefore = &nb
+	if err := repo.UpdateJob(context.Background(), j); err != nil {
+		t.Fatalf("UpdateJob: %v", err)
+	}
+	pollAssign(t, repo, clk, "w_1")
+	if _, err := repo.ClaimForPoll(context.Background(), "w_1", claimOpts(true)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("RETRYING job claimed by age although not_before just passed: err=%v", err)
+	}
+}
+
+// ADR-0017 Section 2.1: the JOB_ASSIGNED payload lists the first 10 eligible worker IDs in ID
+// order. Repeated over fresh repositories with workers inserted in reverse, so map iteration
+// order would show (F-5a-7).
+func TestConformance_AssignEvent_CandidatesInIDOrder(t *testing.T) {
+	want := []string{"w_a", "w_b", "w_c", "w_d", "w_e", "w_f", "w_g", "w_h", "w_i", "w_j"}
+	for round := 0; round < 20; round++ {
+		repo, clk := newAssignRepo(t)
+		for i := 11; i >= 0; i-- {
+			id := "w_" + string(rune('a'+i))
+			addAssignWorker(t, repo, clk, id, 1, "echo")
+			pollAssign(t, repo, clk, id)
+		}
+		submitAssign(t, repo, "job_1", "echo")
+		runPass(t, repo)
+		events, err := repo.ListEventsByJob(context.Background(), "job_1")
+		if err != nil {
+			t.Fatalf("ListEventsByJob: %v", err)
+		}
+		seen := 0
+		for _, e := range events {
+			if e.EventType != domain.JobEventAssigned {
+				continue
+			}
+			seen++
+			got, _ := e.Details["candidates"].([]string)
+			if len(got) != len(want) {
+				t.Fatalf("round %d: candidates %v", round, got)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("round %d: candidates %v, want %v", round, got, want)
+				}
+			}
+		}
+		if seen != 1 {
+			t.Fatalf("round %d: %d JOB_ASSIGNED events, want 1", round, seen)
+		}
+	}
+}
+
+// ADR-0017 INV-22 (memory twin): a pass that cannot take the pass lock skips. It returns Skipped,
+// reserves nothing and leaves the pass heartbeat unchanged. The pass runs in a goroutine with a
+// deadline, so a pass that blocks on the lock fails the test instead of hanging it (F-5a-9).
+func TestConformance_AssignPass_SkipsWhenPassLockHeld(t *testing.T) {
+	repo, clk := newAssignRepo(t)
+	ctx := context.Background()
+	addAssignWorker(t, repo, clk, "w_1", 1, "echo")
+	pollAssign(t, repo, clk, "w_1")
+	submitAssign(t, repo, "job_1", "echo")
+	before, err := repo.AssignmentPassState(ctx)
+	if err != nil {
+		t.Fatalf("AssignmentPassState: %v", err)
+	}
+
+	release := repo.HoldPassLockForTest()
+	var once sync.Once
+	unlock := func() { once.Do(release) }
+	t.Cleanup(unlock)
+
+	type out struct {
+		res storage.AssignResult
+		err error
+	}
+	done := make(chan out, 1)
+	go func() {
+		res, err := repo.AssignQueuedJobs(ctx, assignParams())
+		done <- out{res, err}
+	}()
+	var got out
+	select {
+	case got = <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("pass blocked on a held pass lock instead of skipping")
+	}
+	if got.err != nil || !got.res.Skipped {
+		t.Fatalf("pass with the lock held: res=%+v err=%v, want Skipped", got.res, got.err)
+	}
+	if mustJob(t, repo, "job_1").AssignedWorkerID != nil {
+		t.Fatalf("skipped pass reserved a job")
+	}
+	after, err := repo.AssignmentPassState(ctx)
+	if err != nil {
+		t.Fatalf("AssignmentPassState: %v", err)
+	}
+	if !after.Equal(before) {
+		t.Fatalf("skipped pass moved the heartbeat from %v to %v", before, after)
+	}
+
+	unlock()
+	if res := runPass(t, repo); res.Skipped || mustJob(t, repo, "job_1").AssignedWorkerID == nil {
+		t.Fatalf("control: pass after release: res=%+v", res)
+	}
+}
