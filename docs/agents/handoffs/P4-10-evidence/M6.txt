@@ -1,0 +1,23 @@
+=== Mutation M6: Remove null assignment check on HTTP 200 in pollWork ===
+--- git diff ---
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -331,3 +331,0 @@
+-	if res.Assignment == nil {
+-		return nil, errors.New("poll returned 200 OK without an assignment")
+-	}
+
+--- RED (Mutation Active) ---
+=== RUN   TestPollWork_NullAssignmentRejected
+    hardening_test.go:401: expected error on 200 OK with null assignment, got nil (asg=<nil>)
+--- FAIL: TestPollWork_NullAssignmentRejected (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.008s
+FAIL
+
+--- GREEN (Restored) ---
+=== RUN   TestPollWork_NullAssignmentRejected
+--- PASS: TestPollWork_NullAssignmentRejected (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.005s

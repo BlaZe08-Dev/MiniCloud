@@ -44,9 +44,13 @@ const (
 	minDurationSeconds = int(math.MinInt64 / int64(time.Second))
 
 	// MaxPollResponseBytes bounds the HTTP response body read in pollWork (SEC-060).
-	// It is set above executor.MaxPayloadSizeBytes (64 KiB) with 64 KiB of headroom
-	// for the JSON envelope, identifiers and lease metadata (128 KiB total).
-	MaxPollResponseBytes = executor.MaxPayloadSizeBytes + 64*1024
+	// The coordinator's writeJSON (internal/api/handlers.go) uses json.NewEncoder with HTML
+	// escaping enabled: a legal task payload of up to executor.MaxPayloadSizeBytes (64 KiB)
+	// containing characters like '<', '>', or '&' is re-encoded as 6-byte escape sequences
+	// (e.g. '\u003c', '\u003e', '\u0026'), expanding up to 6x on the wire (~384 KiB).
+	// We size MaxPollResponseBytes to 6*executor.MaxPayloadSizeBytes plus 64 KiB of headroom
+	// for the JSON envelope, identifiers, and lease metadata (448 KiB / 458,752 bytes total).
+	MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024
 
 	renewBackoffBase    = time.Second
 	deliveryBackoffBase = 200 * time.Millisecond

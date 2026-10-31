@@ -294,3 +294,116 @@ func TestWorker_URLPathEscaping_RenewAndReport(t *testing.T) {
 		}
 	})
 }
+
+// TestPollWork_MaxLegalAssignmentEscapedAccepted guards SEC-060:
+// The coordinator's writeJSON uses json.NewEncoder with HTML escaping ON.
+// A legal payload of MaxPayloadSizeBytes containing '<' expands ~6x on the wire (~384 KiB).
+// pollWork must accept and cleanly decode this response without truncation.
+func TestPollWork_MaxLegalAssignmentEscapedAccepted(t *testing.T) {
+	// Construct a valid JSON string of exact length executor.MaxPayloadSizeBytes made only of '<'.
+	rawJSON := make([]byte, executor.MaxPayloadSizeBytes)
+	rawJSON[0] = '"'
+	for i := 1; i < executor.MaxPayloadSizeBytes-1; i++ {
+		rawJSON[i] = '<'
+	}
+	rawJSON[executor.MaxPayloadSizeBytes-1] = '"'
+
+	legalAsg := &coordinator.WorkAssignment{
+		JobID:                "job-legal-escaped",
+		AttemptID:            "att-legal-escaped",
+		TaskType:             "echo",
+		Payload:              json.RawMessage(rawJSON),
+		TimeoutSeconds:       30,
+		LeaseDurationSeconds: 10,
+		LeaseToken:           "token-legal-escaped",
+	}
+
+	var encodedBody bytes.Buffer
+	enc := json.NewEncoder(&encodedBody) // default settings: HTML escaping ON, exactly as writeJSON does
+	if err := enc.Encode(map[string]any{
+		"assignment": legalAsg,
+	}); err != nil {
+		t.Fatalf("failed to encode assignment: %v", err)
+	}
+
+	// Assert encoded body is larger than 5*MaxPayloadSizeBytes so test cannot be vacuous
+	if encodedBody.Len() <= 5*executor.MaxPayloadSizeBytes {
+		t.Fatalf("encoded body length = %d, want > %d (5*MaxPayloadSizeBytes)",
+			encodedBody.Len(), 5*executor.MaxPayloadSizeBytes)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write(encodedBody.Bytes())
+	}))
+	defer ts.Close()
+
+	cfg := &config.WorkerConfig{
+		WorkerID:       "w-test",
+		CoordinatorURL: ts.URL,
+		TotalSlots:     1,
+	}
+	agent := NewAgent(cfg, executor.NewRegistry())
+	agent.httpClient = ts.Client()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	asg, err := agent.pollWork(ctx)
+	if err != nil {
+		t.Fatalf("expected successful decode of HTML-escaped max legal assignment, got err: %v", err)
+	}
+	if asg == nil {
+		t.Fatalf("expected non-nil assignment, got nil")
+	}
+	if asg.JobID != legalAsg.JobID {
+		t.Errorf("JobID = %q, want %q", asg.JobID, legalAsg.JobID)
+	}
+	if asg.AttemptID != legalAsg.AttemptID {
+		t.Errorf("AttemptID = %q, want %q", asg.AttemptID, legalAsg.AttemptID)
+	}
+
+	// Verify payload is returned intact
+	var unmarshaled string
+	if err := json.Unmarshal(asg.Payload, &unmarshaled); err != nil {
+		t.Fatalf("failed to unmarshal payload: %v", err)
+	}
+	wantStr := strings.Repeat("<", executor.MaxPayloadSizeBytes-2)
+	if unmarshaled != wantStr {
+		t.Fatalf("payload string altered: len = %d, want %d", len(unmarshaled), len(wantStr))
+	}
+}
+
+// TestPollWork_NullAssignmentRejected guards the worker behavior when a coordinator returns
+// HTTP 200 OK with no assignment (res.Assignment == nil).
+func TestPollWork_NullAssignmentRejected(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"assignment":null}`))
+	}))
+	defer ts.Close()
+
+	cfg := &config.WorkerConfig{
+		WorkerID:       "w-test",
+		CoordinatorURL: ts.URL,
+		TotalSlots:     1,
+	}
+	agent := NewAgent(cfg, executor.NewRegistry())
+	agent.httpClient = ts.Client()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	asg, err := agent.pollWork(ctx)
+	if err == nil {
+		t.Fatalf("expected error on 200 OK with null assignment, got nil (asg=%+v)", asg)
+	}
+	if asg != nil {
+		t.Fatalf("expected nil assignment on error, got: %+v", asg)
+	}
+	if !strings.Contains(err.Error(), "without an assignment") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}

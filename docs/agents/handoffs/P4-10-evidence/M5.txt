@@ -1,0 +1,22 @@
+=== Mutation M5: Revert MaxPollResponseBytes to single-multiplier baseline (executor.MaxPayloadSizeBytes + 64*1024) ===
+--- git diff ---
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -53,1 +53,1 @@
+-	MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024
++	MaxPollResponseBytes = executor.MaxPayloadSizeBytes + 64*1024
+
+--- RED (Mutation Active) ---
+=== RUN   TestPollWork_MaxLegalAssignmentEscapedAccepted
+    hardening_test.go:355: expected successful decode of HTML-escaped max legal assignment, got err: unexpected EOF
+--- FAIL: TestPollWork_MaxLegalAssignmentEscapedAccepted (0.04s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.052s
+FAIL
+
+--- GREEN (Restored) ---
+=== RUN   TestPollWork_MaxLegalAssignmentEscapedAccepted
+--- PASS: TestPollWork_MaxLegalAssignmentEscapedAccepted (0.04s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.044s

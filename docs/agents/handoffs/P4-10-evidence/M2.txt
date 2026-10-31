@@ -1,27 +1,20 @@
 === Mutation M2: Remove io.LimitReader on error-envelope decode ===
 --- git diff ---
 diff --git a/internal/worker/client.go b/internal/worker/client.go
-index 6ecb365..0ee53e0 100644
 --- a/internal/worker/client.go
 +++ b/internal/worker/client.go
-@@ -301,7 +301,7 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
- 				Code string `json:"code"`
- 			} `json:"error"`
- 		}
+@@ -305,1 +305,1 @@
 -		if err := json.NewDecoder(io.LimitReader(resp.Body, MaxPollResponseBytes)).Decode(&errEnvelope); err == nil {
 +		if err := json.NewDecoder(resp.Body).Decode(&errEnvelope); err == nil {
- 			if errEnvelope.Error.Code == "WORKER_UNHEALTHY" {
- 				return nil, domain.ErrWorkerUnhealthy
- 			}
 
 --- RED (Mutation Active) ---
 === RUN   TestPollWork_OversizedResponseRejected
 === RUN   TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode
-    hardening_test.go:143: pollWork 503 read 262197 bytes; want at most limit 132096 bytes (limit 131072 + slack 1024)
---- FAIL: TestPollWork_OversizedResponseRejected (0.00s)
-    --- FAIL: TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode (0.00s)
+    hardening_test.go:143: pollWork 503 read 917557 bytes; want at most limit 459776 bytes (limit 458752 + slack 1024)
+--- FAIL: TestPollWork_OversizedResponseRejected (0.02s)
+    --- FAIL: TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode (0.02s)
 FAIL
-FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.009s
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.023s
 FAIL
 
 --- GREEN (Restored) ---
