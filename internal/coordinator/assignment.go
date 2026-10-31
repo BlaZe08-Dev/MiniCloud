@@ -74,7 +74,8 @@ func (a AssignmentSettings) Validate() error {
 
 // SetDispatchPolicy selects fifo_pull (the default) or round_robin (ADR-0017 Section 5.2). Any
 // other name is rejected. round_robin is rejected when the repository does not implement
-// storage.AssignmentRepository (PostgreSQL until slice 5b), so the failure is at configuration.
+// storage.AssignmentRepository and storage.AssignmentPassStaleness (both the in-memory and the
+// PostgreSQL repositories implement them since slice 5b), so the failure is at configuration.
 // round_robin is also rejected when the current assignment settings fail Validate (F-5a-1).
 func (s *Service) SetDispatchPolicy(name string) error {
 	if !domain.IsValidDispatchPolicy(name) {
