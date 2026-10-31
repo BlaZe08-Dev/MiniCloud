@@ -456,6 +456,10 @@ func (r *InMemoryRepository) DispatchJob(ctx context.Context, jobID string, work
 		return nil, err
 	}
 	job.NotBefore = nil
+	// Parity with PostgreSQL, where chk_jobs_assignment_shape forbids a reservation on a RUNNING
+	// job: dispatch by ID clears any reservation and the lapse count (ADR-0017 Section 1.1).
+	job.ClearAssignment()
+	job.AssignmentLapses = 0
 
 	// Calculate monotonic attempt number
 	attemptNo := 1
