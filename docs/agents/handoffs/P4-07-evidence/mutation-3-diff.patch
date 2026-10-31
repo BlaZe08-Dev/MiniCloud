@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..5ce3c9a 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -170,7 +170,7 @@ func handleGet(args []string) {
+ 	if job.Result != nil {
+ 		fmt.Fprintf(stdout, "  Result:\n")
+ 		fmt.Fprintf(stdout, "    Exit Code:  %d\n", job.Result.ExitCode)
+-		fmt.Fprintf(stdout, "    Output:     %s\n", sanitize(job.Result.Output))
++		fmt.Fprintf(stdout, "    Output:     %s\n", job.Result.Output)
+ 		if job.Result.Error != "" {
+ 			fmt.Fprintf(stdout, "    Error:      %s\n", sanitize(job.Result.Error))
+ 		}

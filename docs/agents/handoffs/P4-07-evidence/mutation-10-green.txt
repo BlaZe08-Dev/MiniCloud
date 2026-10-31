@@ -1,0 +1,6 @@
+=== RUN   TestFailureSummary
+=== RUN   TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary
+--- PASS: TestFailureSummary (0.00s)
+    --- PASS: TestFailureSummary/hostile_error_text_is_sanitized_in_failure_summary (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.004s

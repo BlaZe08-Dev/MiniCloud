@@ -272,35 +272,39 @@ func TestAbuse_HostileErrorText_API(t *testing.T) {
 	})
 }
 
-// TestAbuse_MCOutput_HostileErrorText (F-4e-18): mc get and mc attempts print worker-supplied error
-// text raw, so terminal escape sequences, backspaces, carriage returns and NULs reach the user's
-// terminal. cmd/mc is not an owned file of P4-4e, so the fix is proposed in the handoff and the
-// demonstration is kept out of the default run: set MINICLOUD_SEC_DEMO_F4E18=1 to execute it (it
-// fails until mc sanitises control characters).
+// TestAbuse_MCOutput_HostileErrorText (SEC-048, F-4e-18): mc get, mc attempts, and mc workers
+// sanitise worker-supplied error text and metadata before printing, so terminal escape sequences,
+// backspaces, carriage returns and raw control bytes do not reach the operator's terminal.
 func TestAbuse_MCOutput_HostileErrorText(t *testing.T) {
-	if os.Getenv("MINICLOUD_SEC_DEMO_F4E18") == "" {
-		t.Skip("finding F-4e-18 (mc prints raw terminal escape sequences from error text): demonstration test, set MINICLOUD_SEC_DEMO_F4E18=1 to run; the fix belongs to cmd/mc, outside this task's owned files")
-	}
-	r := sectest.NewRig(t, sectest.KindMemory)
-	r.Register("w1", 1)
-	job := r.Submit(1)
-	a := r.Poll("w1")
-	long := strings.Repeat("L", 10240-len(hostileError))
-	if resp := r.Result(job, a.AttemptID, a.LeaseToken, "w1", 1, hostileError+long, "PERMANENT"); resp.Status != 200 {
-		t.Fatalf("commit = %s", resp)
-	}
-	for _, args := range [][]string{{"get", job}, {"attempts", job}, {"workers"}} {
-		out := mcRun(t, r.Srv.URL, args...)
-		for i := 0; i < len(out); i++ {
-			if b := out[i]; (b < 0x20 && b != '\n' && b != '\t') || b == 0x7f {
-				t.Errorf("mc %v printed raw control byte 0x%02x at offset %d", args, b, i)
-				break
+	sectest.EachBackend(t, func(t *testing.T, kind string) {
+		r := sectest.NewRig(t, kind)
+		r.Register("w1", 1)
+		job := r.Submit(1)
+		a := r.Poll("w1")
+		long := strings.Repeat("L", 10240-len(hostileError))
+		if resp := r.Result(job, a.AttemptID, a.LeaseToken, "w1", 1, hostileError+long, "PERMANENT"); resp.Status != 200 {
+			t.Fatalf("[%s] commit = %s", kind, resp)
+		}
+		jobOut := r.Submit(1)
+		aOut := r.Poll("w1")
+		if resp := r.Do("POST", "/v1/jobs/"+jobOut+"/attempts/"+aOut.AttemptID+"/result", map[string]any{
+			"lease_token": aOut.LeaseToken, "worker_id": "w1", "exit_code": 0, "output": hostileError, "error": "",
+		}); resp.Status != 200 {
+			t.Fatalf("[%s] commit jobOut = %s", kind, resp)
+		}
+		for _, args := range [][]string{{"get", job}, {"get", jobOut}, {"attempts", job}, {"workers"}} {
+			out := mcRun(t, r.Srv.URL, args...)
+			for i := 0; i < len(out); i++ {
+				if b := out[i]; (b < 0x20 && b != '\n' && b != '\t') || b == 0x7f {
+					t.Errorf("[%s] mc %v printed raw control byte 0x%02x at offset %d", kind, args, b, i)
+					break
+				}
+			}
+			for _, line := range strings.Split(out, "\n") {
+				if len(line) > 12_000 {
+					t.Errorf("[%s] mc %v printed a %d-byte line", kind, args, len(line))
+				}
 			}
 		}
-		for _, line := range strings.Split(out, "\n") {
-			if len(line) > 12_000 {
-				t.Errorf("mc %v printed a %d-byte line", args, len(line))
-			}
-		}
-	}
+	})
 }

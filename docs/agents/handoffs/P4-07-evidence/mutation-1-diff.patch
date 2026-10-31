@@ -1,0 +1,20 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..7cac575 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -119,13 +119,13 @@ func handleSubmit(args []string) {
+ 
+ 	var job domain.Job
+ 	if err := json.Unmarshal(body, &job); err != nil {
+-		fmt.Fprintln(stdout, sanitizeJSON(string(body)))
++		fmt.Fprintln(stdout, string(body))
+ 		return
+ 	}
+ 
+ 	fmt.Fprintf(stdout, "Job Submitted Successfully!\n")
+ 	fmt.Fprintf(stdout, "  ID:           %s\n", job.ID)
+-	fmt.Fprintf(stdout, "  Task:         %s\n", sanitize(job.TaskType))
++	fmt.Fprintf(stdout, "  Task:         %s\n", job.TaskType)
+ 	fmt.Fprintf(stdout, "  State:        %s\n", job.State)
+ 	fmt.Fprintf(stdout, "  Max Attempts: %d\n", job.MaxAttempts)
+ }

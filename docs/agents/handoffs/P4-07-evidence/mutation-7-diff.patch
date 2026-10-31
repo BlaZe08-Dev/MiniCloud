@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..68a543b 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -291,7 +291,7 @@ func handleWorkers(args []string) {
+ 	for _, worker := range res.Workers {
+ 		tasks := make([]string, len(worker.SupportedTasks))
+ 		for i, t := range worker.SupportedTasks {
+-			tasks[i] = sanitize(t)
++			tasks[i] = t
+ 		}
+ 		fmt.Fprintf(w, "%s\t%s\t%d/%d\t%s\t%v\n",
+ 			sanitize(worker.ID),

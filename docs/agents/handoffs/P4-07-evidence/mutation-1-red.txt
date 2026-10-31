@@ -1,0 +1,6 @@
+=== RUN   TestHandleSubmit_SanitizesTaskType
+    main_test.go:49: handleSubmit printed raw escape sequence: "Job Submitted Successfully!\n  ID:           job_1_test\n  Task:         \x1b[31mecho\x1b[0m\n  State:        QUEUED\n  Max Attempts: 3\n"
+--- FAIL: TestHandleSubmit_SanitizesTaskType (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s
+FAIL

@@ -22,11 +22,18 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | active |
+| P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
+| P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-07 — CLI output sanitization (SEC-048 / F-4e-18)
+- Goal: Sanitize worker- and task-supplied strings in `cmd/mc` before terminal printing; neutralize escape sequences, control characters, and lone carriage returns; un-skip `TestAbuse_MCOutput_HostileErrorText`; update SEC-048 to Confirmed, Fixed and SEC-031 to Documented.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-07`. Status: active.
+- Owned files: `cmd/mc/**`, `tests/abuse/resources_test.go`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/agents/handoffs/P4-07*`, `reports/gemini/P4-07.md`.
+- Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-06b — Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model)
 - Goal: Register findings SEC-031 through SEC-058 from P4-4e; update `docs/protocol.md` and `docs/failure-model.md` with timeouts, `ClampText` semantics, worker fallback, and work-poll costs; import Gemini P4-4e review records and evidence with corrections; update `docs/agents/TASKS.md` and `docs/PROJECT_STATE.md`.
-- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-06b`. Status: active.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-06b`. Status: merged in PR #31.
 - Owned files: `docs/security/findings.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/agents/reviews/P4-4e*`, `docs/agents/handoffs/P4-06b*`.
 - Out of scope: production code, database migrations, allowlist changes.
 

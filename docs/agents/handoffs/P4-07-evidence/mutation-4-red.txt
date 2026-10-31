@@ -1,0 +1,6 @@
+=== RUN   TestHandleGet_SanitizesResultError
+    main_test.go:135: handleGet printed raw escape sequence in result error: "Job Details:\n  ID:           job_1_test\n  Task:         echo\n  State:        FAILED\n  Attempt ID:   \n  Created At:   2026-10-30T23:30:16+05:30\n  Updated At:   2026-10-30T23:30:16+05:30\n  Result:\n    Exit Code:  1\n    Output:     \n    Error:      \x1b[31mFAIL\x1b[0m\n  Failure:\n    FAILED: 0 of 0 attempts used\n"
+--- FAIL: TestHandleGet_SanitizesResultError (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
+FAIL

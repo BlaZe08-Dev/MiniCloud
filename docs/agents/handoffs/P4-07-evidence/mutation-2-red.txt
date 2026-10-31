@@ -1,0 +1,6 @@
+=== RUN   TestHandleGet_SanitizesTaskType
+    main_test.go:75: handleGet printed raw escape sequence in task type: "Job Details:\n  ID:           job_1_test\n  Task:         \x1b[31mecho\x1b[0m\n  State:        QUEUED\n  Attempt ID:   \n  Created At:   2026-10-30T23:30:14+05:30\n  Updated At:   2026-10-30T23:30:14+05:30\n"
+--- FAIL: TestHandleGet_SanitizesTaskType (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
+FAIL

@@ -1,0 +1,4 @@
+=== RUN   TestHandleGet_SanitizesTaskType
+--- PASS: TestHandleGet_SanitizesTaskType (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s

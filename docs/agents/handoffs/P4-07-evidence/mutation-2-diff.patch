@@ -1,0 +1,13 @@
+diff --git a/cmd/mc/main.go b/cmd/mc/main.go
+index 6e69a28..f1cd415 100644
+--- a/cmd/mc/main.go
++++ b/cmd/mc/main.go
+@@ -162,7 +162,7 @@ func handleGet(args []string) {
+ 
+ 	fmt.Fprintf(stdout, "Job Details:\n")
+ 	fmt.Fprintf(stdout, "  ID:           %s\n", job.ID)
+-	fmt.Fprintf(stdout, "  Task:         %s\n", sanitize(job.TaskType))
++	fmt.Fprintf(stdout, "  Task:         %s\n", job.TaskType)
+ 	fmt.Fprintf(stdout, "  State:        %s\n", job.State)
+ 	fmt.Fprintf(stdout, "  Attempt ID:   %s\n", job.CurrentAttemptID)
+ 	fmt.Fprintf(stdout, "  Created At:   %s\n", job.CreatedAt.Format(time.RFC3339))

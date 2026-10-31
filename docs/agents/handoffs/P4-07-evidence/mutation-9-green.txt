@@ -1,0 +1,4 @@
+=== RUN   TestHandleRawJSON_SanitizesC1AndDEL
+--- PASS: TestHandleRawJSON_SanitizesC1AndDEL (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.005s

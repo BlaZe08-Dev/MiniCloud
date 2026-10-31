@@ -1,0 +1,4 @@
+=== RUN   TestHandleGet_SanitizesResultOutput
+--- PASS: TestHandleGet_SanitizesResultOutput (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	0.006s
