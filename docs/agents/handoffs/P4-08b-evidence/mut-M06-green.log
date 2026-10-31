@@ -1,0 +1,4 @@
+=== RUN   TestProperty_RoundRobin_CountsWithinOne
+--- PASS: TestProperty_RoundRobin_CountsWithinOne (0.03s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.030s

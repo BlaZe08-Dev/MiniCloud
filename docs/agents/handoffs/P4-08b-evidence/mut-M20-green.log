@@ -1,0 +1,8 @@
+=== RUN   TestPoll_AgeArm_AfterRestart_RefreshesFirst
+2026/10/31 14:20:07 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:07 INFO job submitted and queued job_id=job_1_27e9e6aa8746 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:07 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:07 INFO job dispatched to worker job_id=job_1_27e9e6aa8746 attempt_id=att_1_5c3ee3911a3f attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+--- PASS: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s

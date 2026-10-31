@@ -1,0 +1,4 @@
+=== RUN   TestConformance_AssignmentLapse_ConsumesNoAttempt
+--- PASS: TestConformance_AssignmentLapse_ConsumesNoAttempt (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s

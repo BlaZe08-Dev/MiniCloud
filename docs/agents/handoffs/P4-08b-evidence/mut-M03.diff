@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:46.353975063 +0530
++++ -	2026-10-31 14:19:46.727195532 +0530
+@@ -253,7 +253,7 @@
+ 		if j == nil || !r.isDispatchableLocked(j) || !worker.SupportsTask(j.TaskType) {
+ 			continue
+ 		}
+-		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
++		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobin, "", now)
+ 		}
+ 	}

@@ -1,0 +1,4 @@
+=== RUN   TestConformance_FifoPull_IgnoresAssignmentColumns
+--- PASS: TestConformance_FifoPull_IgnoresAssignmentColumns (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s

@@ -1,0 +1,12 @@
+=== RUN   TestConformance_Assign_SkipsStaleWorkers
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_poll
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/unhealthy
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved
+--- PASS: TestConformance_Assign_SkipsStaleWorkers (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_poll (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/unhealthy (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s

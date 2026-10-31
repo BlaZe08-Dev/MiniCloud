@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/coordinator/assignment.go	2026-10-31 14:16:13.745574048 +0530
++++ -	2026-10-31 14:20:07.204307518 +0530
+@@ -69,7 +69,7 @@
+ 		return nil, err
+ 	}
+ 
+-	ageArm := s.refreshIfStaleLocked(ctx, ar)
++	ageArm := false
+ 	claim, err := ar.ClaimForPoll(ctx, workerID, storage.ClaimOptions{
+ 		MaxLapses:   s.assignment.MaxLapses,
+ 		FallbackAge: s.assignment.FallbackAge,

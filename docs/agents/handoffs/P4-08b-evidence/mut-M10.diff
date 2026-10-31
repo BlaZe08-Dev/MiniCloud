@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:53.389925178 +0530
++++ -	2026-10-31 14:19:53.741435899 +0530
+@@ -269,7 +269,7 @@
+ 		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
+ 			continue // a live reservation belongs to its worker
+ 		}
+-		if j.AssignmentLapses >= opts.MaxLapses {
++		if false && j.AssignmentLapses >= opts.MaxLapses {
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+ 		}
+ 		if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {

@@ -1,0 +1,6 @@
+=== RUN   TestConformance_CancelAssigned_NeverClaimed
+    inmemory_assignment_test.go:307: after cancel: state=CANCELLED assigned=0xc00002a380
+--- FAIL: TestConformance_CancelAssigned_NeverClaimed (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.004s
+FAIL

@@ -1,0 +1,13 @@
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+2026/10/31 14:20:09 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO job submitted and queued job_id=job_1_860708ed96ad task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:09 INFO job submitted and queued job_id=job_2_1ffcea1c4a9c task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:09 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:09 INFO job dispatched to worker job_id=job_1_860708ed96ad attempt_id=att_1_cc0de41629d9 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+--- PASS: TestPoll_RateLimitedPoll_NoAgeClaim (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.004s

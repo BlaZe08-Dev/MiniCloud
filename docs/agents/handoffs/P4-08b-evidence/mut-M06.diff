@@ -1,0 +1,10 @@
+--- /home/blazeee/MiniCloud-claude/internal/scheduler/round_robin_rule.go	2026-10-31 14:15:39.399851996 +0530
++++ -	2026-10-31 14:19:50.217589884 +0530
+@@ -14,6 +14,7 @@
+ 	sorted := make([]string, len(candidates))
+ 	copy(sorted, candidates)
+ 	sort.Strings(sorted)
++	cursor = ""
+ 	for _, id := range sorted {
+ 		if id > cursor {
+ 			return id, true

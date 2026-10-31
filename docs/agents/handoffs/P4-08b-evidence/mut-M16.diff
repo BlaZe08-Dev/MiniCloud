@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:20:01.897865079 +0530
++++ -	2026-10-31 14:20:03.366826878 +0530
+@@ -272,7 +272,7 @@
+ 		if j.AssignmentLapses >= opts.MaxLapses {
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+ 		}
+-		if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {
++		if false && opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonAge, now)
+ 		}
+ 	}

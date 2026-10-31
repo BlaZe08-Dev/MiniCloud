@@ -1,0 +1,16 @@
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+2026/10/31 14:20:09 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO job submitted and queued job_id=job_1_e68c4edbf819 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:09 INFO job submitted and queued job_id=job_2_82624f4f038f task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:09 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:09 INFO job dispatched to worker job_id=job_1_e68c4edbf819 attempt_id=att_1_fb5922ce7820 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+2026/10/31 14:20:09 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:09 INFO job dispatched to worker job_id=job_2_82624f4f038f attempt_id=att_2_92e0532088e2 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=age
+    assignment_test.go:236: rate-limited poll claimed by age: err=<nil>
+--- FAIL: TestPoll_RateLimitedPoll_NoAgeClaim (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.006s
+FAIL

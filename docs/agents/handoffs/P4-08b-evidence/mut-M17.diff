@@ -1,0 +1,21 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:20:03.869851183 +0530
++++ -	2026-10-31 14:20:04.346039056 +0530
+@@ -168,15 +168,17 @@
+ 			types = append(types, j.TaskType)
+ 		}
+ 	}
++	globalRead := 0
+ 	for _, ty := range types {
+ 		var candidates []*domain.Job
+ 		for _, id := range r.jobOrder {
+-			if len(candidates) >= p.BatchLimit {
++			if len(candidates) >= p.BatchLimit || globalRead >= p.BatchLimit {
+ 				break
+ 			}
+ 			j := r.jobs[id]
+ 			if j != nil && j.TaskType == ty && j.AssignedWorkerID == nil && r.isDispatchableLocked(j) && j.AssignmentLapses < p.MaxLapses {
+ 				candidates = append(candidates, j)
++				globalRead++
+ 			}
+ 		}
+ 		res.CandidatesRead[ty] = len(candidates)

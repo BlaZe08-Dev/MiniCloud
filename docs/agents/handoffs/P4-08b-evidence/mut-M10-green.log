@@ -1,0 +1,4 @@
+=== RUN   TestConformance_AssignmentLapse_FallbackAfterLimit
+--- PASS: TestConformance_AssignmentLapse_FallbackAfterLimit (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s

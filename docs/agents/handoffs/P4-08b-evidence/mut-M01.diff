@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:35.883049615 +0530
++++ -	2026-10-31 14:19:44.911420265 +0530
+@@ -263,7 +263,7 @@
+ 	passSilent := !r.passCompletedAt.After(silentBefore)
+ 	for _, id := range r.jobOrder {
+ 		j := r.jobs[id]
+-		if j == nil || !r.isDispatchableLocked(j) || !worker.SupportsTask(j.TaskType) {
++		if j == nil || !worker.SupportsTask(j.TaskType) {
+ 			continue
+ 		}
+ 		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {

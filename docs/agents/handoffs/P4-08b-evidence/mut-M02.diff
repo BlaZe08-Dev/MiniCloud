@@ -1,0 +1,10 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:45.488981208 +0530
++++ -	2026-10-31 14:19:45.800279665 +0530
+@@ -219,6 +219,7 @@
+ 				},
+ 			})
+ 			res.Reserved++
++			r.attempts["pending_"+j.ID] = &domain.Attempt{ID: "pending_" + j.ID, JobID: j.ID, WorkerID: holder, AttemptNo: 1, State: domain.AttemptPending}
+ 		}
+ 	}
+ 

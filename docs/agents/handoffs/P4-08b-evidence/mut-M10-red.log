@@ -1,0 +1,6 @@
+=== RUN   TestConformance_AssignmentLapse_FallbackAfterLimit
+    inmemory_assignment_test.go:286: w_2 claim after 3 lapses: no queued jobs available
+--- FAIL: TestConformance_AssignmentLapse_FallbackAfterLimit (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

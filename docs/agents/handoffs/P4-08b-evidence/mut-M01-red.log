@@ -1,0 +1,20 @@
+=== RUN   TestConformance_ClaimAssigned_ConcurrentPollsOneWinner
+    inmemory_assignment_test.go:491: poll by w_e: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_p: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_g: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_h: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_i: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_m: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_n: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_o: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_l: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_k: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_d: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_c: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_j: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:491: poll by w_f: unexpected error invalid job state transition from RUNNING to RUNNING
+    inmemory_assignment_test.go:497: wins=1 losses=1, want 1 and 15
+--- FAIL: TestConformance_ClaimAssigned_ConcurrentPollsOneWinner (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

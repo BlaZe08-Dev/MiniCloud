@@ -1,0 +1,4 @@
+=== RUN   TestConformance_AssignEvent_CapsCandidates
+--- PASS: TestConformance_AssignEvent_CapsCandidates (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.002s

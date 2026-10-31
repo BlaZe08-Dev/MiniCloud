@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:20:04.901843917 +0530
++++ -	2026-10-31 14:20:05.336286145 +0530
+@@ -260,7 +260,7 @@
+ 
+ 	// Fallback arms.
+ 	silentBefore := now.Add(-opts.FallbackAge)
+-	passSilent := !r.passCompletedAt.After(silentBefore)
++	passSilent := true
+ 	for _, id := range r.jobOrder {
+ 		j := r.jobs[id]
+ 		if j == nil || !r.isDispatchableLocked(j) || !worker.SupportsTask(j.TaskType) {

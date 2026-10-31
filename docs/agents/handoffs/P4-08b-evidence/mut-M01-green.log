@@ -1,0 +1,4 @@
+=== RUN   TestConformance_ClaimAssigned_ConcurrentPollsOneWinner
+--- PASS: TestConformance_ClaimAssigned_ConcurrentPollsOneWinner (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.005s

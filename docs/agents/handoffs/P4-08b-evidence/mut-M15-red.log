@@ -1,0 +1,6 @@
+=== RUN   TestConformance_FifoPull_IgnoresAssignmentColumns
+    inmemory_assignment_test.go:416: fifo DispatchNextJob by w_2 failed on a job reserved to w_1: no queued jobs available
+--- FAIL: TestConformance_FifoPull_IgnoresAssignmentColumns (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.005s
+FAIL

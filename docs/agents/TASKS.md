@@ -23,7 +23,13 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
+| P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-08b — ADR-0017 slice 5a (domain, pure policy and in-memory parity)
+- Goal: ADR-0017 Section 7 slice 5a only: assignment domain fields and events, the pure round-robin rule with per-type cursors, the in-memory assignment pass, round-robin claim (own reservation, then lapse and age arms), the poll-time refresh in memory, policy selection with `fifo_pull` as the default, and config validation including A1. No migration, no PostgreSQL code.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08b`. Status: pushed for audit.
+- Owned files: `internal/domain/assignment.go`, `internal/domain/job.go`, `internal/domain/worker.go`, `internal/domain/events.go`, `internal/scheduler/round_robin_rule*.go`, `internal/storage/assignment.go`, `internal/storage/inmemory*.go`, `internal/storage/postgres/assignment_5a_skips_test.go`, `internal/config/config.go`, `internal/config/assignment_config_test.go`, `internal/coordinator/service.go`, `internal/coordinator/assignment*.go`, `internal/coordinator/export_assignment_test.go`, `docs/adr/0017-assignment-round-robin.md` (A1, A2), `docs/agents/handoffs/P4-08b*`, `docs/agents/handoffs/P4-08b-evidence/`, `reports/claude/P4-08b.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`.
 
 ### P4-07 — CLI output sanitization (SEC-048 / F-4e-18)
 - Goal: Sanitize worker- and task-supplied strings in `cmd/mc` before terminal printing; neutralize escape sequences, control characters, and lone carriage returns; un-skip `TestAbuse_MCOutput_HostileErrorText`; update SEC-048 to Confirmed, Fixed and SEC-031 to Documented.

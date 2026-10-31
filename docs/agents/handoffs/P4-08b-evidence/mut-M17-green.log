@@ -1,0 +1,4 @@
+=== RUN   TestProperty_BatchHeadNeverStarved
+--- PASS: TestProperty_BatchHeadNeverStarved (0.10s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.102s
