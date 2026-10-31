@@ -22,13 +22,20 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | active |
+| P4-12 | Friendlier make test-security guard | Gemini | Claude Code | agent/gemini/P4-12 | active |
+| P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | merged in PR #37 |
 | P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | merged in PR #36 |
 | P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | merged in PR #34 |
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | merged in PR #35 |
 | P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-12 — Friendlier make test-security guard (refuse shared database early)
+- Goal: Add an early refusal guard (`tests/require-own-db.sh`) to `make test-security` when `MINICLOUD_TEST_DATABASE_URL` is unset or points to the shared database `minicloud_test`, printing a clear 5-line message explaining the own-database requirement and how to override with `ALLOW_SHARED_DB=1`.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-12`. Status: active.
+- Owned files: `Makefile`, `tests/require-own-db.sh`, `docs/testing-postgres.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/agents/handoffs/P4-12.md`, `reports/gemini/P4-12.md`.
+- Out of scope: Go code modifications, schema migrations, allowlist edits, running docker or real security tests.
 
 ### P4-11 — Register follow-ups and fix stale statuses (P4-08a..P4-10, SEC-012, SEC-062)
 - Goal: Register follow-ups and fix stale statuses; update `TASKS.md` and `PROJECT_STATE.md` with merged PRs #33-#36 (P4-08a, P4-09, P4-08b, P4-10); update `threat-model.md` for SEC-012 fix in Slice P4-09 (`ClampExecutionTimeout`); register SEC-062 in `findings.md` and `PROJECT_STATE.md` for older environment helpers silent fallback; import P4-08b 5a review records from `origin/agent/claude/P4-08b-review`; add orchestrator-verified gate entry for main `cb51adc` in `PROJECT_STATE.md`.
@@ -181,6 +188,6 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - **Review records citation checker scoping (Resolved in P4-T2, PR #27, merge commit 1e20143)**: Citation checker Rule A link check was scoped to live documents in P4-T2, allowing historical review records to be treated as immutable. Review records for P0-03 round 2 and round 3 (`P0-03-round2.md`, `P0-03-round2-evidence.txt`, `P0-03-round3.md`, `P0-03-round3-evidence.txt`) were imported byte-identical in P4-05.
 - **F-4e-18 (CLI ANSI terminal escape sequence sanitization; OPEN)**: CLI `cmd/mc` does not strip or sanitize ANSI escape sequences from task outputs or error strings before printing to stdout/stderr. Risk: untrusted tasks could emit terminal escape sequences (cursor relocation, clear screen, OSC title setting) when output is viewed in an interactive terminal. Fix: implement terminal sanitization in `cmd/mc` to escape or strip non-printable/control sequences.
 - **F-4e-17 (Rate limiting and connection bounding on unauthenticated endpoints; OPEN)**: All HTTP endpoints currently lack application-level rate limiting or connection bounding. Risk: an aggressive client or network flooder could starve connection pool or saturate coordinator memory. Mitigated in V1 by default localhost binding (`127.0.0.1:8080`) under SEC-004 accepted risk. Planned for V2/V3 hardening.
-- **`make test-security` shared database detection**: `make test-security` prints 47 failures when inadvertently run against the shared database (`minicloud_test`) rather than a dedicated per-agent test database. Fix: update `make test-security` runner or preflight to check the database name and print exactly one clear explanatory error line refusing execution on the shared database.
+- **`make test-security` shared database detection (Resolved in P4-12)**: `make test-security` prints a 5-line explanatory error refusing execution (exit 2) when run against the shared database (`minicloud_test`) or when unset. Override with `ALLOW_SHARED_DB=1` to run against the shared database.
 - **Per-worktree test database note**: `make test-security` must be run from a worktree configured with its own `minicloud_<agent>_test` database (e.g. `minicloud_gemini_test` or `minicloud_claude_test`). `make test-db` is the appropriate suite for the shared database.
 - **Next Slices (Post-Phase 4)**: Phase 4 core is complete. Next milestone is the Post-Phase 4 Assignment-Based Round-Robin Slice (Candidate A pre-assignment with bounded accept window) required before V1 release tagging.
