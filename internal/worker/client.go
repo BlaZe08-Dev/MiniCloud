@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,6 +42,15 @@ const (
 
 	maxDurationSeconds = int(math.MaxInt64 / int64(time.Second))
 	minDurationSeconds = int(math.MinInt64 / int64(time.Second))
+
+	// MaxPollResponseBytes bounds the HTTP response body read in pollWork (SEC-060).
+	// The coordinator's writeJSON (internal/api/handlers.go) uses json.NewEncoder with HTML
+	// escaping enabled: a legal task payload of up to executor.MaxPayloadSizeBytes (64 KiB)
+	// containing characters like '<', '>', or '&' is re-encoded as 6-byte escape sequences
+	// (e.g. '\u003c', '\u003e', '\u0026'), expanding up to 6x on the wire (~384 KiB).
+	// We size MaxPollResponseBytes to 6*executor.MaxPayloadSizeBytes plus 64 KiB of headroom
+	// for the JSON envelope, identifiers, and lease metadata (448 KiB / 458,752 bytes total).
+	MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024
 
 	renewBackoffBase    = time.Second
 	deliveryBackoffBase = 200 * time.Millisecond
@@ -295,7 +305,7 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 				Code string `json:"code"`
 			} `json:"error"`
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&errEnvelope); err == nil {
+		if err := json.NewDecoder(io.LimitReader(resp.Body, MaxPollResponseBytes)).Decode(&errEnvelope); err == nil {
 			if errEnvelope.Error.Code == "WORKER_UNHEALTHY" {
 				return nil, domain.ErrWorkerUnhealthy
 			}
@@ -315,8 +325,11 @@ func (a *Agent) pollWork(ctx context.Context) (*coordinator.WorkAssignment, erro
 	var res struct {
 		Assignment *coordinator.WorkAssignment `json:"assignment"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, MaxPollResponseBytes)).Decode(&res); err != nil {
 		return nil, err
+	}
+	if res.Assignment == nil {
+		return nil, errors.New("poll returned 200 OK without an assignment")
 	}
 
 	return res.Assignment, nil
@@ -352,7 +365,7 @@ func (a *Agent) reportResult(ctx context.Context, jobID, attemptID, leaseToken s
 	}
 	reportReq, _ := json.Marshal(body)
 
-	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
+	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, url.PathEscape(jobID), url.PathEscape(attemptID))
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
 	if reqErr != nil {
 		return 0, "", reqErr
@@ -407,7 +420,7 @@ var recognizedNotFound = map[string]bool{"JOB_NOT_FOUND": true, "ATTEMPT_NOT_FOU
 // Handling"). It never reads the lease token into a log line.
 func (a *Agent) renewOnce(ctx context.Context, asg *coordinator.WorkAssignment, timeout time.Duration) renewVerdict {
 	body, _ := json.Marshal(map[string]string{"worker_id": a.cfg.WorkerID, "lease_token": asg.LeaseToken})
-	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", a.cfg.CoordinatorURL, asg.JobID, asg.AttemptID)
+	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", a.cfg.CoordinatorURL, url.PathEscape(asg.JobID), url.PathEscape(asg.AttemptID))
 	rctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(rctx, http.MethodPost, url, bytes.NewReader(body))

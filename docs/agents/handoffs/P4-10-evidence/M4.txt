@@ -1,0 +1,52 @@
+=== Mutation M4: Remove PathEscape in reportResult ===
+--- git diff ---
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 6ecb365..e231175 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -361,7 +361,7 @@ func (a *Agent) reportResult(ctx context.Context, jobID, attemptID, leaseToken s
+ 	}
+ 	reportReq, _ := json.Marshal(body)
+ 
+-	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, url.PathEscape(jobID), url.PathEscape(attemptID))
++	url := fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)
+ 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reportReq))
+ 	if reqErr != nil {
+ 		return 0, "", reqErr
+
+--- RED (Mutation Active) ---
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash
+    hardening_test.go:291: reportResult recorded path = "/v1/jobs/..//attempts/att-1/result", want "/v1/jobs/..%2F/attempts/att-1/result"
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark
+    hardening_test.go:291: reportResult recorded path = "/v1/jobs/job-1/attempts/", want "/v1/jobs/job-1/attempts/%3F/result"
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment
+    hardening_test.go:291: reportResult recorded path = "/v1/jobs/", want "/v1/jobs/%23/attempts/att-2/result"
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash
+    hardening_test.go:291: reportResult recorded path = "/v1/jobs/job-2/attempts/%2f/result", want "/v1/jobs/job-2/attempts/%252f/result"
+--- FAIL: TestWorker_URLPathEscaping_RenewAndReport (0.00s)
+    --- FAIL: TestWorker_URLPathEscaping_RenewAndReport/ReportResult (0.00s)
+        --- FAIL: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash (0.00s)
+        --- FAIL: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark (0.00s)
+        --- FAIL: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment (0.00s)
+        --- FAIL: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.008s
+FAIL
+
+--- GREEN (Restored) ---
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash
+--- PASS: TestWorker_URLPathEscaping_RenewAndReport (0.01s)
+    --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.010s

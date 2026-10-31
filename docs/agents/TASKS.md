@@ -22,10 +22,17 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | active |
+| P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | active |
+| P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | merged in PR #34 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-10 — Worker response body limit and URL path escaping (SEC-060, SEC-061)
+- Goal: Fix SEC-060 by bounding poll response reads in `internal/worker/client.go` func `pollWork` with `io.LimitReader` and named constant `MaxPollResponseBytes` (set above `executor.MaxPayloadSizeBytes` with headroom for envelope); fix SEC-061 by escaping `JobID` and `AttemptID` with `url.PathEscape` in func `renewOnce` and func `reportResult`; write unit tests `TestPollWork_OversizedResponseRejected`, `TestPollWork_MaxLegalAssignmentAccepted`, and `TestWorker_URLPathEscaping_RenewAndReport` in `internal/worker/hardening_test.go`; execute mutations M1-M4 with evidence; update `findings.md`, `PROJECT_STATE.md`, `TASKS.md`, and `protocol.md`.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-10`. Status: active.
+- Owned files: `internal/worker/client.go`, `internal/worker/hardening_test.go`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/agents/handoffs/P4-10*`, `reports/gemini/P4-10.md`.
+- Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-09 — Worker execution timeout clamping (SEC-012)
 - Goal: Clamp coordinator-supplied `TimeoutSeconds` in `internal/worker/client.go` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`) with 64-bit integer multiplication overflow protection and warning logging; implement pure function `ClampExecutionTimeout`; write table-driven unit tests and end-to-end test `TestWorker_ExcessiveTimeoutClamped`; update SEC-012 to Confirmed, Fixed and register findings SEC-059..061.

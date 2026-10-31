@@ -1,0 +1,26 @@
+=== Mutation M2: Remove io.LimitReader on error-envelope decode ===
+--- git diff ---
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -305,1 +305,1 @@
+-		if err := json.NewDecoder(io.LimitReader(resp.Body, MaxPollResponseBytes)).Decode(&errEnvelope); err == nil {
++		if err := json.NewDecoder(resp.Body).Decode(&errEnvelope); err == nil {
+
+--- RED (Mutation Active) ---
+=== RUN   TestPollWork_OversizedResponseRejected
+=== RUN   TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode
+    hardening_test.go:143: pollWork 503 read 917557 bytes; want at most limit 459776 bytes (limit 458752 + slack 1024)
+--- FAIL: TestPollWork_OversizedResponseRejected (0.02s)
+    --- FAIL: TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode (0.02s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.023s
+FAIL
+
+--- GREEN (Restored) ---
+=== RUN   TestPollWork_OversizedResponseRejected
+=== RUN   TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode
+--- PASS: TestPollWork_OversizedResponseRejected (0.00s)
+    --- PASS: TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.010s
