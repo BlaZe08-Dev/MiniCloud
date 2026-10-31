@@ -1,0 +1,9 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults$ ./internal/coordinator/)
+=== RUN   TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults
+2026/10/31 15:51:18 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:51:18 INFO job submitted and queued job_id=job_1_f555c22d2e21 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:51:18 INFO job dispatched to worker job_id=job_1_f555c22d2e21 attempt_id=att_1_bd3d2f1e92a6 attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+--- PASS: TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.028s
+EXIT=0

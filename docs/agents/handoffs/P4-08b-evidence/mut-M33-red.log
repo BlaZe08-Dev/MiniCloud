@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_ClaimLapseArm_ClosedBelowLimit$ ./internal/storage/)
+=== RUN   TestConformance_ClaimLapseArm_ClosedBelowLimit
+    inmemory_assignment_test.go:568: job at L-1 lapses was claimed by the lapse arm: err=<nil>
+--- FAIL: TestConformance_ClaimLapseArm_ClosedBelowLimit (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.031s
+FAIL
+EXIT=1

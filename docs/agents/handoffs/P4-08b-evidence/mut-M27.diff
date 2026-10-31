@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index 4f32f38..aa1a4bd 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -63,7 +63,7 @@ func (a AssignmentSettings) Validate() error {
+ 		return fmt.Errorf("%w: assignment min yield (%v) must not exceed the interval (%v)", domain.ErrInvalidRequest, a.MinYield, a.Interval)
+ 	}
+ 	// A1 cross-checks (ADR-0017 Section 5.5).
+-	if a.Interval > a.AcceptWindow {
++	if a.Interval >= a.AcceptWindow {
+ 		return fmt.Errorf("%w: assignment interval (%v) must not exceed the accept window (%v)", domain.ErrInvalidRequest, a.Interval, a.AcceptWindow)
+ 	}
+ 	if a.FallbackAge <= 2*a.Interval+a.AcceptWindow {

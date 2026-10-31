@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_AssignPass_ExcludesJobAtLapseLimit$ ./internal/storage/)
+=== RUN   TestConformance_AssignPass_ExcludesJobAtLapseLimit
+    inmemory_assignment_test.go:549: job at the lapse limit was reserved to w_1
+--- FAIL: TestConformance_AssignPass_ExcludesJobAtLapseLimit (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.020s
+FAIL
+EXIT=1

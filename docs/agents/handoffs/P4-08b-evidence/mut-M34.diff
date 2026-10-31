@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..8ffdf4e 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -139,7 +139,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 				CreatedAt: now,
+ 				Details:   map[string]any{"worker_id": holder, "reason": "worker_unhealthy"},
+ 			})
+-			res.Revoked++
++			res.Revoked++; j.AssignmentLapses++
+ 			examined++
+ 			continue
+ 		}

@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_AssignPass_SkipsWhenPassLockHeld$ ./internal/storage/)
+=== RUN   TestConformance_AssignPass_SkipsWhenPassLockHeld
+    inmemory_assignment_test.go:701: pass blocked on a held pass lock instead of skipping
+--- FAIL: TestConformance_AssignPass_SkipsWhenPassLockHeld (2.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	2.023s
+FAIL
+EXIT=1
