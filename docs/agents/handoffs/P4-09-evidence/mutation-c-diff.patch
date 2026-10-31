@@ -1,0 +1,22 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 5cc3284..589d369 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -557,16 +557,7 @@ func ClampExecutionTimeout(timeoutSeconds int) time.Duration {
+ 	var dur time.Duration
+ 	clamped := false
+ 
+-	// Guard against integer multiplication overflow when converting to time.Duration.
+-	if timeoutSeconds > maxDurationSeconds {
+-		clamped = true
+-		dur = MaxExecutionTimeout
+-	} else if timeoutSeconds < minDurationSeconds {
+-		clamped = true
+-		dur = MinExecutionTimeout
+-	} else {
+-		dur = time.Duration(timeoutSeconds) * time.Second
+-	}
++	dur = time.Duration(timeoutSeconds) * time.Second
+ 
+ 	// Clamp above the maximum execution timeout.
+ 	if dur > MaxExecutionTimeout {

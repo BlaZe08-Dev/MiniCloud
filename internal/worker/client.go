@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/rand"
 	"net/http"
 	"sync"
@@ -29,6 +30,17 @@ const (
 	MinRenewalInterval = time.Second
 	// ResultDeliveryBudget bounds how long a finished result is retried (protocol 6.1, R-11).
 	ResultDeliveryBudget = 60 * time.Second
+
+	// MaxExecutionTimeoutSeconds is the maximum accepted execution timeout in seconds,
+	// referencing the coordinator's upper bound (86400 s, SEC-012, SEC-014).
+	MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds
+	// MaxExecutionTimeout is the maximum accepted execution timeout as a time.Duration.
+	MaxExecutionTimeout = time.Duration(MaxExecutionTimeoutSeconds) * time.Second
+	// MinExecutionTimeout is the minimum accepted execution timeout as a time.Duration (1 s).
+	MinExecutionTimeout = time.Second
+
+	maxDurationSeconds = int(math.MaxInt64 / int64(time.Second))
+	minDurationSeconds = int(math.MinInt64 / int64(time.Second))
 
 	renewBackoffBase    = time.Second
 	deliveryBackoffBase = 200 * time.Millisecond
@@ -533,6 +545,52 @@ func isTerminalDelivery(status int) bool {
 	return IsNonRetryableReportError(status) || status == http.StatusBadRequest
 }
 
+// ClampExecutionTimeout maps a coordinator-supplied timeout in seconds to an execution
+// time.Duration. It enforces bounds:
+//   - Above MaxExecutionTimeoutSeconds (86400 s): clamped to MaxExecutionTimeout (86400 s).
+//   - Below 1 s: clamped up to 1 s (never zero or negative). A task execution context must
+//     have a bounded positive deadline; non-positive timeouts are invalid at the coordinator
+//     boundary (SEC-014) and must never cause immediate deadline cancellation or disable timeouts.
+//   - Multiplication overflow: guarded so values exceeding int64 duration limits do not overflow.
+//
+// A warning is logged whenever clamping occurs, logging only numeric values (no attacker-sized strings).
+func ClampExecutionTimeout(timeoutSeconds int) time.Duration {
+	var dur time.Duration
+	clamped := false
+
+	// Guard against integer multiplication overflow when converting to time.Duration.
+	if timeoutSeconds > maxDurationSeconds {
+		clamped = true
+		dur = MaxExecutionTimeout
+	} else if timeoutSeconds < minDurationSeconds {
+		clamped = true
+		dur = MinExecutionTimeout
+	} else {
+		dur = time.Duration(timeoutSeconds) * time.Second
+	}
+
+	// Clamp above the maximum execution timeout.
+	if dur > MaxExecutionTimeout {
+		clamped = true
+		dur = MaxExecutionTimeout
+	}
+
+	// Clamp below 1 second up to 1 second (never zero or negative).
+	if dur < MinExecutionTimeout {
+		clamped = true
+		dur = MinExecutionTimeout
+	}
+
+	if clamped {
+		slog.Warn("worker execution timeout clamped to bounds",
+			"configured_seconds", timeoutSeconds,
+			"effective_duration", dur,
+		)
+	}
+
+	return dur
+}
+
 // ExecuteAndReport runs one claimed assignment and delivers its outcome. A renewal goroutine keeps
 // the lease alive from the start of execution until delivery ends; it ends unconditionally with
 // this call.
@@ -559,7 +617,7 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 		wg.Wait()
 	}()
 
-	timeout := time.Duration(assignment.TimeoutSeconds) * time.Second
+	timeout := ClampExecutionTimeout(assignment.TimeoutSeconds)
 	output, exitCode, err := a.registry.Execute(taskCtx, assignment.TaskType, assignment.Payload, timeout)
 
 	// Defensive clamp at the wire boundary: the coordinator answers a deterministic 400 for an

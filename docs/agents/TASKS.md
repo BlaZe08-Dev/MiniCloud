@@ -22,9 +22,16 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | active |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-09 — Worker execution timeout clamping (SEC-012)
+- Goal: Clamp coordinator-supplied `TimeoutSeconds` in `internal/worker/client.go` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`) with 64-bit integer multiplication overflow protection and warning logging; implement pure function `ClampExecutionTimeout`; write table-driven unit tests and end-to-end test `TestWorker_ExcessiveTimeoutClamped`; update SEC-012 to Confirmed, Fixed and register findings SEC-059..061.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-09`. Status: active.
+- Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
+- Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-08b — ADR-0017 slice 5a (domain, pure policy and in-memory parity)
 - Goal: ADR-0017 Section 7 slice 5a only: assignment domain fields and events, the pure round-robin rule with per-type cursors, the in-memory assignment pass, round-robin claim (own reservation, then lapse and age arms), the poll-time refresh in memory, policy selection with `fifo_pull` as the default, and config validation including A1. No migration, no PostgreSQL code.

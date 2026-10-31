@@ -1,0 +1,37 @@
+=== RUN   TestClampExecutionTimeout
+=== RUN   TestClampExecutionTimeout/zero_clamped_to_min
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=0 effective_duration=1s
+=== RUN   TestClampExecutionTimeout/negative_clamped_to_min
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=-1 effective_duration=1s
+=== RUN   TestClampExecutionTimeout/minimum_valid_unchanged
+=== RUN   TestClampExecutionTimeout/maximum_valid_unchanged
+=== RUN   TestClampExecutionTimeout/above_maximum_clamped_to_max
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=86401 effective_duration=24h0m0s
+=== RUN   TestClampExecutionTimeout/max_int32_clamped_to_max
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=2147483647 effective_duration=24h0m0s
+=== RUN   TestClampExecutionTimeout/max_int64_clamped_to_max
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=9223372036854775807 effective_duration=1s
+    timeout_test.go:74: ClampExecutionTimeout(9223372036854775807) = 1s; want 24h0m0s
+=== RUN   TestClampExecutionTimeout/multiplication_overflow_clamped_to_max
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=9223372037 effective_duration=1s
+    timeout_test.go:74: ClampExecutionTimeout(9223372037) = 1s; want 24h0m0s
+--- FAIL: TestClampExecutionTimeout (0.00s)
+    --- PASS: TestClampExecutionTimeout/zero_clamped_to_min (0.00s)
+    --- PASS: TestClampExecutionTimeout/negative_clamped_to_min (0.00s)
+    --- PASS: TestClampExecutionTimeout/minimum_valid_unchanged (0.00s)
+    --- PASS: TestClampExecutionTimeout/maximum_valid_unchanged (0.00s)
+    --- PASS: TestClampExecutionTimeout/above_maximum_clamped_to_max (0.00s)
+    --- PASS: TestClampExecutionTimeout/max_int32_clamped_to_max (0.00s)
+    --- FAIL: TestClampExecutionTimeout/max_int64_clamped_to_max (0.00s)
+    --- FAIL: TestClampExecutionTimeout/multiplication_overflow_clamped_to_max (0.00s)
+=== RUN   TestWorker_ExcessiveTimeoutClamped
+2026/10/31 10:43:12 INFO starting worker agent worker_id=w-excess coordinator_url=http://127.0.0.1:38685 slots=1
+2026/10/31 10:43:12 INFO worker successfully registered with coordinator worker_id=w-excess
+2026/10/31 10:43:12 INFO executing job assignment job_id=job-excess attempt_id=att-excess task_type=sleep timeout_seconds=315360000
+2026/10/31 10:43:12 WARN worker execution timeout clamped to bounds configured_seconds=315360000 effective_duration=24h0m0s
+2026/10/31 10:43:12 INFO result successfully committed job_id=job-excess attempt_id=att-excess exit_code=0
+2026/10/31 10:43:12 INFO worker agent shutting down worker_id=w-excess
+--- PASS: TestWorker_ExcessiveTimeoutClamped (0.21s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.220s
+FAIL
