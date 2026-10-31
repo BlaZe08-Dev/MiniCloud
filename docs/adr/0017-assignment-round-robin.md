@@ -1016,7 +1016,7 @@ These decisions were made by the orchestrator in fix round 1 of the P4-08b revie
 3. **Freshness before refresh.** A poll writes its own `last_poll_at` (Section 2.2) before the refresh runs, so the polling worker is eligible for the reservations its own refresh makes. INV-19 depends on this.
 4. **`EffectiveWorkerSlots` lives in domain (amends Section 2.4).** The constant is `domain.EffectiveWorkerSlots`, not a coordinator constant, because the assignment pass runs in the storage layer.
 5. **Memory test name for INV-1.** The in-memory variant of INV-1 is `TestConformance_ClaimAssigned_ConcurrentPollsOneWinner`. The PostgreSQL variant keeps the name `TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner`.
-6. **Location of the 5a assignment cases.** The assignment cases live in `internal/storage` tests (package `storage_test`) until slice 5b moves them into the shared `storagetest` runner. The 11 PostgreSQL skips in `internal/storage/postgres/assignment_5a_skips_test.go` become 11 passing tests in slice 5b.
+6. **Location of the 5a assignment cases.** The assignment cases live in `internal/storage` tests (package `storage_test`) until slice 5b moves them into the shared `storagetest` runner. The 11 PostgreSQL skips in `assignment_5a_skips_test.go` (PostgreSQL storage package; deleted in slice 5b by commit b67db2a) become 11 passing tests in slice 5b.
 
 ### Implementation notes, P4-08b fix round 2
 
