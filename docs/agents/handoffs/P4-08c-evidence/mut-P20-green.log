@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_CancelAssigned_NeverClaimed$ ./internal/storage/postgres/
+=== RUN   TestConformance_CancelAssigned_NeverClaimed
+--- PASS: TestConformance_CancelAssigned_NeverClaimed (0.56s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.583s

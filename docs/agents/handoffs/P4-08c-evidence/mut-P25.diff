@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index fc77409..29773db 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -331,7 +331,7 @@ func assignReserve(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *
+ 			}
+ 			capped := eligible
+ 			if len(capped) > assignmentEventCandidateCap {
+-				capped = capped[:assignmentEventCandidateCap]
++				capped = capped[:len(capped)]
+ 			}
+ 			if err := insertAssignmentEvent(ctx, tx, jobID, domain.JobEventAssigned, map[string]any{
+ 				"worker_id":       selected,

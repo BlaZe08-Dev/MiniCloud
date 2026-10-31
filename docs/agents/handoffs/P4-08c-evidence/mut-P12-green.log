@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPoll_AgeArm_AfterOutage_RefreshesFirst$ ./internal/storage/postgres/
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+--- PASS: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.48s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.508s

@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime
+    assignment_test.go:782: heartbeat is 262µs after the pre-pass time; the pass waited about 300ms first, so the heartbeat is not its completion time
+--- FAIL: TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime (0.80s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.820s
+FAIL

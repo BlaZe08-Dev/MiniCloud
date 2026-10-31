@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestFault_AssignmentPassStalled_JobRunsWithinBound$ ./internal/storage/postgres/
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+--- PASS: TestFault_AssignmentPassStalled_JobRunsWithinBound (0.89s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.918s

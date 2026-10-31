@@ -1,0 +1,15 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestMigrator_Migration000005_FreshSchema$ ./internal/storage/postgres/
+=== RUN   TestMigrator_Migration000005_FreshSchema
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_allows_a_full_reservation_on_queued_and_retrying
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_rejects_a_reservation_on_other_states
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_rejects_partial_and_inverted_reservations
+=== RUN   TestMigrator_Migration000005_FreshSchema/a_transition_to_running_that_keeps_the_reservation_is_rejected
+=== RUN   TestMigrator_Migration000005_FreshSchema/lapses_and_fallback_reason_are_bounded
+--- PASS: TestMigrator_Migration000005_FreshSchema (0.37s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/shape_check_allows_a_full_reservation_on_queued_and_retrying (0.01s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/shape_check_rejects_a_reservation_on_other_states (0.01s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/shape_check_rejects_partial_and_inverted_reservations (0.01s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/a_transition_to_running_that_keeps_the_reservation_is_rejected (0.00s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/lapses_and_fallback_reason_are_bounded (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.395s

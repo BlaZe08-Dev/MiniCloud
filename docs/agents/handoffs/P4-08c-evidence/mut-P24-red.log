@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_FifoPull_IgnoresAssignmentColumns$ ./internal/storage/postgres/
+=== RUN   TestConformance_FifoPull_IgnoresAssignmentColumns
+    assignment.go:444: fifo DispatchNextJob by w_2 failed on a job reserved to w_1: no queued jobs available
+--- FAIL: TestConformance_FifoPull_IgnoresAssignmentColumns (0.53s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.556s
+FAIL

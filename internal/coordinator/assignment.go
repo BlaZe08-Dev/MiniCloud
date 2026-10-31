@@ -74,7 +74,8 @@ func (a AssignmentSettings) Validate() error {
 
 // SetDispatchPolicy selects fifo_pull (the default) or round_robin (ADR-0017 Section 5.2). Any
 // other name is rejected. round_robin is rejected when the repository does not implement
-// storage.AssignmentRepository (PostgreSQL until slice 5b), so the failure is at configuration.
+// storage.AssignmentRepository and storage.AssignmentPassStaleness (both the in-memory and the
+// PostgreSQL repositories implement them since slice 5b), so the failure is at configuration.
 // round_robin is also rejected when the current assignment settings fail Validate (F-5a-1).
 func (s *Service) SetDispatchPolicy(name string) error {
 	if !domain.IsValidDispatchPolicy(name) {
@@ -83,6 +84,10 @@ func (s *Service) SetDispatchPolicy(name string) error {
 	if name == domain.DispatchPolicyRoundRobin {
 		if _, ok := s.repo.(storage.AssignmentRepository); !ok {
 			return fmt.Errorf("%w: dispatch policy round_robin needs an assignment-capable repository", domain.ErrInvalidRequest)
+		}
+		// The poll-time refresh decides staleness on the repository clock (implementation note 8).
+		if _, ok := s.repo.(storage.AssignmentPassStaleness); !ok {
+			return fmt.Errorf("%w: dispatch policy round_robin needs a repository that reports pass staleness", domain.ErrInvalidRequest)
 		}
 	}
 	s.mu.Lock()
@@ -169,16 +174,21 @@ func (s *Service) pollRoundRobinLocked(ctx context.Context, workerID string) (*W
 // Attempts are single-flight and rate-limited to one per interval. The three values it reads and
 // writes (refreshInFlight, refreshLastAttemptAt, refreshLastFailed) are coordinator memory guarded
 // by s.mu. A skipped pass (another pass holds the lock) is not a failure.
+//
+// Staleness is decided by the repository on its own clock (ADR-0017 implementation note 8): the
+// database clock in PostgreSQL. The process clock is read only for the rate limit, which compares
+// two process-clock readings.
 func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.AssignmentRepository) bool {
-	last, err := ar.AssignmentPassState(ctx)
-	if err != nil {
+	interval := s.assignment.Interval
+	staleness, ok := ar.(storage.AssignmentPassStaleness)
+	if !ok {
+		return false
+	}
+	stale, err := staleness.AssignmentPassStale(ctx, 2*interval)
+	if err != nil || !stale {
 		return false
 	}
 	now := s.clock.Now()
-	interval := s.assignment.Interval
-	if now.Sub(last) <= 2*interval {
-		return false
-	}
 	if s.refreshInFlight {
 		return false
 	}

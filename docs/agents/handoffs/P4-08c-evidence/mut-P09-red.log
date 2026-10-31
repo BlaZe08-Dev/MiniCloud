@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignPass_SkipsWhenPassLockHeld$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignPass_SkipsWhenPassLockHeld
+    assignment.go:717: pass blocked on a held pass lock instead of skipping
+--- FAIL: TestConformance_AssignPass_SkipsWhenPassLockHeld (2.43s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.456s
+FAIL

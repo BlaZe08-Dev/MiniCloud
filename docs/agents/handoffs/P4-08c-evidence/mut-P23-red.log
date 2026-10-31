@@ -1,0 +1,15 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_Assign_SkipsStaleWorkers$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_SkipsStaleWorkers
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_poll
+    assignment.go:392: reserved to a worker whose poll is older than the window
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/unhealthy
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved
+--- FAIL: TestConformance_Assign_SkipsStaleWorkers (2.03s)
+    --- FAIL: TestConformance_Assign_SkipsStaleWorkers/stale_poll (0.65s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat (0.48s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/unhealthy (0.42s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved (0.49s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.055s
+FAIL

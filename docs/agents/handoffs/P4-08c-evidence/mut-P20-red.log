@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_CancelAssigned_NeverClaimed$ ./internal/storage/postgres/
+=== RUN   TestConformance_CancelAssigned_NeverClaimed
+    assignment.go:328: CancelJob: invalid request payload or parameters
+--- FAIL: TestConformance_CancelAssigned_NeverClaimed (0.55s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.572s
+FAIL

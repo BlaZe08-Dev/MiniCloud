@@ -1,0 +1,6 @@
+=== RUN   TestConformance_ClaimFallback_ExpiredUnrevokedReservation
+    assignment.go:777: w_2 claim of a lapse-limit job whose reservation expired 1 s ago: no queued jobs available
+--- FAIL: TestConformance_ClaimFallback_ExpiredUnrevokedReservation (0.54s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.573s
+FAIL

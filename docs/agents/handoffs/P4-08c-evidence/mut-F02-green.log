@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestSetDispatchPolicy_RoundRobinRequiresPassStaleness$ ./internal/coordinator/
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresPassStaleness
+--- PASS: TestSetDispatchPolicy_RoundRobinRequiresPassStaleness (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.020s

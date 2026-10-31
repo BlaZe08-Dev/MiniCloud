@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim
+--- PASS: TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim (1.04s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.066s

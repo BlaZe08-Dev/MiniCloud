@@ -1,0 +1,22 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_CancelAssigned_ClearsAssignment$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_queued
+    assignment_test.go:253: CancelJob of a reserved QUEUED job: invalid request payload or parameters
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_retrying
+    assignment_test.go:268: CancelJob of a reserved RETRYING job: invalid request payload or parameters
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/round_robin_claim
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/fifo_dispatch_next_job
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/dispatch_job_by_id
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/commit_and_sweep_keep_the_columns_null
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/backstop_check_rejects_running_with_a_reservation
+--- FAIL: TestPostgresRepository_CancelAssigned_ClearsAssignment (3.47s)
+    --- FAIL: TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_queued (0.50s)
+    --- FAIL: TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_retrying (0.50s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/round_robin_claim (0.46s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/fifo_dispatch_next_job (0.52s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/dispatch_job_by_id (0.51s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/commit_and_sweep_keep_the_columns_null (0.56s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/backstop_check_rejects_running_with_a_reservation (0.43s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	3.502s
+FAIL

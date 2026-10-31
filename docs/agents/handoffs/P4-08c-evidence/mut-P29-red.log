@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignEvent_CandidatesInIDOrder$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignEvent_CandidatesInIDOrder
+    assignment.go:676: round 0: candidates [w_l w_k w_j w_i w_h w_g w_f w_e w_d w_c], want [w_a w_b w_c w_d w_e w_f w_g w_h w_i w_j]
+--- FAIL: TestConformance_AssignEvent_CandidatesInIDOrder (0.54s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.565s
+FAIL

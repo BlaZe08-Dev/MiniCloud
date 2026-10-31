@@ -64,6 +64,9 @@ db-reset-test:
 GRACE_TEST := ^TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit$$
 GRACE_TEST_COUNT := 1
 
+# One test process at a time per test database: the assignment pass advisory key is database-wide
+# (ADR-0017 INV-22, implementation note 15), so two test processes on one database make each
+# other's passes skip and the assignment tests fail.
 test-db:
 	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
 	@set -e; \

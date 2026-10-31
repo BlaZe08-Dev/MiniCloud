@@ -1,0 +1,4 @@
+=== RUN   TestConformance_ClaimFallback_ExpiredUnrevokedReservation
+--- PASS: TestConformance_ClaimFallback_ExpiredUnrevokedReservation (0.58s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.605s

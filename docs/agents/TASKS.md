@@ -29,6 +29,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | merged in PR #35 |
 | P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
+| (unassigned) | ADR-0017 slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing | to be assigned | to be assigned | none | planned, not specified |
+| P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
 ### P4-12 — Friendlier make test-security guard (refuse shared database early)
@@ -55,10 +57,20 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
 - Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
+### ADR-0017 slice 5c (placeholder; task ID, builder, auditor, owned files and full spec to be written by the orchestrator)
+- Goal: ADR-0017 Section 7 slice 5c.
+- Required (P4-08c review F-R3): the coordinator binary (`cmd/coordinator/main.go`) must apply `MINICLOUD_DISPATCH_POLICY` and the assignment settings at startup through `SetAssignmentSettings` and `SetDispatchPolicy`, validated: startup fails when either returns an error. It logs one line with the effective policy. Until then the binary validates these variables but never applies them, so it always runs `fifo_pull`.
+
+### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
+- Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08c`. Status: pushed for audit.
+- Owned files: `internal/storage/postgres/migrations/000005_assignment_round_robin.sql`, `internal/storage/postgres/assignment*.go`, `internal/storage/postgres/migration_000004_test.go`, `internal/storage/postgres/migration_000005_test.go`, `internal/storage/postgres/repository.go`, `assignment_5a_skips_test.go` (PostgreSQL storage package; deleted in slice 5b by commit b67db2a) (deleted), `internal/storage/storagetest/assignment.go`, `internal/storage/assignment_staleness.go`, `internal/storage/inmemory.go`, `internal/storage/inmemory_assignment_test.go`, `internal/coordinator/assignment.go`, `docs/adr/0017-assignment-round-robin.md` (status note only), `docs/agents/handoffs/P4-08c*`, `docs/agents/handoffs/P4-08c-evidence/`, `reports/claude/P4-08c.md`, `docs/agents/TASKS.md`.
+- Out of scope (slice 5c): the coordinator assignment loop, grace (INV-9), API field docs, worker changes, any change to `fifo_pull` behaviour.
+
 ### P4-08b — ADR-0017 slice 5a (domain, pure policy and in-memory parity)
 - Goal: ADR-0017 Section 7 slice 5a only: assignment domain fields and events, the pure round-robin rule with per-type cursors, the in-memory assignment pass, round-robin claim (own reservation, then lapse and age arms), the poll-time refresh in memory, policy selection with `fifo_pull` as the default, and config validation including A1. No migration, no PostgreSQL code.
 - Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08b`. Status: merged in PR #35.
-- Owned files: `internal/domain/assignment.go`, `internal/domain/job.go`, `internal/domain/worker.go`, `internal/domain/events.go`, `internal/scheduler/round_robin_rule*.go`, `internal/storage/assignment.go`, `internal/storage/inmemory*.go`, `internal/storage/postgres/assignment_5a_skips_test.go`, `internal/config/config.go`, `internal/config/assignment_config_test.go`, `internal/coordinator/service.go`, `internal/coordinator/assignment*.go`, `internal/coordinator/export_assignment_test.go`, `docs/adr/0017-assignment-round-robin.md` (A1, A2), `docs/agents/handoffs/P4-08b*`, `docs/agents/handoffs/P4-08b-evidence/`, `reports/claude/P4-08b.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`.
+- Owned files: `internal/domain/assignment.go`, `internal/domain/job.go`, `internal/domain/worker.go`, `internal/domain/events.go`, `internal/scheduler/round_robin_rule*.go`, `internal/storage/assignment.go`, `internal/storage/inmemory*.go`, `assignment_5a_skips_test.go` (PostgreSQL storage package; deleted in slice 5b by commit b67db2a), `internal/config/config.go`, `internal/config/assignment_config_test.go`, `internal/coordinator/service.go`, `internal/coordinator/assignment*.go`, `internal/coordinator/export_assignment_test.go`, `docs/adr/0017-assignment-round-robin.md` (A1, A2), `docs/agents/handoffs/P4-08b*`, `docs/agents/handoffs/P4-08b-evidence/`, `reports/claude/P4-08b.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`.
 
 ### P4-08a — ADR-0017 assignment-based round-robin (design)
 - Goal: Design assignment-based round-robin dispatch (Candidate A) in ADR-0017.

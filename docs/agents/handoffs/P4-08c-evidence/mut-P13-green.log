@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPoll_RateLimitedPoll_NoAgeClaim$ ./internal/storage/postgres/
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+--- PASS: TestPoll_RateLimitedPoll_NoAgeClaim (0.67s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.698s

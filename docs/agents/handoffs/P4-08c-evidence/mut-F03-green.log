@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_DeleteWorkerWithReservation_Rejected$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_DeleteWorkerWithReservation_Rejected
+    assignment_test.go:812: delete rejected: ERROR: new row for relation "jobs" violates check constraint "chk_jobs_assignment_shape" (SQLSTATE 23514) (code 23514)
+--- PASS: TestPostgresRepository_DeleteWorkerWithReservation_Rejected (0.43s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.458s
