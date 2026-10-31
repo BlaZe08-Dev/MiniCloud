@@ -1,0 +1,4 @@
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository
+--- PASS: TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s

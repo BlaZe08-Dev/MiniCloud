@@ -260,6 +260,9 @@ then set `c_t = w`. Decisions for other task types do not read or write `c_t`.
 
 **Rule.** While the worker loop is synchronous (C12), every worker has **one effective slot**. This is a named constant in the coordinator, `effectiveWorkerSlots = 1`, and its doc comment states that it is tied to the worker-concurrency slice (Q5). When that slice lands, the constant is removed and the rule becomes `total_slots - running - reserved`.
 
+*Amendment (implementation notes, decision 4):* the constant is `domain.EffectiveWorkerSlots`, not a coordinator constant, because the assignment pass runs in the storage layer.
+
+
 A worker holds at most one reservation, and it receives no reservation while it has a `PENDING` or `RUNNING` attempt.
 
 **Why this is needed.** Revision 0 derived free slots from `worker_capacity.available_slots`. A worker that has just claimed one job still has `total_slots - 1` free slots, its poll is fresh for one window, and so the pass could reserve it more jobs. A synchronous worker never polls while it executes, so those reservations would lapse, one window each, and then go to fallback. The effective-slot rule removes that failure at its source.
@@ -276,6 +279,9 @@ Candidates are taken in `ORDER BY created_at ASC, id ASC`, the same order as `Di
 
 - Within a task type, jobs are reserved in submission order, and a worker's reservations are claimed in submission order.
 - A job that cannot be placed (no eligible worker for its type) is **skipped**, not blocking. Jobs of other types are still reserved. Within one type, once `E(t)` is empty, the rest of that type's batch is left for the next pass; no job is passed over in favour of a newer one.
+
+*Erratum (implementation notes, decision 1):* the candidate read also excludes a job whose `assignment_lapses` has reached `MINICLOUD_ASSIGNMENT_MAX_LAPSES`, because such a job leaves round-robin (D9). See the implementation notes at the end of this ADR.
+
 
 ### 2.6 Fairness and starvation
 
@@ -761,6 +767,9 @@ Property tests: INV-4, INV-4b, INV-15 and INV-16 run at least 1,000 iterations. 
 
 Three slices. Each is independently mergeable behind `MINICLOUD_DISPATCH_POLICY=fifo_pull` (the default until the gate), so `main` stays on `fifo_pull` throughout.
 
+*Amendments (implementation notes, decisions 2 and 6):* the in-memory poll-time refresh is part of slice 5a; the PostgreSQL counterpart is part of slices 5b and 5c. The assignment cases stay in `internal/storage` tests until slice 5b moves them into the shared `storagetest` runner.
+
+
 ### Slice 5a: domain, pure policy and in-memory parity (no database)
 
 - **Scope.** Assignment fields, the poll freshness field and the fallback reason on the domain types. Three new event-type constants. The pure round-robin function (per type, Section 2.3) and the lapse and fallback predicates (Section 3.2). The effective-slot constant (Section 2.4). In-memory assignment pass with per-type cursors, batch limit, revoke, claim, cancel clearing and pass heartbeat. Coordinator policy wiring and config validation. No migration, no Postgres code.
@@ -995,3 +1004,14 @@ The status line at the top of this ADR now reads "Accepted for implementation (o
 - **Multi-coordinator is designed for, not claimed** (Q9).
 - **Pre-existing gaps noted, not fixed:** `REJECTED` missing from `chk_jobs_state` (Q8); the in-memory and Postgres tie order (Section 5.4); the synchronous worker loop (Q5); the fact that `idx_jobs_task_dispatch` covers only QUEUED (C19, folded into migration `000005` for the new scan only).
 - **Docs not updated.** Per the task scope, only this file is changed. The protocol, state-machine, schema, failure-model and phase-plan changes listed in Section 7 are for the docs task.
+
+## Implementation notes, slice 5a
+
+These decisions were made by the orchestrator in fix round 1 of the P4-08b review (tip 37110db). Each one amends the section it names.
+
+1. **Lapse limit leaves round-robin (D9 wins; erratum to Section 2.1).** A job whose `assignment_lapses` has reached `MINICLOUD_ASSIGNMENT_MAX_LAPSES` leaves round-robin. The candidate read of the assignment pass must exclude it, so it stays unassigned and becomes claimable by the lapse arm of Section 3.2.
+2. **Poll-time refresh: memory in 5a, PostgreSQL in 5b and 5c (amends Section 7).** The in-memory poll-time refresh (Sections 3.2, N1 and N6) is implemented in slice 5a, because the 5a memory tests for INV-19, INV-23 and INV-24 need it. Slices 5b and 5c implement its PostgreSQL counterpart and the loop side.
+3. **Freshness before refresh.** A poll writes its own `last_poll_at` (Section 2.2) before the refresh runs, so the polling worker is eligible for the reservations its own refresh makes. INV-19 depends on this.
+4. **`EffectiveWorkerSlots` lives in domain (amends Section 2.4).** The constant is `domain.EffectiveWorkerSlots`, not a coordinator constant, because the assignment pass runs in the storage layer.
+5. **Memory test name for INV-1.** The in-memory variant of INV-1 is `TestConformance_ClaimAssigned_ConcurrentPollsOneWinner`. The PostgreSQL variant keeps the name `TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner`.
+6. **Location of the 5a assignment cases.** The assignment cases live in `internal/storage` tests (package `storage_test`) until slice 5b moves them into the shared `storagetest` runner. The 11 PostgreSQL skips in `internal/storage/postgres/assignment_5a_skips_test.go` become 11 passing tests in slice 5b.
