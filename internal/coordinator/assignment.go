@@ -35,10 +35,16 @@ func DefaultAssignmentSettings() AssignmentSettings {
 }
 
 // SetDispatchPolicy selects fifo_pull (the default) or round_robin (ADR-0017 Section 5.2). Any
-// other name is rejected.
+// other name is rejected. round_robin is rejected when the repository does not implement
+// storage.AssignmentRepository (PostgreSQL until slice 5b), so the failure is at configuration.
 func (s *Service) SetDispatchPolicy(name string) error {
 	if !domain.IsValidDispatchPolicy(name) {
 		return fmt.Errorf("%w: dispatch policy %q", domain.ErrInvalidRequest, name)
+	}
+	if name == domain.DispatchPolicyRoundRobin {
+		if _, ok := s.repo.(storage.AssignmentRepository); !ok {
+			return fmt.Errorf("%w: dispatch policy round_robin needs an assignment-capable repository", domain.ErrInvalidRequest)
+		}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

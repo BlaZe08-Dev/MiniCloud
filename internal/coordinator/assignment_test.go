@@ -502,3 +502,26 @@ func mustAttempts(t *testing.T, repo *passFaultRepo, jobs []string) []*domain.At
 	}
 	return out
 }
+
+// noAssignmentRepo implements storage.Repository but not storage.AssignmentRepository. Embedding
+// the interface promotes only the Repository methods, so it stands in for a repository without
+// the assignment surface, such as the PostgreSQL repository in slice 5a.
+type noAssignmentRepo struct {
+	storage.Repository
+}
+
+// SetDispatchPolicy must refuse round_robin when the repository cannot run an assignment pass,
+// so the failure is at configuration time and not on the first poll. fifo_pull stays accepted.
+func TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository(t *testing.T) {
+	clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	repo := &noAssignmentRepo{Repository: storage.NewInMemoryRepository(storage.WithClock(clk))}
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+
+	err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin)
+	if !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("round_robin on a repository without assignment: err=%v, want ErrInvalidRequest", err)
+	}
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyFifoPull); err != nil {
+		t.Fatalf("fifo_pull rejected on a repository without assignment: %v", err)
+	}
+}
