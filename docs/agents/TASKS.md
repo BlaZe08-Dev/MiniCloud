@@ -22,8 +22,15 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | active |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-09 — Worker execution timeout clamping (SEC-012)
+- Goal: Clamp coordinator-supplied `TimeoutSeconds` in `internal/worker/client.go` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`) with 64-bit integer multiplication overflow protection and warning logging; implement pure function `ClampExecutionTimeout`; write table-driven unit tests and end-to-end test `TestWorker_ExcessiveTimeoutClamped`; update SEC-012 to Confirmed, Fixed and register findings SEC-059..061.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-09`. Status: active.
+- Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
+- Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-07 — CLI output sanitization (SEC-048 / F-4e-18)
 - Goal: Sanitize worker- and task-supplied strings in `cmd/mc` before terminal printing; neutralize escape sequences, control characters, and lone carriage returns; un-skip `TestAbuse_MCOutput_HostileErrorText`; update SEC-048 to Confirmed, Fixed and SEC-031 to Documented.

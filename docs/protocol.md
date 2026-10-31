@@ -464,6 +464,9 @@ The assignment payload expands additively with lease metadata:
 }
 ```
 
+*Worker Execution Timeout Clamping (SEC-012)*:
+The worker clamps the coordinator-supplied `timeout_seconds` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`). If `timeout_seconds` exceeds 86400 s or integer overflow bounds, it is clamped to 86400 s (24 hours). If `timeout_seconds` is less than 1, it is clamped to 1 s (tasks must have a bounded positive execution deadline). A warning is logged whenever clamping occurs.
+
 #### `POST /v1/jobs/{job_id}/attempts/{attempt_id}/result` Request Expansion
 The report result payload accepts an optional `error_classification` field when reporting a non-zero exit code or execution fault:
 ```json

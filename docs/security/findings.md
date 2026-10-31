@@ -21,7 +21,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-009** | Low | Fixed (Slice 3d) | HTTP Server Timeouts | HTTP server enforces explicit `ReadHeaderTimeout` (2s) mitigating Slowloris delays (`internal/api/server.go:15,42`). | `TestAPI_Slowloris_ReadHeaderTimeout` (`internal/api/api_test.go`) |
 | **SEC-010** | Low | Open (inferred from code review, unconfirmed) | In-Memory Collections | Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) lack size caps and eviction (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). | Verification step: `TestInMemoryRepository_MemoryExhaustion_Cap` (future test submitting high volume of jobs asserting memory ceiling or backpressure). |
 | **SEC-011** | Informational | Fixed (Slice 3d) | Migration CLI | Migration CLI prioritizes `MINICLOUD_DATABASE_URL` environment variable; `-database-url` flag emits deprecation warning about process table exposure (`cmd/migrate/main.go:16-33`). | `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`) |
-| **SEC-012** | Informational | Open (inferred from code review, unconfirmed) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go:267-268`). | Verification step: `TestWorker_ExcessiveTimeoutClamped` (future test returning 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold). |
+| **SEC-012** | Informational | Confirmed, Fixed (Slice P4-09) | Worker Client | Worker execution timeout is not clamped above from coordinator `TimeoutSeconds` (`internal/worker/client.go` func `ExecuteAndReport`). Fixed via `ClampExecutionTimeout`. | `TestClampExecutionTimeout`, `TestWorker_ExcessiveTimeoutClamped` (`internal/worker/timeout_test.go`) |
 | **SEC-013** | Informational | Open (inferred from code review, unconfirmed) | Coordinator ID Generation | Job and attempt ID format (`prefix_counter_random`) exposes monotonic sequence counter, leaking total job submission volume (`internal/coordinator/service.go` func `generateID`). | Verification step: `TestCoordinator_IDLeakage` (future test verifying whether sequence counters are exposed or replaced with opaque cryptographically random identifiers). |
 | **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jobs` accepted negative or zero `max_attempts` and `timeout_seconds` returning 201 in memory mode and violating PostgreSQL check constraints (`internal/coordinator/service.go` func `SubmitJob` (bounds `MinMaxAttempts`, `MaxMaxAttempts`, `MinTimeoutSeconds`, `MaxTimeoutSeconds`), `internal/api/handlers.go:138-158`, `internal/storage/postgres/repository.go` func `CreateJob`). | `TestAPI_SubmitJob_BoundaryValues`, `TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500` (`internal/api/api_test.go`), `TestPostgresRepository_Security_CheckConstraints_NumericBounds` (`internal/storage/postgres/security_test.go:809-883`) |
 | **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded to `[1, 1024]` at domain boundary and backed by database constraint `chk_workers_total_slots_range` (`internal/coordinator/service.go` func `RegisterWorker`, migration 000003). | `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go`), `TestPostgresRepository_Security_WorkerCheckConstraints` (`internal/storage/postgres/security_test.go:888`) |
@@ -68,6 +68,9 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-056** | Medium | Confirmed, Fixed (Slice 4e) | Executor & Worker Validation | F-4e-26: Raw NUL bytes in task outputs or error strings were rejected by coordinator with HTTP 400, causing worker result drop and attempt `LOST` poison loop; fixed by having `ClampText` replace NUL bytes with `\uFFFD`. | `TestAbuse_WorkerResult_NULByteInOutput`, `TestClampText` (`tests/abuse/oversize_worker_test.go`, `internal/executor/truncate_test.go`) |
 | **SEC-057** | Medium | Confirmed, Fixed (Slice 4e) | Worker Result Delivery Protocol | F-4e-27: Coordinator validation rejections (HTTP 400 `INVALID_REQUEST` or `OUTPUT_TOO_LARGE`) caused worker to drop results without renewal, leaving attempt running until lease expiry and burning all retries as `LOST`; fixed by worker fallback failure report (exit code 1, class `PERMANENT`). | `TestWorker_ResultRejected400_SendsOneFallbackFailureReport`, `TestAbuse_WorkerResult_RejectedResultBecomesFailedJob` (`internal/worker/client_test.go`, `tests/abuse/oversize_worker_test.go`) |
 | **SEC-058** | Informational | Confirmed, Handled (Slice 4e) | Worker Result Delivery Protocol | F-4e-28: Result body corrupted in transit (HTTP 400 `MALFORMED_JSON`) does not trigger fallback failure report, allowing at-least-once retry after lease expiration instead of falsely marking computation as permanently failed. | `TestWorker_ResultRejected400_MalformedJSON_NoFallback` (`internal/worker/client_test.go`) |
+| **SEC-059** | Informational | Open (confirmed by code reading) | Worker Client | `time.Duration(a.LeaseDurationSeconds)*time.Second` in `renewalInterval` lacks explicit duration multiplication overflow guard before clamping (`internal/worker/client.go` func `renewalInterval`). | Verification step: add overflow guard or table-driven test for math.MaxInt64 LeaseDurationSeconds. |
+| **SEC-060** | Low | Open (confirmed by code reading) | Worker Coordination Client | `pollWork` decodes coordinator response body via `json.NewDecoder(resp.Body)` without `io.LimitReader` boundary (`internal/worker/client.go` func `pollWork`). | Verification step: enforce bounded reader (e.g. `io.LimitReader(resp.Body, 1<<20)`) matching `renewOnce` and `reportResult`. |
+| **SEC-061** | Informational | Open (confirmed by code reading) | Worker Coordination Client | `JobID` and `AttemptID` interpolated directly into URL paths without character validation or URL escaping (`internal/worker/client.go` func `renewOnce`, func `reportResult`). | Verification step: validate or escape route parameters prior to request construction. |
 
 ---
 
@@ -209,9 +212,9 @@ For findings of **Medium** severity and above, the full structured report format
 - **Regression Test**: `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_ResolveDatabaseURL_DeprecatedFlagWarning`, `TestMigrateCLI_ResolveDatabaseURL_MissingURL` (`cmd/migrate/main_test.go:8-61`).
 
 ### SEC-012: Worker Execution Timeout Not Clamped Above
-- **Status**: Informational, Open (inferred from code review, unconfirmed).
-- **Detail**: `internal/worker/client.go:267-270` directly converts `assignment.TimeoutSeconds` into a `time.Duration` without an upper bound clamp. If a compromised coordinator provides an enormous timeout, worker execution context will remain held until process termination.
-- **Verification Step**: `TestWorker_ExcessiveTimeoutClamped` (future test returning a 24-hour timeout from coordinator asserting worker clamps execution context to maximum threshold).
+- **Status**: Informational, Confirmed, Fixed (Slice P4-09).
+- **Detail**: In `internal/worker/client.go` func `ExecuteAndReport`, the worker previously converted `assignment.TimeoutSeconds` into a `time.Duration` without upper clamping, lower clamping, or duration overflow protection. Fixed in Slice P4-09 via `ClampExecutionTimeout` in `internal/worker/client.go`, clamping values above `MaxExecutionTimeoutSeconds` (86400 s) to `MaxExecutionTimeout`, values below 1 s to `MinExecutionTimeout` (1 s), and guarding against multiplication overflow for values exceeding `time.Duration` representation limits, with `slog.Warn` logging upon clamping.
+- **Regression Test**: `TestClampExecutionTimeout`, `TestWorker_ExcessiveTimeoutClamped` (`internal/worker/timeout_test.go`).
 
 ### SEC-013: Monotonic Sequence Counter Exposed in Job and Attempt IDs
 - **Status**: Informational, Open (inferred from code review, unconfirmed).
@@ -517,6 +520,33 @@ FAIL
 - **Impact**: In V1, only a single coordinator process is supported (ADR-0004). With multiple coordinators, a newly started coordinator instance would be in startup grace while an existing coordinator is actively sweeping, or one coordinator could experience an outage window while another does not.
 - **Remediation**: Revisit when multi-coordinator high availability is designed in future milestones, persisting sweeper grace state or electing an active sweeper leader.
 - **Verification**: Confirmed by code reading during P4-4c-a (builder finding F-4c-a-3 in P4-4c-a handoff, agreed by auditor in review).
+
+---
+
+### SEC-059: renewalInterval Lacks Explicit Multiplication Overflow Guard on LeaseDurationSeconds
+- **Severity**: Informational
+- **Status**: Open (confirmed by code reading in Slice P4-09).
+- **Affected Component**: Worker Client (`internal/worker/client.go` func `renewalInterval`)
+- **Detail**: In `internal/worker/client.go` func `renewalInterval`, the renewal interval is computed via `min(max(time.Duration(a.LeaseDurationSeconds)*time.Second/3, MinRenewalInterval), DefaultRenewalInterval)`. While the resulting interval is safely bounded between `MinRenewalInterval` (1 s) and `DefaultRenewalInterval` (10 s), the intermediate multiplication `time.Duration(a.LeaseDurationSeconds)*time.Second` is not explicitly checked for 64-bit integer overflow. On 64-bit platforms, an extreme coordinator-supplied `LeaseDurationSeconds` exceeding `math.MaxInt64 / int64(time.Second)` (such as `math.MaxInt64`) overflows into negative `time.Duration`, which `max` clamps to 1 s.
+- **Verification Step**: Add explicit integer overflow guard in `renewalInterval` or table-driven test for `math.MaxInt64` lease duration.
+
+---
+
+### SEC-060: pollWork Lacks io.LimitReader on Coordinator HTTP Response Body
+- **Severity**: Low
+- **Status**: Open (confirmed by code reading in Slice P4-09).
+- **Affected Component**: Worker Coordination Client (`internal/worker/client.go` func `pollWork`)
+- **Detail**: In `internal/worker/client.go` func `pollWork`, the worker decodes JSON response payloads using `json.NewDecoder(resp.Body).Decode(&res)` on successful responses and `Decode(&errEnvelope)` on HTTP 503 responses without bounding the stream with `io.LimitReader`. In contrast, `renewOnce` uses `io.LimitReader(resp.Body, 64<<10)` and `reportResult` uses `io.LimitReader(resp.Body, 4096)`. An attacker on the local network (under SEC-004) or a compromised coordinator streaming infinite data could cause unbounded worker memory growth.
+- **Verification Step**: Wrap `resp.Body` in `io.LimitReader` (e.g. 1 MiB limit) prior to JSON decoding in `pollWork`.
+
+---
+
+### SEC-061: Unvalidated JobID and AttemptID String Interpolation in Worker Request URLs
+- **Severity**: Informational
+- **Status**: Open (confirmed by code reading in Slice P4-09).
+- **Affected Component**: Worker Coordination Client (`internal/worker/client.go` func `renewOnce`, func `reportResult`)
+- **Detail**: In `internal/worker/client.go` func `renewOnce` and func `reportResult`, the worker constructs request URLs using `fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", ...)` and `/result` without URL-escaping or validating `asg.JobID` or `asg.AttemptID`. If a rogue or compromised coordinator delivers IDs with URL path traversal sequences or special characters, the request path could be manipulated.
+- **Verification Step**: Validate identifier charset (`^[a-zA-Z0-9_-]+$`) or use `url.PathEscape` before constructing worker request URLs.
 
 ---
 
