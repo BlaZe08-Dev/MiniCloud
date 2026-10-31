@@ -2,12 +2,21 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `main`
-- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, 4e (PR #29), P4-03, P0-03, P4-T1, P4-T2, P4-05, P4-06a (PR #30), and P4-06b merged/active.
+- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, 4e (PR #29), P4-03, P0-03, P4-T1, P4-T2, P4-05, P4-06a (PR #30), P4-06b (PR #31), P4-07 (PR #32), P4-08a (PR #33), P4-09 (PR #34), P4-08b (PR #35), and P4-10 (PR #36) merged.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Phase 4 Worker Response Body Limit & URL Path Escaping (P4-10, PR #36, `main` at `cb51adc`):**
+  - Wrapped both `json.NewDecoder` calls in `internal/worker/client.go` func `pollWork` (HTTP 503 error envelope and HTTP 200 assignment decode) in `io.LimitReader(resp.Body, MaxPollResponseBytes)` with `MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024` (448 KiB), mitigating unbounded reader allocation on coordinator response (SEC-060).
+  - Applied `url.PathEscape` to `JobID` and `AttemptID` in `internal/worker/client.go` func `renewOnce` and func `reportResult` URL construction (SEC-061).
+- **Post-Phase 4 Assignment-Based Round-Robin Slice 5a (P4-08b, PR #35, `main` at `2ca971b`):**
+  - Implemented ADR-0017 Slice 5a (in memory only): domain assignment fields and events, pure round-robin rule with per-task-type cursors, in-memory assignment pass, round-robin claim (own reservation, lapse and age arms), poll-time refresh in memory, policy selection with `fifo_pull` default, and config validation (ADR-0017 A1, A2).
+- **Phase 4 Worker Execution Timeout Clamping (P4-09, PR #34, `main` at `fc84042`):**
+  - Clamped coordinator-supplied `TimeoutSeconds` in `internal/worker/client.go` func `ExecuteAndReport` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`) with 64-bit multiplication overflow protection and warning logging via `ClampExecutionTimeout` (SEC-012).
+- **Post-Phase 4 Assignment-Based Round-Robin Design (P4-08a, PR #33, `main` at `74eb433`):**
+  - Authored ADR-0017 design for assignment-based round-robin dispatch (Candidate A pre-assignment with bounded accept window) in `docs/adr/0017-assignment-round-robin.md`.
 - **Phase 4, Slice 4e — End-to-End Fault-Injection Suite, Adversarial Testing & Phase 4 Security Review (P4-4e, PR #29, `main` at `69396e5`):**
   - Implemented 10 fault-injection test scenarios in `tests/faultinject/` covering blueprint scenarios FS-01 through FS-10.
   - Implemented adversarial security attack test suite in `tests/abuse/` covering 18 attack vectors.
@@ -274,7 +283,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
 - **Blueprint Alignment:** Blueprint Section 6 requires scheduler-driven round-robin assignment. V1 Phase 3 implements an honest FIFO pull baseline (`fifo_pull`).
 - **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
-- **Status (P4-08b):** ADR-0017 accepted for implementation (A1, A2). Slice 5a is on branch `agent/claude/P4-08b`, in memory only: the pure round-robin rule, the in-memory assignment pass and claim, the poll-time refresh, policy selection (`fifo_pull` stays the default), and config validation. Slices 5b (migration and PostgreSQL) and 5c (loop, grace, API fields, fault suites) are not started. Not merged.
+- **Status (P4-08b):** ADR-0017 accepted for implementation (A1, A2; design merged in PR #33). Slice 5a is merged in PR #35, in memory only: the pure round-robin rule, the in-memory assignment pass and claim, the poll-time refresh, policy selection (`fifo_pull` stays the default), and config validation. Slices 5b (migration and PostgreSQL) and 5c (loop, grace, API fields, fault suites) are not started.
 - **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
 
 ---
@@ -294,7 +303,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ---
 
 ## 7. Known Defects, Limitations & Open Security Findings
-- **Fixed Security Findings (Slice 3d, Slice 4a, P4-T1, Slice 4e, Slice P4-07):**
+- **Fixed Security Findings (Slice 3d, Slice 4a, P4-T1, Slice 4e, Slice P4-07, Slice P4-09, Slice P4-10):**
   - **SEC-003 (Informational, Confirmed, Fixed):** Compose file specifies `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}` (`deployments/docker-compose.yml:8`) with explicit `--env-file .env` passed in Makefile and test helpers, eliminating blank password startup risk.
   - **SEC-007 (Low, Fixed):** Unmapped repository and driver errors mapped to HTTP 500 `INTERNAL_ERROR` with opaque message; sanitized server logging; fixed malformed JSON message (`internal/api/handlers.go:19-75`). Tested in `TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500`, `TestAPI_OutageMapping_503RetryAfterOpaqueBody`, `TestAPI_SubmitJob_MalformedJSON_FixedMessage` (`internal/api/api_test.go`).
   - **SEC-008 (Low, Fixed):** Worker IDs and route parameters strictly bounded (<= 128 chars) and validated against `^[a-zA-Z0-9_-]+$` at API boundary (`internal/api/handlers.go:27-39,105-248`). Tested in `TestAPI_IdentifierValidation_NegativeCases` (`internal/api/api_test.go`).
@@ -333,6 +342,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - **SEC-010 (Low, Open):** Unbounded in-memory collections in `InMemoryRepository` (maps/events) and `InMemoryQueue` (slice) (`internal/storage/inmemory.go:19-25`, `internal/queue/inmemory.go:18-24`). Bypassed in production PostgreSQL mode.
   - **SEC-013 (Informational, Open):** Job and attempt ID format exposes sequential counter (`internal/coordinator/service.go` func `generateID`).
   - **SEC-059 (Informational, Open):** `renewalInterval` computes `LeaseDurationSeconds*time.Second/3` wrapped in `min(max(x, MinRenewalInterval), DefaultRenewalInterval)` (`[1s, 10s]`); result is always in-bounds, but lacks explicit multiplication overflow guard before duration conversion (`internal/worker/client.go` func `renewalInterval`).
+  - **SEC-062 (Low, Open; confirmed by code reading):** Older environment helpers (`getIntEnv` and `getDurationEnv` in `internal/config/config.go`) silently fall back to default values on malformed strings (`strconv.Atoi` / `time.ParseDuration` parse failures) rather than returning startup errors, so configuration typos are silently ignored; contrasted with strict helpers `lookupIntEnvStrict` and `lookupDurationEnvStrict` introduced in Slice 5a.
   - **SEC-024 (Informational, Open, within SEC-004):** CommitAttempt on a terminal job evaluates job terminality before the attempt lease token, so a bogus token naming the active attempt still closes it and frees the slot (`internal/storage/inmemory.go` func `CommitAttempt`, `internal/storage/postgres/repository.go` func `CommitAttempt`); recorded in ADR-0014 and `docs/security/findings.md`.
   - **SEC-025 (Low, Open, within SEC-004 until V3):** Lease-expired check precedes token verification on commit and renew; PostgreSQL attempt IDs are deterministically derivable (`att_<jobID>_<attemptNo>`), allowing probe of sweep state (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`, `internal/storage/postgres/repository.go`).
   - **SEC-026 (Informational, Open):** Sweeper default branch skips attempts with unexpected job states (`QUEUED`, `SUBMITTED`, `RETRYING`) without marking attempt `LOST` or freeing slot; unreachable via normal API (`internal/storage/inmemory.go`, `internal/storage/postgres/leases.go`).
@@ -369,3 +379,6 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
   - `env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...` (unit and in-memory conformance test suite)
   - `make test-db` (database integration and conformance suite against PostgreSQL test database when authorized)
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*
+
+- **Last Verified Commands:**
+  - `main` `cb51adc` on 2026-10-31 (orchestrator-verified; not run by this agent): unset suite 318 PASS / 58 SKIP / 0 FAIL, `make test-security` 54/0/0, `make test-db` 96 PASS / 11 SKIP / 0 FAIL (own-DB worktree).

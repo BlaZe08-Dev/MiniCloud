@@ -71,6 +71,7 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-059** | Informational | Open (confirmed by code reading) | Worker Client | `renewalInterval` wraps `LeaseDurationSeconds*time.Second/3` in `min(max(x, MinRenewalInterval), DefaultRenewalInterval)` (`MinRenewalInterval = time.Second` (1 s), `DefaultRenewalInterval = 10 * time.Second` (10 s)); result is ALWAYS inside `[MinRenewalInterval, DefaultRenewalInterval]`, even if multiplication overflows; an overflow only gives a wrong in-bounds value (`internal/worker/client.go` func `renewalInterval`). | Verification step: add overflow guard or table-driven test for math.MaxInt64 LeaseDurationSeconds. |
 | **SEC-060** | Low | Fixed (Slice P4-10) | Worker Coordination Client | In `internal/worker/client.go` func `pollWork`, coordinator HTTP response body decoding was unbounded. Fixed by wrapping both `json.NewDecoder` reads (HTTP 503 error envelope and HTTP 200 assignment decode) in `io.LimitReader(resp.Body, MaxPollResponseBytes)` where `MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024` (448 KiB / 458752 bytes, accounting for writeJSON HTML escaping of task payloads up to 64 KiB). | Tested in `TestPollWork_OversizedResponseRejected`, `TestPollWork_MaxLegalAssignmentAccepted`, `TestPollWork_MaxLegalAssignmentEscapedAccepted`, `TestPollWork_NullAssignmentRejected` (`internal/worker/hardening_test.go`). |
 | **SEC-061** | Informational | Fixed (Slice P4-10) | Worker Coordination Client | Worker request URLs in `internal/worker/client.go` func `renewOnce` and func `reportResult` interpolated unescaped `JobID` and `AttemptID` directly via `fmt.Sprintf`. Fixed by escaping both identifiers with `url.PathEscape`. | Tested in `TestWorker_URLPathEscaping_RenewAndReport` (`internal/worker/hardening_test.go`). |
+| **SEC-062** | Low | Open (confirmed by code reading) | Configuration / Environment | The older environment helpers (`getIntEnv` and `getDurationEnv` in `internal/config/config.go`) silently fall back to the default on a malformed value, so a typo in an existing variable is not a startup error. | Confirmed by code reading of `getIntEnv` and `getDurationEnv` in `internal/config/config.go`, contrasted with strict variants `lookupIntEnvStrict` and `lookupDurationEnvStrict` added in Slice 5a. |
 
 ---
 
@@ -547,6 +548,15 @@ FAIL
 - **Affected Component**: Worker Coordination Client (`internal/worker/client.go` func `renewOnce`, func `reportResult`)
 - **Detail**: In `internal/worker/client.go` func `renewOnce` and func `reportResult`, the worker constructed request URLs using `fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/renew", a.cfg.CoordinatorURL, asg.JobID, asg.AttemptID)` and `fmt.Sprintf("%s/v1/jobs/%s/attempts/%s/result", a.cfg.CoordinatorURL, jobID, attemptID)` without URL-escaping `asg.JobID` / `jobID` or `asg.AttemptID` / `attemptID`. Fixed in Slice P4-10 by escaping both identifiers with `url.PathEscape`.
 - **Verification Step**: Tested in `TestWorker_URLPathEscaping_RenewAndReport` (`internal/worker/hardening_test.go`).
+
+---
+
+### SEC-062: Older Environment Helpers Silently Fall Back to Default on Malformed Value
+- **Severity**: Low
+- **Status**: Open (confirmed by code reading).
+- **Affected Component**: Configuration / Environment (`internal/config/config.go` func `getIntEnv`, func `getDurationEnv`)
+- **Detail**: The older environment variable parsing helpers in `internal/config/config.go` (`getIntEnv` and `getDurationEnv`) silently fall back to their `defaultVal` parameter when `os.Getenv(key)` returns a non-empty string that fails `strconv.Atoi` or `time.ParseDuration`. Consequently, typos in existing configuration variables (for example `MINICLOUD_PORT=8080a` or `MINICLOUD_HEARTBEAT_INTERVAL=5sec`) are silently discarded at startup, running the service with defaults rather than raising a startup configuration error. In contrast, the strict variants introduced in Slice 5a (`lookupIntEnvStrict` and `lookupDurationEnvStrict`) return descriptive parsing errors naming the variable key and malformed value.
+- **Verification Step**: Confirmed by code reading of `getIntEnv` and `getDurationEnv` in `internal/config/config.go`, contrasted with `lookupIntEnvStrict` and `lookupDurationEnvStrict` in `internal/config/config.go`.
 
 ---
 
