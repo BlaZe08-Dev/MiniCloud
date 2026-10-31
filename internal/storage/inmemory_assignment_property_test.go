@@ -130,42 +130,65 @@ func listAllJobs(t *testing.T, repo *storage.InMemoryRepository) []*domain.Job {
 }
 
 // INV-16: a pass that is live (silence shorter than the fallback age) never produces an age
-// fallback claim, even when the poll's age arm is open and the backlog is older than the fallback
-// age. The pass-silence condition is what closes the arm.
+// fallback claim, even when the poll's age arm is open and an unreserved job is older than the
+// fallback age. Here the pollers are workers that keep polling but never heartbeat, so the pass
+// never makes them eligible for a reservation. Every step they could take an aged job through
+// the age arm, and only the pass-silence condition stops them.
 func TestProperty_SaturatedPass_NoAgeFallback(t *testing.T) {
-	claims := 0
+	exposures := 0
 	defer func() {
-		if claims == 0 {
-			t.Errorf("no poll claimed anything; the property is vacuous")
+		if exposures == 0 {
+			t.Errorf("no poll saw an aged unreserved job; the property is vacuous")
 		}
 	}()
 	for seed := int64(1); seed <= propertyIterations; seed++ {
 		rnd := rand.New(rand.NewSource(seed))
 		repo, clk := newAssignRepo(t)
 		ctx := context.Background()
-		var workerIDs []string
-		for i := 0; i < 1+rnd.Intn(3); i++ {
-			id := fmt.Sprintf("w_%02d", i)
+		var eligible, stale []string
+		for i := 0; i < rnd.Intn(3); i++ {
+			id := fmt.Sprintf("w_e%02d", i)
 			addAssignWorker(t, repo, clk, id, 1, "echo")
-			workerIDs = append(workerIDs, id)
+			eligible = append(eligible, id)
 		}
-		for i := 0; i < 1+rnd.Intn(8); i++ {
+		for i := 0; i < 1+rnd.Intn(2); i++ {
+			id := fmt.Sprintf("w_s%02d", i)
+			addAssignWorker(t, repo, clk, id, 1, "echo")
+			stale = append(stale, id)
+		}
+		for i := 0; i < 2+rnd.Intn(9); i++ {
 			submitAssign(t, repo, fmt.Sprintf("job_%02d", i), "echo")
 		}
-		// Make the backlog older than the fallback age while the pass stays live.
 		for step := 0; step < 40; step++ {
 			clk.Advance(time.Second)
-			for _, w := range workerIDs {
+			for _, w := range eligible {
 				pollAssign(t, repo, clk, w)
 			}
-			runPass(t, repo)
-			w := workerIDs[rnd.Intn(len(workerIDs))]
-			claim, err := repo.ClaimForPoll(ctx, w, claimOpts(true))
-			if err == nil {
-				claims++
+			for _, w := range stale {
+				if err := repo.RecordPoll(ctx, w); err != nil {
+					t.Fatalf("seed %d: RecordPoll(%s): %v", seed, w, err)
+				}
 			}
+			runPass(t, repo)
+
+			poller := stale[rnd.Intn(len(stale))]
+			now := clk.Now()
+			for _, j := range listAllJobs(t, repo) {
+				if j.AssignedWorkerID == nil && !j.CreatedAt.After(now.Add(-testFallbackAge)) {
+					exposures++
+					break
+				}
+			}
+			claim, err := repo.ClaimForPoll(ctx, poller, claimOpts(true))
 			if err == nil && claim.FallbackReason == domain.FallbackReasonAge {
-				t.Fatalf("seed %d step %d: age fallback while the pass is live (job %s)", seed, step, claim.Job.ID)
+				t.Fatalf("seed %d step %d: age fallback by %s while the pass is live (job %s)", seed, step, poller, claim.Job.ID)
+			}
+			if err == nil {
+				// Finish the attempt so the worker has capacity again on a later poll.
+				claim.Attempt.State = domain.AttemptCompleted
+				if err := repo.UpdateAttempt(ctx, claim.Attempt); err != nil {
+					t.Fatalf("seed %d: UpdateAttempt: %v", seed, err)
+				}
 			}
 		}
 	}
