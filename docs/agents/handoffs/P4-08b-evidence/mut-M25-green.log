@@ -1,0 +1,9 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestSetAssignmentSettings_RejectsInvalidAndKeepsPrevious$ ./internal/coordinator/)
+=== RUN   TestSetAssignmentSettings_RejectsInvalidAndKeepsPrevious
+2026/10/31 15:51:23 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:51:23 INFO job submitted and queued job_id=job_1_40127e5d9ec4 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:51:23 INFO job dispatched to worker job_id=job_1_40127e5d9ec4 attempt_id=att_1_7d0c5b44211c attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+--- PASS: TestSetAssignmentSettings_RejectsInvalidAndKeepsPrevious (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.047s
+EXIT=0

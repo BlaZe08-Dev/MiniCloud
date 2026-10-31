@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..5dea0d8 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -109,7 +109,7 @@ func (r *InMemoryRepository) RecordPoll(ctx context.Context, workerID string) er
+ // AssignQueuedJobs runs one assignment pass (ADR-0017 Section 2.1). It is one unit under r.mu:
+ // revoke, then reserve per task type in FIFO order, then the cursors and the pass heartbeat.
+ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParams) (AssignResult, error) {
+-	if !r.passMu.TryLock() {
++	if r.passMu.Lock(); false {
+ 		return AssignResult{Skipped: true}, nil
+ 	}
+ 	defer r.passMu.Unlock()

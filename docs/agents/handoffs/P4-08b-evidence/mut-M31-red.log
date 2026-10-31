@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_Claim_RespectsWorkerCapacity$ ./internal/storage/)
+=== RUN   TestConformance_Claim_RespectsWorkerCapacity
+    inmemory_assignment_test.go:528: one-slot worker with a RUNNING attempt claimed again: claim=&{0xc000182700 0xc0001905b0 round_robin_fallback lapses} err=<nil>
+--- FAIL: TestConformance_Claim_RespectsWorkerCapacity (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.019s
+FAIL
+EXIT=1

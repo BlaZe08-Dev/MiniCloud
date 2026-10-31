@@ -274,6 +274,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 ## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
 - **Blueprint Alignment:** Blueprint Section 6 requires scheduler-driven round-robin assignment. V1 Phase 3 implements an honest FIFO pull baseline (`fifo_pull`).
 - **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
+- **Status (P4-08b):** ADR-0017 accepted for implementation (A1, A2). Slice 5a is on branch `agent/claude/P4-08b`, in memory only: the pure round-robin rule, the in-memory assignment pass and claim, the poll-time refresh, policy selection (`fifo_pull` stays the default), and config validation. Slices 5b (migration and PostgreSQL) and 5c (loop, grace, API fields, fault suites) are not started. Not merged.
 - **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
 
 ---

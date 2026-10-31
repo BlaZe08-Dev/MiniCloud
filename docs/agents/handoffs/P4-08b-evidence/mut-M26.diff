@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index 4f32f38..139c658 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -88,7 +88,7 @@ func (s *Service) SetDispatchPolicy(name string) error {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	if name == domain.DispatchPolicyRoundRobin {
+-		if err := s.assignment.Validate(); err != nil {
++		if err := s.assignment.Validate(); false && err != nil {
+ 			return fmt.Errorf("dispatch policy round_robin: %w", err)
+ 		}
+ 	}

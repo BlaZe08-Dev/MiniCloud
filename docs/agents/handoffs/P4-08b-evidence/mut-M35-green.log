@@ -1,0 +1,6 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_ClaimOwnArm_ClosedAtExactExpiry$ ./internal/storage/)
+=== RUN   TestConformance_ClaimOwnArm_ClosedAtExactExpiry
+--- PASS: TestConformance_ClaimOwnArm_ClosedAtExactExpiry (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.032s
+EXIT=0

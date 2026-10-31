@@ -1,0 +1,44 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestAssignmentSettings_Validate$ ./internal/coordinator/)
+=== RUN   TestAssignmentSettings_Validate
+=== RUN   TestAssignmentSettings_Validate/defaults
+=== RUN   TestAssignmentSettings_Validate/zero_value
+=== RUN   TestAssignmentSettings_Validate/accept_window_below_5s
+=== RUN   TestAssignmentSettings_Validate/accept_window_above_30s
+=== RUN   TestAssignmentSettings_Validate/interval_below_100ms
+=== RUN   TestAssignmentSettings_Validate/interval_above_10s
+=== RUN   TestAssignmentSettings_Validate/max_lapses_zero
+=== RUN   TestAssignmentSettings_Validate/max_lapses_above_10
+=== RUN   TestAssignmentSettings_Validate/fallback_age_below_the_lapse_path_minimum
+=== RUN   TestAssignmentSettings_Validate/fallback_age_above_10_min
+=== RUN   TestAssignmentSettings_Validate/batch_limit_zero
+=== RUN   TestAssignmentSettings_Validate/batch_limit_above_500
+=== RUN   TestAssignmentSettings_Validate/min_yield_below_1ms
+=== RUN   TestAssignmentSettings_Validate/min_yield_above_1s
+=== RUN   TestAssignmentSettings_Validate/min_yield_above_interval
+=== RUN   TestAssignmentSettings_Validate/interval_above_accept_window
+=== RUN   TestAssignmentSettings_Validate/interval_equal_to_accept_window
+=== RUN   TestAssignmentSettings_Validate/fallback_age_equal_to_2_x_interval_plus_window
+=== RUN   TestAssignmentSettings_Validate/fallback_age_just_above_2_x_interval_plus_window
+--- PASS: TestAssignmentSettings_Validate (0.01s)
+    --- PASS: TestAssignmentSettings_Validate/defaults (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/zero_value (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/accept_window_below_5s (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/accept_window_above_30s (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/interval_below_100ms (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/interval_above_10s (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/max_lapses_zero (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/max_lapses_above_10 (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/fallback_age_below_the_lapse_path_minimum (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/fallback_age_above_10_min (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/batch_limit_zero (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/batch_limit_above_500 (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/min_yield_below_1ms (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/min_yield_above_1s (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/min_yield_above_interval (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/interval_above_accept_window (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/interval_equal_to_accept_window (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/fallback_age_equal_to_2_x_interval_plus_window (0.00s)
+    --- PASS: TestAssignmentSettings_Validate/fallback_age_just_above_2_x_interval_plus_window (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.037s
+EXIT=0

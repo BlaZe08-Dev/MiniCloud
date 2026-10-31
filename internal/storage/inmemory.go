@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 )
 
 const (
@@ -34,6 +35,13 @@ type InMemoryRepository struct {
 	clock      Clock
 
 	leaseDuration time.Duration
+
+	// Assignment state (ADR-0017 Sections 2 and 3.2). passMu is the in-memory twin of
+	// pg_try_advisory_xact_lock: a pass that cannot take it skips. cursors holds one round-robin
+	// cursor per task type. passCompletedAt is the pass heartbeat (assignment_pass_state).
+	passMu          sync.Mutex
+	cursors         scheduler.CursorSet
+	passCompletedAt time.Time
 }
 
 // InMemoryOption allows configuring an InMemoryRepository.
@@ -69,6 +77,7 @@ func NewInMemoryRepository(opts ...InMemoryOption) *InMemoryRepository {
 		clock:    realClock{},
 
 		leaseDuration: domain.DefaultLeaseDuration,
+		cursors:       scheduler.NewCursorSet(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -279,6 +288,7 @@ func (r *InMemoryRepository) UpsertWorker(ctx context.Context, worker *domain.Wo
 	copied := *worker
 	if existing, exists := r.workers[worker.ID]; exists {
 		copied.RegisteredAt = existing.RegisteredAt
+		copied.LastPollAt = existing.LastPollAt
 	} else if copied.RegisteredAt.IsZero() {
 		copied.RegisteredAt = time.Now().UTC()
 	}
@@ -551,6 +561,8 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
 		return nil, nil, err
 	}
 	selectedJob.NotBefore = nil
+	selectedJob.ClearAssignment()
+	selectedJob.AssignmentLapses = 0
 
 	// Calculate monotonic attempt number derived from max existing attempt_no + 1
 	attemptNo := 0
@@ -842,6 +854,7 @@ func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*doma
 		job.CancelRequestedAt = &now
 	} else {
 		job.NotBefore = nil
+		job.ClearAssignment()
 	}
 
 	r.recordEventLocked(&domain.JobEvent{

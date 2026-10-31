@@ -1,0 +1,6 @@
+=== RUN   TestConformance_Assign_CreatesNoAttempt
+    inmemory_assignment_test.go:172: assignment created attempts: before=0 after=1
+--- FAIL: TestConformance_Assign_CreatesNoAttempt (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.005s
+FAIL

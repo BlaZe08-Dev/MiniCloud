@@ -1,0 +1,6 @@
+=== RUN   TestProperty_SaturatedPass_NoAgeFallback
+    inmemory_assignment_property_test.go:184: seed 150 step 9: age fallback by w_s00 while the pass is live (job job_05)
+--- FAIL: TestProperty_SaturatedPass_NoAgeFallback (0.04s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.038s
+FAIL

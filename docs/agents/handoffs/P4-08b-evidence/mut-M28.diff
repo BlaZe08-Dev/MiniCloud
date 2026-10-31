@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index 4f32f38..94b2aff 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -46,7 +46,7 @@ func (a AssignmentSettings) Validate() error {
+ 	if a.Interval < 100*time.Millisecond || a.Interval > 10*time.Second {
+ 		return fmt.Errorf("%w: assignment interval must be between 100ms and 10s (got %v)", domain.ErrInvalidRequest, a.Interval)
+ 	}
+-	if a.MaxLapses < 1 || a.MaxLapses > 10 {
++	if a.MaxLapses < 0 || a.MaxLapses > 10 {
+ 		return fmt.Errorf("%w: assignment max lapses must be between 1 and 10 (got %d)", domain.ErrInvalidRequest, a.MaxLapses)
+ 	}
+ 	lapsePathMinimum := time.Duration(a.MaxLapses) * (a.AcceptWindow + a.Interval)

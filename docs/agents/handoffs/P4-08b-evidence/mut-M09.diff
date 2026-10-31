@@ -1,0 +1,10 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:52.167933830 +0530
++++ -	2026-10-31 14:19:52.557358694 +0530
+@@ -146,6 +146,7 @@
+ 		if j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) {
+ 			j.ClearAssignment()
+ 			j.AssignmentLapses++
++			r.attempts["lapse_"+j.ID] = &domain.Attempt{ID: "lapse_" + j.ID, JobID: j.ID, WorkerID: holder, AttemptNo: 1, State: domain.AttemptLost}
+ 			r.recordEventLocked(&domain.JobEvent{
+ 				JobID:     j.ID,
+ 				EventType: domain.JobEventAssignmentLapsed,

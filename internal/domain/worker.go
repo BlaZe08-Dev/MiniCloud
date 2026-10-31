@@ -14,6 +14,11 @@ type Worker struct {
 	SupportedTasks  []string     `json:"supported_tasks"`
 	LastHeartbeatAt time.Time    `json:"last_heartbeat_at"`
 	RegisteredAt    time.Time    `json:"registered_at"`
+
+	// LastPollAt is the time of the last poll that reached this worker while it was HEALTHY
+	// (ADR-0017 Section 2.2). nil means the worker has never polled, so it is not assignable.
+	// It is internal: it is not part of any response.
+	LastPollAt *time.Time `json:"-"`
 }
 
 // SupportsTask returns true if the worker advertises support for the task type.

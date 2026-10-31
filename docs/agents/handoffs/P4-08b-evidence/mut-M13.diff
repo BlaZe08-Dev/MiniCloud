@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:56.695901796 +0530
++++ -	2026-10-31 14:19:57.302594497 +0530
+@@ -65,7 +65,7 @@
+ 			continue
+ 		}
+ 		// One effective slot (ADR-0017 Section 2.4): no PENDING or RUNNING attempt, and capacity.
+-		if r.activeAttemptsLocked(id) >= domain.EffectiveWorkerSlots {
++		if false && r.activeAttemptsLocked(id) >= domain.EffectiveWorkerSlots {
+ 			continue
+ 		}
+ 		if r.computeAvailableSlotsLocked(id, w.TotalSlots) <= 0 {

@@ -52,6 +52,10 @@ type WorkAssignment struct {
 	// the worker derives its renewal interval (one third of the lease) from the duration.
 	LeaseExpiresAt       *time.Time `json:"lease_expires_at,omitempty"`
 	LeaseDurationSeconds int        `json:"lease_duration_seconds,omitempty"`
+	// Policy names the policy that made the claim (ADR-0017 D13, Section 5.1). FallbackReason is
+	// set only on a round_robin_fallback claim: lapses or age.
+	Policy         string `json:"policy,omitempty"`
+	FallbackReason string `json:"fallback_reason,omitempty"`
 }
 
 // Service orchestrates jobs, worker coordination, scheduling, and attempt lifecycle.
@@ -67,6 +71,16 @@ type Service struct {
 	// defaultMaxAttempts applies to a job submitted without max_attempts
 	// (MINICLOUD_DEFAULT_MAX_ATTEMPTS).
 	defaultMaxAttempts int
+
+	// Dispatch policy and round-robin settings (assignment.go). The zero policy is fifo_pull;
+	// NewService sets assignment to DefaultAssignmentSettings (F-5a-1).
+	policy     string
+	assignment AssignmentSettings
+
+	// Poll-time refresh state (ADR-0017 Section 3.2, N6). Read and written under s.mu only.
+	refreshInFlight      bool
+	refreshLastAttemptAt time.Time
+	refreshLastFailed    bool
 
 	// Lease sweeper settings (sweeper.go).
 	startupGrace time.Duration
@@ -90,6 +104,7 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		workerTimeout:      workerTimeout,
 		leaseDuration:      domain.DefaultLeaseDuration,
 		defaultMaxAttempts: DefaultMaxAttempts,
+		assignment:         DefaultAssignmentSettings(),
 		startupGrace:       DefaultStartupGracePeriod,
 		outageWindow:       DefaultOutageGraceWindow,
 		sweepRand:          newSweepRand(),
@@ -377,6 +392,9 @@ func (s *Service) StartReaper(ctx context.Context, interval time.Duration) {
 func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.policy == domain.DispatchPolicyRoundRobin {
+		return s.pollRoundRobinLocked(ctx, workerID)
+	}
 
 	job, attempt, err := s.repo.DispatchNextJob(ctx, workerID)
 	if err != nil {
@@ -409,6 +427,7 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
 
 		LeaseExpiresAt:       attempt.LeaseExpiresAt,
 		LeaseDurationSeconds: int(s.leaseDuration / time.Second),
+		Policy:               domain.DispatchPolicyFifoPull,
 	}, nil
 }
 

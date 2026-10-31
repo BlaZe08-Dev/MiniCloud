@@ -1,0 +1,6 @@
+=== RUN   TestCoordinator_AssignmentSweep_RevokesWithinOneInterval
+2026/10/31 14:19:52 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:19:52 INFO job submitted and queued job_id=job_1_68abc4dfb63c task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestCoordinator_AssignmentSweep_RevokesWithinOneInterval (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.004s

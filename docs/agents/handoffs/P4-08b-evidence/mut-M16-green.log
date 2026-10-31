@@ -1,0 +1,69 @@
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 INFO job submitted and queued job_id=job_1_ff979602c7d3 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:04 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 14:20:04 INFO job dispatched to worker job_id=job_1_ff979602c7d3 attempt_id=att_1_1fd0ce311e44 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+--- PASS: TestFault_AssignmentPassStalled_JobRunsWithinBound (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.005s

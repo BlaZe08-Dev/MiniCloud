@@ -1,0 +1,10 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory.go	2026-10-31 14:16:00.060684039 +0530
++++ -	2026-10-31 14:19:54.932247631 +0530
+@@ -854,7 +854,6 @@
+ 		job.CancelRequestedAt = &now
+ 	} else {
+ 		job.NotBefore = nil
+-		job.ClearAssignment()
+ 	}
+ 
+ 	r.recordEventLocked(&domain.JobEvent{

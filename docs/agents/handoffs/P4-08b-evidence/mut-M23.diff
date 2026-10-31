@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/coordinator/assignment.go	2026-10-31 14:58:22.011492332 +0530
++++ -	2026-10-31 14:58:32.417672606 +0530
+@@ -41,7 +41,7 @@
+ 	if !domain.IsValidDispatchPolicy(name) {
+ 		return fmt.Errorf("%w: dispatch policy %q", domain.ErrInvalidRequest, name)
+ 	}
+-	if name == domain.DispatchPolicyRoundRobin {
++	if false && name == domain.DispatchPolicyRoundRobin {
+ 		if _, ok := s.repo.(storage.AssignmentRepository); !ok {
+ 			return fmt.Errorf("%w: dispatch policy round_robin needs an assignment-capable repository", domain.ErrInvalidRequest)
+ 		}

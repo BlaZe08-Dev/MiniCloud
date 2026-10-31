@@ -1,0 +1,4 @@
+=== RUN   TestConformance_CancelAssigned_NeverClaimed
+--- PASS: TestConformance_CancelAssigned_NeverClaimed (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.004s

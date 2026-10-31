@@ -1,0 +1,13 @@
+diff --git a/internal/domain/assignment.go b/internal/domain/assignment.go
+index 42d229f..ee55470 100644
+--- a/internal/domain/assignment.go
++++ b/internal/domain/assignment.go
+@@ -25,7 +25,7 @@ const EffectiveWorkerSlots = 1
+ // IsValidDispatchPolicy reports whether name selects a dispatch policy that may be configured.
+ // The fallback policy name is an output of a claim, not a setting, so it is not valid here.
+ func IsValidDispatchPolicy(name string) bool {
+-	return name == DispatchPolicyFifoPull || name == DispatchPolicyRoundRobin
++	return name == DispatchPolicyFifoPull || name == DispatchPolicyRoundRobin || name == DispatchPolicyRoundRobinFallback
+ }
+ 
+ // ClearAssignment removes a reservation from the job. It is called in the same step as every

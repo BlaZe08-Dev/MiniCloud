@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:59.729880371 +0530
++++ -	2026-10-31 14:20:00.154721911 +0530
+@@ -61,7 +61,7 @@
+ 		if !w.LastHeartbeatAt.After(now.Add(-p.WorkerTimeout)) {
+ 			continue
+ 		}
+-		if w.LastPollAt == nil || !w.LastPollAt.After(now.Add(-p.AcceptWindow)) {
++		if w.LastPollAt == nil {
+ 			continue
+ 		}
+ 		// One effective slot (ADR-0017 Section 2.4): no PENDING or RUNNING attempt, and capacity.

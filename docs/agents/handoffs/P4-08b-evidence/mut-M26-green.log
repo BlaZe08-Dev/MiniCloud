@@ -1,0 +1,6 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestSetDispatchPolicy_RoundRobinRejectsInvalidSettings$ ./internal/coordinator/)
+=== RUN   TestSetDispatchPolicy_RoundRobinRejectsInvalidSettings
+--- PASS: TestSetDispatchPolicy_RoundRobinRejectsInvalidSettings (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.035s
+EXIT=0

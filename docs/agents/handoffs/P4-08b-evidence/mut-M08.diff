@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:49.823950440 +0530
++++ -	2026-10-31 14:19:51.787952813 +0530
+@@ -143,7 +143,7 @@
+ 			examined++
+ 			continue
+ 		}
+-		if j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) {
++		if false && j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) {
+ 			j.ClearAssignment()
+ 			j.AssignmentLapses++
+ 			r.recordEventLocked(&domain.JobEvent{

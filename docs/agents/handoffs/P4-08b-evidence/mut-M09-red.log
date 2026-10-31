@@ -1,0 +1,6 @@
+=== RUN   TestConformance_AssignmentLapse_ConsumesNoAttempt
+    inmemory_assignment_test.go:248: lapse created 1 attempts
+--- FAIL: TestConformance_AssignmentLapse_ConsumesNoAttempt (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

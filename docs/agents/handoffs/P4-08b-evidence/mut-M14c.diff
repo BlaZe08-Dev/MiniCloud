@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:20:00.778872970 +0530
++++ -	2026-10-31 14:20:01.250922587 +0530
+@@ -55,7 +55,7 @@
+ func (r *InMemoryRepository) eligibleWorkersLocked(taskType string, now time.Time, p AssignParams) []string {
+ 	var ids []string
+ 	for id, w := range r.workers {
+-		if w.Status != domain.WorkerStatusHealthy || !w.SupportsTask(taskType) {
++		if !w.SupportsTask(taskType) {
+ 			continue
+ 		}
+ 		if !w.LastHeartbeatAt.After(now.Add(-p.WorkerTimeout)) {

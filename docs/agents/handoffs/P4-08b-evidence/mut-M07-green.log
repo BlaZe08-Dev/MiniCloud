@@ -1,0 +1,4 @@
+=== RUN   TestProperty_RoundRobin_NoDoubleSelectionPerType
+--- PASS: TestProperty_RoundRobin_NoDoubleSelectionPerType (0.08s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.086s

@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:54.579916758 +0530
++++ -	2026-10-31 14:19:56.087099118 +0530
+@@ -71,7 +71,7 @@
+ 		if r.computeAvailableSlotsLocked(id, w.TotalSlots) <= 0 {
+ 			continue
+ 		}
+-		if r.liveReservationLocked(id, now) {
++		if false && r.liveReservationLocked(id, now) {
+ 			continue
+ 		}
+ 		ids = append(ids, id)

@@ -1,0 +1,6 @@
+=== RUN   TestProperty_RoundRobin_CountsWithinOne
+    round_robin_rule_test.go:57: seed 1: counts spread 43 over 43 decisions with 6 members: map[w_2:43]
+--- FAIL: TestProperty_RoundRobin_CountsWithinOne (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.006s
+FAIL

@@ -18,6 +18,13 @@ const (
 	// JobEventLeaseExpired records an attempt closed by the lease sweeper.
 	JobEventLeaseExpired JobEventType = "LEASE_EXPIRED"
 
+	// JobEventAssigned records a round-robin reservation made by the assignment pass (ADR-0017 Section 2.1).
+	JobEventAssigned JobEventType = "JOB_ASSIGNED"
+	// JobEventAssignmentLapsed records an expired reservation cleared by the assignment pass.
+	JobEventAssignmentLapsed JobEventType = "JOB_ASSIGNMENT_LAPSED"
+	// JobEventAssignmentRevoked records a reservation cleared because its worker is no longer HEALTHY.
+	JobEventAssignmentRevoked JobEventType = "JOB_ASSIGNMENT_REVOKED"
+
 	// JobEventDiagnosticLateResult records a result rejected because its job was already
 	// terminal (state-machine.md event catalogue).
 	JobEventDiagnosticLateResult JobEventType = "DIAGNOSTIC_LATE_RESULT"

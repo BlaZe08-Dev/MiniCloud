@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/coordinator/assignment.go	2026-10-31 14:20:08.331819790 +0530
++++ -	2026-10-31 14:20:08.661942348 +0530
+@@ -73,7 +73,7 @@
+ 	claim, err := ar.ClaimForPoll(ctx, workerID, storage.ClaimOptions{
+ 		MaxLapses:   s.assignment.MaxLapses,
+ 		FallbackAge: s.assignment.FallbackAge,
+-		AgeArmOpen:  ageArm,
++		AgeArmOpen:  ageArm || s.refreshLastFailed,
+ 	})
+ 	if err != nil {
+ 		if errors.Is(err, domain.ErrWorkerNoCapacity) {

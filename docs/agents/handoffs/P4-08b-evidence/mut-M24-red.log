@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults$ ./internal/coordinator/)
+=== RUN   TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults
+    assignment_test.go:542: SetDispatchPolicy: dispatch policy round_robin: invalid request payload or parameters: assignment accept window must be between 5s and 30s (got 0s)
+--- FAIL: TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.041s
+FAIL
+EXIT=1

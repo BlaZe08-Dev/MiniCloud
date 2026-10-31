@@ -1,0 +1,12 @@
+--- /home/blazeee/MiniCloud-claude/internal/coordinator/assignment.go	2026-10-31 14:20:07.538825365 +0530
++++ -	2026-10-31 14:20:07.880248140 +0530
+@@ -123,9 +123,6 @@
+ 	if now.Sub(last) <= 2*interval {
+ 		return false
+ 	}
+-	if s.refreshInFlight {
+-		return false
+-	}
+ 	if !s.refreshLastAttemptAt.IsZero() && now.Sub(s.refreshLastAttemptAt) < interval {
+ 		return false
+ 	}

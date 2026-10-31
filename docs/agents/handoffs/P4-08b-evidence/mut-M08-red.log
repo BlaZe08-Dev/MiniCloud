@@ -1,0 +1,8 @@
+=== RUN   TestCoordinator_AssignmentSweep_RevokesWithinOneInterval
+2026/10/31 14:19:52 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:19:52 INFO job submitted and queued job_id=job_1_e06dd3545584 task_type=echo state=QUEUED max_attempts=3
+    assignment_test.go:127: expired reservation still set after one pass interval (1s)
+--- FAIL: TestCoordinator_AssignmentSweep_RevokesWithinOneInterval (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s
+FAIL

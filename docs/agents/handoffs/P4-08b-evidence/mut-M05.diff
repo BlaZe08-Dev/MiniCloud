@@ -1,0 +1,38 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory_assignment.go	2026-10-31 14:19:48.706958361 +0530
++++ -	2026-10-31 14:19:49.098540322 +0530
+@@ -247,17 +247,6 @@
+ 		return nil, domain.ErrWorkerNoCapacity
+ 	}
+ 
+-	// Own reservation first.
+-	for _, id := range r.jobOrder {
+-		j := r.jobs[id]
+-		if j == nil || !r.isDispatchableLocked(j) || !worker.SupportsTask(j.TaskType) {
+-			continue
+-		}
+-		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
+-			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobin, "", now)
+-		}
+-	}
+-
+ 	// Fallback arms.
+ 	silentBefore := now.Add(-opts.FallbackAge)
+ 	passSilent := !r.passCompletedAt.After(silentBefore)
+@@ -276,6 +265,17 @@
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonAge, now)
+ 		}
+ 	}
++	// Own reservation first.
++	for _, id := range r.jobOrder {
++		j := r.jobs[id]
++		if j == nil || !r.isDispatchableLocked(j) || !worker.SupportsTask(j.TaskType) {
++			continue
++		}
++		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
++			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobin, "", now)
++		}
++	}
++
+ 	return nil, domain.ErrNoQueuedJobs
+ }
+ 

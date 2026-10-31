@@ -1,0 +1,6 @@
+=== RUN   TestProperty_BatchHeadNeverStarved
+    inmemory_assignment_property_test.go:88: seed 6 step 0: job job_01 of type sleep unreserved while w_01 is eligible and only 0 of 1 candidates were read
+--- FAIL: TestProperty_BatchHeadNeverStarved (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

@@ -1,0 +1,4 @@
+=== RUN   TestConformance_Assign_OneReservationPerWorker
+--- PASS: TestConformance_Assign_OneReservationPerWorker (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.006s

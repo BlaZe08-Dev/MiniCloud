@@ -1,7 +1,7 @@
 # ADR 0017: Assignment-Based Round-Robin Dispatch (Candidate A), Design
 
 ## Status
-Proposed, revision 3 (orchestrator items N6 to N8 applied). Design only: no production code, test code or migration is part of this ADR.
+Accepted for implementation (orchestrator, revision 3 plus A1 and A2). Slice 5a (domain, pure policy and in-memory parity, no database) is the first implementation slice; the amendments are recorded in Section 9.
 
 - Formalises **Candidate A** (pre-assignment with a bounded accept window), the leading design named in [ADR 0011](0011-postgres-dispatch-and-recovery.md) Section 2 and in [docs/phase4-plan.md](../phase4-plan.md) Section 3. It is the post-Phase 4 hard gate for V1 completion.
 - Depends on the Phase 4 machinery: attempt leases and the sweeper ([ADR 0014](0014-lease-model-and-expiry.md)), retries ([ADR 0015](0015-retry-policy-and-failure-classification.md)), and cancellation ([ADR 0016](0016-cancellation-semantics.md)). Migration `000004_leases_retries_cancellation.sql` is already in the tree; this design adds migration `000005`.
@@ -260,6 +260,9 @@ then set `c_t = w`. Decisions for other task types do not read or write `c_t`.
 
 **Rule.** While the worker loop is synchronous (C12), every worker has **one effective slot**. This is a named constant in the coordinator, `effectiveWorkerSlots = 1`, and its doc comment states that it is tied to the worker-concurrency slice (Q5). When that slice lands, the constant is removed and the rule becomes `total_slots - running - reserved`.
 
+*Amendment (implementation notes, decision 4):* the constant is `domain.EffectiveWorkerSlots`, not a coordinator constant, because the assignment pass runs in the storage layer.
+
+
 A worker holds at most one reservation, and it receives no reservation while it has a `PENDING` or `RUNNING` attempt.
 
 **Why this is needed.** Revision 0 derived free slots from `worker_capacity.available_slots`. A worker that has just claimed one job still has `total_slots - 1` free slots, its poll is fresh for one window, and so the pass could reserve it more jobs. A synchronous worker never polls while it executes, so those reservations would lapse, one window each, and then go to fallback. The effective-slot rule removes that failure at its source.
@@ -276,6 +279,9 @@ Candidates are taken in `ORDER BY created_at ASC, id ASC`, the same order as `Di
 
 - Within a task type, jobs are reserved in submission order, and a worker's reservations are claimed in submission order.
 - A job that cannot be placed (no eligible worker for its type) is **skipped**, not blocking. Jobs of other types are still reserved. Within one type, once `E(t)` is empty, the rest of that type's batch is left for the next pass; no job is passed over in favour of a newer one.
+
+*Erratum (implementation notes, decision 1):* the candidate read also excludes a job whose `assignment_lapses` has reached `MINICLOUD_ASSIGNMENT_MAX_LAPSES`, because such a job leaves round-robin (D9). See the implementation notes at the end of this ADR.
+
 
 ### 2.6 Fairness and starvation
 
@@ -495,6 +501,9 @@ The grace state is passed into the pass as an input value, exactly as `SweepExpi
 
 **Why revoke during grace and not freeze the assignment.** Freezing would keep a job reserved to a worker that may be gone for the whole grace period (up to 30 s), which is a latency cost with no safety benefit, since no attempt exists to protect.
 
+### 4.5 Operator note: stale pass heartbeat (A2)
+While the pass heartbeat is stale, meaning `assignment_pass_state.last_completed_at` is older than `2 × MINICLOUD_ASSIGNMENT_INTERVAL` (the threshold of Section 3.2), the coordinator logs at ERROR at most once a minute. The documented remedy is to set `MINICLOUD_DISPATCH_POLICY=fifo_pull` and restart the coordinator. Under `fifo_pull` the pass does not run (Section 5.2), so a stalled pass no longer affects dispatch. The rate-limited ERROR log is implemented in slice 5c (Section 7). Operator-facing docs are owned by the docs task (Section 7).
+
 ---
 
 ## 5. Compatibility
@@ -638,6 +647,13 @@ Every new variable, with its default, allowed range, validation rule and the sec
 
 The values are proposals, not measurements (R-d, slice 5c).
 
+**Startup cross-validation between variables (A1).** The per-variable rules above do not catch a combination that breaks the timing argument. Startup fails, with a message naming both variables, unless both of these hold:
+
+- `MINICLOUD_ASSIGNMENT_INTERVAL` does not exceed `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW`;
+- `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` is greater than `2 × MINICLOUD_ASSIGNMENT_INTERVAL` plus `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW`.
+
+These are checked when the configuration is loaded, so they are implemented in slice 5a, because Section 7 places config validation in 5a. A1 adds no invariant to Section 6.3, and this amendment assigns no test name; slice 5a adds its own config tests. With the defaults both hold (`1 s` does not exceed `5 s`; `30 s` is greater than `2 × 1 s + 5 s = 7 s`).
+
 ---
 
 ## 6. Failure and abuse model
@@ -751,10 +767,13 @@ Property tests: INV-4, INV-4b, INV-15 and INV-16 run at least 1,000 iterations. 
 
 Three slices. Each is independently mergeable behind `MINICLOUD_DISPATCH_POLICY=fifo_pull` (the default until the gate), so `main` stays on `fifo_pull` throughout.
 
+*Amendments (implementation notes, decisions 2 and 6):* the in-memory poll-time refresh is part of slice 5a; the PostgreSQL counterpart is part of slices 5b and 5c. The assignment cases stay in `internal/storage` tests until slice 5b moves them into the shared `storagetest` runner.
+
+
 ### Slice 5a: domain, pure policy and in-memory parity (no database)
 
 - **Scope.** Assignment fields, the poll freshness field and the fallback reason on the domain types. Three new event-type constants. The pure round-robin function (per type, Section 2.3) and the lapse and fallback predicates (Section 3.2). The effective-slot constant (Section 2.4). In-memory assignment pass with per-type cursors, batch limit, revoke, claim, cancel clearing and pass heartbeat. Coordinator policy wiring and config validation. No migration, no Postgres code.
-- **Config (validated in 5a).** Seven variables: `MINICLOUD_DISPATCH_POLICY` (existing), `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW` (5 s, 5 s to 30 s), `MINICLOUD_ASSIGNMENT_INTERVAL` (1 s), `MINICLOUD_ASSIGNMENT_MAX_LAPSES` (3, 1 to 10), `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (30 s, and at least `MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL)`, which is 18 s by default), `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (50, 1 to 500), and `MINICLOUD_ASSIGNMENT_MIN_YIELD` (10 ms, 1 ms to 1 s, not above `MINICLOUD_ASSIGNMENT_INTERVAL`) (N2). `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` must exceed `2 × MINICLOUD_ASSIGNMENT_INTERVAL` (N1, N6). Section 5.5 is the single source for every variable (N7).
+- **Config (validated in 5a).** The cross-validation rules of A1 (Section 5.5) apply in this slice. Seven variables: `MINICLOUD_DISPATCH_POLICY` (existing), `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW` (5 s, 5 s to 30 s), `MINICLOUD_ASSIGNMENT_INTERVAL` (1 s), `MINICLOUD_ASSIGNMENT_MAX_LAPSES` (3, 1 to 10), `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (30 s, and at least `MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL)`, which is 18 s by default), `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (50, 1 to 500), and `MINICLOUD_ASSIGNMENT_MIN_YIELD` (10 ms, 1 ms to 1 s, not above `MINICLOUD_ASSIGNMENT_INTERVAL`) (N2). `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` must exceed `2 × MINICLOUD_ASSIGNMENT_INTERVAL` (N1, N6). Section 5.5 is the single source for every variable (N7).
 - **Files (existing, to edit):** `internal/domain/job.go` (assignment fields, JSON tags `omitempty`), `internal/domain/worker.go` (`LastPollAt`), `internal/domain/events.go` (three event types), `internal/storage/inmemory.go` (assignment pass, claim predicates, revoke, cancel clearing), `internal/storage/storagetest/conformance.go` (shared tests), `internal/coordinator/service.go` (policy selection in `PollWork`; constructor unchanged), `internal/config/config.go` (six variables, validated).
 - **Files (new, proposed):** a domain file for assignment rules, a pure function file beside `internal/scheduler/round_robin.go`, a coordinator loop file beside `internal/coordinator/sweeper.go`, and the in-memory and conformance tests for these.
 - **Tests (planned).** INV-1 (memory variant), INV-2, INV-3, INV-4, INV-4b, INV-6, INV-7a, INV-7b, INV-8, INV-10, INV-11, INV-12, INV-14 (memory variant), INV-15, INV-16, INV-18, INV-19 (memory variant), INV-23 (single-flight test), INV-24 (memory variant), `TestConformance_PollResponse_PolicyField`, and `TestProperty_AssignmentSubState_ModelConformance` (memory only).
@@ -781,7 +800,7 @@ Three slices. Each is independently mergeable behind `MINICLOUD_DISPATCH_POLICY=
 
 ### Slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing
 
-- **Scope.** The assignment loop in the coordinator (timer, submit trigger, and the repeat rule of Section 2.1 with its yield), the poll-time refresh with its single flight and rate limit (N6), grace state wiring, startup validation, job view fields, the poll `policy` and `fallback_reason` fields, the worker constant extraction and the timing test (INV-17), the fault and API abuse suites in Section 6.4, and the property tests at 1,000 iterations.
+- **Scope.** The assignment loop in the coordinator (timer, submit trigger, and the repeat rule of Section 2.1 with its yield), the rate-limited ERROR log for a stale pass heartbeat (A2, Section 4.5), the poll-time refresh with its single flight and rate limit (N6), grace state wiring, startup validation, job view fields, the poll `policy` and `fallback_reason` fields, the worker constant extraction and the timing test (INV-17), the fault and API abuse suites in Section 6.4, and the property tests at 1,000 iterations.
 - **Files (existing, to edit):** `internal/coordinator/service.go` (submit trigger; loop start), `internal/coordinator/sweeper.go` (grace state passed to the pass), `cmd/coordinator/main.go` (start the loop; policy from config), `internal/api/handlers.go` (poll `policy` and `fallback_reason` fields; job fields are carried by the domain JSON), `internal/worker/client.go` (extract the idle poll interval and maximum poll backoff to named constants; no behaviour change).
 - **Files (new, proposed):** fault tests under the `tests/` integration and fault directories, following the existing `tests/integration/` layout, and the API abuse tests beside `internal/api`.
 - **Tests (planned).** INV-6 (end to end), INV-9 (loop variant), INV-17, INV-18 (loop variant), INV-20, INV-21, INV-23 (cost variant), every test in Section 6.4 (including the FS-23 and FS-24 tests), and `TestProperty_AssignmentSubState_ModelConformance` at 1,000 iterations.
@@ -940,6 +959,17 @@ Item 21's residual was closed by N6 (rate limit, single flight, own-attempt age 
 25. **Refresh threshold equal to the timer interval.** With a threshold of one `INTERVAL`, a healthy heartbeat (up to `INTERVAL` plus `D` old) would start refresh attempts in normal operation and double the pass load. Fixed: threshold 2 × `INTERVAL`, and `FALLBACK_AGE > 2 × INTERVAL` (Sections 3.2, 5.5).
 26. **`INTERVAL` had no range or validation rule.** The ADR gave only a default, and the rate limit depends on it. Fixed in Section 5.5: proposed range 100 ms to 10 s. The floor caps attempts at 10 per second.
 
+### Amendment record: A1 and A2 (orchestrator, after revision 3)
+
+The orchestrator accepted revision 3 for implementation and added two amendments. They are not further defects and do not change the count of 26.
+
+| Item | Change | Where |
+|---|---|---|
+| A1 | Startup cross-validation: `MINICLOUD_ASSIGNMENT_INTERVAL` must not exceed `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW`, and `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` must be greater than `2 × INTERVAL + ACCEPT_WINDOW`. Startup fails otherwise. Implemented in slice 5a, because config validation is in 5a (Section 7). | Section 5.5, Section 7 (slice 5a) |
+| A2 | Operator note: while the pass heartbeat is stale, the coordinator logs at ERROR at most once a minute. The remedy is `MINICLOUD_DISPATCH_POLICY=fifo_pull` and a restart. Implemented in slice 5c. | Section 4.5, Section 7 (slice 5c) |
+
+The status line at the top of this ADR now reads "Accepted for implementation (orchestrator, revision 3 plus A1 and A2)".
+
 ---
 
 ## Consequences
@@ -974,3 +1004,22 @@ Item 21's residual was closed by N6 (rate limit, single flight, own-attempt age 
 - **Multi-coordinator is designed for, not claimed** (Q9).
 - **Pre-existing gaps noted, not fixed:** `REJECTED` missing from `chk_jobs_state` (Q8); the in-memory and Postgres tie order (Section 5.4); the synchronous worker loop (Q5); the fact that `idx_jobs_task_dispatch` covers only QUEUED (C19, folded into migration `000005` for the new scan only).
 - **Docs not updated.** Per the task scope, only this file is changed. The protocol, state-machine, schema, failure-model and phase-plan changes listed in Section 7 are for the docs task.
+
+## Implementation notes, slice 5a
+
+These decisions were made by the orchestrator in fix round 1 of the P4-08b review (tip 37110db). Each one amends the section it names.
+
+1. **Lapse limit leaves round-robin (D9 wins; erratum to Section 2.1).** A job whose `assignment_lapses` has reached `MINICLOUD_ASSIGNMENT_MAX_LAPSES` leaves round-robin. The candidate read of the assignment pass must exclude it, so it stays unassigned and becomes claimable by the lapse arm of Section 3.2.
+2. **Poll-time refresh: memory in 5a, PostgreSQL in 5b and 5c (amends Section 7).** The in-memory poll-time refresh (Sections 3.2, N1 and N6) is implemented in slice 5a, because the 5a memory tests for INV-19, INV-23 and INV-24 need it. Slices 5b and 5c implement its PostgreSQL counterpart and the loop side.
+3. **Freshness before refresh.** A poll writes its own `last_poll_at` (Section 2.2) before the refresh runs, so the polling worker is eligible for the reservations its own refresh makes. INV-19 depends on this.
+4. **`EffectiveWorkerSlots` lives in domain (amends Section 2.4).** The constant is `domain.EffectiveWorkerSlots`, not a coordinator constant, because the assignment pass runs in the storage layer.
+5. **Memory test name for INV-1.** The in-memory variant of INV-1 is `TestConformance_ClaimAssigned_ConcurrentPollsOneWinner`. The PostgreSQL variant keeps the name `TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner`.
+6. **Location of the 5a assignment cases.** The assignment cases live in `internal/storage` tests (package `storage_test`) until slice 5b moves them into the shared `storagetest` runner. The 11 PostgreSQL skips in `internal/storage/postgres/assignment_5a_skips_test.go` become 11 passing tests in slice 5b.
+
+### Implementation notes, P4-08b fix round 2
+
+These notes come from the P4-08b audit (review file on branch `agent/claude/P4-08b-review`, findings F-5a-1, F-5a-12 and F-5a-13) and the orchestrator's fix round 2 instructions.
+
+7. **Settings are defaulted and validated at the service (F-5a-1).** `coordinator.NewService` starts from `DefaultAssignmentSettings()`. `SetAssignmentSettings` applies the Section 5.5 ranges and the A1 cross-checks (`AssignmentSettings.Validate`, the same rules as the config) and returns `domain.ErrInvalidRequest` for settings that fail them, keeping the previous settings. `SetDispatchPolicy("round_robin")` refuses settings that fail `Validate`.
+8. **Database clock for the pass heartbeat and staleness (requirement for slice 5b, F-5a-13).** In PostgreSQL, the pass heartbeat (`assignment_pass_state.last_completed_at`) is written with the database clock (`now()`), and every staleness comparison against it (the `2 × MINICLOUD_ASSIGNMENT_INTERVAL` refresh threshold of Section 3.2, the age arm's pass-silence check, and the stale-heartbeat log of Section 4.5) reads the database clock too, so the write and the read use the same clock. The Service never compares its own clock with a time read from the repository. The process clock stays only for the refresh rate limit (`refreshLastAttemptAt`), which compares two process-clock readings. In slice 5a the in-memory `refreshIfStaleLocked` still compares `s.clock.Now()` with the in-memory heartbeat; this is safe in memory only, and slice 5b must change it.
+9. **Refresh threshold and poll-write throttle stay deferred to slice 5c (F-5a-12).** The `2 × interval` refresh threshold in `refreshIfStaleLocked` and the one-write-per-second poll freshness throttle (`assignmentPollWriteThrottle` in `internal/storage/inmemory_assignment.go`) have no pinning test in 5a; the audit's mutations of both survive. Their tests are `TestPoll_RefreshAttempts_AtMostOnePerInterval` (planned test, slice 5c; INV-23 cost variant) and `TestAPI_Poll_Flood_ThrottlesFreshnessWrites` (planned test, slice 5c; Section 6.4).

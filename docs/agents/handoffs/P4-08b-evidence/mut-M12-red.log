@@ -1,0 +1,6 @@
+=== RUN   TestConformance_Assign_OneReservationPerWorker
+    inmemory_assignment_test.go:323: first pass reserved 2, want 1
+--- FAIL: TestConformance_Assign_OneReservationPerWorker (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

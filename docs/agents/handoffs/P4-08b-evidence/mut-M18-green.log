@@ -1,0 +1,4 @@
+=== RUN   TestProperty_SaturatedPass_NoAgeFallback
+--- PASS: TestProperty_SaturatedPass_NoAgeFallback (0.24s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.243s

@@ -1,0 +1,8 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestConformance_ClaimAgeArm_UsesNotBefore$ ./internal/storage/)
+=== RUN   TestConformance_ClaimAgeArm_UsesNotBefore
+    inmemory_assignment_test.go:625: RETRYING job claimed by age although not_before just passed: err=<nil>
+--- FAIL: TestConformance_ClaimAgeArm_UsesNotBefore (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.019s
+FAIL
+EXIT=1

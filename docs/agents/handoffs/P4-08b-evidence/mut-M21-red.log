@@ -1,0 +1,11 @@
+=== RUN   TestPoll_RefreshSingleFlight
+2026/10/31 14:20:08 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:08 INFO job submitted and queued job_id=job_1_3bfd164afd6b task_type=echo state=QUEUED max_attempts=3
+2026/10/31 14:20:08 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 14:20:08 INFO job dispatched to worker job_id=job_1_3bfd164afd6b attempt_id=att_1_f27680aac7aa attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+2026/10/31 14:20:08 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+    assignment_test.go:159: a poll started a refresh attempt while one was in flight: passes 1 -> 2
+--- FAIL: TestPoll_RefreshSingleFlight (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s
+FAIL

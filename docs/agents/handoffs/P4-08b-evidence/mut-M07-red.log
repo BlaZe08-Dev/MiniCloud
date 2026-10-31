@@ -1,0 +1,6 @@
+=== RUN   TestProperty_RoundRobin_NoDoubleSelectionPerType
+    round_robin_rule_test.go:133: seed 1 type scan: w_2 selected at decisions 4 and 5 while w_0 waited eligible throughout
+--- FAIL: TestProperty_RoundRobin_NoDoubleSelectionPerType (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.003s
+FAIL

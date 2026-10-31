@@ -1,0 +1,10 @@
+--- /home/blazeee/MiniCloud-claude/internal/scheduler/round_robin_rule.go	2026-10-31 14:19:50.624944762 +0530
++++ -	2026-10-31 14:19:51.137501725 +0530
+@@ -38,6 +38,7 @@
+ // new cursor for that type. It reports false, and leaves the cursor unchanged, when there are no
+ // candidates.
+ func (c *CursorSet) Select(taskType string, candidates []string) (string, bool) {
++	taskType = ""
+ 	next, ok := NextAfterCursor(c.last[taskType], candidates)
+ 	if !ok {
+ 		return "", false

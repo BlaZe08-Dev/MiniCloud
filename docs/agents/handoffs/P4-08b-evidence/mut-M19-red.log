@@ -1,0 +1,6 @@
+=== RUN   TestConformance_AssignEvent_CapsCandidates
+    inmemory_assignment_test.go:453: candidates = [w_a w_b w_c w_d w_e w_f w_g w_h w_i w_j w_k w_l], want 10 IDs
+--- FAIL: TestConformance_AssignEvent_CapsCandidates (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.005s
+FAIL

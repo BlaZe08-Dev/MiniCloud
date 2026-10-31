@@ -1,0 +1,11 @@
+--- /home/blazeee/MiniCloud-claude/internal/storage/inmemory.go	2026-10-31 14:19:55.725908653 +0530
++++ -	2026-10-31 14:20:02.334049834 +0530
+@@ -539,7 +539,7 @@
+ 	var selectedJob *domain.Job
+ 	for _, id := range r.jobOrder {
+ 		j := r.jobs[id]
+-		if j != nil && r.isDispatchableLocked(j) && worker.SupportsTask(j.TaskType) {
++		if j != nil && r.isDispatchableLocked(j) && worker.SupportsTask(j.TaskType) && (j.AssignedWorkerID == nil || *j.AssignedWorkerID == workerID) {
+ 			selectedJob = j
+ 			break
+ 		}

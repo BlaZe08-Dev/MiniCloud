@@ -1,0 +1,6 @@
+=== RUN   TestConformance_Assign_SkipsWorkerWithRunningAttempt
+    inmemory_assignment_test.go:348: reserved 1 jobs to a worker with a RUNNING attempt
+--- FAIL: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.004s
+FAIL

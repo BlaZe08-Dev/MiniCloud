@@ -1,0 +1,11 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestPoll_AgeArm_AfterOutage_RefreshesFirst$ ./internal/coordinator/)
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+2026/10/31 15:52:53 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:52:53 INFO job submitted and queued job_id=job_1_16df71da37d7 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:52:53 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 15:52:53 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:52:53 INFO job dispatched to worker job_id=job_1_16df71da37d7 attempt_id=att_1_89a11d6583aa attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+--- PASS: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.025s
+EXIT=0

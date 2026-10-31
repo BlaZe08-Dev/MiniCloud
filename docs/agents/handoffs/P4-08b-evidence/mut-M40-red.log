@@ -1,0 +1,11 @@
+$ (cd ~/mc-mut-claude && env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -timeout 120s -v -run ^TestPoll_AgeArm_AfterOutage_RefreshesFirst$ ./internal/coordinator/)
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+2026/10/31 15:52:52 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:52:52 INFO job submitted and queued job_id=job_1_91c31a50d7af task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:52:52 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+    assignment_test.go:205: first poll after outage: no queued jobs available
+--- FAIL: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.021s
+FAIL
+EXIT=1

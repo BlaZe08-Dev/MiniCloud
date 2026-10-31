@@ -1,0 +1,6 @@
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository
+    assignment_test.go:522: round_robin on a repository without assignment: err=<nil>, want ErrInvalidRequest
+--- FAIL: TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s
+FAIL
