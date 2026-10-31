@@ -1,0 +1,36 @@
+// Auditor probes for P4-08b, package config. Not committed into internal/. Run with
+// docs/agents/reviews/P4-08b-evidence/run-probes.sh.
+package config
+
+import "testing"
+
+// A1 equality: "INTERVAL does not exceed ACCEPT_WINDOW" accepts INTERVAL == ACCEPT_WINDOW.
+// 31 s clears the lapse-path minimum (3 x 10 s) and the cross rule (2 x 5 s + 5 s). Kills A14.
+func TestAudit_Probe_IntervalEqualToWindowAccepted(t *testing.T) {
+	assignmentEnv(t, map[string]string{
+		"MINICLOUD_ASSIGNMENT_INTERVAL":      "5s",
+		"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "5s",
+		"MINICLOUD_ASSIGNMENT_FALLBACK_AGE":  "31s",
+	})
+	if _, err := LoadCoordinatorConfig(); err != nil {
+		t.Fatalf("INTERVAL equal to ACCEPT_WINDOW rejected: %v", err)
+	}
+}
+
+// Hazard probe (expected to FAIL on 46ca30a): a malformed value is not "in range"; ADR-0017
+// Section 5.5 says startup fails on any rule violation. getIntEnv and getDurationEnv fall back to
+// the default instead, so a typo silently runs the default.
+func TestAudit_Probe_MalformedAssignmentValuesRejected(t *testing.T) {
+	for _, c := range []struct{ key, val string }{
+		{"MINICLOUD_ASSIGNMENT_MAX_LAPSES", "three"},
+		{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", "5"},
+		{"MINICLOUD_ASSIGNMENT_BATCH_LIMIT", "50x"},
+	} {
+		t.Run(c.key, func(t *testing.T) {
+			assignmentEnv(t, map[string]string{c.key: c.val})
+			if _, err := LoadCoordinatorConfig(); err == nil {
+				t.Fatalf("%s=%q accepted (the default was used silently)", c.key, c.val)
+			}
+		})
+	}
+}

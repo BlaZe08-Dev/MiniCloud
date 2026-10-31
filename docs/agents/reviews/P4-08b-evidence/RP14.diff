@@ -1,0 +1,13 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index ed15bac..f9ccdf3 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -201,7 +201,7 @@ func validateAssignment(cfg *CoordinatorConfig) error {
+ 	}
+ 
+ 	// A1: the timing cross-rules.
+-	if cfg.AssignmentInterval > cfg.AssignmentAcceptWindow {
++	if cfg.AssignmentInterval >= cfg.AssignmentAcceptWindow {
+ 		return fmt.Errorf("MINICLOUD_ASSIGNMENT_INTERVAL (%v) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (%v)", cfg.AssignmentInterval, cfg.AssignmentAcceptWindow)
+ 	}
+ 	if cfg.AssignmentFallbackAge <= 2*cfg.AssignmentInterval+cfg.AssignmentAcceptWindow {

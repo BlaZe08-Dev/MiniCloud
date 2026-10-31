@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index b089e16..0144596 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -129,7 +129,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
+ 	if now.Sub(last) <= 2*interval {
+ 		return false
+ 	}
+-	if s.refreshInFlight {
++	if s.refreshInFlight || s.refreshLastFailed {
+ 		return false
+ 	}
+ 	if !s.refreshLastAttemptAt.IsZero() && now.Sub(s.refreshLastAttemptAt) < interval {

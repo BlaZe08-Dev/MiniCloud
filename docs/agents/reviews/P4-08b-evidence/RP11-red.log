@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_ClaimRespectsCapacity$ ./internal/storage/
+=== RUN   TestAudit_Probe_ClaimRespectsCapacity
+    audit_probe_storage_test.go:132: one-slot worker with a RUNNING attempt claimed again: claim=&{0xc0001027e0 0xc0000acdd0 round_robin_fallback lapses} err=<nil>
+--- FAIL: TestAudit_Probe_ClaimRespectsCapacity (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL
+EXIT=1

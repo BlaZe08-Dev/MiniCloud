@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..17f2b50 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -269,7 +269,7 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string,
+ 		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
+ 			continue // a live reservation belongs to its worker
+ 		}
+-		if j.AssignmentLapses >= opts.MaxLapses {
++		if j.AssignmentLapses > opts.MaxLapses {
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+ 		}
+ 		if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {

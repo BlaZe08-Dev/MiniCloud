@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_EventCandidatesInIDOrder$ ./internal/storage/
+=== RUN   TestAudit_Probe_EventCandidatesInIDOrder
+    audit_probe_storage_test.go:163: round 0: candidates [w_l w_i w_g w_d w_e w_c w_b w_a w_k w_j], want [w_a w_b w_c w_d w_e w_f w_g w_h w_i w_j]
+--- FAIL: TestAudit_Probe_EventCandidatesInIDOrder (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL
+EXIT=1

@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..bdfe0f9 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -243,7 +243,7 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string,
+ 	}
+ 	now := r.clock.Now()
+ 	r.touchPollLocked(worker, now)
+-	if r.computeAvailableSlotsLocked(workerID, worker.TotalSlots) <= 0 {
++	if false && r.computeAvailableSlotsLocked(workerID, worker.TotalSlots) <= 0 {
+ 		return nil, domain.ErrWorkerNoCapacity
+ 	}
+ 

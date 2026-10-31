@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..276628a 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -22,7 +22,7 @@ const (
+ // touchPollLocked records a poll of a HEALTHY worker, throttled (ADR-0017 Section 2.2). The caller
+ // holds r.mu for writing.
+ func (r *InMemoryRepository) touchPollLocked(w *domain.Worker, now time.Time) {
+-	if w.LastPollAt == nil || w.LastPollAt.Before(now.Add(-assignmentPollWriteThrottle)) {
++	if true || w.LastPollAt.Before(now.Add(-assignmentPollWriteThrottle)) {
+ 		at := now
+ 		w.LastPollAt = &at
+ 	}

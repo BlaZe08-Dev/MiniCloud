@@ -1,0 +1,4 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	89.049s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	20.742s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	80.149s
+EXIT=0

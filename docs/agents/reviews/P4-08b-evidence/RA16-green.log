@@ -1,0 +1,331 @@
+# trimmed by the auditor: original 21801 lines; kept lines matching ^(\$ |=== RUN|\s*--- (FAIL|PASS|SKIP)|FAIL|PASS|ok|panic|EXIT=) or containing '_test.go:'
+$ go test -count=1 -v -run . ./internal/coordinator/ ./internal/api/
+=== RUN   TestCoordinator_AssignmentSweep_RevokesWithinOneInterval
+--- PASS: TestCoordinator_AssignmentSweep_RevokesWithinOneInterval (0.00s)
+=== RUN   TestPoll_RefreshSingleFlight
+--- PASS: TestPoll_RefreshSingleFlight (0.00s)
+=== RUN   TestPoll_AgeArm_AfterRestart_RefreshesFirst
+--- PASS: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.00s)
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+--- PASS: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+--- PASS: TestPoll_RateLimitedPoll_NoAgeClaim (0.00s)
+=== RUN   TestPoll_FirstPollAfterOutage_AttemptsAndCloses
+--- PASS: TestPoll_FirstPollAfterOutage_AttemptsAndCloses (0.00s)
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+--- PASS: TestFault_AssignmentPassStalled_JobRunsWithinBound (0.00s)
+=== RUN   TestConformance_PollResponse_PolicyField
+=== RUN   TestConformance_PollResponse_PolicyField/fifo_pull
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_own_reservation
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_fallback_age
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_fallback_lapses
+--- PASS: TestConformance_PollResponse_PolicyField (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/fifo_pull (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_own_reservation (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_fallback_age (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_fallback_lapses (0.00s)
+=== RUN   TestProperty_AssignmentSubState_ModelConformance
+--- PASS: TestProperty_AssignmentSubState_ModelConformance (0.54s)
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository
+--- PASS: TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository (0.00s)
+=== RUN   TestCoordinator_RetryBackoffWithJitter
+=== RUN   TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt
+=== RUN   TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range
+--- PASS: TestCoordinator_RetryBackoffWithJitter (0.01s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt (0.00s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range (0.00s)
+=== RUN   TestCoordinator_CommitResult_FailureClassification
+=== RUN   TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry
+=== RUN   TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries
+=== RUN   TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts
+=== RUN   TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing
+--- PASS: TestCoordinator_CommitResult_FailureClassification (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing (0.00s)
+=== RUN   TestCoordinator_CommitResult_CancelWinsOverRetry
+--- PASS: TestCoordinator_CommitResult_CancelWinsOverRetry (0.00s)
+=== RUN   TestCoordinator_DefaultMaxAttempts_Configurable
+--- PASS: TestCoordinator_DefaultMaxAttempts_Configurable (0.00s)
+=== RUN   TestCoordinator_TransientFailureThenSuccess
+--- PASS: TestCoordinator_TransientFailureThenSuccess (0.00s)
+=== RUN   TestService_WorkerLiveness_ReaperAndRecovery
+--- PASS: TestService_WorkerLiveness_ReaperAndRecovery (0.00s)
+=== RUN   TestService_UnhealthyWorker_CommitAccepted
+--- PASS: TestService_UnhealthyWorker_CommitAccepted (0.00s)
+=== RUN   TestService_WorkerMismatch_Rejected
+--- PASS: TestService_WorkerMismatch_Rejected (0.00s)
+=== RUN   TestService_ReaperHeartbeatRace
+--- PASS: TestService_ReaperHeartbeatRace (0.10s)
+=== RUN   TestService_Claim_JobNoLongerQueued_Dropped
+--- PASS: TestService_Claim_JobNoLongerQueued_Dropped (0.00s)
+=== RUN   TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased
+--- PASS: TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased (0.00s)
+=== RUN   TestService_Claim_Redelivery_NoDuplicateAttempt
+--- PASS: TestService_Claim_Redelivery_NoDuplicateAttempt (0.00s)
+=== RUN   TestService_CommitResult_AckOnlyOnAccepted
+--- PASS: TestService_CommitResult_AckOnlyOnAccepted (0.00s)
+=== RUN   TestService_ClaimOutcome_TransientFailure_QueueReleased
+--- PASS: TestService_ClaimOutcome_TransientFailure_QueueReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased
+--- PASS: TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released
+--- PASS: TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released (0.00s)
+=== RUN   TestService_PollWork_DispatchesDueRetryingJob
+--- PASS: TestService_PollWork_DispatchesDueRetryingJob (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock
+--- PASS: TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness
+--- PASS: TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read
+--- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick
+--- PASS: TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace
+--- PASS: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt
+--- PASS: TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow
+--- PASS: TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery
+--- PASS: TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn
+--- PASS: TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel
+--- PASS: TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt
+--- PASS: TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping
+--- PASS: TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery
+--- PASS: TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.666s
+=== RUN   TestAPI_HealthProbes
+--- PASS: TestAPI_HealthProbes (0.00s)
+=== RUN   TestAPI_SubmitJob_Validation
+--- PASS: TestAPI_SubmitJob_Validation (0.00s)
+=== RUN   TestAPI_StaleAttemptRejection
+--- PASS: TestAPI_StaleAttemptRejection (0.00s)
+=== RUN   TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500
+--- PASS: TestAPI_UnmappedError_SimulatedDriverError_SanitizedInternalError500 (0.00s)
+=== RUN   TestAPI_OutageMapping_503RetryAfterOpaqueBody
+=== RUN   TestAPI_OutageMapping_503RetryAfterOpaqueBody/connection_refused_with_internal_host_and_credentials
+=== RUN   TestAPI_OutageMapping_503RetryAfterOpaqueBody/context_deadline_exceeded_with_query_context
+=== RUN   TestAPI_OutageMapping_503RetryAfterOpaqueBody/broken_pipe_socket_error_with_hostname_and_password_pattern
+=== RUN   TestAPI_OutageMapping_503RetryAfterOpaqueBody/connection_reset_by_peer_with_auth_token
+--- PASS: TestAPI_OutageMapping_503RetryAfterOpaqueBody (0.00s)
+    --- PASS: TestAPI_OutageMapping_503RetryAfterOpaqueBody/connection_refused_with_internal_host_and_credentials (0.00s)
+    --- PASS: TestAPI_OutageMapping_503RetryAfterOpaqueBody/context_deadline_exceeded_with_query_context (0.00s)
+    --- PASS: TestAPI_OutageMapping_503RetryAfterOpaqueBody/broken_pipe_socket_error_with_hostname_and_password_pattern (0.00s)
+    --- PASS: TestAPI_OutageMapping_503RetryAfterOpaqueBody/connection_reset_by_peer_with_auth_token (0.00s)
+=== RUN   TestAPI_SubmitJob_MalformedJSON_FixedMessage
+--- PASS: TestAPI_SubmitJob_MalformedJSON_FixedMessage (0.00s)
+=== RUN   TestAPI_IdentifierValidation_NegativeCases
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/100_kib_id
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/control_null_byte
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/control_escape
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/newline_lf
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/newline_crlf
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/path_traversal_dotdot
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/path_traversal_slash
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/sql_injection_semicolon
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/special_space
+=== RUN   TestAPI_IdentifierValidation_NegativeCases/special_symbols
+--- PASS: TestAPI_IdentifierValidation_NegativeCases (0.05s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/100_kib_id (0.03s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/control_null_byte (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/control_escape (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/newline_lf (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/newline_crlf (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/path_traversal_dotdot (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/path_traversal_slash (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/sql_injection_semicolon (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/special_space (0.00s)
+    --- PASS: TestAPI_IdentifierValidation_NegativeCases/special_symbols (0.00s)
+=== RUN   TestAPI_Slowloris_ReadHeaderTimeout
+--- PASS: TestAPI_Slowloris_ReadHeaderTimeout (2.50s)
+=== RUN   TestAPI_SubmitJob_BoundaryValues
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_zero
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_negative_one
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_one_valid_lower_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_valid_upper_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_one_exceeds_upper_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_max_int
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_absent_defaults_to_3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_null_defaults_to_3
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_wrong_json_type_string
+=== RUN   TestAPI_SubmitJob_BoundaryValues/max_attempts_float
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_zero
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_negative_one
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_one_valid_lower_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_valid_upper_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_one_exceeds_upper_bound
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_max_int
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_null_defaults_to_60
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_wrong_json_type_string
+=== RUN   TestAPI_SubmitJob_BoundaryValues/timeout_seconds_float
+--- PASS: TestAPI_SubmitJob_BoundaryValues (0.01s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_zero (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_negative_one (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_one_valid_lower_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_valid_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_twenty_one_exceeds_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_max_int (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_absent_defaults_to_3 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_null_defaults_to_3 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_wrong_json_type_string (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/max_attempts_float (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_zero (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_negative_one (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_one_valid_lower_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_valid_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_eighty_six_four_hundred_one_exceeds_upper_bound (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_max_int (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_null_defaults_to_60 (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_wrong_json_type_string (0.00s)
+    --- PASS: TestAPI_SubmitJob_BoundaryValues/timeout_seconds_float (0.00s)
+=== RUN   TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500
+=== RUN   TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500/chk_jobs_max_attempts_check_violation
+=== RUN   TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500/chk_jobs_timeout_check_violation
+--- PASS: TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500 (0.00s)
+    --- PASS: TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500/chk_jobs_max_attempts_check_violation (0.00s)
+    --- PASS: TestAPI_PostgresCheckConstraint_MapsToClientErrorNever500/chk_jobs_timeout_check_violation (0.00s)
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_zero
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_negative
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_one_valid_lower
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_ten_valid
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_1024_valid_upper
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_1025_exceeds_upper
+=== RUN   TestAPI_RegisterWorker_SlotsUpperLimit/slots_ten_thousand_excessive
+--- PASS: TestAPI_RegisterWorker_SlotsUpperLimit (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_zero (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_negative (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_one_valid_lower (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_ten_valid (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_1024_valid_upper (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_1025_exceeds_upper (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SlotsUpperLimit/slots_ten_thousand_excessive (0.00s)
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit/version_empty_allowed
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit/version_standard
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit/version_64_chars_valid_upper
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit/version_65_chars_exceeds
+=== RUN   TestAPI_RegisterWorker_VersionLengthLimit/version_100kib_oversized
+--- PASS: TestAPI_RegisterWorker_VersionLengthLimit (0.01s)
+    --- PASS: TestAPI_RegisterWorker_VersionLengthLimit/version_empty_allowed (0.00s)
+    --- PASS: TestAPI_RegisterWorker_VersionLengthLimit/version_standard (0.00s)
+    --- PASS: TestAPI_RegisterWorker_VersionLengthLimit/version_64_chars_valid_upper (0.00s)
+    --- PASS: TestAPI_RegisterWorker_VersionLengthLimit/version_65_chars_exceeds (0.00s)
+    --- PASS: TestAPI_RegisterWorker_VersionLengthLimit/version_100kib_oversized (0.00s)
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/empty_tasks_allowed
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/valid_tasks_standard
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/valid_16_tasks_upper_bound
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/excess_17_unique_tasks_rejected
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/17_tasks_with_duplicates_succeeds_after_dedup
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/duplicates_removed_standard
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/unknown_well_formed_task_accepted_for_rolling_upgrade
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_64_chars_accepted
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_65_chars_rejected
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_uppercase_rejected
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_hyphen_rejected
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_empty_rejected
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_invalid_charset_injection
+=== RUN   TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_with_spaces_rejected
+--- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist (0.01s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/empty_tasks_allowed (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/valid_tasks_standard (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/valid_16_tasks_upper_bound (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/excess_17_unique_tasks_rejected (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/17_tasks_with_duplicates_succeeds_after_dedup (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/duplicates_removed_standard (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/unknown_well_formed_task_accepted_for_rolling_upgrade (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_64_chars_accepted (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_65_chars_rejected (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_uppercase_rejected (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_hyphen_rejected (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_empty_rejected (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_invalid_charset_injection (0.00s)
+    --- PASS: TestAPI_RegisterWorker_SupportedTasksAllowlist/task_name_with_spaces_rejected (0.00s)
+=== RUN   TestAPI_CancelJob_SuccessReturns200
+--- PASS: TestAPI_CancelJob_SuccessReturns200 (0.00s)
+=== RUN   TestAPI_CommitResult_AfterLeaseSweep_Returns409LeaseExpired
+--- PASS: TestAPI_CommitResult_AfterLeaseSweep_Returns409LeaseExpired (0.00s)
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/wrong_worker
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/wrong_token
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/unknown_attempt_id_is_stale,_as_for_commit
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/unknown_job
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/terminal_job
+=== RUN   TestAPI_RenewLease_SuccessAndStaleRejection/swept_attempt
+--- PASS: TestAPI_RenewLease_SuccessAndStaleRejection (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/wrong_worker (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/wrong_token (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/unknown_attempt_id_is_stale,_as_for_commit (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/unknown_job (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/terminal_job (0.00s)
+    --- PASS: TestAPI_RenewLease_SuccessAndStaleRejection/swept_attempt (0.00s)
+=== RUN   TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery
+--- PASS: TestAPI_RenewLease_AcceptUntilSweptAndCancelDelivery (0.00s)
+=== RUN   TestAPI_RenewLease_RequestValidation
+=== RUN   TestAPI_RenewLease_RequestValidation/malformed_json
+=== RUN   TestAPI_RenewLease_RequestValidation/empty_body
+=== RUN   TestAPI_RenewLease_RequestValidation/missing_worker_id
+=== RUN   TestAPI_RenewLease_RequestValidation/worker_id_with_illegal_characters
+=== RUN   TestAPI_RenewLease_RequestValidation/worker_id_too_long
+=== RUN   TestAPI_RenewLease_RequestValidation/job_id_with_illegal_characters
+=== RUN   TestAPI_RenewLease_RequestValidation/attempt_id_with_illegal_characters
+=== RUN   TestAPI_RenewLease_RequestValidation/attempt_id_too_long
+=== RUN   TestAPI_RenewLease_RequestValidation/body_over_the_1_MiB_server_limit
+=== RUN   TestAPI_RenewLease_RequestValidation/only_POST_is_routed
+--- PASS: TestAPI_RenewLease_RequestValidation (0.52s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/malformed_json (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/empty_body (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/missing_worker_id (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/worker_id_with_illegal_characters (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/worker_id_too_long (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/job_id_with_illegal_characters (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/attempt_id_with_illegal_characters (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/attempt_id_too_long (0.00s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/body_over_the_1_MiB_server_limit (0.02s)
+    --- PASS: TestAPI_RenewLease_RequestValidation/only_POST_is_routed (0.00s)
+=== RUN   TestAPI_RenewLease_OutageMapsTo503
+--- PASS: TestAPI_RenewLease_OutageMapsTo503 (0.00s)
+=== RUN   TestAPI_PollAssignment_CarriesLeaseMetadata
+--- PASS: TestAPI_PollAssignment_CarriesLeaseMetadata (0.00s)
+=== RUN   TestAPI_Heartbeat_ResponseIsAckOnly
+--- PASS: TestAPI_Heartbeat_ResponseIsAckOnly (0.00s)
+=== RUN   TestAPI_ReportResult_ErrorClassification
+--- PASS: TestAPI_ReportResult_ErrorClassification (0.01s)
+=== RUN   TestAPI_SubmitJob_DefaultMaxAttempts
+--- PASS: TestAPI_SubmitJob_DefaultMaxAttempts (0.00s)
+=== RUN   TestAPI_CancelJob_RunningRaces
+=== RUN   TestAPI_CancelJob_RunningRaces/failure_after_cancel_request_yields_CANCELLED
+=== RUN   TestAPI_CancelJob_RunningRaces/success_after_cancel_request_still_succeeds
+=== RUN   TestAPI_CancelJob_RunningRaces/cancel_after_a_failed_job_is_409
+--- PASS: TestAPI_CancelJob_RunningRaces (0.01s)
+    --- PASS: TestAPI_CancelJob_RunningRaces/failure_after_cancel_request_yields_CANCELLED (0.00s)
+    --- PASS: TestAPI_CancelJob_RunningRaces/success_after_cancel_request_still_succeeds (0.00s)
+    --- PASS: TestAPI_CancelJob_RunningRaces/cancel_after_a_failed_job_is_409 (0.00s)
+=== RUN   TestAPI_SweeperResolvedJob_PresentsFailure
+=== RUN   TestAPI_SweeperResolvedJob_PresentsFailure/lost_attempts_exhaust_max_attempts
+=== RUN   TestAPI_SweeperResolvedJob_PresentsFailure/cancel_requested_job_resolved_by_the_sweeper
+--- PASS: TestAPI_SweeperResolvedJob_PresentsFailure (0.00s)
+    --- PASS: TestAPI_SweeperResolvedJob_PresentsFailure/lost_attempts_exhaust_max_attempts (0.00s)
+    --- PASS: TestAPI_SweeperResolvedJob_PresentsFailure/cancel_requested_job_resolved_by_the_sweeper (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	3.151s
+EXIT=0

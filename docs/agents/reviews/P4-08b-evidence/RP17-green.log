@@ -1,0 +1,6 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_SetDispatchPolicyRejectsFallbackName$ ./internal/coordinator/
+=== RUN   TestAudit_Probe_SetDispatchPolicyRejectsFallbackName
+--- PASS: TestAudit_Probe_SetDispatchPolicyRejectsFallbackName (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s
+EXIT=0

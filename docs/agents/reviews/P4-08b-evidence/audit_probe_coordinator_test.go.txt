@@ -1,0 +1,51 @@
+// Auditor probes for P4-08b, package coordinator_test. Not committed into internal/. Run with
+// docs/agents/reviews/P4-08b-evidence/run-probes.sh.
+package coordinator_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+)
+
+// Hazard probe (expected to FAIL on 46ca30a): round_robin selected without SetAssignmentSettings
+// runs with the zero AssignmentSettings. MaxLapses 0 makes every job lapse-fallback claimable and
+// BatchLimit 0 makes the pass reserve nothing, so round_robin silently behaves as first-poller-wins
+// with fallback_reason "lapses". The ADR-correct outcome is an own-reservation claim (round_robin).
+func TestAudit_Probe_RoundRobinWithoutSettings(t *testing.T) {
+	clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	svc.SetClock(clk)
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
+		t.Fatalf("SetDispatchPolicy: %v", err)
+	}
+	rrHeartbeat(t, svc, "w_1", "echo")
+	rrSubmit(t, svc, "echo")
+	got, err := svc.PollWork(context.Background(), "w_1")
+	if err != nil {
+		t.Fatalf("PollWork: %v", err)
+	}
+	if got.Policy != domain.DispatchPolicyRoundRobin {
+		t.Fatalf("round_robin without settings claimed under policy=%q reason=%q", got.Policy, got.FallbackReason)
+	}
+}
+
+// SetDispatchPolicy guard: an output-only policy name is not a setting (ADR-0017 Section 5.2,
+// domain.IsValidDispatchPolicy). Kills A17.
+func TestAudit_Probe_SetDispatchPolicyRejectsFallbackName(t *testing.T) {
+	repo := storage.NewInMemoryRepository()
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobinFallback); err == nil {
+		t.Fatalf("SetDispatchPolicy accepted %q", domain.DispatchPolicyRoundRobinFallback)
+	}
+	if err := svc.SetDispatchPolicy(""); err == nil {
+		t.Fatalf("SetDispatchPolicy accepted the empty name")
+	}
+}

@@ -1,0 +1,6 @@
+gofmt: []
+vet: ok
+build: ok
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.994s
+test-docs EXIT=0
