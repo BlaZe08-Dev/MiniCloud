@@ -25,6 +25,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | active |
 | P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | merged in PR #34 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
+| (unassigned) | ADR-0017 slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing | to be assigned | to be assigned | none | planned, not specified |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | pushed for audit |
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
@@ -40,6 +41,10 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-09`. Status: active.
 - Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
 - Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
+
+### ADR-0017 slice 5c (placeholder; task ID, builder, auditor, owned files and full spec to be written by the orchestrator)
+- Goal: ADR-0017 Section 7 slice 5c.
+- Required (P4-08c review F-R3): the coordinator binary (`cmd/coordinator/main.go`) must apply `MINICLOUD_DISPATCH_POLICY` and the assignment settings at startup through `SetAssignmentSettings` and `SetDispatchPolicy`, validated: startup fails when either returns an error. It logs one line with the effective policy. Until then the binary validates these variables but never applies them, so it always runs `fifo_pull`.
 
 ### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
 - Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).
