@@ -63,7 +63,9 @@ func TestMigrator_Migration000004_FreshSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadMigrations failed: %v", err)
 	}
-	if len(all) != 4 || all[3].Name != migration000004Name {
+	// 000005 and later follow 000004; the list itself is pinned by
+	// TestMigrator_Migration000005_FreshSchema.
+	if len(all) < 4 || all[3].Name != migration000004Name {
 		t.Fatalf("expected the fourth embedded migration to be %s, got %d migrations (last %q)", migration000004Name, len(all), all[len(all)-1].Name)
 	}
 	if _, err := m.Migrate(ctx, conn); err != nil {
@@ -280,7 +282,8 @@ func TestMigrator_Migration000004_UpgradeFrom000003_WithExistingRows(t *testing.
 	const jobStates, attStates = `SELECT id, state FROM jobs`, `SELECT id, state FROM attempts`
 	before, jobStatesBefore, attStatesBefore := count(), statesOf(jobStates), statesOf(attStates)
 
-	m4 := postgres.NewMigrator(postgres.WithLockID(0x12345678))
+	// Apply exactly 000004 on top of 000003 (later migrations are covered by their own tests).
+	m4, _ := migrationsUpTo(t, 4)
 	if all[3].Name != migration000004Name {
 		t.Fatalf("expected %s as the fourth migration, got %s", migration000004Name, all[3].Name)
 	}
@@ -368,7 +371,7 @@ func TestMigrator_Migration000004_PreExistingDuplicateDiagnostic_FailsLoudly(t *
 		mustExec(t, conn, `INSERT INTO job_events (job_id, event_type, details) VALUES ('j_dup', 'DIAGNOSTIC_LATE_RESULT', '{"attempt_id":"att_x"}')`)
 	}
 
-	m4 := postgres.NewMigrator(postgres.WithLockID(0x12345678))
+	m4, _ := migrationsUpTo(t, 4)
 	_, err := m4.Migrate(ctx, conn)
 	if err == nil || !strings.Contains(err.Error(), "idx_job_events_unique_diagnostic_late_result") {
 		t.Fatalf("expected the unique index build to fail on duplicates, got %v", err)
