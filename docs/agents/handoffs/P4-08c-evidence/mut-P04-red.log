@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_Assign_SkipsWorkerLockedByClaim$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_Assign_SkipsWorkerLockedByClaim
+    assignment_test.go:430: pass with w_1 locked: err=ERROR: canceling statement due to lock timeout (SQLSTATE 55P03) (pg code "55P03")
+--- FAIL: TestPostgresRepository_Assign_SkipsWorkerLockedByClaim (2.21s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.233s
+FAIL

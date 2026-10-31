@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestFault_AssignmentPassStalled_JobRunsWithinBound$ ./internal/storage/postgres/
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+    assignment_coordinator_test.go:260: job never claimed; last error no queued jobs available
+--- FAIL: TestFault_AssignmentPassStalled_JobRunsWithinBound (1.10s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.118s
+FAIL

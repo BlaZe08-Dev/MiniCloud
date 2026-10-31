@@ -1,0 +1,4 @@
+=== RUN   TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses
+--- PASS: TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses (0.61s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.644s

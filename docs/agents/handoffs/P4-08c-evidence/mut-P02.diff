@@ -1,0 +1,14 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index 9d7e2d1..107e9ad 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -1449,8 +1449,7 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job,
+ 	// statement (ADR-0017 D10, Section 1.6). A RUNNING job has no reservation to clear.
+ 	updateJobQuery := `
+ 		UPDATE jobs
+-		SET state = $1, updated_at = CURRENT_TIMESTAMP, not_before = NULL,
+-		    assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL
++		SET state = $1, updated_at = CURRENT_TIMESTAMP, not_before = NULL
+ 		WHERE id = $2
+ 		RETURNING updated_at;
+ 	`

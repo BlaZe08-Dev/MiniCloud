@@ -1,0 +1,6 @@
+=== RUN   TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses
+    assignment_test.go:433: pass 2 left the stored cursor at "w_a", want "w_b"
+--- FAIL: TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses (0.67s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.699s
+FAIL

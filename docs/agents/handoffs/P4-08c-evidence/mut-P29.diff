@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index fc77409..90f10f0 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -401,7 +401,7 @@ func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p sto
+ 	if err := rows.Err(); err != nil {
+ 		return "", nil, false, mapPgError(err)
+ 	}
+-	sort.Strings(eligible)
++	_ = sort.Strings
+ 
+ 	remaining := append([]string(nil), eligible...)
+ 	for len(remaining) > 0 {

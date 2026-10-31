@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignmentLapse_FallbackAfterLimit$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignmentLapse_FallbackAfterLimit
+    assignment.go:310: w_2 claim after 3 lapses: no queued jobs available
+--- FAIL: TestConformance_AssignmentLapse_FallbackAfterLimit (0.80s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.820s
+FAIL

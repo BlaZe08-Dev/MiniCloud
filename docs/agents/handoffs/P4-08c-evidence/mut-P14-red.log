@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPoll_FirstPollAfterOutage_AttemptsAndCloses$ ./internal/storage/postgres/
+=== RUN   TestPoll_FirstPollAfterOutage_AttemptsAndCloses
+    assignment_coordinator_test.go:224: first poll after the outage: no queued jobs available
+--- FAIL: TestPoll_FirstPollAfterOutage_AttemptsAndCloses (0.60s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.633s
+FAIL

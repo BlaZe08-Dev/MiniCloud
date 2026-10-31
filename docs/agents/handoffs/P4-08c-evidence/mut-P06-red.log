@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations
+    assignment_test.go:663: concurrent operation failed: fifo w_d: ERROR: deadlock detected (SQLSTATE 40P01) (pg code "40P01")
+    assignment_test.go:663: concurrent operation failed: fifo w_d: ERROR: deadlock detected (SQLSTATE 40P01) (pg code "40P01")
+    assignment_test.go:663: concurrent operation failed: fifo w_d: ERROR: deadlock detected (SQLSTATE 40P01) (pg code "40P01")
+--- FAIL: TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations (5.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	5.441s
+FAIL

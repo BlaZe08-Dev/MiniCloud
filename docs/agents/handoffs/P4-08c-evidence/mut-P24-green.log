@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_FifoPull_IgnoresAssignmentColumns$ ./internal/storage/postgres/
+=== RUN   TestConformance_FifoPull_IgnoresAssignmentColumns
+--- PASS: TestConformance_FifoPull_IgnoresAssignmentColumns (0.69s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.711s

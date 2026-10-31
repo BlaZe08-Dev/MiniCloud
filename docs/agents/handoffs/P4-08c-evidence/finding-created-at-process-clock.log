@@ -1,0 +1,11 @@
+$ MINICLOUD_TEST_DATABASE_URL=<.env> go test -count=1 -v -run 'Assign|Migration000005|Migration000004|ClaimAssigned|CancelAssigned|FifoPull|TestPoll_|TestFault_|Claim' ./internal/storage/postgres/
+# filtered: only the two failing tests (process clock at 2026-10-31 12:00 UTC, database clock real time)
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+2026/10/31 17:19:27 WARN assignment pass refresh failed error="injected assignment pass failure"
+    assignment_coordinator_test.go:192: first poll: err=no queued jobs available assignment=<nil>, want an age claim
+--- FAIL: TestPoll_RateLimitedPoll_NoAgeClaim (0.33s)
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+2026/10/31 17:19:28 WARN assignment pass refresh failed error="injected assignment pass failure"
+# (43 further identical WARN lines removed)
+    assignment_coordinator_test.go:256: job never claimed; last error no queued jobs available
+--- FAIL: TestFault_AssignmentPassStalled_JobRunsWithinBound (1.07s)

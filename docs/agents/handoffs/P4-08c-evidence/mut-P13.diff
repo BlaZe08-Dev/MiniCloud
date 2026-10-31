@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index 0e98268..8dc89e1 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -133,7 +133,7 @@ func (s *Service) pollRoundRobinLocked(ctx context.Context, workerID string) (*W
+ 	claim, err := ar.ClaimForPoll(ctx, workerID, storage.ClaimOptions{
+ 		MaxLapses:   s.assignment.MaxLapses,
+ 		FallbackAge: s.assignment.FallbackAge,
+-		AgeArmOpen:  ageArm,
++		AgeArmOpen:  ageArm || s.refreshLastFailed,
+ 	})
+ 	if err != nil {
+ 		if errors.Is(err, domain.ErrWorkerNoCapacity) {

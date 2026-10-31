@@ -1,0 +1,11 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_ClaimAssigned_OnlyAssignedWithinWindow$ ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/wrong_worker_gets_no_live_reservation
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/expired_reservation_with_arms_unmet_gives_204_to_its_own_worker
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/own_reservation_beats_an_older_job_on_the_fallback_age_arm
+--- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow (1.79s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/wrong_worker_gets_no_live_reservation (0.57s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/expired_reservation_with_arms_unmet_gives_204_to_its_own_worker (0.58s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/own_reservation_beats_an_older_job_on_the_fallback_age_arm (0.64s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.817s

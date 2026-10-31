@@ -1,0 +1,13 @@
+diff --git a/internal/domain/assignment.go b/internal/domain/assignment.go
+index 42d229f..2b48a03 100644
+--- a/internal/domain/assignment.go
++++ b/internal/domain/assignment.go
+@@ -20,7 +20,7 @@ const (
+ // (ADR-0017 Section 2.4). The worker loop is synchronous (ADR-0017 C12), so a worker with a
+ // PENDING or RUNNING attempt has no free slot for a reservation. The pass uses this constant
+ // rather than worker_capacity, and it is removed when worker concurrency lands (Q5).
+-const EffectiveWorkerSlots = 1
++const EffectiveWorkerSlots = 2
+ 
+ // IsValidDispatchPolicy reports whether name selects a dispatch policy that may be configured.
+ // The fallback policy name is an output of a claim, not a setting, so it is not valid here.

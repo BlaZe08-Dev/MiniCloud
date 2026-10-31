@@ -1,0 +1,22 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestMigrator_Migration000005_FreshSchema$ ./internal/storage/postgres/
+=== RUN   TestMigrator_Migration000005_FreshSchema
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_allows_a_full_reservation_on_queued_and_retrying
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_rejects_a_reservation_on_other_states
+    migration_000005_test.go:114: reservation on RUNNING: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on CANCEL_REQUESTED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on CANCELLED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on SUCCEEDED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on FAILED: want check_violation 23514, got <nil>
+=== RUN   TestMigrator_Migration000005_FreshSchema/shape_check_rejects_partial_and_inverted_reservations
+=== RUN   TestMigrator_Migration000005_FreshSchema/a_transition_to_running_that_keeps_the_reservation_is_rejected
+    migration_000005_test.go:135: RUNNING with a reservation kept: want check_violation 23514, got <nil>
+=== RUN   TestMigrator_Migration000005_FreshSchema/lapses_and_fallback_reason_are_bounded
+--- FAIL: TestMigrator_Migration000005_FreshSchema (0.41s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/shape_check_allows_a_full_reservation_on_queued_and_retrying (0.01s)
+    --- FAIL: TestMigrator_Migration000005_FreshSchema/shape_check_rejects_a_reservation_on_other_states (0.02s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/shape_check_rejects_partial_and_inverted_reservations (0.00s)
+    --- FAIL: TestMigrator_Migration000005_FreshSchema/a_transition_to_running_that_keeps_the_reservation_is_rejected (0.00s)
+    --- PASS: TestMigrator_Migration000005_FreshSchema/lapses_and_fallback_reason_are_bounded (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.437s
+FAIL

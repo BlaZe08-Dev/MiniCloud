@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner
+    assignment.go:532: poll by w_o: unexpected error invalid job state transition from RUNNING to RUNNING
+    assignment.go:532: poll by w_b: unexpected error invalid job state transition from RUNNING to RUNNING
+    assignment.go:539: wins=1 losses=13, want 1 and 15
+--- FAIL: TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner (1.16s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.185s
+FAIL

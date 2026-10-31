@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignEvent_CandidatesInIDOrder$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignEvent_CandidatesInIDOrder
+--- PASS: TestConformance_AssignEvent_CandidatesInIDOrder (11.47s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	12.491s

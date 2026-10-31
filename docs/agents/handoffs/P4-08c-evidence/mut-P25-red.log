@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignEvent_CapsCandidates$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignEvent_CapsCandidates
+    assignment.go:491: candidates = [w_a w_b w_c w_d w_e w_f w_g w_h w_i w_j w_k w_l], want 10 IDs
+--- FAIL: TestConformance_AssignEvent_CapsCandidates (1.07s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.090s
+FAIL

@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignPass_ExcludesJobAtLapseLimit$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignPass_ExcludesJobAtLapseLimit
+    assignment.go:586: job at the lapse limit was reserved to w_1
+--- FAIL: TestConformance_AssignPass_ExcludesJobAtLapseLimit (0.47s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.488s
+FAIL
