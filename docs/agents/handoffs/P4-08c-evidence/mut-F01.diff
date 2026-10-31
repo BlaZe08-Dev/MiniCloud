@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..7945ba4 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -164,7 +164,7 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
+ 	// (clock_timestamp(), not now(), which is the transaction start): last_completed_at is the
+ 	// completion time of the pass (note 8, fix round 1).
+ 	if _, err := tx.Exec(ctx, `
+-		INSERT INTO assignment_pass_state (singleton, last_completed_at) VALUES (TRUE, clock_timestamp())
++		INSERT INTO assignment_pass_state (singleton, last_completed_at) VALUES (TRUE, now())
+ 		ON CONFLICT (singleton) DO UPDATE SET last_completed_at = EXCLUDED.last_completed_at;`); err != nil {
+ 		return storage.AssignResult{}, mapPgError(err)
+ 	}

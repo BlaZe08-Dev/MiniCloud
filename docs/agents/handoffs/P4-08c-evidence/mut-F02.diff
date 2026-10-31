@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index 055c122..1ea96da 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -86,7 +86,7 @@ func (s *Service) SetDispatchPolicy(name string) error {
+ 			return fmt.Errorf("%w: dispatch policy round_robin needs an assignment-capable repository", domain.ErrInvalidRequest)
+ 		}
+ 		// The poll-time refresh decides staleness on the repository clock (implementation note 8).
+-		if _, ok := s.repo.(storage.AssignmentPassStaleness); !ok {
++		if _, ok := s.repo.(storage.AssignmentPassStaleness); false && !ok {
+ 			return fmt.Errorf("%w: dispatch policy round_robin needs a repository that reports pass staleness", domain.ErrInvalidRequest)
+ 		}
+ 	}

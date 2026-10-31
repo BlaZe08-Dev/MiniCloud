@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestSetDispatchPolicy_RoundRobinRequiresPassStaleness$ ./internal/coordinator/
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresPassStaleness
+    assignment_test.go:685: round_robin without pass staleness: err=<nil>, want ErrInvalidRequest
+--- FAIL: TestSetDispatchPolicy_RoundRobinRequiresPassStaleness (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.017s
+FAIL

@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime
+--- PASS: TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime (0.79s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.810s

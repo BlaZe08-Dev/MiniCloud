@@ -38,9 +38,9 @@ Harness correction: in the first run, P29 replaced `sort.Strings(eligible)` with
 
 Runs: 29. KILLED: 28. SURVIVED: 1. Other: 0.
 
-## P07 (survived, expected)
+## P07 (survived: equivalent mutant)
 
-P07 is the mutation that ADR-0017 Section 6.3 names for INV-13: "Make the pass lock `workers` before `jobs`". It survives. The pass reads its job candidates with `FOR UPDATE SKIP LOCKED`, so it never waits on a job row, and a wait cycle needs the pass to wait on a job. Taking the worker locks first therefore does not produce `40P01` against a claim. P05 and P06 (the candidate read without `SKIP LOCKED`) do produce `40P01` and are killed by both INV-13 tests. This is recorded as an open question in the handoff; the ADR text is not changed.
+P07 is the mutation that ADR-0017 Section 6.3 names for INV-13: "Make the pass lock `workers` before `jobs`". It survives. The pass reads its job candidates with `FOR UPDATE SKIP LOCKED`, so it never waits on a job row, and a wait cycle needs the pass to wait on a job. Taking the worker locks first therefore does not produce `40P01` against a claim. P05 and P06 (the candidate read without `SKIP LOCKED`) do produce `40P01` and are killed by both INV-13 tests. Fix round 1: the orchestrator accepted this, and ADR-0017 implementation note 11 records P07 as an equivalent mutant and P05 as the INV-13 mutation.
 
 ## Coverage of the invariants that slice 5a left open
 
@@ -51,9 +51,9 @@ The 5a index (`P4-08b-evidence/mutation-index.md`) listed these as deferred to 5
 | INV-1 (PostgreSQL) | `TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner` | P01 | killed |
 | INV-2b | `TestPostgresRepository_CancelAssigned_ClearsAssignment`; `TestMigrator_Migration000005_FreshSchema` (the CHECK) | P02, P16 | killed |
 | INV-5 | `TestPostgresRepository_AssignmentCursor_SurvivesRestart` | P03 | killed |
-| INV-9 | none | none | not built: grace is slice 5c in the task scope (ADR Section 7 lists INV-9 under 5b; open question in the handoff) |
+| INV-9 | none | none | slice 5c (ADR-0017 implementation note 10, fix round 1: the Section 7 listing under 5b is an erratum) |
 | INV-10b | `TestPostgresRepository_Assign_SkipsWorkerLockedByClaim` | P04 | killed |
-| INV-13 | `TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim`, `TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations` | P05, P06 | killed; P07 (the ADR's mutation) survives, see above |
+| INV-13 | `TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim`, `TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations` | P05, P06 | killed; P07 is an equivalent mutant (ADR-0017 implementation note 11, fix round 1) |
 | INV-14 (PostgreSQL) | `TestFault_AssignmentPassStalled_JobRunsWithinBound` (package `internal/storage/postgres`) | P10 | killed |
 | INV-17 | none | none | slice 5c |
 | INV-19 (PostgreSQL) | `TestPoll_AgeArm_AfterRestart_RefreshesFirst`, `TestPoll_AgeArm_AfterOutage_RefreshesFirst` (package `internal/storage/postgres`) | P11, P12, P15 | killed |
@@ -65,3 +65,17 @@ The 5a index (`P4-08b-evidence/mutation-index.md`) listed these as deferred to 5
 The 5a audit mutations A12 (refresh threshold) and A13 (poll-write throttle) stay deferred to slice 5c (ADR implementation note 9); no run here covers them.
 
 PostgreSQL sides of the shared 5a cases with their own PostgreSQL mutation: INV-3 (P17, P18), INV-7b (P19), INV-8 (P20), INV-10 (P21, P22), INV-11 poll freshness (P23), INV-12 (P24), INV-18 (P25), D9 lapse limit (P26), D8 unhealthy revoke (P27), dispatchable_since (P28), candidate ID order (P29). Shared cases with no PostgreSQL mutation in this run: INV-2, INV-7a, the claim capacity check, the lapse arm at L-1, the own arm at exact expiry, and the INV-11 heartbeat and status predicates; their in-memory mutations from 5a stand.
+
+## Fix round 1 (F01 to F03)
+
+Same harness and filters, in a fresh throwaway worktree `~/mc-mut-claude` at commit 1351839, removed afterwards.
+
+| Mutation | Invariant and change | File | Sites | Test (run alone) | Red | Green | Verdict | Diff (+/-) |
+|---|---|---|---|---|---|---|---|---|
+| F01 | Heartbeat written at transaction start (clock_timestamp -> now) | `internal/storage/postgres/assignment.go` | 1 | `TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime` | FAIL | PASS | KILLED | +1/-1 |
+| F02 | SetDispatchPolicy accepts a repository without AssignmentPassStaleness | `internal/coordinator/assignment.go` | 1 | `TestSetDispatchPolicy_RoundRobinRequiresPassStaleness` | FAIL | PASS | KILLED | +1/-1 |
+| F03 | Worker delete cascades to the reserved job (ON DELETE CASCADE) | `internal/storage/postgres/migrations/000005_assignment_round_robin.sql` | 1 | `TestPostgresRepository_DeleteWorkerWithReservation_Rejected` | FAIL | PASS | KILLED | +1/-1 |
+
+Runs: 3. KILLED: 3. SURVIVED: 0. Other: 0.
+
+F01 pins ADR-0017 implementation note 12 (heartbeat = completion time). F02 pins the `SetDispatchPolicy` staleness guard (note 13). F03 pins the rejection of a worker delete that would orphan a reservation. Totals over both rounds: 32 runs, 31 killed, 1 equivalent mutant (P07).

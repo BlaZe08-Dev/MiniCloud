@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/migrations/000005_assignment_round_robin.sql b/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
+index 195d15d..ceca932 100644
+--- a/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
++++ b/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
+@@ -9,7 +9,7 @@
+ 
+ -- Step 1: assignment columns on jobs.
+ ALTER TABLE jobs
+-    ADD COLUMN assigned_worker_id          TEXT REFERENCES workers(id) ON DELETE SET NULL,
++    ADD COLUMN assigned_worker_id          TEXT REFERENCES workers(id) ON DELETE CASCADE,
+     ADD COLUMN assigned_at                 TIMESTAMPTZ,
+     ADD COLUMN assignment_expires_at       TIMESTAMPTZ,
+     ADD COLUMN assignment_lapses           INTEGER NOT NULL DEFAULT 0,
