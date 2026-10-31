@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index fc77409..7d43052 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -280,7 +280,7 @@ func assignReserve(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *
+ 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+ 			return nil, mapPgError(err)
+ 		}
+-		if last != nil {
++		if false && last != nil {
+ 			cursor = *last
+ 		}
+ 

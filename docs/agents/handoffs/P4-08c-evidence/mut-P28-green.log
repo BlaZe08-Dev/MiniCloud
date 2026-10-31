@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_ClaimAgeArm_UsesNotBefore$ ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimAgeArm_UsesNotBefore
+--- PASS: TestConformance_ClaimAgeArm_UsesNotBefore (0.48s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.502s

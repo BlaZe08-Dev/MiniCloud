@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPoll_AgeArm_AfterRestart_RefreshesFirst$ ./internal/storage/postgres/
+=== RUN   TestPoll_AgeArm_AfterRestart_RefreshesFirst
+    assignment_coordinator_test.go:147: PollWork after restart: no queued jobs available
+--- FAIL: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.444s
+FAIL

@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index fc77409..be22ad3 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -442,7 +442,7 @@ func assignLockAndRecheck(ctx context.Context, tx pgx.Tx, workerID, ty string, p
+ 		return 0, mapPgError(err)
+ 	}
+ 	var id string
+-	err = sp.QueryRow(ctx, `SELECT id FROM workers WHERE id = $1 FOR UPDATE;`, workerID).Scan(&id)
++	err = sp.QueryRow(ctx, `SELECT id FROM workers WHERE id = $1;`, workerID).Scan(&id)
+ 	if err != nil {
+ 		_ = sp.Rollback(ctx)
+ 		if isLockNotAvailable(err) {

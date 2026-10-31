@@ -1,0 +1,19 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_CancelAssigned_ClearsAssignment$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_queued
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_retrying
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/round_robin_claim
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/fifo_dispatch_next_job
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/dispatch_job_by_id
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/commit_and_sweep_keep_the_columns_null
+=== RUN   TestPostgresRepository_CancelAssigned_ClearsAssignment/backstop_check_rejects_running_with_a_reservation
+--- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment (3.63s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_queued (0.64s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/cancel_retrying (0.51s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/round_robin_claim (0.54s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/fifo_dispatch_next_job (0.49s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/dispatch_job_by_id (0.47s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/commit_and_sweep_keep_the_columns_null (0.54s)
+    --- PASS: TestPostgresRepository_CancelAssigned_ClearsAssignment/backstop_check_rejects_running_with_a_reservation (0.45s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	4.662s

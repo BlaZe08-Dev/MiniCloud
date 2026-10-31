@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPoll_FirstPollAfterOutage_AttemptsAndCloses$ ./internal/storage/postgres/
+=== RUN   TestPoll_FirstPollAfterOutage_AttemptsAndCloses
+--- PASS: TestPoll_FirstPollAfterOutage_AttemptsAndCloses (0.50s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.533s

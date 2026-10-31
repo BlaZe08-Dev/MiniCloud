@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_AssignPass_UnhealthyRevokeCountsNoLapse$ ./internal/storage/postgres/
+=== RUN   TestConformance_AssignPass_UnhealthyRevokeCountsNoLapse
+    assignment.go:624: control: revoke did not happen: revoked=0 assigned=<nil>
+--- FAIL: TestConformance_AssignPass_UnhealthyRevokeCountsNoLapse (0.45s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.476s
+FAIL

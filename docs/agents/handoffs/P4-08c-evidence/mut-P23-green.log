@@ -1,0 +1,13 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_Assign_SkipsStaleWorkers$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_SkipsStaleWorkers
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_poll
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/unhealthy
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved
+--- PASS: TestConformance_Assign_SkipsStaleWorkers (2.09s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_poll (0.59s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat (0.41s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/unhealthy (0.60s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved (0.49s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	3.111s

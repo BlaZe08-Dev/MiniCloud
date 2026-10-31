@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_Assign_SkipsWorkerWithRunningAttempt$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_SkipsWorkerWithRunningAttempt
+--- PASS: TestConformance_Assign_SkipsWorkerWithRunningAttempt (1.17s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.195s

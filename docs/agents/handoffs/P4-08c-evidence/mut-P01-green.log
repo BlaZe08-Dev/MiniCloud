@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner
+--- PASS: TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner (1.21s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.239s

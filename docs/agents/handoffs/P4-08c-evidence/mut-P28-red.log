@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_ClaimAgeArm_UsesNotBefore$ ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimAgeArm_UsesNotBefore
+    assignment.go:656: RETRYING job claimed by age although not_before just passed: err=<nil>
+--- FAIL: TestConformance_ClaimAgeArm_UsesNotBefore (0.84s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.868s
+FAIL

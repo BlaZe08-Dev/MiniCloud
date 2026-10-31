@@ -25,3 +25,6 @@ test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named onl
 test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+
+# Slice 5a skip file, deleted by P4-08c (ADR-0017 implementation note 6 required it to become passing tests); still cited by the ADR note, the P4-08b handoff and TASKS.md as history
+path|internal/storage/postgres/assignment_5a_skips_test.go|Deleted in P4-08c; historical citation in ADR-0017 note 6 and P4-08b handoff

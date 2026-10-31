@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentCursor_SurvivesRestart$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentCursor_SurvivesRestart
+--- PASS: TestPostgresRepository_AssignmentCursor_SurvivesRestart (3.74s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	4.775s

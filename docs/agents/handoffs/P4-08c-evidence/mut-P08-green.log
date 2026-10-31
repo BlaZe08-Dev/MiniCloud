@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_AssignmentPass_SecondPassSkips$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_AssignmentPass_SecondPassSkips
+--- PASS: TestPostgresRepository_AssignmentPass_SecondPassSkips (0.55s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.574s

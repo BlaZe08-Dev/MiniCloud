@@ -1,0 +1,22 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index fc77409..2b562b8 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -376,7 +376,7 @@ func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p sto
+ 			AND $1::text = ANY(w.supported_tasks)
+ 			AND w.last_heartbeat_at > clock_timestamp() - make_interval(secs => $2::double precision)
+ 			AND w.last_poll_at IS NOT NULL
+-			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
++			AND $3::double precision IS NOT NULL
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) < $4
+ 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
+ 			AND NOT EXISTS (
+@@ -465,7 +465,7 @@ func assignLockAndRecheck(ctx context.Context, tx pgx.Tx, workerID, ty string, p
+ 			AND $1::text = ANY(w.supported_tasks)
+ 			AND w.last_heartbeat_at > clock_timestamp() - make_interval(secs => $2::double precision)
+ 			AND w.last_poll_at IS NOT NULL
+-			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
++			AND $3::double precision IS NOT NULL
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) < $4
+ 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
+ 			AND NOT EXISTS (

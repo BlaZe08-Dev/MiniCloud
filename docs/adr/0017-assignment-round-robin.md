@@ -3,6 +3,8 @@
 ## Status
 Accepted for implementation (orchestrator, revision 3 plus A1 and A2). Slice 5a (domain, pure policy and in-memory parity, no database) is the first implementation slice; the amendments are recorded in Section 9.
 
+Implementation status: slice 5a is merged (PR #35). Slice 5b (migration `000005` and the PostgreSQL assignment repository) is built on branch `agent/claude/P4-08c` and pushed for audit; see [the P4-08c handoff](../agents/handoffs/P4-08c.md). Slice 5c is not started. This note changes no decision in this ADR.
+
 - Formalises **Candidate A** (pre-assignment with a bounded accept window), the leading design named in [ADR 0011](0011-postgres-dispatch-and-recovery.md) Section 2 and in [docs/phase4-plan.md](../phase4-plan.md) Section 3. It is the post-Phase 4 hard gate for V1 completion.
 - Depends on the Phase 4 machinery: attempt leases and the sweeper ([ADR 0014](0014-lease-model-and-expiry.md)), retries ([ADR 0015](0015-retry-policy-and-failure-classification.md)), and cancellation ([ADR 0016](0016-cancellation-semantics.md)). Migration `000004_leases_retries_cancellation.sql` is already in the tree; this design adds migration `000005`.
 - Does not change the `fifo_pull` baseline (ADR 0011 Candidate C). It stays selectable.

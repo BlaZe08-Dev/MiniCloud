@@ -1,0 +1,21 @@
+=== RUN   TestProbeExplainFallbackQuery
+PLAN fallback
+  Limit  (cost=9.28..10.15 rows=1 width=51)
+    InitPlan 1 (returns $0)
+      ->  Index Scan using assignment_pass_state_pkey on assignment_pass_state  (cost=0.15..8.17 rows=1100 width=8)
+            Index Cond: (singleton = true)
+    ->  LockRows  (cost=1.10..174.78 rows=200 width=51)
+          ->  Incremental Sort  (cost=1.10..172.78 rows=200 width=51)
+                Sort Key: jobs.created_at, jobs.id
+                Presorted Key: jobs.created_at
+                ->  Index Scan Backward using idx_jobs_created_at on jobs  (cost=0.28..163.78 rows=200 width=51)
+                      Filter: (((task_type)::text = ANY ('{echo,sleep}'::text[])) AND ((assigned_worker_id IS NULL) OR (assignment_expires_at <= clock_timestamp())) AND (((state)::text = 'QUEUED'::text) OR (((state)::text = 'RETRYING'::text) AND ((not_before IS NULL) OR (not_before <= clock_timestamp())))) AND ((assignment_lapses >= 3) OR ((GREATEST(created_at, COALESCE(not_before, created_at)) <= (clock_timestamp() - '00:00:30'::interval)) AND ($0 <= (clock_timestamp() - '00:00:30'::interval)))))
+PLAN candidates
+  Limit  (cost=0.28..8.78 rows=50 width=20)
+    ->  LockRows  (cost=0.28..153.34 rows=900 width=20)
+          ->  Index Scan using idx_jobs_dispatch_by_type on jobs  (cost=0.28..144.34 rows=900 width=20)
+                Index Cond: ((task_type)::text = 'echo'::text)
+                Filter: ((assigned_worker_id IS NULL) AND (assignment_lapses < 3) AND (((state)::text = 'QUEUED'::text) OR (((state)::text = 'RETRYING'::text) AND ((not_before IS NULL) OR (not_before <= clock_timestamp())))))
+--- PASS: TestProbeExplainFallbackQuery (0.62s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.624s

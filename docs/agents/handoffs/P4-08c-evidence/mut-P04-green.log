@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestPostgresRepository_Assign_SkipsWorkerLockedByClaim$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_Assign_SkipsWorkerLockedByClaim
+--- PASS: TestPostgresRepository_Assign_SkipsWorkerLockedByClaim (0.97s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.997s

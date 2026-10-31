@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 300s -run ^TestConformance_Assign_OneReservationPerWorker$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_OneReservationPerWorker
+--- PASS: TestConformance_Assign_OneReservationPerWorker (0.57s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.592s
