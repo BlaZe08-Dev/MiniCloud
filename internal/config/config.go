@@ -38,6 +38,16 @@ type CoordinatorConfig struct {
 	// OutageGraceWindow is the length of the reaping suppression, and of the cooldown that
 	// follows it, after a database outage (default 30s).
 	OutageGraceWindow time.Duration
+
+	// DispatchPolicy selects fifo_pull (default) or round_robin (ADR-0017 Section 5.2).
+	DispatchPolicy string
+	// Assignment settings (ADR-0017 Section 5.5). Validated in LoadCoordinatorConfig.
+	AssignmentAcceptWindow time.Duration
+	AssignmentInterval     time.Duration
+	AssignmentMaxLapses    int
+	AssignmentFallbackAge  time.Duration
+	AssignmentBatchLimit   int
+	AssignmentMinYield     time.Duration
 }
 
 // WorkerConfig defines startup configuration for the worker agent.
@@ -88,6 +98,14 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		SweeperInterval:    getDurationEnv("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
 		StartupGracePeriod: getDurationEnv("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
 		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
+
+		DispatchPolicy:         strings.ToLower(getEnv("MINICLOUD_DISPATCH_POLICY", "fifo_pull")),
+		AssignmentAcceptWindow: getDurationEnv("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", 5*time.Second),
+		AssignmentInterval:     getDurationEnv("MINICLOUD_ASSIGNMENT_INTERVAL", 1*time.Second),
+		AssignmentMaxLapses:    getIntEnv("MINICLOUD_ASSIGNMENT_MAX_LAPSES", 3),
+		AssignmentFallbackAge:  getDurationEnv("MINICLOUD_ASSIGNMENT_FALLBACK_AGE", 30*time.Second),
+		AssignmentBatchLimit:   getIntEnv("MINICLOUD_ASSIGNMENT_BATCH_LIMIT", 50),
+		AssignmentMinYield:     getDurationEnv("MINICLOUD_ASSIGNMENT_MIN_YIELD", 10*time.Millisecond),
 	}
 
 	if cfg.HTTPAddr == "" {
@@ -146,7 +164,50 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		return nil, fmt.Errorf("%w: MINICLOUD_OUTAGE_GRACE_WINDOW (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.OutageGraceWindow, cfg.LeaseDuration)
 	}
 
+	if err := validateAssignment(cfg); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+// validateAssignment checks the dispatch policy and the assignment variables (ADR-0017 Section 5.5),
+// then the cross-variable rules of A1. Every rule is a startup error.
+func validateAssignment(cfg *CoordinatorConfig) error {
+	if cfg.DispatchPolicy != "fifo_pull" && cfg.DispatchPolicy != "round_robin" {
+		return fmt.Errorf("MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got %q)", cfg.DispatchPolicy)
+	}
+	if cfg.AssignmentAcceptWindow < 5*time.Second || cfg.AssignmentAcceptWindow > 30*time.Second {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW must be between 5s and 30s (got %v)", cfg.AssignmentAcceptWindow)
+	}
+	if cfg.AssignmentInterval < 100*time.Millisecond || cfg.AssignmentInterval > 10*time.Second {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_INTERVAL must be between 100ms and 10s (got %v)", cfg.AssignmentInterval)
+	}
+	if cfg.AssignmentMaxLapses < 1 || cfg.AssignmentMaxLapses > 10 {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_MAX_LAPSES must be between 1 and 10 (got %d)", cfg.AssignmentMaxLapses)
+	}
+	lapsePathMinimum := time.Duration(cfg.AssignmentMaxLapses) * (cfg.AssignmentAcceptWindow + cfg.AssignmentInterval)
+	if cfg.AssignmentFallbackAge < lapsePathMinimum || cfg.AssignmentFallbackAge > 10*time.Minute {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (%v) and at most 10m (got %v)", lapsePathMinimum, cfg.AssignmentFallbackAge)
+	}
+	if cfg.AssignmentBatchLimit < 1 || cfg.AssignmentBatchLimit > 500 {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_BATCH_LIMIT must be between 1 and 500 (got %d)", cfg.AssignmentBatchLimit)
+	}
+	if cfg.AssignmentMinYield < time.Millisecond || cfg.AssignmentMinYield > time.Second {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_MIN_YIELD must be between 1ms and 1s (got %v)", cfg.AssignmentMinYield)
+	}
+	if cfg.AssignmentMinYield > cfg.AssignmentInterval {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_MIN_YIELD (%v) must not exceed MINICLOUD_ASSIGNMENT_INTERVAL (%v)", cfg.AssignmentMinYield, cfg.AssignmentInterval)
+	}
+
+	// A1: the timing cross-rules.
+	if cfg.AssignmentInterval > cfg.AssignmentAcceptWindow {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_INTERVAL (%v) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (%v)", cfg.AssignmentInterval, cfg.AssignmentAcceptWindow)
+	}
+	if cfg.AssignmentFallbackAge <= 2*cfg.AssignmentInterval+cfg.AssignmentAcceptWindow {
+		return fmt.Errorf("MINICLOUD_ASSIGNMENT_FALLBACK_AGE (%v) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (%v)", cfg.AssignmentFallbackAge, 2*cfg.AssignmentInterval+cfg.AssignmentAcceptWindow)
+	}
+	return nil
 }
 
 // LoadWorkerConfig loads and validates worker configuration from environment variables.

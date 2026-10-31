@@ -1,0 +1,38 @@
+=== RUN   TestProperty_RoundRobin_CountsWithinOne
+    round_robin_rule_test.go:42: seed 1: no selection from a non-empty set
+--- FAIL: TestProperty_RoundRobin_CountsWithinOne (0.00s)
+=== RUN   TestProperty_RoundRobin_NoDoubleSelectionPerType
+    round_robin_rule_test.go:99: seed 1: Select on a non-empty set returned no worker
+--- FAIL: TestProperty_RoundRobin_NoDoubleSelectionPerType (0.00s)
+=== RUN   TestNextAfterCursor_Deterministic
+    round_robin_rule_test.go:150: cursor "": ""/false then ""/false
+--- FAIL: TestNextAfterCursor_Deterministic (0.00s)
+=== RUN   TestNextAfterCursor_Cases
+    round_robin_rule_test.go:177: empty cursor selects the minimum: got ""/false, want "w_a"/true
+    round_robin_rule_test.go:177: successor of the cursor: got ""/false, want "w_b"/true
+    round_robin_rule_test.go:177: wraps past the last member: got ""/false, want "w_a"/true
+    round_robin_rule_test.go:177: cursor that left the set moves to its successor: got ""/false, want "w_c"/true
+--- FAIL: TestNextAfterCursor_Cases (0.00s)
+=== RUN   TestCursorSet_RestartContinuesRotation
+    round_robin_rule_test.go:202: control: the rotation produced no selection
+--- FAIL: TestCursorSet_RestartContinuesRotation (0.00s)
+=== RUN   TestRoundRobinScheduler_Determinism
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-a reason="round-robin selected candidate 1 of 3 eligible"
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-b reason="round-robin selected candidate 2 of 3 eligible"
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-c reason="round-robin selected candidate 3 of 3 eligible"
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-a reason="round-robin selected candidate 1 of 3 eligible"
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-b reason="round-robin selected candidate 2 of 3 eligible"
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates="[worker-b worker-a worker-c]" selected=worker-c reason="round-robin selected candidate 3 of 3 eligible"
+--- PASS: TestRoundRobinScheduler_Determinism (0.00s)
+=== RUN   TestRoundRobinScheduler_FiltersIneligible
+2026/10/31 14:09:53 INFO scheduler decision policy=round_robin task_type=echo candidates=[worker-ready] selected=worker-ready reason="round-robin selected candidate 1 of 1 eligible"
+--- PASS: TestRoundRobinScheduler_FiltersIneligible (0.00s)
+=== RUN   TestRoundRobinScheduler_NoWorkersAvailable
+2026/10/31 14:09:53 WARN scheduler decision: no workers available policy=round_robin task_type=echo total_workers=1 reason="no healthy worker with available slots supports requested task type"
+--- PASS: TestRoundRobinScheduler_NoWorkersAvailable (0.00s)
+=== RUN   TestRoundRobinScheduler_ExcludesUnhealthyWorkers
+2026/10/31 14:09:53 WARN scheduler decision: no workers available policy=round_robin task_type=echo total_workers=2 reason="no healthy worker with available slots supports requested task type"
+--- PASS: TestRoundRobinScheduler_ExcludesUnhealthyWorkers (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	0.004s
+FAIL
