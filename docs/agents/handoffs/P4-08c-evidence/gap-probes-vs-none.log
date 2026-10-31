@@ -1,0 +1,6 @@
+--- PASS: TestAudit_Cursor_UpdatePathPersistsAcrossPasses (0.48s)
+--- PASS: TestAudit_Event_CursorBeforeAdvancesWithinPass (0.43s)
+--- PASS: TestAudit_Pass_ReservesOldestOfTypeFirst (0.42s)
+--- PASS: TestAudit_Fallback_ExpiredUnrevokedReservationIsClaimable (0.42s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.777s

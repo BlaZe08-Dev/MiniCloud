@@ -1,0 +1,5 @@
+    assignment_test.go:499: deadlock between the pass and a claim: claim err=<nil>, pass err=ERROR: deadlock detected (SQLSTATE 40P01)
+--- FAIL: TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim (1.48s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.509s
+FAIL

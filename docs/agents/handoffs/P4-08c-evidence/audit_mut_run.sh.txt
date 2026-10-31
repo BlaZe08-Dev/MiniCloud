@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Auditor mutation harness (P4-08c review). Usage: run.sh <id> <kind: index|new> <test regex>
+# Runs only in the throwaway worktree ~/mc-mut-claude. index: applies the committed mut-<id>.diff;
+# new: applies the auditor's new_mutants.py entry. Red run, restore with git checkout, green run.
+set -u
+ID=$1; KIND=$2; RE=$3
+W=$HOME/mc-mut-claude
+S=/tmp/claude-1000/-home-blazeee-MiniCloud-claude/fb90d277-0d16-4524-8666-7b6eadd935bb/scratchpad/mut
+EV=$HOME/MiniCloud-claude/docs/agents/handoffs/P4-08c-evidence
+OUT=$S/out; mkdir -p $OUT
+cd "$W" || exit 9
+[ -z "$(git status --porcelain)" ] || { echo "worktree dirty before $ID" >&2; exit 9; }
+if [ "$KIND" = index ]; then
+  git apply "$EV/mut-$ID.diff" || { echo "apply failed $ID" >&2; exit 9; }
+else
+  python3 $S/new_mutants.py "$ID" "$W" >/dev/null || exit 9
+fi
+git diff > $OUT/audit-mut-$ID.diff
+URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-)
+PKGS="./internal/storage/postgres/"
+case "$RE" in *Validate*|*Settings*) PKGS="./internal/coordinator/";; esac
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -race -count=1 -v -timeout 600s -run "$RE" $PKGS 2>&1 | grep -v '^{' > $OUT/audit-mut-$ID-red.log
+git checkout -- . 
+[ -z "$(git status --porcelain)" ] || { echo "restore failed $ID" >&2; exit 9; }
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -race -count=1 -v -timeout 600s -run "$RE" $PKGS 2>&1 | grep -v '^{' > $OUT/audit-mut-$ID-green.log
+RF=$(grep -c '^--- FAIL' $OUT/audit-mut-$ID-red.log); RP=$(grep -c '^--- PASS' $OUT/audit-mut-$ID-red.log)
+GF=$(grep -c '^--- FAIL' $OUT/audit-mut-$ID-green.log); GP=$(grep -c '^--- PASS' $OUT/audit-mut-$ID-green.log)
+BUILD=$(grep -c -E '\[build failed\]|^# ' $OUT/audit-mut-$ID-red.log)
+V=SURVIVED; [ "$RF" -gt 0 ] && V=KILLED; [ "$BUILD" -gt 0 ] && V=BUILD_FAIL; [ "$GF" -gt 0 ] && V="$V(green-failed)"
+echo "$ID | red PASS=$RP FAIL=$RF | green PASS=$GP FAIL=$GF | $V | $(grep '^--- FAIL' $OUT/audit-mut-$ID-red.log | awk '{print $3}' | tr '\n' ' ')"

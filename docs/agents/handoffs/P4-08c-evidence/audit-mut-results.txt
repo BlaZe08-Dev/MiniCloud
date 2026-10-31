@@ -1,0 +1,19 @@
+-run pattern for the new mutants (A01..A06b):
+^(TestConformance_|TestPostgresRepository_(ClaimAssigned|CancelAssigned|AssignmentCursor|Assign_|AssignmentPass_|DeleteWorker)|TestMigrator_Migration000005|TestPoll_|TestFault_)
+results:
+P01 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner 
+P04 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestPostgresRepository_Assign_SkipsWorkerLockedByClaim 
+P05 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim 
+P07 | red PASS=1 FAIL=0 | green PASS=1 FAIL=0 | SURVIVED | 
+P08 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestPostgresRepository_AssignmentPass_SecondPassSkips 
+P15 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestPoll_AgeArm_AfterRestart_RefreshesFirst 
+P16 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestMigrator_Migration000005_FreshSchema 
+P24 | red PASS=0 FAIL=1 | green PASS=1 FAIL=0 | KILLED | TestConformance_FifoPull_IgnoresAssignmentColumns 
+A01 | red PASS=48 FAIL=0 | green PASS=48 FAIL=0 | SURVIVED | 
+A01b | red PASS=48 FAIL=0 | green PASS=48 FAIL=0 | SURVIVED | 
+A02 | red PASS=46 FAIL=2 | green PASS=48 FAIL=0 | KILLED | TestConformance_AssignmentLapse_ConsumesNoAttempt TestConformance_AssignmentLapse_FallbackAfterLimit 
+A03 | red PASS=46 FAIL=2 | green PASS=48 FAIL=0 | KILLED | TestConformance_AssignmentLapse_ConsumesNoAttempt TestConformance_AssignmentLapse_FallbackAfterLimit 
+A04 | red PASS=47 FAIL=1 | green PASS=48 FAIL=0 | KILLED | TestMigrator_Migration000005_FreshSchema 
+A05 | red PASS=46 FAIL=2 | green PASS=48 FAIL=0 | KILLED | TestConformance_Assign_OneReservationPerWorker TestPostgresRepository_Assign_SkipsWorkerLockedByClaim 
+A06 | red PASS=46 FAIL=2 | green PASS=48 FAIL=0 | KILLED | TestConformance_ClaimAssigned_OnlyAssignedWithinWindow TestConformance_ClaimOwnArm_ClosedAtExactExpiry 
+A06b | red PASS=48 FAIL=0 | green PASS=48 FAIL=0 | SURVIVED | 

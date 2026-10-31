@@ -1,0 +1,12 @@
+    migration_000005_test.go:114: reservation on RUNNING: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on CANCEL_REQUESTED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on CANCELLED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on SUCCEEDED: want check_violation 23514, got <nil>
+    migration_000005_test.go:114: reservation on FAILED: want check_violation 23514, got <nil>
+    migration_000005_test.go:135: RUNNING with a reservation kept: want check_violation 23514, got <nil>
+--- FAIL: TestMigrator_Migration000005_FreshSchema (0.42s)
+    --- FAIL: TestMigrator_Migration000005_FreshSchema/shape_check_rejects_a_reservation_on_other_states (0.02s)
+    --- FAIL: TestMigrator_Migration000005_FreshSchema/a_transition_to_running_that_keeps_the_reservation_is_rejected (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.442s
+FAIL

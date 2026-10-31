@@ -1,0 +1,3 @@
+--- PASS: TestConformance_FifoPull_IgnoresAssignmentColumns (0.41s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.430s

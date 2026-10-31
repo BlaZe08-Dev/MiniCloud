@@ -1,0 +1,36 @@
+# Auditor's new mutants (P4-08c review, check I). Each: id, file, old text, new text, expected count.
+A = "internal/storage/postgres/assignment.go"
+M = "internal/storage/postgres/migrations/000005_assignment_round_robin.sql"
+MUTANTS = {
+ "A01": (A, "SET last_worker_id = EXCLUDED.last_worker_id, updated_at = EXCLUDED.updated_at;",
+            "SET last_worker_id = assignment_cursor.last_worker_id, updated_at = EXCLUDED.updated_at;", 1,
+         "cursor update: the upsert never changes an existing cursor row"),
+ "A01b": (A, "\t\t\tcursor = selected\n", "\t\t\t_ = selected\n", 1,
+         "cursor update: the in-pass cursor is not advanced after a decision"),
+ "A02": (A, "assignment_expires_at = c.n + make_interval(secs => $3::double precision)",
+            "assignment_expires_at = c.n + make_interval(secs => 2 * $3::double precision)", 1,
+         "expiry arithmetic: reservation expires after twice the accept window"),
+ "A03": (A, "assignment_lapses = assignment_lapses + 1", "assignment_lapses = assignment_lapses + 0", 1,
+         "lapse increment: an expired reservation is cleared without counting the lapse"),
+ "A04": (M, "            AND assignment_expires_at >= assigned_at\n", "", 1,
+         "shape CHECK: expiry may precede assigned_at"),
+ "A05": (A, "\t\t\tORDER BY created_at ASC, id ASC\n\t\t\tLIMIT $3\n\t\t\tFOR UPDATE SKIP LOCKED;`, ty, p.MaxLapses, p.BatchLimit)",
+            "\t\t\tORDER BY created_at DESC, id DESC\n\t\t\tLIMIT $3\n\t\t\tFOR UPDATE SKIP LOCKED;`, ty, p.MaxLapses, p.BatchLimit)", 1,
+         "candidate sort: per-type candidates newest first (LIFO)"),
+ "A06": (A, "\t\tWHERE assigned_worker_id = $1\n\t\t  AND assignment_expires_at > clock_timestamp()",
+            "\t\tWHERE assigned_worker_id = $1\n\t\t  AND assignment_expires_at > clock_timestamp() - interval '2 seconds'", 1,
+         "accept-window bound: the own arm accepts a reservation up to 2 s past its expiry"),
+ "A06b": (A, "\t\t\t  AND (assigned_worker_id IS NULL OR assignment_expires_at <= clock_timestamp())\n",
+             "\t\t\t  AND (assigned_worker_id IS NULL OR assignment_expires_at <= clock_timestamp() - interval '2 seconds')\n", 1,
+         "accept-window bound: the fallback arm treats a reservation as live for 2 s past its expiry"),
+}
+import sys
+mid = sys.argv[1]; root = sys.argv[2]
+f, old, new, cnt, _ = MUTANTS[mid]
+p = root + "/" + f
+s = open(p).read()
+n = s.count(old)
+if n != cnt:
+    print(f"MUTANT {mid}: expected {cnt} occurrence(s), found {n}", file=sys.stderr); sys.exit(3)
+open(p, "w").write(s.replace(old, new))
+print(f)

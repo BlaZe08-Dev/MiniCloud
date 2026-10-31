@@ -1,0 +1,8 @@
+--- PASS: TestAudit_Cursor_UpdatePathPersistsAcrossPasses (0.47s)
+    audit_gap_probes_test.go:75: job_2 JOB_ASSIGNED cursor_before="" selected=w_b, want cursor_before w_a
+--- FAIL: TestAudit_Event_CursorBeforeAdvancesWithinPass (0.43s)
+--- PASS: TestAudit_Pass_ReservesOldestOfTypeFirst (0.42s)
+--- PASS: TestAudit_Fallback_ExpiredUnrevokedReservationIsClaimable (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.762s
+FAIL

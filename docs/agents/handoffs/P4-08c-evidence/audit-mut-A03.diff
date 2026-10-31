@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..1ece568 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -225,7 +225,7 @@ func assignRevoke(ctx context.Context, tx pgx.Tx, batchLimit int, res *storage.A
+ 		var lapses int
+ 		if err := tx.QueryRow(ctx, `
+ 			UPDATE jobs SET assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL,
+-			                assignment_lapses = assignment_lapses + 1
++			                assignment_lapses = assignment_lapses + 0
+ 			WHERE id = $1
+ 			RETURNING assignment_lapses;`, rr.jobID).Scan(&lapses); err != nil {
+ 			return mapPgError(err)
