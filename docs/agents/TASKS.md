@@ -30,7 +30,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | (unassigned) | ADR-0017 slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing | to be assigned | to be assigned | none | planned, not specified |
-| P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | pushed for audit |
+| P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
 ### P4-12 — Friendlier make test-security guard (refuse shared database early)
@@ -63,7 +63,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
 - Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).
-- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08c`. Status: pushed for audit.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08c`. Status: merged in PR #38 at 3b12ae5.
 - Owned files: `internal/storage/postgres/migrations/000005_assignment_round_robin.sql`, `internal/storage/postgres/assignment*.go`, `internal/storage/postgres/migration_000004_test.go`, `internal/storage/postgres/migration_000005_test.go`, `internal/storage/postgres/repository.go`, `assignment_5a_skips_test.go` (PostgreSQL storage package; deleted in slice 5b by commit b67db2a) (deleted), `internal/storage/storagetest/assignment.go`, `internal/storage/assignment_staleness.go`, `internal/storage/inmemory.go`, `internal/storage/inmemory_assignment_test.go`, `internal/coordinator/assignment.go`, `docs/adr/0017-assignment-round-robin.md` (status note only), `docs/agents/handoffs/P4-08c*`, `docs/agents/handoffs/P4-08c-evidence/`, `reports/claude/P4-08c.md`, `docs/agents/TASKS.md`.
 - Out of scope (slice 5c): the coordinator assignment loop, grace (INV-9), API field docs, worker changes, any change to `fifo_pull` behaviour.
 
@@ -192,6 +192,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-09 | Worker execution timeout clamping (SEC-012) | PR #34, merge commit fc84042 |
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | PR #35, merge commit 2ca971b |
 | P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | PR #36, merge commit cb51adc |
+| P4-11 | Register follow-ups and fix stale statuses | PR #37, merge commit f522de7 |
+| P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | PR #38, merge commit 3b12ae5 |
 
 ## Follow-ups
 

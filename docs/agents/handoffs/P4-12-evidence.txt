@@ -1,103 +1,77 @@
-==================== tests/require-own-db.sh shared name ====================
-$ tests/require-own-db.sh postgres://127.0.0.1:5433/minicloud_test
+==================== tests/require-own-db.sh override with unset URL ====================
+$ ALLOW_SHARED_DB=1 tests/require-own-db.sh ''
 exit code: 2
-stderr:
-ERROR: make test-security refused: database is the shared "minicloud_test".
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
-Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
-Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
-
-==================== tests/require-own-db.sh unset ====================
-$ env -u MINICLOUD_TEST_DATABASE_URL tests/require-own-db.sh
-exit code: 2
-stderr:
+output:
 ERROR: make test-security refused: MINICLOUD_TEST_DATABASE_URL is unset.
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
+Security tests require a database URL so PostgreSQL test cases are executed rather than skipped.
 Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
 Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
+
+==================== tests/require-own-db.sh override with shared name ====================
+$ ALLOW_SHARED_DB=1 tests/require-own-db.sh 'postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable'
+exit code: 0
+
+==================== tests/require-own-db.sh name without _test suffix ====================
+$ tests/require-own-db.sh 'postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_other?sslmode=disable'
+exit code: 2
+output:
+ERROR: make test-security refused: database name does not end in "_test".
+tests/internal/sectest/pg.go guardDatabaseName refuses names not ending in "_test" with a fatal safety violation.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+
+==================== tests/require-own-db.sh override with name without _test suffix ====================
+$ ALLOW_SHARED_DB=1 tests/require-own-db.sh 'postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_other?sslmode=disable'
+exit code: 2
+output:
+ERROR: make test-security refused: database name does not end in "_test".
+tests/internal/sectest/pg.go guardDatabaseName refuses names not ending in "_test" with a fatal safety violation.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
 
 ==================== tests/require-own-db.sh own name ====================
-$ tests/require-own-db.sh postgres://127.0.0.1:5433/minicloud_gemini_test
+$ tests/require-own-db.sh 'postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable'
 exit code: 0
 
-==================== tests/require-own-db.sh ALLOW_SHARED_DB=1 ====================
-$ ALLOW_SHARED_DB='1' tests/require-own-db.sh postgres://127.0.0.1:5433/minicloud_test
-exit code: 0
-
-==================== tests/require-own-db.sh port and ?sslmode=disable (shared) ====================
-$ tests/require-own-db.sh postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable
+==================== tests/require-own-db.sh shared name without override ====================
+$ tests/require-own-db.sh 'postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable'
 exit code: 2
-stderr:
+output:
 ERROR: make test-security refused: database is the shared "minicloud_test".
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
+tests/internal/sectest/pg.go guardDatabaseName refuses the shared database with a fatal safety violation.
 Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
 Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
 To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
 
-==================== tests/require-own-db.sh port and ?sslmode=disable (own) ====================
-$ tests/require-own-db.sh postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-exit code: 0
-
-==================== make test-security shared name ====================
-$ MINICLOUD_TEST_DATABASE_URL='postgres://127.0.0.1:5433/minicloud_test' make test-security
+==================== tests/require-own-db.sh unset without override ====================
+$ env -u MINICLOUD_TEST_DATABASE_URL tests/require-own-db.sh
 exit code: 2
-stderr:
-ERROR: make test-security refused: database is the shared "minicloud_test".
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
-Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
-Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
-make: *** [Makefile:94: test-security] Error 2
-
-==================== make test-security unset ====================
-$ MINICLOUD_TEST_DATABASE_URL='' make test-security
-exit code: 2
-stderr:
+output:
 ERROR: make test-security refused: MINICLOUD_TEST_DATABASE_URL is unset.
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
+Security tests require a database URL so PostgreSQL test cases are executed rather than skipped.
 Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
 Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
-make: *** [Makefile:94: test-security] Error 2
 
-==================== make test-security own name (make -n) ====================
-$ MINICLOUD_TEST_DATABASE_URL='postgres://127.0.0.1:5433/minicloud_gemini_test' make -n test-security
+==================== make test-security override with unset URL ====================
+$ ALLOW_SHARED_DB=1 MINICLOUD_TEST_DATABASE_URL='' make test-security
+exit code: 2
+output:
+ERROR: make test-security refused: MINICLOUD_TEST_DATABASE_URL is unset.
+Security tests require a database URL so PostgreSQL test cases are executed rather than skipped.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+make: *** [Makefile:97: test-security] Error 2
+
+==================== make test-security override with shared name (make -n) ====================
+$ ALLOW_SHARED_DB=1 MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable' make -n test-security
 exit code: 0
-stdout:
+output:
 if [ ! -f tests/security-tests.list ]; then echo "tests/security-tests.list missing" >&2; exit 1; fi
 set -e; \
 if [ -n "${MINICLOUD_TEST_DATABASE_URL+x}" ]; then \
 	URL="$MINICLOUD_TEST_DATABASE_URL"; \
-elif [ -n "postgres://127.0.0.1:5433/minicloud_gemini_test" ]; then \
-	URL="postgres://127.0.0.1:5433/minicloud_gemini_test"; \
-elif [ -f .env ]; then \
-	URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
-else \
-	URL=""; \
-fi; \
-ALLOW_SHARED_DB="${ALLOW_SHARED_DB:-}" tests/require-own-db.sh "$URL"; \
-ACT=$(mktemp); trap 'rm -f "$ACT"' EXIT; \
-env -u MINICLOUD_TEST_DATABASE_URL go test -list '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > "$ACT" || true; \
-if ! diff -q tests/security-tests.list "$ACT" >/dev/null; then \
-	echo "FALSE-GREEN GUARD: pattern '^(TestFault_|TestAbuse_)' does not match tests/security-tests.list" >&2; \
-	echo "missing (in the list, not found by go test -list):" >&2; LC_ALL=C comm -23 tests/security-tests.list "$ACT" | sed 's/^/  /' >&2; \
-	echo "extra (found by go test -list, not in the list):" >&2; LC_ALL=C comm -13 tests/security-tests.list "$ACT" | sed 's/^/  /' >&2; \
-	exit 1; \
-fi; \
-MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 -timeout 20m -run '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/
-
-==================== make test-security ALLOW_SHARED_DB=1 (make -n) ====================
-$ ALLOW_SHARED_DB='1' MINICLOUD_TEST_DATABASE_URL='postgres://127.0.0.1:5433/minicloud_test' make -n test-security
-exit code: 0
-stdout:
-if [ ! -f tests/security-tests.list ]; then echo "tests/security-tests.list missing" >&2; exit 1; fi
-set -e; \
-if [ -n "${MINICLOUD_TEST_DATABASE_URL+x}" ]; then \
-	URL="$MINICLOUD_TEST_DATABASE_URL"; \
-elif [ -n "postgres://127.0.0.1:5433/minicloud_test" ]; then \
-	URL="postgres://127.0.0.1:5433/minicloud_test"; \
+elif [ -n "postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable" ]; then \
+	URL="postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable"; \
 elif [ -f .env ]; then \
 	URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
 else \
@@ -114,21 +88,30 @@ if ! diff -q tests/security-tests.list "$ACT" >/dev/null; then \
 fi; \
 MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 -timeout 20m -run '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/
 
-==================== make test-security port and ?sslmode=disable (shared) ====================
-$ MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable' make test-security
+==================== make test-security name without _test suffix ====================
+$ MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_other?sslmode=disable' make test-security
 exit code: 2
-stderr:
-ERROR: make test-security refused: database is the shared "minicloud_test".
-Security tests require a dedicated per-agent database to avoid cross-worktree interference (sectest rejects minicloud_test by design).
+output:
+ERROR: make test-security refused: database name does not end in "_test".
+tests/internal/sectest/pg.go guardDatabaseName refuses names not ending in "_test" with a fatal safety violation.
 Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
 Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
-To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
-make: *** [Makefile:94: test-security] Error 2
+make: *** [Makefile:97: test-security] Error 2
 
-==================== make test-security port and ?sslmode=disable (own, make -n) ====================
+==================== make test-security override with name without _test suffix ====================
+$ ALLOW_SHARED_DB=1 MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_other?sslmode=disable' make test-security
+exit code: 2
+output:
+ERROR: make test-security refused: database name does not end in "_test".
+tests/internal/sectest/pg.go guardDatabaseName refuses names not ending in "_test" with a fatal safety violation.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+make: *** [Makefile:97: test-security] Error 2
+
+==================== make test-security own name (make -n) ====================
 $ MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable' make -n test-security
 exit code: 0
-stdout:
+output:
 if [ ! -f tests/security-tests.list ]; then echo "tests/security-tests.list missing" >&2; exit 1; fi
 set -e; \
 if [ -n "${MINICLOUD_TEST_DATABASE_URL+x}" ]; then \
@@ -150,4 +133,25 @@ if ! diff -q tests/security-tests.list "$ACT" >/dev/null; then \
 	exit 1; \
 fi; \
 MINICLOUD_TEST_DATABASE_URL="$URL" go test -v -race -count=1 -timeout 20m -run '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/
+
+==================== make test-security shared name without override ====================
+$ MINICLOUD_TEST_DATABASE_URL='postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_test?sslmode=disable' make test-security
+exit code: 2
+output:
+ERROR: make test-security refused: database is the shared "minicloud_test".
+tests/internal/sectest/pg.go guardDatabaseName refuses the shared database with a fatal safety violation.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+To override this guard and run anyway, pass ALLOW_SHARED_DB=1 (e.g. ALLOW_SHARED_DB=1 make test-security).
+make: *** [Makefile:97: test-security] Error 2
+
+==================== make test-security unset without override ====================
+$ MINICLOUD_TEST_DATABASE_URL='' make test-security
+exit code: 2
+output:
+ERROR: make test-security refused: MINICLOUD_TEST_DATABASE_URL is unset.
+Security tests require a database URL so PostgreSQL test cases are executed rather than skipped.
+Set MINICLOUD_TEST_DATABASE_URL in .env or the environment to an isolated database name ending in '_test'.
+Example: MINICLOUD_TEST_DATABASE_URL=postgres://blazeee:minicloud@127.0.0.1:5433/minicloud_gemini_test?sslmode=disable
+make: *** [Makefile:97: test-security] Error 2
 
