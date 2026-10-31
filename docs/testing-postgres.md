@@ -97,7 +97,7 @@ if !strings.HasSuffix(dbName, "_test") {
 ```
 
 ### Guardrail 3: Schema-Per-Test Isolation
-Each test creates and uses a dedicated unique schema (e.g. `test_<random_hex>`) via `SET search_path TO ...`, which is dropped during `t.Cleanup()`. This permits parallel test execution without table collision.
+Each test creates and uses a dedicated unique schema (e.g. `test_<random_hex>`) via `SET search_path TO ...`, which is dropped during `t.Cleanup()`. This permits parallel test execution without table collision. Advisory locks are not per schema, though: the assignment pass key is database-wide by design (ADR-0017 INV-22, implementation note 15), so two test processes on one database make each other's passes skip, and the assignment tests fail. Run one test process at a time per test database.
 
 ---
 
