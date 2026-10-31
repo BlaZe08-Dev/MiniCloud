@@ -50,7 +50,7 @@ The 5a index (`P4-08b-evidence/mutation-index.md`) listed these as deferred to 5
 |---|---|---|---|
 | INV-1 (PostgreSQL) | `TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner` | P01 | killed |
 | INV-2b | `TestPostgresRepository_CancelAssigned_ClearsAssignment`; `TestMigrator_Migration000005_FreshSchema` (the CHECK) | P02, P16 | killed |
-| INV-5 | `TestPostgresRepository_AssignmentCursor_SurvivesRestart` | P03 | killed |
+| INV-5 | `TestPostgresRepository_AssignmentCursor_SurvivesRestart`; `TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses` (update path, fix round 2) | P03, F04 | killed |
 | INV-9 | none | none | slice 5c (ADR-0017 implementation note 10, fix round 1: the Section 7 listing under 5b is an erratum) |
 | INV-10b | `TestPostgresRepository_Assign_SkipsWorkerLockedByClaim` | P04 | killed |
 | INV-13 | `TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim`, `TestPostgresRepository_AssignmentPass_ConcurrentMixedOperations` | P05, P06 | killed; P07 is an equivalent mutant (ADR-0017 implementation note 11, fix round 1) |
@@ -78,4 +78,18 @@ Same harness and filters, in a fresh throwaway worktree `~/mc-mut-claude` at com
 
 Runs: 3. KILLED: 3. SURVIVED: 0. Other: 0.
 
-F01 pins ADR-0017 implementation note 12 (heartbeat = completion time). F02 pins the `SetDispatchPolicy` staleness guard (note 13). F03 pins the rejection of a worker delete that would orphan a reservation. Totals over both rounds: 32 runs, 31 killed, 1 equivalent mutant (P07).
+F01 pins ADR-0017 implementation note 12 (heartbeat = completion time). F02 pins the `SetDispatchPolicy` staleness guard (note 13). F03 pins the rejection of a worker delete that would orphan a reservation. Totals over rounds 0 and 1: 32 runs, 31 killed, 1 equivalent mutant (P07); fix round 2 below brings them to 35, 34 and 1.
+
+## Fix round 2 (F04 to F06, audit findings F-R4 to F-R6)
+
+The mutants are the auditor's exact text replacements A01, A01b and A06b (`audit_new_mutants.py.txt` on the review branch), each with an occurrence check of 1. Same filters as above; the harness ran in a fresh throwaway worktree `~/mc-mut-claude` at commit 2b32089 (the commit that adds the three tests) with the `.env` of `~/MiniCloud-claude` (database `minicloud_claude_test`), ran only the named test (red), restored with `git checkout`, ran the same test again (green), and the worktree was removed afterwards.
+
+| Mutation | Invariant and change | File | Sites | Test (run alone) | Red | Green | Verdict | Diff (+/-) |
+|---|---|---|---|---|---|---|---|---|
+| F04 | INV-5 cursor update path (audit A01): the cursor upsert keeps the old `last_worker_id` on conflict | `internal/storage/postgres/assignment.go` | 1 | `TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses` | FAIL | PASS | KILLED | +1/-1 |
+| F05 | Section 2.1 `cursor_before` (audit A01b): the in-pass cursor is not advanced after a decision | `internal/storage/postgres/assignment.go` | 1 | `TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass` | FAIL | PASS | KILLED | +1/-1 |
+| F06 | Sections 3.2 and 3.5 fallback arm (audit A06b): a reservation stays live for the fallback arm 2 s past its expiry | `internal/storage/postgres/assignment.go` | 1 | `TestConformance_ClaimFallback_ExpiredUnrevokedReservation` | FAIL | PASS | KILLED | +1/-1 |
+
+Runs: 3. KILLED: 3. SURVIVED: 0. Other: 0.
+
+F05 and F06 are shared cases (`internal/storage/storagetest/assignment.go`); the rows above are their PostgreSQL side. The in-memory side runs the same cases and passes; no in-memory mutation was run in this round. Totals over all rounds: 35 runs, 34 killed, 1 equivalent mutant (P07).

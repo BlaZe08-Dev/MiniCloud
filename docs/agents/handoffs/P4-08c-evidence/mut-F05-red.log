@@ -1,0 +1,6 @@
+=== RUN   TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass
+    assignment.go:759: job_2 JOB_ASSIGNED cursor_before="" selected=w_b, want cursor_before w_a
+--- FAIL: TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass (0.61s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.644s
+FAIL

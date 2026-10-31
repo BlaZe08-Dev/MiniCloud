@@ -1,0 +1,4 @@
+=== RUN   TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass
+--- PASS: TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass (0.61s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.641s

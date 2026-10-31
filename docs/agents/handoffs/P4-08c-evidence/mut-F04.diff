@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..bd55521 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -156,7 +156,7 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
+ 			INSERT INTO assignment_cursor (task_type, last_worker_id, updated_at)
+ 			VALUES ($1, $2, clock_timestamp())
+ 			ON CONFLICT (task_type) DO UPDATE
+-			SET last_worker_id = EXCLUDED.last_worker_id, updated_at = EXCLUDED.updated_at;`, taskType, workerID); err != nil {
++			SET last_worker_id = assignment_cursor.last_worker_id, updated_at = EXCLUDED.updated_at;`, taskType, workerID); err != nil {
+ 			return storage.AssignResult{}, mapPgError(err)
+ 		}
+ 	}
