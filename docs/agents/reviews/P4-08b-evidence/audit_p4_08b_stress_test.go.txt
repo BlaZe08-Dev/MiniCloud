@@ -1,0 +1,209 @@
+// Auditor stress test for P4-08b (ADR-0017 slice 5a). It lives in the review evidence folder and
+// is NOT committed into internal/. To run it, copy it to internal/storage/ as
+// audit_p4_08b_stress_test.go, run it, and delete the copy:
+//
+//	cp docs/agents/reviews/P4-08b-evidence/audit_p4_08b_stress_test.go.txt internal/storage/audit_p4_08b_stress_test.go
+//	env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -run TestAudit_ ./internal/storage/
+//	rm internal/storage/audit_p4_08b_stress_test.go
+//
+// It drives the in-memory repository directly from concurrent goroutines (the interleaving a
+// slice 5c timer loop would add, which s.mu does not serialise against direct repository callers):
+// a pass loop, pollers that claim and commit (success and transient failure, so RETRYING jobs
+// re-enter the pass), a canceller, a submitter, a health flapper and a clock advancer. It checks
+// per-job sub-state invariants while running and global ones at quiescence.
+package storage_test
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+)
+
+func TestAudit_P4_08b_ConcurrentAssignmentInvariants(t *testing.T) {
+	for seed := int64(1); seed <= 20; seed++ {
+		t.Run(fmt.Sprintf("seed_%d", seed), func(t *testing.T) { auditRun(t, seed) })
+	}
+}
+
+func auditRun(t *testing.T, seed int64) {
+	ctx := context.Background()
+	clk := newAssignClock()
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	workers := []string{"w_a", "w_b", "w_c", "w_d"}
+	tasks := map[string][]string{"w_a": {"echo"}, "w_b": {"echo", "sleep"}, "w_c": {"sleep"}, "w_d": {"echo", "sleep"}}
+	for _, w := range workers {
+		addAssignWorker(t, repo, clk, w, 1, tasks[w]...)
+	}
+	var mu sync.Mutex
+	var jobs []string
+	var errs []string
+	fail := func(format string, a ...any) {
+		mu.Lock()
+		errs = append(errs, fmt.Sprintf(format, a...))
+		mu.Unlock()
+	}
+	submit := func(i int, rng *rand.Rand) {
+		id := fmt.Sprintf("job_%d", i)
+		tt := "echo"
+		if rng.Intn(2) == 0 {
+			tt = "sleep"
+		}
+		if err := repo.SubmitJob(ctx, &domain.Job{ID: id, TaskType: tt, Payload: []byte("{}"), State: domain.StateQueued, MaxAttempts: 3, TimeoutSeconds: 30}); err != nil {
+			fail("SubmitJob: %v", err)
+			return
+		}
+		mu.Lock()
+		jobs = append(jobs, id)
+		mu.Unlock()
+	}
+	seedRng := rand.New(rand.NewSource(seed))
+	for i := 0; i < 20; i++ {
+		submit(i, seedRng)
+	}
+	snapshot := func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]string(nil), jobs...)
+	}
+	checkJob := func(j *domain.Job) {
+		set := 0
+		if j.AssignedWorkerID != nil {
+			set++
+		}
+		if j.AssignedAt != nil {
+			set++
+		}
+		if j.AssignmentExpiresAt != nil {
+			set++
+		}
+		if set != 0 && set != 3 {
+			fail("%s: partial assignment (%d of 3 set)", j.ID, set)
+		}
+		if set == 3 && j.State != domain.StateQueued && j.State != domain.StateRetrying {
+			fail("%s: assignment on state %s", j.ID, j.State)
+		}
+		if j.AssignmentLapses > testMaxLapses {
+			fail("%s: lapses %d above the limit %d", j.ID, j.AssignmentLapses, testMaxLapses)
+		}
+	}
+
+	const steps = 300
+	var wg sync.WaitGroup
+	run := func(name string, fn func(rng *rand.Rand, i int)) {
+		wg.Add(1)
+		go func(off int64) {
+			defer wg.Done()
+			rng := rand.New(rand.NewSource(seed*100 + off))
+			for i := 0; i < steps; i++ {
+				fn(rng, i)
+			}
+		}(int64(len(name)))
+	}
+	run("pass", func(rng *rand.Rand, i int) {
+		if _, err := repo.AssignQueuedJobs(ctx, assignParams()); err != nil {
+			fail("pass: %v", err)
+		}
+	})
+	for wi, w := range workers {
+		w := w
+		run("poller"+w+fmt.Sprint(wi), func(rng *rand.Rand, i int) {
+			_ = repo.RecordHeartbeat(ctx, w, 0)
+			_ = repo.RecordPoll(ctx, w)
+			claim, err := repo.ClaimForPoll(ctx, w, claimOpts(rng.Intn(4) == 0))
+			if err != nil || claim == nil {
+				return
+			}
+			if claim.Job.State != domain.StateRunning {
+				fail("claim returned state %s", claim.Job.State)
+			}
+			out := domain.AttemptOutcome{ExitCode: 0}
+			if rng.Intn(3) == 0 {
+				out = domain.AttemptOutcome{ExitCode: 1, Error: "boom", ErrorClassification: domain.ClassTransient}
+			}
+			_, _ = repo.CommitAttempt(ctx, claim.Job.ID, claim.Attempt.ID, claim.Attempt.LeaseToken, w, out, func(int) time.Duration { return time.Second })
+		})
+	}
+	run("cancel", func(rng *rand.Rand, i int) {
+		js := snapshot()
+		if len(js) > 0 && rng.Intn(5) == 0 {
+			_, _ = repo.CancelJob(ctx, js[rng.Intn(len(js))])
+		}
+	})
+	run("submitter", func(rng *rand.Rand, i int) {
+		if i%10 == 0 {
+			submit(1000+i, rng)
+		}
+	})
+	run("flapper", func(rng *rand.Rand, i int) {
+		if rng.Intn(10) != 0 {
+			return
+		}
+		w := workers[rng.Intn(len(workers))]
+		st := domain.WorkerStatusHealthy
+		if rng.Intn(2) == 0 {
+			st = domain.WorkerStatusUnhealthy
+		}
+		_ = repo.UpsertWorker(ctx, &domain.Worker{ID: w, Version: "v1.0.0", TotalSlots: 1, Status: st, SupportedTasks: tasks[w], LastHeartbeatAt: clk.Now()})
+	})
+	run("clock", func(rng *rand.Rand, i int) {
+		clk.Advance(time.Duration(rng.Intn(1500)) * time.Millisecond)
+	})
+	run("checker", func(rng *rand.Rand, i int) {
+		for _, id := range snapshot() {
+			if j, err := repo.GetJob(ctx, id); err == nil {
+				checkJob(j)
+			}
+		}
+	})
+	wg.Wait()
+
+	// Quiescent global checks.
+	now := clk.Now()
+	live := map[string]int{}
+	for _, id := range snapshot() {
+		j, err := repo.GetJob(ctx, id)
+		if err != nil {
+			t.Fatalf("GetJob(%s): %v", id, err)
+		}
+		checkJob(j)
+		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt.After(now) {
+			live[*j.AssignedWorkerID]++
+		}
+		atts, err := repo.ListAttemptsByJob(ctx, id)
+		if err != nil {
+			t.Fatalf("ListAttemptsByJob(%s): %v", id, err)
+		}
+		running := 0
+		seen := map[int]bool{}
+		for _, a := range atts {
+			if a.State == domain.AttemptRunning || a.State == domain.AttemptPending {
+				running++
+			}
+			if seen[a.AttemptNo] {
+				fail("%s: duplicate attempt_no %d", id, a.AttemptNo)
+			}
+			seen[a.AttemptNo] = true
+		}
+		if running > 1 {
+			fail("%s: %d active attempts (INV-1)", id, running)
+		}
+	}
+	for w, n := range live {
+		if n > 1 {
+			fail("worker %s holds %d live reservations (INV-10)", w, n)
+		}
+	}
+	if len(errs) > 0 {
+		max := len(errs)
+		if max > 10 {
+			max = 10
+		}
+		t.Fatalf("%d invariant violations, first %d: %v", len(errs), max, errs[:max])
+	}
+}
