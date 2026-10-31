@@ -15,9 +15,10 @@ import (
 )
 
 // The PostgreSQL side of ADR-0017 (assignment-based round-robin, slice 5b). Every staleness and
-// expiry comparison runs in SQL on the database clock (clock_timestamp(); the pass heartbeat is
-// written with now()), so Go passes durations, never a wall-clock time, into those comparisons
-// (implementation note 8).
+// expiry comparison runs in SQL on the database clock (clock_timestamp(), the time at the
+// statement), and the pass heartbeat is written with clock_timestamp() by the pass's last statement,
+// so last_completed_at is the completion time of the pass. Go passes durations, never a wall-clock
+// time, into those comparisons (implementation note 8).
 //
 // Lock order is the repository order, jobs -> workers -> attempts -> results -> job_events:
 //   - the pass takes pg_try_advisory_xact_lock first (never waits), then jobs FOR UPDATE SKIP
@@ -159,9 +160,11 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
 			return storage.AssignResult{}, mapPgError(err)
 		}
 	}
-	// The pass heartbeat, as the last statement, on the database clock (note 8).
+	// The pass heartbeat, as the last statement, on the database clock at that statement
+	// (clock_timestamp(), not now(), which is the transaction start): last_completed_at is the
+	// completion time of the pass (note 8, fix round 1).
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO assignment_pass_state (singleton, last_completed_at) VALUES (TRUE, now())
+		INSERT INTO assignment_pass_state (singleton, last_completed_at) VALUES (TRUE, clock_timestamp())
 		ON CONFLICT (singleton) DO UPDATE SET last_completed_at = EXCLUDED.last_completed_at;`); err != nil {
 		return storage.AssignResult{}, mapPgError(err)
 	}

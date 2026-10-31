@@ -660,3 +660,32 @@ func TestSetDispatchPolicy_RejectsInvalidPolicyName(t *testing.T) {
 		}
 	}
 }
+
+// assignOnlyRepo has the assignment surface but not storage.AssignmentPassStaleness: it embeds the
+// two interfaces, not the in-memory type, so AssignmentPassStale is not promoted.
+type assignOnlyRepo struct {
+	storage.Repository
+	storage.AssignmentRepository
+}
+
+// SetDispatchPolicy("round_robin") must refuse a repository that implements
+// storage.AssignmentRepository but not storage.AssignmentPassStaleness: without it the poll-time
+// refresh could not judge staleness on the repository clock (ADR-0017 implementation note 8).
+// Control: the same in-memory repository, unwrapped, is accepted.
+func TestSetDispatchPolicy_RoundRobinRequiresPassStaleness(t *testing.T) {
+	clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	mem := storage.NewInMemoryRepository(storage.WithClock(clk))
+	var _ storage.AssignmentRepository = assignOnlyRepo{}
+	if _, ok := any(assignOnlyRepo{}).(storage.AssignmentPassStaleness); ok {
+		t.Fatalf("test setup: assignOnlyRepo must not implement AssignmentPassStaleness")
+	}
+
+	svc := coordinator.NewService(assignOnlyRepo{Repository: mem, AssignmentRepository: mem}, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("round_robin without pass staleness: err=%v, want ErrInvalidRequest", err)
+	}
+	control := coordinator.NewService(mem, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	if err := control.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
+		t.Fatalf("control: round_robin on the in-memory repository: %v", err)
+	}
+}

@@ -738,3 +738,93 @@ func TestPostgresRepository_AssignmentPass_SecondPassSkips(t *testing.T) {
 		t.Fatalf("control: the pass after release wrote nothing")
 	}
 }
+
+// TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime: the pass heartbeat is the
+// completion time of the pass (ADR-0017 Section 3.2, implementation note 8 as amended in fix round
+// 1): the last statement writes clock_timestamp(), not now(), which is the transaction start. A
+// second connection holds the only eligible worker's row, so the pass waits out its 300 ms
+// lock_timeout inside its transaction before it writes the heartbeat. The heartbeat must therefore
+// be at least 250 ms after the database time read before the pass began, and not earlier than the
+// last event the pass wrote. With now(), it would be the transaction start, a few milliseconds
+// after that time.
+func TestPostgresRepository_AssignmentPass_HeartbeatIsCompletionTime(t *testing.T) {
+	ctx := context.Background()
+	h, pool, repo := newPostgresAssignmentHarnessWithRepo(t, postgres.WithSweepLockTimeout(300*time.Millisecond))
+	storagetest.AssignAddWorker(t, h, "w_1", 1, "echo")
+	storagetest.AssignPoll(t, h, "w_1")
+	storagetest.AssignSubmit(t, h, "job_1", "echo")
+	// An expired reservation gives the pass an event to write before it waits on the lock.
+	storagetest.AssignSubmit(t, h, "job_0", "echo")
+	h.SetReservation(t, "job_0", "w_1", -time.Second)
+
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Rollback(ctx)
+	if _, err := holder.Exec(ctx, `SELECT id FROM workers WHERE id = 'w_1' FOR UPDATE`); err != nil {
+		t.Fatalf("hold w_1: %v", err)
+	}
+
+	before := dbNow(t, pool)
+	res, err := repo.AssignQueuedJobs(ctx, storagetest.AssignTestParams())
+	if err != nil || res.Skipped || res.Lapsed != 1 {
+		t.Fatalf("pass: %+v err=%v; want one lapse and no skip", res, err)
+	}
+	var heartbeat, lastEvent time.Time
+	if err := pool.QueryRow(ctx, `SELECT last_completed_at FROM assignment_pass_state`).Scan(&heartbeat); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT MAX(created_at) FROM job_events WHERE event_type = 'JOB_ASSIGNMENT_LAPSED'`).Scan(&lastEvent); err != nil {
+		t.Fatal(err)
+	}
+	if gap := heartbeat.Sub(before); gap < 250*time.Millisecond {
+		t.Fatalf("heartbeat is %v after the pre-pass time; the pass waited about 300ms first, so the heartbeat is not its completion time", gap)
+	}
+	if heartbeat.Before(lastEvent) {
+		t.Fatalf("heartbeat %v is earlier than the lapse event %v the same pass wrote", heartbeat, lastEvent)
+	}
+}
+
+// TestPostgresRepository_DeleteWorkerWithReservation_Rejected: open question 5 of the P4-08c
+// handoff. jobs.assigned_worker_id references workers ON DELETE SET NULL, which sets only that
+// column, so chk_jobs_assignment_shape must reject the cascade and with it the DELETE. Afterwards
+// the reservation is intact. Control: a worker without a reservation can be deleted.
+func TestPostgresRepository_DeleteWorkerWithReservation_Rejected(t *testing.T) {
+	ctx := context.Background()
+	h, pool, _ := newPostgresAssignmentHarnessWithRepo(t)
+	storagetest.AssignAddWorker(t, h, "w_1", 1, "echo")
+	storagetest.AssignAddWorker(t, h, "w_free", 1, "echo")
+	storagetest.AssignSubmit(t, h, "job_1", "echo")
+	reserveViaPass(t, h, pool, "job_1", "w_1")
+	var expiresBefore time.Time
+	if err := pool.QueryRow(ctx, `SELECT assignment_expires_at FROM jobs WHERE id = 'job_1'`).Scan(&expiresBefore); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := pool.Exec(ctx, `DELETE FROM workers WHERE id = 'w_1'`)
+	if err == nil {
+		t.Fatalf("DEFECT: deleting a worker that holds a reservation succeeded")
+	}
+	if code := pgCode(err); code != "23514" && code != "23503" {
+		t.Fatalf("delete of a reserved worker: want a constraint rejection (23514 or 23503), got %v (code %q)", err, code)
+	}
+	t.Logf("delete rejected: %v (code %s)", err, pgCode(err))
+
+	var exists bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM workers WHERE id = 'w_1')`).Scan(&exists); err != nil || !exists {
+		t.Fatalf("worker w_1 gone after a rejected delete (err=%v)", err)
+	}
+	var expiresAfter time.Time
+	var assignedAt *time.Time
+	if err := pool.QueryRow(ctx, `SELECT assignment_expires_at, assigned_at FROM jobs WHERE id = 'job_1'`).Scan(&expiresAfter, &assignedAt); err != nil {
+		t.Fatal(err)
+	}
+	if got := reservedTo(t, pool, "job_1"); got != "w_1" || assignedAt == nil || !expiresAfter.Equal(expiresBefore) {
+		t.Fatalf("reservation changed by the rejected delete: worker=%q assigned_at=%v expires %v -> %v", got, assignedAt, expiresBefore, expiresAfter)
+	}
+
+	if _, err := pool.Exec(ctx, `DELETE FROM workers WHERE id = 'w_free'`); err != nil {
+		t.Fatalf("control: deleting a worker without a reservation: %v", err)
+	}
+}
