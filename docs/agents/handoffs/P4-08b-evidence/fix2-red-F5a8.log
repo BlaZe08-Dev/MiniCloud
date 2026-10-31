@@ -1,0 +1,47 @@
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -v -run TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected ./internal/config/ (tree: 3cf0f43 plus the new test only)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_DISPATCH_POLICY=
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_DISPATCH_POLICY=round-robin
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW=5
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW="5" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW="" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_INTERVAL=1_second
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_INTERVAL="1 second" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_INTERVAL=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_INTERVAL="" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES=three
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_MAX_LAPSES="three" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_MAX_LAPSES="" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_FALLBACK_AGE=30
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_FALLBACK_AGE="30" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_FALLBACK_AGE=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_FALLBACK_AGE="" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT=50x
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_BATCH_LIMIT="50x" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_BATCH_LIMIT="" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MIN_YIELD=10
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_MIN_YIELD="10" accepted (the default was used silently)
+=== RUN   TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MIN_YIELD=
+    assignment_config_test.go:151: MINICLOUD_ASSIGNMENT_MIN_YIELD="" accepted (the default was used silently)
+--- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected (0.01s)
+    --- PASS: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_DISPATCH_POLICY= (0.00s)
+    --- PASS: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_DISPATCH_POLICY=round-robin (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW=5 (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW= (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_INTERVAL=1_second (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_INTERVAL= (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES=three (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES= (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_FALLBACK_AGE=30 (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_FALLBACK_AGE= (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT=50x (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT= (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MIN_YIELD=10 (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected/MINICLOUD_ASSIGNMENT_MIN_YIELD= (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.030s
+FAIL
+EXIT=1

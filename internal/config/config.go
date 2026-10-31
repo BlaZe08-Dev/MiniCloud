@@ -80,6 +80,25 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 	dbMinConns := getIntEnv("MINICLOUD_DB_MIN_CONNS", 2)
 	dbQueryTimeout := getDurationEnv("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
 
+	// The assignment variables (ADR-0017 Section 5.5) are parsed strictly: a set value that does
+	// not parse is a startup error, not the default (F-5a-8). The first parse error is kept and
+	// returned before validateAssignment. The older variables keep getIntEnv and getDurationEnv.
+	var assignParseErr error
+	strictDuration := func(key string, def time.Duration) time.Duration {
+		v, err := lookupDurationEnvStrict(key, def)
+		if err != nil && assignParseErr == nil {
+			assignParseErr = err
+		}
+		return v
+	}
+	strictInt := func(key string, def int) int {
+		v, err := lookupIntEnvStrict(key, def)
+		if err != nil && assignParseErr == nil {
+			assignParseErr = err
+		}
+		return v
+	}
+
 	cfg := &CoordinatorConfig{
 		HTTPAddr:           getEnv("MINICLOUD_HTTP_ADDR", "127.0.0.1:8080"),
 		HeartbeatInterval:  hbInterval,
@@ -100,12 +119,12 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
 
 		DispatchPolicy:         strings.ToLower(getEnv("MINICLOUD_DISPATCH_POLICY", "fifo_pull")),
-		AssignmentAcceptWindow: getDurationEnv("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", 5*time.Second),
-		AssignmentInterval:     getDurationEnv("MINICLOUD_ASSIGNMENT_INTERVAL", 1*time.Second),
-		AssignmentMaxLapses:    getIntEnv("MINICLOUD_ASSIGNMENT_MAX_LAPSES", 3),
-		AssignmentFallbackAge:  getDurationEnv("MINICLOUD_ASSIGNMENT_FALLBACK_AGE", 30*time.Second),
-		AssignmentBatchLimit:   getIntEnv("MINICLOUD_ASSIGNMENT_BATCH_LIMIT", 50),
-		AssignmentMinYield:     getDurationEnv("MINICLOUD_ASSIGNMENT_MIN_YIELD", 10*time.Millisecond),
+		AssignmentAcceptWindow: strictDuration("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", 5*time.Second),
+		AssignmentInterval:     strictDuration("MINICLOUD_ASSIGNMENT_INTERVAL", 1*time.Second),
+		AssignmentMaxLapses:    strictInt("MINICLOUD_ASSIGNMENT_MAX_LAPSES", 3),
+		AssignmentFallbackAge:  strictDuration("MINICLOUD_ASSIGNMENT_FALLBACK_AGE", 30*time.Second),
+		AssignmentBatchLimit:   strictInt("MINICLOUD_ASSIGNMENT_BATCH_LIMIT", 50),
+		AssignmentMinYield:     strictDuration("MINICLOUD_ASSIGNMENT_MIN_YIELD", 10*time.Millisecond),
 	}
 
 	if cfg.HTTPAddr == "" {
@@ -164,6 +183,9 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		return nil, fmt.Errorf("%w: MINICLOUD_OUTAGE_GRACE_WINDOW (%v) must be at least MINICLOUD_LEASE_DURATION (%v)", ErrInvalidGraceConfiguration, cfg.OutageGraceWindow, cfg.LeaseDuration)
 	}
 
+	if assignParseErr != nil {
+		return nil, assignParseErr
+	}
 	if err := validateAssignment(cfg); err != nil {
 		return nil, err
 	}
@@ -262,4 +284,33 @@ func getDurationEnv(key string, defaultVal time.Duration) time.Duration {
 		return defaultVal
 	}
 	return val
+}
+
+// lookupIntEnvStrict returns defaultVal when key is unset, and an error naming key when it is set
+// to a value that does not parse as an integer (an empty value included).
+func lookupIntEnvStrict(key string, defaultVal int) (int, error) {
+	valStr, ok := os.LookupEnv(key)
+	if !ok {
+		return defaultVal, nil
+	}
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return defaultVal, fmt.Errorf("%s must be an integer (got %q)", key, valStr)
+	}
+	return val, nil
+}
+
+// lookupDurationEnvStrict returns defaultVal when key is unset, and an error naming key when it is
+// set to a value that time.ParseDuration rejects (an empty value or a number without a unit
+// included).
+func lookupDurationEnvStrict(key string, defaultVal time.Duration) (time.Duration, error) {
+	valStr, ok := os.LookupEnv(key)
+	if !ok {
+		return defaultVal, nil
+	}
+	val, err := time.ParseDuration(valStr)
+	if err != nil {
+		return defaultVal, fmt.Errorf("%s must be a duration with a unit, such as 5s (got %q)", key, valStr)
+	}
+	return val, nil
 }

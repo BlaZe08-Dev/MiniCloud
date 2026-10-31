@@ -122,3 +122,50 @@ func TestLoadCoordinatorConfig_AssignmentCrossValidation(t *testing.T) {
 		}
 	})
 }
+
+// ADR-0017 Section 5.5: startup fails on any rule violation. A value that does not parse is not in
+// range, so each new variable fails startup on a malformed value instead of falling back to its
+// default (F-5a-8). A set but empty value is malformed too.
+func TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected(t *testing.T) {
+	cases := []struct{ key, val string }{
+		{"MINICLOUD_DISPATCH_POLICY", ""},
+		{"MINICLOUD_DISPATCH_POLICY", "round-robin"},
+		{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", "5"},
+		{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", ""},
+		{"MINICLOUD_ASSIGNMENT_INTERVAL", "1 second"},
+		{"MINICLOUD_ASSIGNMENT_INTERVAL", ""},
+		{"MINICLOUD_ASSIGNMENT_MAX_LAPSES", "three"},
+		{"MINICLOUD_ASSIGNMENT_MAX_LAPSES", ""},
+		{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE", "30"},
+		{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE", ""},
+		{"MINICLOUD_ASSIGNMENT_BATCH_LIMIT", "50x"},
+		{"MINICLOUD_ASSIGNMENT_BATCH_LIMIT", ""},
+		{"MINICLOUD_ASSIGNMENT_MIN_YIELD", "10"},
+		{"MINICLOUD_ASSIGNMENT_MIN_YIELD", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.key+"="+c.val, func(t *testing.T) {
+			assignmentEnv(t, map[string]string{c.key: c.val})
+			_, err := LoadCoordinatorConfig()
+			if err == nil {
+				t.Fatalf("%s=%q accepted (the default was used silently)", c.key, c.val)
+			}
+			if !strings.Contains(err.Error(), c.key) {
+				t.Fatalf("error does not name %s: %v", c.key, err)
+			}
+		})
+	}
+}
+
+// A1 rule 1 equality: INTERVAL equal to ACCEPT_WINDOW does not exceed it, so it is accepted.
+// 31 s clears the lapse-path minimum (3 x 10 s) and the rule 2 bound (2 x 5 s + 5 s).
+func TestLoadCoordinatorConfig_AssignmentIntervalEqualToWindowAccepted(t *testing.T) {
+	assignmentEnv(t, map[string]string{
+		"MINICLOUD_ASSIGNMENT_INTERVAL":      "5s",
+		"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "5s",
+		"MINICLOUD_ASSIGNMENT_FALLBACK_AGE":  "31s",
+	})
+	if _, err := LoadCoordinatorConfig(); err != nil {
+		t.Fatalf("INTERVAL equal to ACCEPT_WINDOW rejected: %v", err)
+	}
+}
