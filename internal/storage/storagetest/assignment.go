@@ -735,3 +735,48 @@ func RunAssignPassSkipsWhenPassLockHeldConformance(t *testing.T, newHarness func
 		t.Fatalf("control: pass after release: res=%+v", res)
 	}
 }
+
+// RunAssignEventCursorBeforeAdvancesWithinPassConformance: ADR-0017 Section 2.1 event shape, within
+// one pass each decision of a type starts from the previous decision's pick, and the JOB_ASSIGNED
+// payload's cursor_before records that input. Two workers and two jobs of one type in one pass:
+// job_2's cursor_before is w_a, the pick for job_1 (P4-08c review F-R5, mutant A01b).
+func RunAssignEventCursorBeforeAdvancesWithinPassConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t)
+	for _, id := range []string{"w_a", "w_b"} {
+		AssignAddWorker(t, h, id, 1, "echo")
+		AssignPoll(t, h, id)
+	}
+	AssignSubmit(t, h, "job_1", "echo")
+	AssignSubmit(t, h, "job_2", "echo")
+	if res := AssignRunPass(t, h); res.Reserved != 2 {
+		t.Fatalf("control: reserved %d, want 2", res.Reserved)
+	}
+	if sel, _ := assignedEvent(t, h, "job_1").Details["selected"].(string); sel != "w_a" {
+		t.Fatalf("control: job_1 selected %q, want w_a", sel)
+	}
+	ev := assignedEvent(t, h, "job_2")
+	if cb, _ := ev.Details["cursor_before"].(string); cb != "w_a" {
+		t.Fatalf("job_2 JOB_ASSIGNED cursor_before=%q selected=%v, want cursor_before w_a", cb, ev.Details["selected"])
+	}
+}
+
+// RunClaimFallbackExpiredUnrevokedReservationConformance: ADR-0017 Sections 3.2 and 3.5, a
+// reservation whose window has passed is not live for the fallback arm, even before a pass revokes
+// it. A job at the lapse limit with a reservation to w_1 that expired 1 s ago is claimable by w_2
+// with reason lapses (P4-08c review F-R6, mutant A06b).
+func RunClaimFallbackExpiredUnrevokedReservationConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t)
+	AssignAddWorker(t, h, "w_1", 1, "echo")
+	AssignAddWorker(t, h, "w_2", 1, "echo")
+	AssignPoll(t, h, "w_2")
+	AssignSubmit(t, h, "job_1", "echo")
+	h.SetLapses(t, "job_1", AssignTestMaxLapses)
+	h.SetReservation(t, "job_1", "w_1", -1*time.Second)
+	claim, err := h.assignRepo(t).ClaimForPoll(context.Background(), "w_2", AssignTestClaimOpts(false))
+	if err != nil {
+		t.Fatalf("w_2 claim of a lapse-limit job whose reservation expired 1 s ago: %v", err)
+	}
+	if claim.Job.ID != "job_1" || claim.FallbackReason != domain.FallbackReasonLapses {
+		t.Fatalf("claimed %s reason %q, want job_1 by lapses", claim.Job.ID, claim.FallbackReason)
+	}
+}

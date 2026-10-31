@@ -198,6 +198,14 @@ func TestConformance_AssignPass_SkipsWhenPassLockHeld(t *testing.T) {
 	storagetest.RunAssignPassSkipsWhenPassLockHeldConformance(t, newPostgresAssignmentHarness)
 }
 
+func TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass(t *testing.T) {
+	storagetest.RunAssignEventCursorBeforeAdvancesWithinPassConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_ClaimFallback_ExpiredUnrevokedReservation(t *testing.T) {
+	storagetest.RunClaimFallbackExpiredUnrevokedReservationConformance(t, newPostgresAssignmentHarness)
+}
+
 // --- PostgreSQL-only invariants (ADR-0017 Section 6.3, slice 5b) ---
 
 func assignmentCleared(t *testing.T, pool *pgxpool.Pool, jobID string) bool {
@@ -389,6 +397,44 @@ func TestPostgresRepository_AssignmentCursor_SurvivesRestart(t *testing.T) {
 	storagetest.AssignRunPass(t, h)
 	if e, s := reservedTo(t, pool, "job_e2"), reservedTo(t, pool, "job_s2"); e != "w_b" || s != "w_c" {
 		t.Fatalf("after restart: echo->%q sleep->%q, want w_b and w_c (each type continues its own rotation)", e, s)
+	}
+}
+
+// TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses: INV-5 on the cursor
+// update path. The restart test above writes each type's cursor row once (the INSERT); this test
+// makes the third pass of one type go through the upsert's UPDATE. Three passes over w_a, w_b, w_c
+// with a restart before the third: the picks are w_a, w_b, w_c, and the stored row follows each
+// pick (P4-08c review F-R4, mutant A01).
+func TestPostgresRepository_AssignmentCursor_UpdatePathPersistsAcrossPasses(t *testing.T) {
+	ctx := context.Background()
+	h, pool, repo := newPostgresAssignmentHarnessWithRepo(t)
+	for _, id := range []string{"w_a", "w_b", "w_c"} {
+		storagetest.AssignAddWorker(t, h, id, 1, "echo")
+		storagetest.AssignPoll(t, h, id)
+	}
+	cursorRow := func() string {
+		var w *string
+		if err := pool.QueryRow(ctx, `SELECT last_worker_id FROM assignment_cursor WHERE task_type = 'echo'`).Scan(&w); err != nil || w == nil {
+			t.Fatalf("cursor row: %v", err)
+		}
+		return *w
+	}
+	for i, want := range []string{"w_a", "w_b", "w_c"} {
+		if i == 2 {
+			h.Repo = postgres.NewRepository(pool) // restart before the third pass
+		}
+		id := []string{"job_1", "job_2", "job_3"}[i]
+		storagetest.AssignSubmit(t, h, id, "echo")
+		storagetest.AssignRunPass(t, h)
+		if got := reservedTo(t, pool, id); got != want {
+			t.Fatalf("pass %d reserved %s to %q, want %q", i+1, id, got, want)
+		}
+		if c := cursorRow(); c != want {
+			t.Fatalf("pass %d left the stored cursor at %q, want %q", i+1, c, want)
+		}
+		if _, err := repo.CancelJob(ctx, id); err != nil {
+			t.Fatalf("CancelJob(%s): %v", id, err)
+		}
 	}
 }
 

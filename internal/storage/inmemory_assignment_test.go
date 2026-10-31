@@ -258,3 +258,14 @@ func TestConformance_AssignEvent_CandidatesInIDOrder(t *testing.T) {
 func TestConformance_AssignPass_SkipsWhenPassLockHeld(t *testing.T) {
 	storagetest.RunAssignPassSkipsWhenPassLockHeldConformance(t, newInMemoryAssignmentHarness)
 }
+
+// Section 2.1 event shape: cursor_before follows the in-pass cursor (P4-08c review F-R5).
+func TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass(t *testing.T) {
+	storagetest.RunAssignEventCursorBeforeAdvancesWithinPassConformance(t, newInMemoryAssignmentHarness)
+}
+
+// Sections 3.2 and 3.5: an expired, unrevoked reservation is not live for the fallback arm (P4-08c
+// review F-R6).
+func TestConformance_ClaimFallback_ExpiredUnrevokedReservation(t *testing.T) {
+	storagetest.RunClaimFallbackExpiredUnrevokedReservationConformance(t, newInMemoryAssignmentHarness)
+}
