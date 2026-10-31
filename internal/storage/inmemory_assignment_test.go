@@ -467,6 +467,9 @@ func TestConformance_ClaimAssigned_ConcurrentPollsOneWinner(t *testing.T) {
 		addAssignWorker(t, repo, clk, "w_"+string(rune('a'+i)), 1, "echo")
 	}
 	submitAssign(t, repo, "job_1", "echo")
+	// Age the job past the fallback age, so the age arm is open for the losing polls. Without the
+	// state predicate, a loser would then claim the RUNNING job a second time.
+	clk.Advance(testFallbackAge + time.Second)
 	setReservation(t, repo, "job_1", "w_a", clk.Now().Add(testAcceptWindow))
 
 	var wg sync.WaitGroup
@@ -476,7 +479,7 @@ func TestConformance_ClaimAssigned_ConcurrentPollsOneWinner(t *testing.T) {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			_, err := repo.ClaimForPoll(ctx, id, claimOpts(false))
+			_, err := repo.ClaimForPoll(ctx, id, claimOpts(true))
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
