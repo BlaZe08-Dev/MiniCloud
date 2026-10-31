@@ -8,3 +8,12 @@ func (s *Service) SetRefreshInFlightForTest(v bool) {
 	defer s.mu.Unlock()
 	s.refreshInFlight = v
 }
+
+// SetAssignmentSettingsUncheckedForTest stores settings without Validate. It exists so the
+// external tests can check that SetDispatchPolicy("round_robin") refuses invalid settings, a
+// state SetAssignmentSettings itself cannot produce (F-5a-1).
+func (s *Service) SetAssignmentSettingsUncheckedForTest(a AssignmentSettings) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.assignment = a
+}

@@ -65,7 +65,9 @@ func newRRService(t *testing.T, repo storage.Repository, clk *mockClock) *coordi
 	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
 		t.Fatalf("SetDispatchPolicy: %v", err)
 	}
-	svc.SetAssignmentSettings(coordinator.DefaultAssignmentSettings())
+	if err := svc.SetAssignmentSettings(coordinator.DefaultAssignmentSettings()); err != nil {
+		t.Fatalf("SetAssignmentSettings: %v", err)
+	}
 	return svc
 }
 
@@ -523,5 +525,138 @@ func TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository(t *testing.T) 
 	}
 	if err := svc.SetDispatchPolicy(domain.DispatchPolicyFifoPull); err != nil {
 		t.Fatalf("fifo_pull rejected on a repository without assignment: %v", err)
+	}
+}
+
+// F-5a-1 (P4-08b audit): round_robin selected without SetAssignmentSettings must run with the
+// ADR-0017 Section 5.5 defaults, not the zero AssignmentSettings. With the zero value, MaxLapses 0
+// makes every job lapse-claimable and BatchLimit 0 makes the pass reserve nothing, so every poll
+// would claim under round_robin_fallback with reason "lapses". The ADR outcome for one HEALTHY
+// polling worker and one job is an own-reservation claim (policy round_robin).
+func TestSetDispatchPolicy_RoundRobinWithoutSettings_UsesDefaults(t *testing.T) {
+	clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	svc.SetClock(clk)
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
+		t.Fatalf("SetDispatchPolicy: %v", err)
+	}
+	rrHeartbeat(t, svc, "w_1", "echo")
+	rrSubmit(t, svc, "echo")
+	got, err := svc.PollWork(context.Background(), "w_1")
+	if err != nil {
+		t.Fatalf("PollWork: %v", err)
+	}
+	if got.Policy != domain.DispatchPolicyRoundRobin || got.FallbackReason != "" {
+		t.Fatalf("round_robin without settings claimed under policy=%q reason=%q, want round_robin and no reason", got.Policy, got.FallbackReason)
+	}
+}
+
+// AssignmentSettings.Validate applies the ADR-0017 Section 5.5 ranges and the A1 cross-checks.
+// Each row breaks exactly one rule of the defaults; the two "accepted" rows pin the equality
+// edges that the rules allow.
+func TestAssignmentSettings_Validate(t *testing.T) {
+	type mod func(*coordinator.AssignmentSettings)
+	cases := []struct {
+		name  string
+		mod   mod
+		valid bool
+	}{
+		{"defaults", func(*coordinator.AssignmentSettings) {}, true},
+		{"zero value", func(a *coordinator.AssignmentSettings) { *a = coordinator.AssignmentSettings{} }, false},
+		{"accept window below 5s", func(a *coordinator.AssignmentSettings) { a.AcceptWindow = 5*time.Second - time.Nanosecond }, false},
+		{"accept window above 30s", func(a *coordinator.AssignmentSettings) { a.AcceptWindow = 31 * time.Second }, false},
+		{"interval below 100ms", func(a *coordinator.AssignmentSettings) { a.Interval = 99 * time.Millisecond }, false},
+		{"interval above 10s", func(a *coordinator.AssignmentSettings) { a.Interval = 10*time.Second + time.Millisecond }, false},
+		{"max lapses zero", func(a *coordinator.AssignmentSettings) { a.MaxLapses = 0 }, false},
+		{"max lapses above 10", func(a *coordinator.AssignmentSettings) { a.MaxLapses = 11 }, false},
+		{"fallback age below the lapse path minimum", func(a *coordinator.AssignmentSettings) { a.FallbackAge = 17 * time.Second }, false},
+		{"fallback age above 10 min", func(a *coordinator.AssignmentSettings) { a.FallbackAge = 601 * time.Second }, false},
+		{"batch limit zero", func(a *coordinator.AssignmentSettings) { a.BatchLimit = 0 }, false},
+		{"batch limit above 500", func(a *coordinator.AssignmentSettings) { a.BatchLimit = 501 }, false},
+		{"min yield below 1ms", func(a *coordinator.AssignmentSettings) { a.MinYield = 0 }, false},
+		{"min yield above 1s", func(a *coordinator.AssignmentSettings) { a.MinYield = 1001 * time.Millisecond }, false},
+		{"min yield above interval", func(a *coordinator.AssignmentSettings) {
+			a.Interval = 100 * time.Millisecond
+			a.MinYield = 200 * time.Millisecond
+		}, false},
+		// A1 rule 1. 40 s clears the lapse-path minimum (3 x 11 s) and the rule 2 bound.
+		{"interval above accept window", func(a *coordinator.AssignmentSettings) {
+			a.Interval = 6 * time.Second
+			a.FallbackAge = 40 * time.Second
+		}, false},
+		// A1 rule 1 equality. 31 s clears 3 x 10 s and 2 x 5 s + 5 s.
+		{"interval equal to accept window", func(a *coordinator.AssignmentSettings) {
+			a.Interval = 5 * time.Second
+			a.FallbackAge = 31 * time.Second
+		}, true},
+		// A1 rule 2 equality. With one lapse the lapse-path minimum is 6 s, so only rule 2 fails.
+		{"fallback age equal to 2 x interval plus window", func(a *coordinator.AssignmentSettings) {
+			a.MaxLapses = 1
+			a.FallbackAge = 7 * time.Second
+		}, false},
+		{"fallback age just above 2 x interval plus window", func(a *coordinator.AssignmentSettings) {
+			a.MaxLapses = 1
+			a.FallbackAge = 8 * time.Second
+		}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			a := coordinator.DefaultAssignmentSettings()
+			c.mod(&a)
+			err := a.Validate()
+			if c.valid && err != nil {
+				t.Fatalf("valid settings rejected: %v", err)
+			}
+			if !c.valid && !errors.Is(err, domain.ErrInvalidRequest) {
+				t.Fatalf("invalid settings %+v: err=%v, want ErrInvalidRequest", a, err)
+			}
+		})
+	}
+}
+
+// SetAssignmentSettings rejects invalid settings and keeps the previous ones in force: after a
+// rejected zero value, round_robin still claims by the own reservation under the defaults.
+func TestSetAssignmentSettings_RejectsInvalidAndKeepsPrevious(t *testing.T) {
+	clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	repo := storage.NewInMemoryRepository(storage.WithClock(clk))
+	svc := newRRService(t, repo, clk)
+	if err := svc.SetAssignmentSettings(coordinator.AssignmentSettings{}); !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("zero AssignmentSettings: err=%v, want ErrInvalidRequest", err)
+	}
+	rrHeartbeat(t, svc, "w_1", "echo")
+	rrSubmit(t, svc, "echo")
+	got, err := svc.PollWork(context.Background(), "w_1")
+	if err != nil {
+		t.Fatalf("PollWork: %v", err)
+	}
+	if got.Policy != domain.DispatchPolicyRoundRobin || got.FallbackReason != "" {
+		t.Fatalf("after a rejected update: policy=%q reason=%q, want round_robin and no reason", got.Policy, got.FallbackReason)
+	}
+}
+
+// SetDispatchPolicy("round_robin") refuses settings that fail Validate, and leaves the policy
+// unchanged. fifo_pull does not read the settings and stays selectable.
+func TestSetDispatchPolicy_RoundRobinRejectsInvalidSettings(t *testing.T) {
+	repo := storage.NewInMemoryRepository()
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	svc.SetAssignmentSettingsUncheckedForTest(coordinator.AssignmentSettings{})
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("round_robin with zero settings: err=%v, want ErrInvalidRequest", err)
+	}
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyFifoPull); err != nil {
+		t.Fatalf("fifo_pull rejected: %v", err)
+	}
+}
+
+// SetDispatchPolicy accepts only the two setting names (ADR-0017 Section 5.2). The output-only
+// name round_robin_fallback and the empty name are rejected (F-5a-11).
+func TestSetDispatchPolicy_RejectsInvalidPolicyName(t *testing.T) {
+	repo := storage.NewInMemoryRepository()
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), rrTimeout)
+	for _, name := range []string{domain.DispatchPolicyRoundRobinFallback, "", "random"} {
+		if err := svc.SetDispatchPolicy(name); !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Fatalf("SetDispatchPolicy(%q): err=%v, want ErrInvalidRequest", name, err)
+		}
 	}
 }

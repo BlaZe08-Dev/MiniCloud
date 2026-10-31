@@ -72,7 +72,8 @@ type Service struct {
 	// (MINICLOUD_DEFAULT_MAX_ATTEMPTS).
 	defaultMaxAttempts int
 
-	// Dispatch policy and round-robin settings (assignment.go). The zero policy is fifo_pull.
+	// Dispatch policy and round-robin settings (assignment.go). The zero policy is fifo_pull;
+	// NewService sets assignment to DefaultAssignmentSettings (F-5a-1).
 	policy     string
 	assignment AssignmentSettings
 
@@ -103,6 +104,7 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		workerTimeout:      workerTimeout,
 		leaseDuration:      domain.DefaultLeaseDuration,
 		defaultMaxAttempts: DefaultMaxAttempts,
+		assignment:         DefaultAssignmentSettings(),
 		startupGrace:       DefaultStartupGracePeriod,
 		outageWindow:       DefaultOutageGraceWindow,
 		sweepRand:          newSweepRand(),
