@@ -22,28 +22,41 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | active |
+| P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | active |
+| P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | merged in PR #36 |
 | P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | merged in PR #34 |
+| P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | merged in PR #35 |
+| P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
-| P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | pushed for audit |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-11 — Register follow-ups and fix stale statuses (P4-08a..P4-10, SEC-012, SEC-062)
+- Goal: Register follow-ups and fix stale statuses; update `TASKS.md` and `PROJECT_STATE.md` with merged PRs #33-#36 (P4-08a, P4-09, P4-08b, P4-10); update `threat-model.md` for SEC-012 fix in Slice P4-09 (`ClampExecutionTimeout`); register SEC-062 in `findings.md` and `PROJECT_STATE.md` for older environment helpers silent fallback; import P4-08b 5a review records from `origin/agent/claude/P4-08b-review`; add orchestrator-verified gate entry for main `cb51adc` in `PROJECT_STATE.md`.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-11`. Status: active.
+- Owned files: `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md`, `docs/security/threat-model.md`, `docs/security/findings.md`, `docs/agents/reviews/P4-08b.md`, `reports/claude/P4-08b-review.md`, `docs/agents/reviews/P4-08b-evidence/**`, `docs/agents/handoffs/P4-11*`, `reports/gemini/P4-11.md`.
+- Out of scope: production Go code, database schema or migrations, allowlist modifications.
 
 ### P4-10 — Worker response body limit and URL path escaping (SEC-060, SEC-061)
 - Goal: Fix SEC-060 by bounding poll response reads in `internal/worker/client.go` func `pollWork` with `io.LimitReader` and named constant `MaxPollResponseBytes` (set above `executor.MaxPayloadSizeBytes` with headroom for envelope); fix SEC-061 by escaping `JobID` and `AttemptID` with `url.PathEscape` in func `renewOnce` and func `reportResult`; write unit tests `TestPollWork_OversizedResponseRejected`, `TestPollWork_MaxLegalAssignmentAccepted`, and `TestWorker_URLPathEscaping_RenewAndReport` in `internal/worker/hardening_test.go`; execute mutations M1-M4 with evidence; update `findings.md`, `PROJECT_STATE.md`, `TASKS.md`, and `protocol.md`.
-- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-10`. Status: active.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-10`. Status: merged in PR #36.
 - Owned files: `internal/worker/client.go`, `internal/worker/hardening_test.go`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/agents/handoffs/P4-10*`, `reports/gemini/P4-10.md`.
 - Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-09 — Worker execution timeout clamping (SEC-012)
 - Goal: Clamp coordinator-supplied `TimeoutSeconds` in `internal/worker/client.go` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`) with 64-bit integer multiplication overflow protection and warning logging; implement pure function `ClampExecutionTimeout`; write table-driven unit tests and end-to-end test `TestWorker_ExcessiveTimeoutClamped`; update SEC-012 to Confirmed, Fixed and register findings SEC-059..061.
-- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-09`. Status: active.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-09`. Status: merged in PR #34.
 - Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
 - Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
 ### P4-08b — ADR-0017 slice 5a (domain, pure policy and in-memory parity)
 - Goal: ADR-0017 Section 7 slice 5a only: assignment domain fields and events, the pure round-robin rule with per-type cursors, the in-memory assignment pass, round-robin claim (own reservation, then lapse and age arms), the poll-time refresh in memory, policy selection with `fifo_pull` as the default, and config validation including A1. No migration, no PostgreSQL code.
-- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08b`. Status: pushed for audit.
+- Builder: Claude Code. Auditor: Gemini. Branch: `agent/claude/P4-08b`. Status: merged in PR #35.
 - Owned files: `internal/domain/assignment.go`, `internal/domain/job.go`, `internal/domain/worker.go`, `internal/domain/events.go`, `internal/scheduler/round_robin_rule*.go`, `internal/storage/assignment.go`, `internal/storage/inmemory*.go`, `internal/storage/postgres/assignment_5a_skips_test.go`, `internal/config/config.go`, `internal/config/assignment_config_test.go`, `internal/coordinator/service.go`, `internal/coordinator/assignment*.go`, `internal/coordinator/export_assignment_test.go`, `docs/adr/0017-assignment-round-robin.md` (A1, A2), `docs/agents/handoffs/P4-08b*`, `docs/agents/handoffs/P4-08b-evidence/`, `reports/claude/P4-08b.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`.
+
+### P4-08a — ADR-0017 assignment-based round-robin (design)
+- Goal: Design assignment-based round-robin dispatch (Candidate A) in ADR-0017.
+- Builder: Claude Code. Auditor: Orchestrator review. Branch: `agent/claude/P4-08a`. Status: merged in PR #33.
+- Owned files: `docs/adr/0017-assignment-round-robin.md`, `reports/claude/P4-08a*.md`.
 
 ### P4-07 — CLI output sanitization (SEC-048 / F-4e-18)
 - Goal: Sanitize worker- and task-supplied strings in `cmd/mc` before terminal printing; neutralize escape sequences, control characters, and lone carriage returns; un-skip `TestAbuse_MCOutput_HostileErrorText`; update SEC-048 to Confirmed, Fixed and SEC-031 to Documented.
@@ -156,6 +169,10 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-05 | Phase 4 docs pass after slices 4a–4c | PR #28, merge commit c85a58f |
 | P4-4e | Phase 4 slice 4e (fault-injection suite, adversarial abuse suite, security review) | PR #29, merge commit 69396e5 |
 | P4-06a | Phase 4 docs pass (SEC-029/030, report rule, review imports) | PR #30, merge commit 92f9a73 |
+| P4-08a | ADR-0017 assignment-based round-robin (design) | PR #33, merge commit 74eb433 |
+| P4-09 | Worker execution timeout clamping (SEC-012) | PR #34, merge commit fc84042 |
+| P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | PR #35, merge commit 2ca971b |
+| P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | PR #36, merge commit cb51adc |
 
 ## Follow-ups
 
