@@ -1,7 +1,7 @@
 # ADR 0017: Assignment-Based Round-Robin Dispatch (Candidate A), Design
 
 ## Status
-Proposed, orchestrator answers recorded (revision 1, 2026-10-31). Design only: no production code, test code or migration is part of this ADR.
+Proposed, revision 2, orchestrator answers recorded. Design only: no production code, test code or migration is part of this ADR.
 
 - Formalises **Candidate A** (pre-assignment with a bounded accept window), the leading design named in [ADR 0011](0011-postgres-dispatch-and-recovery.md) Section 2 and in [docs/phase4-plan.md](../phase4-plan.md) Section 3. It is the post-Phase 4 hard gate for V1 completion.
 - Depends on the Phase 4 machinery: attempt leases and the sweeper ([ADR 0014](0014-lease-model-and-expiry.md)), retries ([ADR 0015](0015-retry-policy-and-failure-classification.md)), and cancellation ([ADR 0016](0016-cancellation-semantics.md)). Migration `000004_leases_retries_cancellation.sql` is already in the tree; this design adds migration `000005`.
@@ -19,6 +19,17 @@ The orchestrator reviewed revision 0 and raised items R1 to R7. Each is fixed in
 | R5 | Consistency sweep, plus further defects found during it. | Section 9 (new) lists every change and each further defect |
 | R6 | Poll timing constants were assumed, not checked. | Section 3.1, Section 6.3 (INV-17), Section 6.4, Section 9 |
 | R7 | Open questions had no recorded answers. | Section 8 (answer column) |
+
+### Revision 2 record
+Revision 2 answers the orchestrator's items N1 to N5 and re-reads Sections 5.3, 6.3 and 7 for anything they affect. Further defects found in revision 2 are numbered 19 to 22 in Section 9.
+
+| Item | Change | Where fixed in this revision |
+|---|---|---|
+| N1 | Age arm after a restart or outage. A poll refreshes a stale heartbeat before the age arm, instead of the requested grace-window suppression. | Sections 3.2, 4.1, 4.4, 6.1 (FS-21, FS-23), 6.2, 6.3 (INV-14, INV-19), 6.4 |
+| N2 | No minimum yield between repeated passes, and the repeat rule re-ran on a full batch with no progress. | Sections 2.1, 4.4, 6.1 (FS-24), 6.3 (INV-20, INV-21), 6.4, 7 |
+| N3 | Advisory lock blocked a second pass. It is now `pg_try_advisory_xact_lock`: a second pass skips and logs. | Sections 2.1, 2.3, 4.2, 4.3, 5.4, 6.3 (INV-22) |
+| N4 | The count of further defects disagreed between the ADR, the report and the message. | Section 9 (one list per revision, each item once) |
+| N5 | Orchestrator answers R-a to R-e recorded. | Section 8.2 and Section 8.3 |
 
 ---
 
@@ -68,12 +79,12 @@ Dispatch is first-poller-wins (ADR 0011 Section 2.1). Blueprint Section 6 requir
 | D6 | Accept window | `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW`, default **5 s**, allowed **5 s to 30 s**. The floor was 2 s in revision 0; it is raised by R6 because the worker can back off for 3 s. Window lapse is a lapse, not an attempt. |
 | D7 | Eligibility | Healthy status, fresh heartbeat, fresh **poll** (`workers.last_poll_at` within the window), **one effective slot** (no `PENDING` or `RUNNING` attempt for the worker, and no outstanding reservation), and task support. Re-checked under the worker row lock before each reservation. (R2) |
 | D8 | Lapses | Counted per job in `assignment_lapses`. Not counted during a grace window or for a worker that is no longer healthy. Lapses do not consume `max_attempts`. |
-| D9 | Fallback | A job leaves round-robin and becomes claimable by any polling worker when **either** (i) `assignment_lapses >= MINICLOUD_ASSIGNMENT_MAX_LAPSES` (default **3**), **or** (ii) it has been dispatchable for at least `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (default **30 s**) **and** the assignment pass has been silent for that long. Both are logged as `round_robin_fallback` with the reason. (R3, R4) |
+| D9 | Fallback | A job leaves round-robin and becomes claimable by any polling worker when **either** (i) `assignment_lapses >= MINICLOUD_ASSIGNMENT_MAX_LAPSES` (default **3**), **or** (ii) it has been dispatchable for at least `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (default **30 s**) **and** the assignment pass has been silent for that long, after the poll's refresh has failed (N1, Section 3.2). Both are logged as `round_robin_fallback` with the reason. (R3, R4) |
 | D10 | Cancel | QUEUED-assigned and RETRYING-assigned jobs go straight to `CANCELLED` and clear the assignment in the same transaction. |
-| D11 | Concurrency | Single coordinator: correct by the service mutex and row locks. Several coordinators: correct by row locks and state-guarded `UPDATE`s; the pass takes a transaction advisory lock so only one pass runs at a time. Multi-coordinator operation is not claimed (Q9). |
+| D11 | Concurrency | Single coordinator: correct by the service mutex and row locks. Several coordinators: correct by row locks and state-guarded `UPDATE`s; the pass takes `pg_try_advisory_xact_lock`, so only one pass runs at a time and a second pass skips rather than blocks (N3). Multi-coordinator operation is not claimed (Q9). |
 | D12 | `fifo_pull` | Stays selectable as `MINICLOUD_DISPATCH_POLICY=fifo_pull`. The default flips to `round_robin` in its own reviewed change after the audit (Q1). |
 | D13 | Protocol | Additive only: a `policy` field on the poll assignment and assignment fields on the job view. No new endpoint and no new error code. |
-| D14 | Batch bound | Per pass, at most `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (default **50**) candidates are read and reserved **per task type**, and the revoke step reads at most the same number. (R4) |
+| D14 | Batch bound | Per pass, at most `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (default **50**) candidates are read and reserved **per task type**, and the revoke step reads at most the same number. A repeat within a timer tick needs a reservation and a yield (N2, Section 2.1). (R4, N2) |
 
 ---
 
@@ -184,10 +195,17 @@ The pass is a method on the Postgres repository (`AssignQueuedJobs`) and its in-
 
 - The pass reads at most `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (default **50**) candidate jobs of type `t`, ordered by `created_at, id`, with `FOR UPDATE SKIP LOCKED LIMIT B`. The candidate read is **per type**, so jobs of a type with no eligible worker never occupy the batch of another type. (A single `LIMIT B` over all types would let a head of unplaceable jobs starve every other type; this is why the limit is per type.)
 - The revoke step reads at most `B` expired reservations per pass.
-- When a type's candidate read returned a full batch, the loop runs the pass again without waiting for the timer. Backlog drains at `B` per type per transaction. The loop still yields to the sweeper and to polls between passes, because the single-coordinator build holds `s.mu` for the pass (Section 4.1). A pass therefore delays a poll by at most one batch.
+- **Repeat rule (N2).** The loop runs the pass again without waiting for the timer only when, in that pass, some type's candidate read returned a full batch **and** at least one reservation was made. A full batch with no reservation (for example, every candidate's type has no eligible worker) does not repeat (further defect 19, INV-21). Before a repeat the loop waits `MINICLOUD_ASSIGNMENT_MIN_YIELD` (default **10 ms**, 1 ms to 1 s, not above `MINICLOUD_ASSIGNMENT_INTERVAL`) with `s.mu` released (INV-20). Backlog drains at `B` per type per transaction while reservations are possible.
 - The event payload is capped (Section 2.1 event shape below).
 
 **Head-of-type guarantee.** In every pass where at least one worker of type `t` is eligible at the start of its decisions, the oldest dispatchable unassigned job of type `t` is assigned. It is the first candidate of its type, and at its decision there is an eligible worker. So a newer job of type `t` cannot overtake it, and no other type can take its batch slot. (Test INV-15.)
+
+**Advisory lock semantics (N3).** The pass's first statement is `pg_try_advisory_xact_lock(key)` with the fixed key of Section 4.2. It never blocks. If it returns false, the pass returns `skipped` without reading or writing any row (not `assignment_pass_state` either), logs one line stating that another pass holds the lock, and does not repeat. The next timer tick or submit trigger tries again. A skip is not a failure. It leaves `last_completed_at` unchanged, and the lock holder's commit refreshes it (INV-22).
+
+**Yield and latency bounds under a deep backlog (N2).** Let `D` be one pass duration. `D` is not measured, and no number is given for it (Limits of this design). `s.mu` is held for a pass, a refresh and a claim (Section 4.1). A repeat is preceded by `MINICLOUD_ASSIGNMENT_MIN_YIELD` with `s.mu` released, so a poll waiting for the mutex takes it at that release. This relies on the release, not on fairness in the Go runtime, and is not measured.
+- **Poll latency** added by passes is at most `D` (the pass in progress when the poll arrives), plus the claim itself. A poll never waits behind two passes.
+- **Commit latency** (submit to reservation) for a job with `p` unassigned jobs of its type ahead of it is at most `p` repeated passes, each costing at most `D + MINICLOUD_ASSIGNMENT_MIN_YIELD`, because each repeat reserves at least one job ahead of it. The chain stops at the first pass with no reservation. After that the job waits for the timer and for an eligible worker. With few eligible workers, the drain is paced by worker polls (Section 2.4), not by the pass. An untriggered job waits at most one timer interval plus `D` (Section 2.6).
+- The yield is a pause between passes, not a rate limit. It does not cap throughput. It bounds how long the mutex is held without a gap.
 
 **`JOB_ASSIGNED` payload.** `{worker_id, expires_at, policy: "round_robin", task_type, cursor_before, selected, candidates: [first 10 eligible worker IDs for t in ID order], candidate_count, reason}`. The cap of 10 is a constant, not configuration. It keeps the event row bounded when many workers are eligible (INV-18).
 
@@ -226,7 +244,7 @@ then set `c_t = w`. Decisions for other task types do not read or write `c_t`.
 
 - **Restart.** A restarted coordinator reads each type's cursor from the database, so each rotation continues where it stopped. No in-memory state exists to lose.
 - **Crash mid-pass.** The pass is one transaction, so either all its reservations and all changed cursors commit, or none do.
-- **Several coordinators.** Only one pass runs at a time, enforced by `pg_advisory_xact_lock` (Section 4.2). No two passes write a cursor concurrently.
+- **Several coordinators.** Only one pass runs at a time, enforced by `pg_try_advisory_xact_lock` (Section 2.1, Section 4.2). A second pass skips and does not block. No two passes write a cursor concurrently.
 - **Cursor cleanup.** If a cursor's worker is deleted, the foreign key sets it to NULL and that type's rule starts from the lowest ID. Workers are not deleted in V1 (C9), so this is a corner case only.
 
 **Join and leave.**
@@ -322,6 +340,10 @@ A poll by healthy worker `W` with capacity tries the following in order. Both ar
 
    "The pass is silent" means `assignment_pass_state.last_completed_at <= clock_timestamp() - MINICLOUD_ASSIGNMENT_FALLBACK_AGE`. The pass writes that row as its last statement, in its own transaction, so a pass that fails or never runs leaves it stale.
 
+**Refresh before the age arm (N1).** Before step 1, the poll reads `assignment_pass_state.last_completed_at`. If it is older than `MINICLOUD_ASSIGNMENT_INTERVAL`, `PollWork` runs one assignment pass under `s.mu` before the claim. A successful refresh writes a fresh heartbeat, so the silence in step 2 is then below `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` and the age arm is closed for this poll. The own arm then sees the reservations that pass just made. So the age arm can be evaluated only after a refresh in this poll has **failed**. If the database is down, the refresh and the claim both fail, and no claim proceeds. A claim proceeds after a failed refresh only when the database answers and the pass does not, which is the stalled-pass case of FS-21.
+
+This is the mechanism chosen for N1 in place of the suggested suppression, which was "suppress while a startup or outage grace window is active and until one pass has completed since process start". Two reasons. A window length is a guess about how long recovery takes, and a window shorter than the outage reopens the gap. A rule that waits for a completed pass would also suppress the age arm when a pass never completes after a restart, which is the FS-21 case. The refresh needs no clock and no in-memory state. The restart case is covered by the same rule: the first poll after a start refreshes a stale heartbeat before any age claim. Its cost is one failed pass attempt per poll while the pass fails with the database reachable (Section 6.2).
+
 **Why the age arm is gated on pass silence (refinement found in review).** Revision 0 made the age arm unconditional. Under a healthy, saturated queue every job waits more than 30 s, so the unconditional rule would turn the whole backlog into FIFO fallback and quietly turn `round_robin` into `fifo_pull`. Gating on pass silence keeps the age arm for the case it exists for: the pass is not running. Test INV-16 pins this.
 
 **Response.** The 200 body is unchanged except for an additive `policy` field (`round_robin`, `round_robin_fallback`, or `fifo_pull` under that policy) and, on a fallback claim, `fallback_reason`. Otherwise the worker sees the same `assignment` as today: lease token, lease expiry and duration (protocol Section 6.2).
@@ -389,7 +411,7 @@ A poll is **not** idempotent, and this design does not make it so.
 
 ### 4.1 One coordinator
 
-`PollWork` holds the service mutex `s.mu` for the whole claim (C4). The assignment pass and the sweeper run under the same mutex in the single-coordinator build, so the pass and the claim never interleave inside one process. A pass delays a poll by at most one batch (Section 2.1). Correctness does not rely on the mutex alone: each path also takes database row locks and uses state-guarded updates, so the design stays correct if the mutex is later removed.
+`PollWork` holds the service mutex `s.mu` for the whole claim (C4). The assignment pass and the sweeper run under the same mutex in the single-coordinator build, so the pass and the claim never interleave inside one process. The poll-time refresh (Section 3.2) runs under the same mutex. The repeat yield (Section 2.1) releases it. A pass delays a poll by at most one batch (Section 2.1). Correctness does not rely on the mutex alone: each path also takes database row locks and uses state-guarded updates, so the design stays correct if the mutex is later removed.
 
 ### 4.2 Several coordinators (stance)
 
@@ -398,7 +420,7 @@ Design stance: **the database is the only correctness boundary.** The mutex is a
 | Hazard | Protection |
 |---|---|
 | Two claims take the same job | `FOR UPDATE SKIP LOCKED` on the candidate and the state predicate in the `UPDATE`; the partial unique index `idx_attempts_active_per_job` is the backstop. |
-| Two passes write cursors or double-reserve a job | `pg_advisory_xact_lock` with a fixed key (the same mechanism the migrator uses, `internal/storage/postgres/migrator.go`), taken first in every pass. A second pass blocks until the first commits, then reads the new cursors. |
+| Two passes write cursors or double-reserve a job | `pg_try_advisory_xact_lock` with a fixed key, taken first in every pass. The migrator takes a blocking `pg_advisory_xact_lock` (`internal/storage/postgres/migrator.go`), but a pass must not wait on it. A second pass returns `skipped` at once and writes nothing (Section 2.1, INV-22). |
 | Pass reserves a job while a claim or cancel holds it | The pass locks candidates with `FOR UPDATE SKIP LOCKED` and skips locked rows. |
 | Pass reserves a worker while a claim of that worker is in flight | The pass takes `FOR UPDATE` on the worker row, bounded by `lock_timeout`, and re-runs the eligibility checks under it (Section 4.3). The claim takes the same row lock. |
 | Revoke races a claim | Both take the job row lock; the claim's predicate decides the winner. |
@@ -411,10 +433,11 @@ ADR 0013 and ADR 0014 fix the canonical order `jobs -> workers -> attempts -> re
 
 | Path | Lock sequence | Notes |
 |---|---|---|
-| Advisory pass lock | `pg_advisory_xact_lock(key)` first | Not a row lock. Taken before any row lock, so no cycle with row-lock holders. |
+| Advisory pass lock | `pg_try_advisory_xact_lock(key)` first. A false result means skip, with no further statement (N3). | Not a row lock, and never waited on. Taken before any row lock, so no cycle with row-lock holders. |
 | Assignment pass: revoke | `jobs` (`FOR UPDATE SKIP LOCKED`, `LIMIT B`), then `workers` read (no lock) | Writes `jobs`, `job_events`. |
 | Assignment pass: reserve, per type | `jobs` (candidates, `SKIP LOCKED`, `LIMIT B`); then per reserved worker `workers` (`FOR UPDATE`, `lock_timeout`), then a fresh read of `attempts` for that worker, then the eligibility re-check; then `jobs` update and `job_events` insert | Lock order is `jobs -> workers`, same as the claim. On a lock timeout the worker is skipped for the rest of the pass. |
 | Assignment pass: cursors and heartbeat | `assignment_cursor` upserts, then `assignment_pass_state` update, last | Written only under the advisory lock. |
+| Poll-time refresh (Section 3.2, N1) | The same sequence as the pass above, in its own transaction, then the claim in its own transaction. | Nothing is held between the two. Both run under `s.mu`. The refresh takes no lock the claim does not take in the same order. |
 | Claim (poll 200) | `jobs` (`SKIP LOCKED`) then `workers` (`FOR UPDATE`) then `attempts` insert, `job_events` insert | Identical to `DispatchNextJob` today. |
 | Poll 204 freshness write | `workers` only, own transaction | Holds nothing else, so it cannot close a cycle. |
 | Cancel of queued or retrying job | `jobs` then `job_events` | Clears assignment in the same statement. |
@@ -434,14 +457,17 @@ Revision 0 said the pass read workers with no lock and never touched `attempts`.
 | After the pass commits, before anything else | Reservations, cursors and pass heartbeat durable. | Workers poll; windows run on database time; expiry is handled by a later pass. |
 | During a claim, before commit | Nothing changed. | Worker's poll gets an error; retries. |
 | After claim commit, response lost | `RUNNING` attempt, no executor. | Lease expires; sweeper reaps to `LOST`; retry consumes one attempt (Section 3.6). |
-| Coordinator restart | Cursors, reservations, lapse counts and pass heartbeat durable. Grace state in memory is lost. | Startup grace (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30 s) starts on the first tick. See below. |
-| Database outage | Passes fail; the heartbeat goes stale. Expiry continues on database time. | Outage grace (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30 s) opens on the first successful tick after the failure (ADR 0014 Section 4). Polls also fail during an outage. |
-| Assignment pass stalled (bug, repeated error, or the pass loop stopped) | No new reservations; heartbeat goes stale; expired reservations are not revoked. | Age arm after `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` of silence (Section 3.2, FS-21). |
+| Coordinator restart | Cursors, reservations, lapse counts and pass heartbeat durable. Grace state in memory is lost. | Startup grace (`MINICLOUD_STARTUP_GRACE_PERIOD`, default 30 s) starts on the first tick and gates lapse counting only. The first poll refreshes a stale heartbeat before any age claim (N1, Section 3.2). See below. |
+| Database outage | Passes fail; the heartbeat goes stale. Expiry continues on database time. | Outage grace (`MINICLOUD_OUTAGE_GRACE_WINDOW`, default 30 s) opens on the first successful tick after the failure (ADR 0014 Section 4) and gates lapse counting only. Polls also fail during an outage. On recovery the first poll refreshes a stale heartbeat before any age claim (N1, Section 3.2). |
+| Assignment pass stalled (bug, repeated error, or the pass loop stopped) | No new reservations; heartbeat goes stale; expired reservations are not revoked. | Age arm after `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` of silence, once the poll's refresh has failed (Section 3.2, FS-21). |
+| Pass errors repeatedly with the database reachable | The refresh fails inside each poll. | The age arm opens after `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` of silence, as for a stalled pass (FS-21). Each poll pays one failed pass attempt under `s.mu` (Section 6.2, further defect 21). |
+| A second pass holds the advisory lock (not claimed for V1 across coordinators; possible with a long transaction) | The second pass skips and writes nothing. | The holder's commit refreshes the heartbeat. The next timer tick retries (Section 2.1, INV-22). |
 
 **Grace applies to lapse counting, not to revocation.** Two rules:
 
 - During an active grace window (startup or outage), an expired assignment is still **revoked** (so the job is not stuck), but the lapse is **not counted** (`counted: false`). A worker that could not poll because the control plane was down must not be pushed toward fallback by it.
 - Outside grace, a lapse counts only for a `HEALTHY` worker (Section 3.3).
+- Grace never gates the age arm. The poll-time refresh does that (Section 3.2, N1).
 
 The grace state is passed into the pass as an input value, exactly as `SweepExpiredLeases` receives `domain.SweepGraceState`. The pass neither owns nor advances it. The only authoritative check is inside the pass transaction, under the job locks.
 
@@ -527,7 +553,9 @@ CREATE TABLE assignment_cursor (
 );
 
 -- Step 5: the pass heartbeat (R3). One row. Written by the pass as its last statement,
--- so a pass that fails or stops leaves it stale. The fallback age arm reads it.
+-- written by a pass as its last statement, only when the pass completes. A failed,
+-- stopped or skipped pass leaves it stale. The fallback age arm and the poll-time
+-- refresh (Section 3.2) both read it.
 CREATE TABLE assignment_pass_state (
     singleton         BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
     last_completed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -559,6 +587,7 @@ Notes on the sketch:
 - The fallback claim's predicate (Section 3.2) reads `assignment_lapses` and `dispatchable_since` across task types. The plan for that query is **not verified**. It is checked with `EXPLAIN` in slice 5b. The per-type index above is for the pass and is the only index this design relies on for the pass scan.
 - `ON DELETE SET NULL` on `assigned_worker_id` matches ADR 0011 Section 2.4. Workers are not deleted in V1, so it is a backstop.
 - The shape CHECK is the enforcement that every state-changing path clears the columns. Mutation INV-2b (Section 6.3) proves a path that forgets is caught.
+- N1 to N3 change no DDL. The advisory key is a constant in code, not a column. A skipped pass (Section 2.1) writes nothing, so it needs no column.
 
 **Migration test.** A `migration_000005_test.go` (proposed) should follow the shape of the existing `migration_000004_test.go`. Check first whether any test pins the latest migration number (for example in `migrator_test.go`); I did not verify this and it must be checked in slice 5b.
 
@@ -568,7 +597,7 @@ Notes on the sketch:
 - **Existing dispatch tests.** `DispatchNextJob` changes by one clause (clearing the assignment columns), which is a no-op when they are NULL. The existing skip-locked test `TestPostgresRepository_DispatchNextJob_SkipsLockedHead` (in `internal/storage/postgres/dispatch_skiplocked_test.go`) is the regression gate for this change.
 - **Scheduler tests.** `internal/scheduler/round_robin_test.go` tests the index-based `RoundRobinScheduler`, which is unchanged.
 - **Coordinator constructors.** `NewService` keeps its `scheduler.Scheduler` parameter. The new pure function is not reached through that interface.
-- **In-memory parity.** Every behaviour in this ADR is implemented twice: in `internal/storage/inmemory.go` (with the injected clock, a mutex instead of locks, and `jobOrder`, which equals creation order, so FIFO ties agree) and in the Postgres repository. Parity is enforced by shared conformance tests in `internal/storage/storagetest/conformance.go` run against both repositories, as the earlier Phase 4 slices do for leases. The per-type cursor map, the pass heartbeat and the batch limit exist in both.
+- **In-memory parity.** Every behaviour in this ADR is implemented twice: in `internal/storage/inmemory.go` (with the injected clock, a mutex instead of locks, and `jobOrder`, which equals creation order, so FIFO ties agree) and in the Postgres repository. Parity is enforced by shared conformance tests in `internal/storage/storagetest/conformance.go` run against both repositories, as the earlier Phase 4 slices do for leases. The per-type cursor map, the pass heartbeat and the batch limit exist in both. The try-lock skip (the in-memory pass models it with a non-blocking `TryLock`), the repeat rule with its yield, and the poll-time refresh exist in both.
 - **Known parity difference (existing, not created here).** Postgres orders by `created_at, id`; memory orders by insertion. They agree when `created_at` is strictly increasing. This is recorded so the conformance tests do not assume tie behaviour.
 
 ---
@@ -588,8 +617,10 @@ These are proposed text for the failure model. This ADR does not edit that file.
 | **FS-18** | Cancel races with claim of a reserved job | Row lock serialises. Either `CANCELLED` and claim returns 204, or the claim wins and cancel sees `RUNNING` (`CANCEL_REQUESTED`). | Automatic. | Slice 5b |
 | **FS-19** | Assignment lapse loop (every chosen worker lapses) | Bounded by `L`; then fallback. | Automatic after `L` windows. | Slice 5c |
 | **FS-20** | Database outage during pass | Pass fails; the pass heartbeat goes stale; reservations expire on database time; lapses not counted during grace. | Automatic. | Slice 5c |
-| **FS-21** | Assignment pass stalled (bug, repeated error, or loop stopped) while workers poll | No reservations; expired reservations are not revoked; no lapses counted. The age arm (Section 3.2) lets any healthy polling worker claim each job once it has been dispatchable and the pass has been silent for `MINICLOUD_ASSIGNMENT_FALLBACK_AGE`. | Automatic. Worst case per job: `FALLBACK_AGE` (30 s) plus one poll gap (about 3 s) for a job that arrives while the pass is silent. For a job already waiting when the pass stops, the bound is `FALLBACK_AGE` after the silence begins, plus the poll gap. The bound holds only while at least one healthy worker that supports the type polls. | Slice 5c |
+| **FS-21** | Assignment pass stalled (bug, repeated error, or loop stopped) while workers poll | No reservations; expired reservations are not revoked; no lapses counted. The age arm (Section 3.2) lets any healthy polling worker claim each job once it has been dispatchable and the pass has been silent for `MINICLOUD_ASSIGNMENT_FALLBACK_AGE`, and only after the poll's refresh has failed (N1). | Automatic. Worst case per job: `FALLBACK_AGE` (30 s) plus one poll gap (about 3 s) for a job that arrives while the pass is silent. For a job already waiting when the pass stops, the bound is `FALLBACK_AGE` after the silence begins, plus the poll gap. The bound holds only while at least one healthy worker that supports the type polls. | Slice 5c |
 | **FS-22** | Poll round trip exceeds the window margin (Section 3.1) | The worker's poll arrives after the window; the job lapses and is counted (outside grace). Correctness is unaffected. | Automatic. Cost: one lapse per occurrence. | Slice 5c |
+| **FS-23** | Coordinator restarts, or the database is down for longer than `MINICLOUD_ASSIGNMENT_FALLBACK_AGE`, and polls resume before a pass has completed (heartbeat stale) | Without the refresh, the age arm would claim aged jobs in FIFO order before the first pass reserves them, so round-robin is skipped. With the refresh (Section 3.2), the poll's own pass runs first, and the age arm closes when it succeeds. | Automatic. Cost: one pass duration added to the first poll after recovery (Section 2.1, `D`). | Slice 5a (memory), slice 5b (Postgres), slice 5c (loop) |
+| **FS-24** | Deep backlog with full batches | Without a yield, the loop would hold `s.mu` back to back and starve polls, and a full batch with no reservation would spin. With the repeat rule (reservation required) and `MINICLOUD_ASSIGNMENT_MIN_YIELD`, each repeat follows a released mutex. | Automatic. A poll waits at most one pass duration `D` (not measured, Section 2.1). | Slice 5c |
 
 ### 6.2 Abuse cases
 
@@ -605,8 +636,9 @@ Claims are unauthenticated in V1 (SEC-004, accepted gap). The cases below are on
 | Poll flood to force writes to `workers` | Each 204 may write `last_poll_at`. | Throttled to one write per worker per second (Section 2.2). |
 | Poll flood to hold worker row locks | A claim holds the worker row briefly; the pass waits at most `lock_timeout`. | Bounded wait; a timed-out worker is skipped for that pass (Section 4.3). |
 | Poison payload that repeatedly crashes its worker | Each crash is a `LOST` attempt, bounded by `max_attempts` (unchanged). | ADR 0015 Section 2. Assignment adds no new path to it. |
-| Coordinator-level flood of submits triggering passes | Each submit triggers a pass. | Each pass reads and reserves at most `B` jobs per type and revokes at most `B`, serialised by the advisory lock (D14). A submit storm delays passes but cannot start unbounded work. |
+| Coordinator-level flood of submits triggering passes | Each submit triggers a pass. | Each pass reads and reserves at most `B` jobs per type and revokes at most `B`, serialised by the advisory try-lock (D14). A submit storm delays passes but cannot start unbounded work. A skipped pass is not a lost trigger: the next timer tick (`MINICLOUD_ASSIGNMENT_INTERVAL`) covers it (N3). |
 | Event flood: a pass with many eligible workers writes large payloads | Each `JOB_ASSIGNED` carries the candidate list. | Cap of 10 IDs plus a count (Section 2.1, INV-18). |
+| Poll flood while the pass fails with the database reachable (the N1 refresh) | Each poll runs one failed refresh under `s.mu` before its claim, so each poll costs one pass attempt. | Serialised by `s.mu`, so the attempts never run in parallel. Not rate-limited: a rate limit could skip the refresh just after the database recovers and reopen the gap of Section 3.2 (further defect 21). Residual: one pass attempt per poll. To measure in slice 5c. |
 
 ### 6.3 Invariants, tests and mutations
 
@@ -631,11 +663,15 @@ Each invariant names the test that would catch its violation and the mutation th
 | INV-11 | Only fresh, healthy, polling workers are eligible. | `TestConformance_Assign_SkipsStaleWorkers` (planned test): stale poll, stale heartbeat, `UNHEALTHY` each skipped. | Drop each freshness predicate in turn. |
 | INV-12 | `fifo_pull` behaviour is unchanged: its claim ignores assignment columns. | `TestConformance_FifoPull_IgnoresAssignmentColumns` (planned test), plus the existing `DispatchNextJob` tests. | Make the fifo claim honour `assigned_worker_id`. |
 | INV-13 | Lock order `jobs -> workers -> attempts` holds for the new paths: no deadlock with the sweeper or a claim. | `TestPostgresRepository_AssignmentPass_NoDeadlockWithClaim` (planned test): a second connection holds a worker row lock while the pass runs; the test asserts the pass completes or skips that worker within `lock_timeout`, and that PostgreSQL reports no `40P01`. | Make the pass lock `workers` before `jobs`. PostgreSQL then reports `40P01` against a concurrent claim, and the test fails. |
-| INV-14 | **Liveness (R3): with the pass silent and a healthy polling worker that supports the type, every dispatchable job becomes claimable within `FALLBACK_AGE` (plus one poll gap) of the pass having been silent for that long.** | `TestFault_AssignmentPassStalled_JobRunsWithinBound` (planned test, memory variant in slice 5a, Postgres variant in 5b): pass disabled; a job is submitted; the injected clock advances past `FALLBACK_AGE`; a poll claims it with `policy: round_robin_fallback`, `fallback_reason: age`. Second case: a reservation expires with the pass disabled; the job is claimable after the same bound. | Remove the age arm from the fallback predicate. The job is never claimed; the test fails. |
+| INV-14 | **Liveness (R3): with the pass silent and a healthy polling worker that supports the type, every dispatchable job becomes claimable within `FALLBACK_AGE` (plus one poll gap) of the pass having been silent for that long.** | `TestFault_AssignmentPassStalled_JobRunsWithinBound` (planned test, memory variant in slice 5a, Postgres variant in 5b): pass disabled, and the poll's refresh fails too so that the age arm is reached (further defect 22); a job is submitted; the injected clock advances past `FALLBACK_AGE`; a poll claims it with `policy: round_robin_fallback`, `fallback_reason: age`. Second case: a reservation expires with the pass disabled; the job is claimable after the same bound. | Remove the age arm from the fallback predicate. The job is never claimed; the test fails. |
 | INV-15 | **Batch and head-of-type (R4): per pass, at most `B` candidates are read and reserved per type; the oldest dispatchable job of a type is reserved in every pass where some worker of that type is eligible.** | `TestProperty_BatchHeadNeverStarved` (planned test): random multi-type submissions with batches smaller than the backlog; asserts the head of each type is reserved in every pass with an eligible worker, and no pass reads more than `B` per type. | Replace the per-type candidate read with a single `LIMIT B` over all types. A head of unplaceable jobs then blocks the other types, and the test fails. |
 | INV-16 | **No age fallback while the pass is live (R3 refinement).** A saturated healthy queue never produces an `age` fallback. | `TestProperty_SaturatedPass_NoAgeFallback` (planned test): a live pass and a backlog older than `FALLBACK_AGE`; no poll claims an `age` fallback. | Drop the pass-silence condition from the age arm. The backlog is then claimed as fallback, and the test fails. |
 | INV-17 | **Poll timing (R6): the accept window exceeds the maximum poll backoff plus the margin, and configuration enforces the floor.** | `TestPollTiming_AcceptWindowExceedsBackoff` (planned test, slice 5c): asserts that the configured minimum window is greater than the worker's maximum poll backoff plus the round-trip margin, using the extracted constants; and that config validation rejects a window below the minimum. | Raise the worker's maximum poll backoff constant above the window floor. The relation fails, and the test fails. A second mutation: lower the config floor back to 2 s. |
 | INV-18 | **Event payload cap (R4):** a `JOB_ASSIGNED` payload carries at most 10 candidate IDs plus a count. | `TestConformance_AssignEvent_CapsCandidates` (planned test): a pass with more than 10 eligible workers writes 10 IDs and the correct `candidate_count`. | Remove the cap. The test fails. |
+| INV-19 | **Restart and outage (N1): an age-arm claim never precedes a refresh that succeeded in the same poll.** A poll whose stored heartbeat is older than `MINICLOUD_ASSIGNMENT_INTERVAL` runs a refresh before its claim, and the age arm closes when the refresh commits. | `TestPoll_AgeArm_AfterRestart_RefreshesFirst` and `TestPoll_AgeArm_AfterOutage_RefreshesFirst` (planned tests; memory variant in slice 5a, Postgres variant in slice 5b): a heartbeat stale for longer than `FALLBACK_AGE`, and a job older than `FALLBACK_AGE`, then one poll. The worker the refresh reserved the job to claims with `policy: round_robin`. Any other poll gets 204. Neither is `round_robin_fallback`. | Remove the refresh step from `PollWork`. The age arm then claims with `fallback_reason: age`, and the test fails. |
+| INV-20 | **Yield (N2): consecutive repeated passes are separated by at least `MINICLOUD_ASSIGNMENT_MIN_YIELD` with `s.mu` released, so a waiting poll runs between them.** | `TestCoordinator_AssignmentRepeat_YieldsToPolls` (planned test, slice 5c): with a backlog that forces repeats, a poll blocked on `s.mu` acquires it before the next pass starts, and the gap between the end of one pass and the start of the next is at least `MIN_YIELD` on the injected clock. | Set the gap to zero and keep `s.mu` across the repeat (the N2 defect). The poll does not acquire the mutex between passes, and the test fails. |
+| INV-21 | **Repeat only with progress (further defect 19): a repeat follows only a pass in which some type's batch was full and at least one reservation was made.** | `TestCoordinator_AssignmentRepeat_OnlyWithProgress` (planned test, slice 5c): a full batch of unplaceable jobs gives exactly one pass per timer tick; a full batch with a reservation repeats. | Repeat on a full batch regardless of reservations. The unplaceable case then runs passes back to back, the pass count exceeds one per tick, and the test fails. |
+| INV-22 | **Skip, not block (N3): a second pass that finds the advisory lock held returns `skipped` at once and writes nothing.** | `TestPostgresRepository_AssignmentPass_SecondPassSkips` (planned test, slice 5b): a second connection holds the key; the pass returns within a 1 s context deadline with `skipped`; no row in `assignment_pass_state`, `assignment_cursor`, `jobs` or `job_events` changes. | Replace `pg_try_advisory_xact_lock` with `pg_advisory_xact_lock`. The pass blocks until the deadline, and the test fails. |
 
 ### 6.4 Fault-injection and API abuse tests (all planned)
 
@@ -655,6 +691,9 @@ Each invariant names the test that would catch its violation and the mutation th
 | `TestAPI_Poll_Flood_ThrottlesFreshnessWrites` (planned test) | At most one `last_poll_at` write per worker per second under a poll flood. Measured by counting writes through a repository wrapper, not by timing. | API abuse |
 | `TestAPI_Job_AssignmentFieldsAreAdditive` (planned test) | `GET /v1/jobs/{job_id}` gains the four fields and existing fields are unchanged. | Protocol compatibility |
 | `TestConformance_PollResponse_PolicyField` (planned test) | The 200 poll body carries `policy` with the correct value per path (`round_robin`, `round_robin_fallback`, `fifo_pull`), and `fallback_reason` on fallback claims. | Protocol |
+| `TestFault_RestartThenPoll_NoAgeClaim` (planned test) | FS-23 and INV-19: a restart with a stale heartbeat; the first poll refreshes and no age claim occurs. | Fault |
+| `TestFault_OutageRecovery_NoAgeClaim` (planned test) | FS-23 and INV-19: the database is down past `FALLBACK_AGE`, then recovers; the first poll refreshes and no age claim occurs. | Fault |
+| `TestFault_DeepBacklog_PollsNotStarved` (planned test) | FS-24 and INV-20, INV-21: a deep backlog with repeats; polls get `s.mu` between passes, and a full batch with no reservation does not repeat. | Fault |
 
 Property tests: INV-4, INV-4b, INV-15 and INV-16 run at least 1,000 iterations. The state-machine model test for the assignment sub-state (planned test `TestProperty_AssignmentSubState_ModelConformance`) drives random sequences of submit, pass, poll, cancel, reap, pass stall, and clock advance against a reference model and checks INV-1, INV-3, INV-6, INV-8, INV-10 and INV-14 after every step.
 
@@ -667,17 +706,17 @@ Three slices. Each is independently mergeable behind `MINICLOUD_DISPATCH_POLICY=
 ### Slice 5a: domain, pure policy and in-memory parity (no database)
 
 - **Scope.** Assignment fields, the poll freshness field and the fallback reason on the domain types. Three new event-type constants. The pure round-robin function (per type, Section 2.3) and the lapse and fallback predicates (Section 3.2). The effective-slot constant (Section 2.4). In-memory assignment pass with per-type cursors, batch limit, revoke, claim, cancel clearing and pass heartbeat. Coordinator policy wiring and config validation. No migration, no Postgres code.
-- **Config (validated in 5a).** Six variables: `MINICLOUD_DISPATCH_POLICY` (existing), `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW` (5 s, 5 s to 30 s), `MINICLOUD_ASSIGNMENT_INTERVAL` (1 s), `MINICLOUD_ASSIGNMENT_MAX_LAPSES` (3, 1 to 10), `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (30 s, and at least `MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL)`, which is 18 s by default), `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (50, 1 to 500).
+- **Config (validated in 5a).** Seven variables: `MINICLOUD_DISPATCH_POLICY` (existing), `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW` (5 s, 5 s to 30 s), `MINICLOUD_ASSIGNMENT_INTERVAL` (1 s), `MINICLOUD_ASSIGNMENT_MAX_LAPSES` (3, 1 to 10), `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` (30 s, and at least `MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL)`, which is 18 s by default), `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` (50, 1 to 500), and `MINICLOUD_ASSIGNMENT_MIN_YIELD` (10 ms, 1 ms to 1 s, not above `MINICLOUD_ASSIGNMENT_INTERVAL`) (N2). `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` must also exceed `MINICLOUD_ASSIGNMENT_INTERVAL` (N1, Section 3.2).
 - **Files (existing, to edit):** `internal/domain/job.go` (assignment fields, JSON tags `omitempty`), `internal/domain/worker.go` (`LastPollAt`), `internal/domain/events.go` (three event types), `internal/storage/inmemory.go` (assignment pass, claim predicates, revoke, cancel clearing), `internal/storage/storagetest/conformance.go` (shared tests), `internal/coordinator/service.go` (policy selection in `PollWork`; constructor unchanged), `internal/config/config.go` (six variables, validated).
 - **Files (new, proposed):** a domain file for assignment rules, a pure function file beside `internal/scheduler/round_robin.go`, a coordinator loop file beside `internal/coordinator/sweeper.go`, and the in-memory and conformance tests for these.
-- **Tests (planned).** INV-1 (memory variant), INV-2, INV-3, INV-4, INV-4b, INV-6, INV-7a, INV-7b, INV-8, INV-10, INV-11, INV-12, INV-14 (memory variant), INV-15, INV-16, INV-18, `TestConformance_PollResponse_PolicyField`, and `TestProperty_AssignmentSubState_ModelConformance` (memory only).
+- **Tests (planned).** INV-1 (memory variant), INV-2, INV-3, INV-4, INV-4b, INV-6, INV-7a, INV-7b, INV-8, INV-10, INV-11, INV-12, INV-14 (memory variant), INV-15, INV-16, INV-18, INV-19 (memory variant), `TestConformance_PollResponse_PolicyField`, and `TestProperty_AssignmentSubState_ModelConformance` (memory only).
 - **Verification commands.**
   - `test -z "$(gofmt -l .)"`
   - `go vet ./...`
   - `go build ./...`
   - `make test-docs`
   - `env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./...` (memory only; database tests skip)
-  - Mutation proofs for INV-3, INV-4b, INV-7b, INV-8, INV-10, INV-14, INV-15, INV-16 in `~/mc-mut-claude`, each showing the test fails under the mutation and passes after restore.
+  - Mutation proofs for INV-3, INV-4b, INV-7b, INV-8, INV-10, INV-14, INV-15, INV-16, INV-19 in `~/mc-mut-claude`, each showing the test fails under the mutation and passes after restore.
 - **Independent audit.** The pure round-robin function (INV-4 and INV-4b, and the argument in Section 2.6), the lapse and fallback predicates (Section 3.2), and the one-slot rule (Section 2.4).
 
 ### Slice 5b: migration 000005 and the Postgres repository
@@ -685,21 +724,21 @@ Three slices. Each is independently mergeable behind `MINICLOUD_DISPATCH_POLICY=
 - **Scope.** Migration `000005`, Postgres assignment pass with the advisory lock, per-type candidate reads, worker row locking in the reserve step, claim through the shared dispatch core (own arm, then fallback arm), revoke step, cancel and sweeper clearing, `DispatchNextJob` clearing of the columns, the freshness write, and the pass heartbeat. Shared conformance run against Postgres. Concurrency tests. An `EXPLAIN` check of the fallback query.
 - **Files (existing, to edit):** `internal/storage/postgres/repository.go` (`DispatchNextJob` clearing; `CancelJob` clearing; claim core; freshness write), `internal/storage/postgres/leases.go` (sweeper clearing on terminal transitions), `internal/storage/repository.go` (new interface methods), `internal/storage/postgres/migrator_test.go` (only if it pins the latest version; see Section 5.3).
 - **Files (new, proposed):** `000005_assignment_round_robin.sql` in `internal/storage/postgres/migrations/`, a Postgres assignment file in `internal/storage/postgres/`, and a migration test file following `migration_000004_test.go`.
-- **Tests (planned).** INV-1 (Postgres variant), INV-2b, INV-5, INV-9, INV-10b, INV-13, `TestPostgresRepository_AssignmentCursor_SurvivesRestart`, `TestPostgresRepository_CancelAssigned_ClearsAssignment`, INV-14 (Postgres variant), and a migration test that applies `000005` to a migrated database and to a fresh one.
+- **Tests (planned).** INV-1 (Postgres variant), INV-2b, INV-5, INV-9, INV-10b, INV-13, INV-19 (Postgres variant), INV-22, `TestPostgresRepository_AssignmentCursor_SurvivesRestart`, `TestPostgresRepository_CancelAssigned_ClearsAssignment`, INV-14 (Postgres variant), and a migration test that applies `000005` to a migrated database and to a fresh one.
 - **Verification commands.**
   - All slice 5a commands
   - `make test-db`, with its output redirected to a log file in the session scratchpad and the tail pasted verbatim. It needs the shared test database, so it runs where that database is available. This design makes no claim about its result.
-  - Mutation proofs for INV-1 (Postgres), INV-2b, INV-10b, INV-13.
+  - Mutation proofs for INV-1 (Postgres), INV-2b, INV-10b, INV-13, INV-19 (Postgres), INV-22.
 - **Independent audit.** The claim and pass SQL, the worker-lock re-check (Section 2.4), the lock order (Section 4.3), and the CHECK-driven clearing (INV-2b). This slice must be audited by an agent that did not build it (AGENTS.md Section 7).
 
 ### Slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing
 
-- **Scope.** The assignment loop in the coordinator (timer, submit trigger, and immediate re-run when a type's batch was full), grace state wiring, startup validation, job view fields, the poll `policy` and `fallback_reason` fields, the worker constant extraction and the timing test (INV-17), the fault and API abuse suites in Section 6.4, and the property tests at 1,000 iterations.
+- **Scope.** The assignment loop in the coordinator (timer, submit trigger, and the repeat rule of Section 2.1 with its yield), the poll-time refresh, grace state wiring, startup validation, job view fields, the poll `policy` and `fallback_reason` fields, the worker constant extraction and the timing test (INV-17), the fault and API abuse suites in Section 6.4, and the property tests at 1,000 iterations.
 - **Files (existing, to edit):** `internal/coordinator/service.go` (submit trigger; loop start), `internal/coordinator/sweeper.go` (grace state passed to the pass), `cmd/coordinator/main.go` (start the loop; policy from config), `internal/api/handlers.go` (poll `policy` and `fallback_reason` fields; job fields are carried by the domain JSON), `internal/worker/client.go` (extract the idle poll interval and maximum poll backoff to named constants; no behaviour change).
 - **Files (new, proposed):** fault tests under the `tests/` integration and fault directories, following the existing `tests/integration/` layout, and the API abuse tests beside `internal/api`.
-- **Tests (planned).** INV-6 (end to end), INV-9 (loop variant), INV-17, INV-18 (loop variant), every test in Section 6.4, and `TestProperty_AssignmentSubState_ModelConformance` at 1,000 iterations.
+- **Tests (planned).** INV-6 (end to end), INV-9 (loop variant), INV-17, INV-18 (loop variant), INV-20, INV-21, every test in Section 6.4 (including the FS-23 and FS-24 tests), and `TestProperty_AssignmentSubState_ModelConformance` at 1,000 iterations.
 - **Verification commands.** All previous commands, plus `make test-db` as above and `make test-race` (or the `-race -count=1` form). Report PASS, SKIP and FAIL counts separately (AGENTS.md Section 5), because database tests skip without the URL.
-- **Independent audit.** Grace interaction (INV-9), the fallback behaviour under failure (FS-19, FS-20, FS-21), and the timing relation (INV-17). The audit must also re-run the mutation proofs from slices 5a and 5b.
+- **Independent audit.** Grace interaction (INV-9), the fallback behaviour under failure (FS-19, FS-20, FS-21), and the timing relation (INV-17). The audit must also re-run the mutation proofs from slices 5a and 5b, and the mutation proofs for INV-20 and INV-21 in this slice.
 
 **Follow-up slices, not in 5a to 5c.**
 - **Worker concurrency (Q5).** Scheduled before the V2 comparison. It removes `effectiveWorkerSlots` (Section 2.4) and makes the worker loop run jobs concurrently, so `total_slots` means something in practice. It is not part of this ADR's slices.
@@ -733,7 +772,7 @@ The orchestrator answered every question in revision 1 (R7). The answers below a
 
 ### 8.2 Remaining questions raised by revision 1
 
-These are not answered by the orchestrator. Each has a recommendation.
+The orchestrator answered each of these in revision 2 (Section 8.3). The recommendation given here is the answer of record.
 
 | # | Question | Recommendation | Why it is a decision |
 |---|---|---|---|
@@ -743,11 +782,21 @@ These are not answered by the orchestrator. Each has a recommendation.
 | **R-d** | `FALLBACK_AGE` (default 30 s) and `BATCH_LIMIT` (default 50) are new config values. The values are proposed, derived in Sections 3.2 and 2.1, and not measured. | Accept the proposed defaults; tune after the V2 benchmark. | They set the liveness bound and the pass cost. |
 | **R-e** | The worst-case liveness bound (FS-21) holds only while a healthy polling worker supports the type. That is a stated limit, not a fix. | Accept. | A job for a type with no live worker cannot run; no design fixes that. |
 
+### 8.3 Orchestrator answers recorded (revision 2)
+
+| Item | Orchestrator answer (revision 2) | Effect |
+|---|---|---|
+| R-a | Yes. The fourth job-view field `assignment_fallback_reason` stays. | Section 5.1 |
+| R-b | Yes. The age arm is gated on pass silence, and it is also closed while a poll's refresh succeeds (N1). | Sections 3.2, 6.3 |
+| R-c | Yes. The accept window is 5 s to 30 s. | Section 3.1, D6 |
+| R-d | Accept the proposed defaults (`MINICLOUD_ASSIGNMENT_FALLBACK_AGE` 30 s, `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` 50). Measured values are recorded in slice 5c. | Sections 2.1, 3.2, Section 7 (slice 5c) |
+| R-e | Accept. | Section 6.1 (FS-21), Limits of this design |
+
 ---
 
-## 9. Revision 1 change record (R1 to R7 and further defects)
+## 9. Change records: revision 1 and revision 2 (further defects)
 
-Section 9 is the traceability record for revision 1. Each item lists what changed and where. Items marked **further** were found during the R5 sweep and are not in the orchestrator's list.
+Section 9 is the traceability record. A **further defect** is one the orchestrator did not list. Each further defect is numbered once, in one list per revision: revision 1 has **18** (items 1 to 18, in the R5 list below), and revision 2 has **4** (items 19 to 22, in the last subsection). Items marked **further** in R2 to R4 are the same list, and their numbers are given in R5. Revision 1's own count was inconsistent (15 in its R5 list, 17 in its report with one duplicate). The list below is the corrected count.
 
 ### R1: per-task-type cursor
 - Rule (Section 2.3) now reads and writes `c_t` per type.
@@ -775,10 +824,10 @@ Section 9 is the traceability record for revision 1. Each item lists what change
 - Index `idx_jobs_dispatch_by_type` in migration `000005` (Section 5.3). Revision 0's `idx_jobs_unassigned_fallback` is replaced. Finding **further** (C19): no existing index covers `RETRYING` rows by task type.
 - Head-of-type guarantee (Section 2.1), INV-15.
 - Event cap: 10 IDs plus a count (Section 2.1), INV-18.
-- What happens beyond the batch: next pass, and an immediate re-run when the batch was full (Section 2.1). The head-of-type guarantee shows that older jobs are not starved by newer ones within a type.
+- What happens beyond the batch: next pass, and a repeat after the yield when the batch was full and a reservation was made (Section 2.1, N2). The head-of-type guarantee shows that older jobs are not starved by newer ones within a type.
 
 ### R5: consistency sweep and further defects
-Sections 4, 5, 6 and 7 were re-read in full. Each statement that R1 to R4 affect is updated. Further defects found, each fixed in the section named:
+Sections 4, 5, 6 and 7 were re-read in full. Each statement that R1 to R4 affect is updated. Further defects, numbered 1 to 18 (the count of record for revision 1). Item 2 also covers the lock-order row of Section 4.3, so it is listed once. Items 16 to 18 are the R3 and R4 further items and the late-accept row, which were not in the earlier 15-item list. Each is fixed in the section named:
 
 1. **S-constant premise** (Section 2.6): the constant-set fairness statement does not hold once a reservation removes a worker. Replaced by S1.
 2. **Pass reads `attempts` and workers without a lock** (Section 1.7, Section 4.3): unsafe for R2. Fixed by the worker row lock and re-check.
@@ -795,6 +844,9 @@ Sections 4, 5, 6 and 7 were re-read in full. Each statement that R1 to R4 affect
 13. **Freshness gap** (Section 3.1): `last_poll_at` writes are throttled. The gap is `max(throttle, poll gap)`, not a sum. Stated so the window margin is not over-claimed.
 14. **Expired assignments and policy switch** (Section 5.2): an old reservation after a switch to `fifo_pull` is left in place and is harmless. Stated.
 15. **Fallback reason not visible for age-based fallback** (Section 3.2, Section 5.1): fixed by the fourth field (R-a).
+16. **Age arm unconditional** (R3 refinement, Section 3.2): under a saturated healthy queue every job is older than `FALLBACK_AGE`, so the whole backlog became FIFO fallback. Gated on pass silence (INV-16).
+17. **One `LIMIT B` across all types** (R4, Section 2.1): a head of unplaceable jobs of one type fills the batch and starves other types. The candidate read is per type (INV-15).
+18. **Late-accept table said a lapsed worker always gets 204** (Section 3.5): a healthy worker may claim a fallback job. The table is corrected. No stale token results, because the claim is still the only issuer.
 
 ### R6: poll timing
 - Verified in code (Section 3.1, C16 to C18): idle sleep 200 ms and maximum backoff 3 s are **locals** in `Run`, not constants; the jitter is [0.5, 1.0), not full; the poll HTTP client timeout is 15 s.
@@ -804,7 +856,24 @@ Sections 4, 5, 6 and 7 were re-read in full. Each statement that R1 to R4 affect
 - Test `TestPollTiming_AcceptWindowExceedsBackoff` (planned test) and mutation (INV-17).
 
 ### R7: orchestrator answers
-Recorded in Section 8.1 with the effect of each answer. Remaining questions are in Section 8.2.
+Recorded in Section 8.1 with the effect of each answer. Remaining questions were answered in revision 2 (Section 8.3).
+
+### Revision 2 record (N1 to N5, further defects 19 to 22)
+
+| Item | Change (the orchestrator's item unless marked) | Where |
+|---|---|---|
+| N1 | Age arm after a restart or an outage. A poll refreshes a stale heartbeat before its claim. The age arm is evaluated only after a refresh has failed. The requested grace-window suppression is not used (reasons in Section 3.2). | Sections 3.2, 4.1, 4.4, 6.1 (FS-21, FS-23), 6.2, 6.3 (INV-14, INV-19), 6.4 |
+| N2 | `MINICLOUD_ASSIGNMENT_MIN_YIELD` (default 10 ms). Repeat only after a full batch with a reservation (further defect 19). Poll and commit latency bounds, with `D` not measured. | Sections 2.1, 4.4, 6.1 (FS-24), 6.3 (INV-20, INV-21), 6.4, 7 |
+| N3 | `pg_try_advisory_xact_lock`: a second pass skips and logs, and writes nothing. Its interaction with the submit trigger and the timer is stated. | Sections 2.1, 2.3, 4.2, 4.3, 5.4, 6.2, 6.3 (INV-22) |
+| N4 | One list per revision, each item once. Revision 1: 18 (Section 9 R5). Revision 2: 4 (below). The report and the message use the same numbers. | Section 9 |
+| N5 | Orchestrator answers R-a to R-e recorded. | Section 8.3 and the status line |
+
+**Further defects found in revision 2 (numbered 19 to 22).**
+
+19. **Repeat spin.** The repeat rule re-ran on any full batch. When no worker of a type is eligible, a full batch of unplaceable jobs repeated back to back with no reservation (Section 2.1, Section 2.5). Fixed: a repeat needs a reservation (INV-21).
+20. **Blocking wording.** Sections 2.3 and 4.2 said a second pass blocks on the advisory lock, which contradicts N3. Fixed by the try-lock wording (Sections 2.3, 4.2).
+21. **Amplification by the refresh.** The N1 refresh runs one pass attempt per poll while the pass fails with the database reachable. Found while checking N1 for side effects. It is not rate-limited, because a rate limit could skip the refresh just after recovery and reopen the gap. Residual stated in Section 6.2, to measure in slice 5c.
+22. **INV-14 setup.** As first planned ("pass disabled"), INV-14 would fail on a correct implementation, because the poll's refresh would still reserve the job. Fixed: the test must make the refresh fail too (Section 6.3).
 
 ---
 
@@ -824,10 +893,10 @@ Recorded in Section 8.1 with the effect of each answer. Remaining questions are 
 - Under the synchronous worker loop (C12), `total_slots` has no effect on turns or reservations in V1 (Q5).
 - A stalled pass falls back to first-poller-wins for every job older than the age bound. That is the intended trade for liveness, and it is bounded by the pass-silence gate.
 - The pass takes worker row locks, so it can wait on a claim (bounded by `lock_timeout`).
-- More moving parts in the coordinator: a pass, per-type cursors, a pass heartbeat, an advisory lock, and new grace interactions.
+- More moving parts in the coordinator: a pass, per-type cursors, a pass heartbeat, an advisory try-lock, a poll-time refresh, a repeat yield, and new grace interactions.
 
 ### Invariants protected
-- INV-1 to INV-18 (Section 6.3). ADR 0011 Section 1 (`SKIP LOCKED` dispatch), ADR 0013 (lock order and restart), ADR 0014 (lease and grace), ADR 0015 (attempt budget), ADR 0016 (cancel semantics).
+- INV-1 to INV-22 (Section 6.3). ADR 0011 Section 1 (`SKIP LOCKED` dispatch), ADR 0013 (lock order and restart), ADR 0014 (lease and grace), ADR 0015 (attempt budget), ADR 0016 (cancel semantics).
 
 ## Limits of this design
 
