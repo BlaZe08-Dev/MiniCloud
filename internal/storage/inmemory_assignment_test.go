@@ -161,6 +161,14 @@ func newInMemoryAssignmentHarness(t *testing.T) storagetest.AssignmentHarness {
 			}
 		},
 		HoldPassLock: func(t *testing.T) func() { return repo.HoldPassLockForTest() },
+		LastPollAt: func(t *testing.T, workerID string) *time.Time {
+			t.Helper()
+			w, err := repo.GetWorker(ctx, workerID)
+			if err != nil {
+				t.Fatalf("GetWorker(%s): %v", workerID, err)
+			}
+			return w.LastPollAt
+		},
 	}
 }
 
@@ -268,4 +276,14 @@ func TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass(t *testing.T) {
 // review F-R6).
 func TestConformance_ClaimFallback_ExpiredUnrevokedReservation(t *testing.T) {
 	storagetest.RunClaimFallbackExpiredUnrevokedReservationConformance(t, newInMemoryAssignmentHarness)
+}
+
+// INV-9 at the repository (slice 5c): grace revokes without counting the lapse.
+func TestConformance_AssignPass_GraceRevokesWithoutCounting(t *testing.T) {
+	storagetest.RunAssignPassGraceRevokesWithoutCountingConformance(t, newInMemoryAssignmentHarness)
+}
+
+// Poll freshness throttle (ADR-0017 Section 2.2, implementation note 9).
+func TestConformance_RecordPoll_ThrottlesFreshnessWrites(t *testing.T) {
+	storagetest.RunRecordPollThrottlesFreshnessWritesConformance(t, newInMemoryAssignmentHarness)
 }

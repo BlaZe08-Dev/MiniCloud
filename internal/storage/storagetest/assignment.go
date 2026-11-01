@@ -49,6 +49,9 @@ type AssignmentHarness struct {
 	// HoldPassLock takes the pass lock (the in-memory pass mutex, or the PostgreSQL advisory key on
 	// another connection) and returns the function that releases it.
 	HoldPassLock func(t *testing.T) (release func())
+	// LastPollAt reads a worker's stored last_poll_at (nil when never written). PostgreSQL's
+	// GetWorker does not read that column, so the harness reads it directly.
+	LastPollAt func(t *testing.T, workerID string) *time.Time
 }
 
 func (h AssignmentHarness) assignRepo(t *testing.T) storage.AssignmentRepository {
@@ -778,5 +781,136 @@ func RunClaimFallbackExpiredUnrevokedReservationConformance(t *testing.T, newHar
 	}
 	if claim.Job.ID != "job_1" || claim.FallbackReason != domain.FallbackReasonLapses {
 		t.Fatalf("claimed %s reason %q, want job_1 by lapses", claim.Job.ID, claim.FallbackReason)
+	}
+}
+
+// assignLapsedEvents returns the JOB_ASSIGNMENT_LAPSED events of a job, oldest first.
+func assignLapsedEvents(t *testing.T, h AssignmentHarness, jobID string) []*domain.JobEvent {
+	t.Helper()
+	events, err := h.Repo.ListEventsByJob(context.Background(), jobID)
+	if err != nil {
+		t.Fatalf("ListEventsByJob(%s): %v", jobID, err)
+	}
+	var out []*domain.JobEvent
+	for _, e := range events {
+		if e.EventType == domain.JobEventAssignmentLapsed {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// RunAssignPassGraceRevokesWithoutCountingConformance: INV-9 at the repository (ADR-0017 Section
+// 4.4). The pass receives the sweeper's grace state as an input. While it suppresses reaping, or
+// while it is pending, an expired reservation is still revoked but the lapse is not counted
+// (counted: false). Outside grace the same expiry is counted.
+func RunAssignPassGraceRevokesWithoutCountingConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t)
+	ar := h.assignRepo(t)
+	ctx := context.Background()
+	AssignAddWorker(t, h, "w_1", 1, "echo")
+	AssignSubmit(t, h, "job_1", "echo")
+
+	// expireAndPass reserves job_1 to w_1, lets the reservation expire, and runs one pass with
+	// params. It returns the pass result and the newest lapse event.
+	expireAndPass := func(step string, params storage.AssignParams) (storage.AssignResult, *domain.JobEvent) {
+		t.Helper()
+		AssignPoll(t, h, "w_1")
+		if j := AssignJob(t, h, "job_1"); j.AssignedWorkerID == nil {
+			AssignRunPass(t, h)
+		}
+		if AssignJob(t, h, "job_1").AssignedWorkerID == nil {
+			t.Fatalf("%s: control: job_1 was not reserved", step)
+		}
+		before := len(assignLapsedEvents(t, h, "job_1"))
+		h.Advance(t, AssignTestAcceptWindow+time.Millisecond)
+		res, err := ar.AssignQueuedJobs(ctx, params)
+		if err != nil {
+			t.Fatalf("%s: AssignQueuedJobs: %v", step, err)
+		}
+		events := assignLapsedEvents(t, h, "job_1")
+		if len(events) != before+1 {
+			t.Fatalf("%s: expired reservation not revoked: %d lapse events before the pass, %d after (INV-9: grace never stops revocation)", step, before, len(events))
+		}
+		return res, events[len(events)-1]
+	}
+
+	inGrace := AssignTestParams()
+	inGrace.Grace = domain.SweepGraceState{StartupGraceUntil: h.Now(t).Add(time.Hour)}
+	res, ev := expireAndPass("startup grace", inGrace)
+	if res.Lapsed != 0 || res.LapsedUncounted != 1 {
+		t.Fatalf("startup grace: lapsed=%d uncounted=%d, want 0 and 1", res.Lapsed, res.LapsedUncounted)
+	}
+	if ev.Details["counted"] != false {
+		t.Fatalf("startup grace: lapse event counted=%v, want false", ev.Details["counted"])
+	}
+	if got := AssignJob(t, h, "job_1").AssignmentLapses; got != 0 {
+		t.Fatalf("startup grace counted a lapse: assignment_lapses=%d", got)
+	}
+
+	outage := AssignTestParams()
+	outage.Grace = domain.SweepGraceState{OutageWindowUntil: h.Now(t).Add(time.Hour)}
+	if res, _ := expireAndPass("outage window", outage); res.Lapsed != 0 || res.LapsedUncounted != 1 {
+		t.Fatalf("outage window: lapsed=%d uncounted=%d, want 0 and 1", res.Lapsed, res.LapsedUncounted)
+	}
+
+	pending := AssignTestParams()
+	pending.GracePending = true
+	if res, _ := expireAndPass("grace pending", pending); res.Lapsed != 0 || res.LapsedUncounted != 1 {
+		t.Fatalf("grace pending: lapsed=%d uncounted=%d, want 0 and 1", res.Lapsed, res.LapsedUncounted)
+	}
+	if got := AssignJob(t, h, "job_1").AssignmentLapses; got != 0 {
+		t.Fatalf("grace counted a lapse: assignment_lapses=%d", got)
+	}
+
+	// Outside grace: the startup grace has ended, and an outage window in its cooldown does not
+	// apply (domain.SweepGraceState.Suppresses).
+	ended := AssignTestParams()
+	now := h.Now(t)
+	ended.Grace = domain.SweepGraceState{StartupGraceUntil: now.Add(-time.Hour), OutageWindowUntil: now.Add(time.Hour), CooldownUntil: now.Add(2 * time.Hour)}
+	res, ev = expireAndPass("outside grace", ended)
+	if res.Lapsed != 1 || res.LapsedUncounted != 0 {
+		t.Fatalf("outside grace: lapsed=%d uncounted=%d, want 1 and 0", res.Lapsed, res.LapsedUncounted)
+	}
+	if ev.Details["counted"] != true {
+		t.Fatalf("outside grace: lapse event counted=%v, want true", ev.Details["counted"])
+	}
+	if got := AssignJob(t, h, "job_1").AssignmentLapses; got != 1 {
+		t.Fatalf("outside grace: assignment_lapses=%d, want 1", got)
+	}
+}
+
+// RunRecordPollThrottlesFreshnessWritesConformance: the poll freshness write is throttled to one
+// per second per worker (ADR-0017 Section 2.2; implementation note 9 deferred its test to slice
+// 5c). A second poll inside the second leaves last_poll_at as it was; a poll after it rewrites it.
+func RunRecordPollThrottlesFreshnessWritesConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t)
+	ar := h.assignRepo(t)
+	ctx := context.Background()
+	AssignAddWorker(t, h, "w_1", 1, "echo")
+
+	// pollAge polls once and returns how old last_poll_at is afterwards, on the repository clock.
+	pollAge := func(step string) time.Duration {
+		t.Helper()
+		if err := ar.RecordPoll(ctx, "w_1"); err != nil {
+			t.Fatalf("%s: RecordPoll: %v", step, err)
+		}
+		at := h.LastPollAt(t, "w_1")
+		if at == nil {
+			t.Fatalf("%s: last_poll_at not written", step)
+		}
+		return h.Now(t).Sub(*at)
+	}
+
+	if age := pollAge("first poll"); age > 250*time.Millisecond {
+		t.Fatalf("first poll: last_poll_at is %v old, want a fresh write", age)
+	}
+	h.Advance(t, 600*time.Millisecond)
+	if age := pollAge("poll inside the throttle"); age < 600*time.Millisecond {
+		t.Fatalf("poll inside the throttle rewrote last_poll_at (age %v, want at least 600ms)", age)
+	}
+	h.Advance(t, 600*time.Millisecond)
+	if age := pollAge("poll after the throttle"); age > 250*time.Millisecond {
+		t.Fatalf("poll after the throttle did not rewrite last_poll_at (age %v)", age)
 	}
 }
