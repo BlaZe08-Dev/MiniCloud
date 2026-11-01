@@ -10,4 +10,4 @@ Places changed:
 - reports/claude/P4-08d-fix1.md, worst-case line (formula, 49 s).
 The FS-19 table row states no number, so it is unchanged. No other place states 48 s or the old formula. No Go file, PROJECT_STATE.md or allowlist change.
 
-Gates: gofmt and make test-docs, results below.
+Gates: gofmt clean (0 files), make test-docs rc 0. Tip before this report commit: 7a1d727.
