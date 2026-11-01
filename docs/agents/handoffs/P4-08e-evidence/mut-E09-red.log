@@ -3,12 +3,12 @@ $ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_Per
 === RUN   TestConformance_ClaimPolicy_PerArm/own_reservation
 === RUN   TestConformance_ClaimPolicy_PerArm/lapse_arm
 === RUN   TestConformance_ClaimPolicy_PerArm/age_arm
-    assignment_wire.go:149: claim job=job_1 policy="round_robin_fallback" reason="lapses"; want job_1 "round_robin_fallback" "age"
+    assignment_wire.go:152: claim job=job_1 policy="round_robin_fallback" reason="lapses"; want job_1 "round_robin_fallback" "age"
 --- FAIL: TestConformance_ClaimPolicy_PerArm (0.00s)
     --- PASS: TestConformance_ClaimPolicy_PerArm/own_reservation (0.00s)
     --- PASS: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.00s)
     --- FAIL: TestConformance_ClaimPolicy_PerArm/age_arm (0.00s)
 FAIL
-FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.021s
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.025s
 FAIL
 exit=1

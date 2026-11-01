@@ -3,10 +3,10 @@ $ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_Per
 === RUN   TestConformance_ClaimPolicy_PerArm/own_reservation
 === RUN   TestConformance_ClaimPolicy_PerArm/lapse_arm
 === RUN   TestConformance_ClaimPolicy_PerArm/age_arm
---- PASS: TestConformance_ClaimPolicy_PerArm (1.33s)
-    --- PASS: TestConformance_ClaimPolicy_PerArm/own_reservation (0.46s)
-    --- PASS: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.42s)
-    --- PASS: TestConformance_ClaimPolicy_PerArm/age_arm (0.46s)
+--- PASS: TestConformance_ClaimPolicy_PerArm (1.66s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/own_reservation (0.45s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.44s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/age_arm (0.43s)
 PASS
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.360s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.694s
 exit=0

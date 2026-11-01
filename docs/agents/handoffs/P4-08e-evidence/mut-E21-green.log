@@ -8,5 +8,5 @@ $ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_Per
     --- PASS: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.00s)
     --- PASS: TestConformance_ClaimPolicy_PerArm/age_arm (0.00s)
 PASS
-ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.023s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.024s
 exit=0

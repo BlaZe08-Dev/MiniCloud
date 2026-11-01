@@ -33,3 +33,9 @@ E28	INV-17 loop: outage backoff capped at 2 x MaxPollBackoff	internal/worker/cli
 E29	INV-17 loop: other-error backoff capped at 2 x MaxPollBackoff	internal/worker/client.go	TestPollTiming_RunSleepsWithinMaxBackoff	./internal/worker/	FAIL	PASS	KILLED	+1/-1
 E30	INV-17 loop: idle sleep after 204 doubled	internal/worker/client.go	TestPollTiming_RunSleepsWithinMaxBackoff	./internal/worker/	FAIL	PASS	KILLED	+1/-1
 E31	INV-17 loop: poll sleeps bypass the agent clock	internal/worker/client.go	TestPollTiming_RunSleepsWithinMaxBackoff	./internal/worker/	FAIL	PASS	KILLED	+1/-1
+E09	fallback_reason value: memory age arm reports lapses	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E10	fallback_reason value: memory lapse arm reports age	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E11	fallback_reason value: PostgreSQL age arm reports lapses	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E12	fallback_reason value: PostgreSQL lapse arm reports age	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E21	policy value: memory own claim reported as fallback	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E22	policy value: PostgreSQL own claim reported as fallback	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
