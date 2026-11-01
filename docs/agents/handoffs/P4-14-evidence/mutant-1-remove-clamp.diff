@@ -1,0 +1,12 @@
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -66,9 +66,6 @@ func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Du
+ 		return base
+ 	}
+ 	shift := failureCount - 1
+-	if shift > 4 {
+-		shift = 4
+-	}
+ 	multiplier := 1 << shift
+ 	dur := base * time.Duration(multiplier)
+ 	if dur > max {

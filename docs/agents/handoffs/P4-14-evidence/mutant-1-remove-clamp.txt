@@ -1,0 +1,19 @@
+=== RUN   TestComputeBackoffWithJitter
+--- PASS: TestComputeBackoffWithJitter (0.00s)
+=== RUN   TestComputeBackoffWithJitter_Table
+    client_test.go:326: count 6: backoff 1.702556841s outside expected jitter range [800ms, 1.6s]
+--- FAIL: TestComputeBackoffWithJitter_Table (0.00s)
+=== RUN   TestComputeBackoffWithJitter_Property
+=== RUN   TestComputeBackoffWithJitter_Property/standard_cap_exceeds_16x
+    client_test.go:369: count 6: backoff 2.551818409s outside [800ms, 1.6s]
+=== RUN   TestComputeBackoffWithJitter_Property/worker_default_cap_below_16x
+    client_test.go:348: count 37: expected backoff > 0, got -1245547h21m17.2115584s
+=== RUN   TestComputeBackoffWithJitter_Property/small_cap
+    client_test.go:348: count 39: expected backoff > 0, got -1252306h37m12.67064832s
+--- FAIL: TestComputeBackoffWithJitter_Property (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_Property/standard_cap_exceeds_16x (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_Property/worker_default_cap_below_16x (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_Property/small_cap (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.010s
+FAIL
