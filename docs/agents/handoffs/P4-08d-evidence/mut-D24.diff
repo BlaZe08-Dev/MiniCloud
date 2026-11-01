@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 7af08d0..ec74be0 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -258,7 +258,7 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
+ 	// Submit trigger of the assignment loop (ADR-0017 Section 2.1). It never blocks; without a
+ 	// running loop (fifo_pull) the signal stays in the buffer and nothing reads it.
+ 	select {
+-	case s.assignKick <- struct{}{}:
++	case <-make(chan struct{}):
+ 	default:
+ 	}
+ 

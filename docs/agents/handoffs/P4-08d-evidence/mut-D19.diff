@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..870e16b 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -40,7 +40,7 @@ const AssignmentPassLockID int64 = 0x4d43417373676e
+ const (
+ 	// assignmentPollWriteThrottleSeconds is the poll freshness throttle of ADR-0017 Section 2.2:
+ 	// last_poll_at is written only when it is older than one second.
+-	assignmentPollWriteThrottleSeconds = 1.0
++	assignmentPollWriteThrottleSeconds = 0.0
+ 
+ 	// assignmentEventCandidateCap caps the candidate IDs in a JOB_ASSIGNED payload (ADR-0017
+ 	// Section 2.1, INV-18). It is a constant, not configuration.

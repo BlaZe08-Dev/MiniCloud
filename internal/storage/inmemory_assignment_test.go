@@ -161,6 +161,14 @@ func newInMemoryAssignmentHarness(t *testing.T) storagetest.AssignmentHarness {
 			}
 		},
 		HoldPassLock: func(t *testing.T) func() { return repo.HoldPassLockForTest() },
+		LastPollAt: func(t *testing.T, workerID string) *time.Time {
+			t.Helper()
+			w, err := repo.GetWorker(ctx, workerID)
+			if err != nil {
+				t.Fatalf("GetWorker(%s): %v", workerID, err)
+			}
+			return w.LastPollAt
+		},
 	}
 }
 
@@ -268,4 +276,38 @@ func TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass(t *testing.T) {
 // review F-R6).
 func TestConformance_ClaimFallback_ExpiredUnrevokedReservation(t *testing.T) {
 	storagetest.RunClaimFallbackExpiredUnrevokedReservationConformance(t, newInMemoryAssignmentHarness)
+}
+
+// INV-9 at the repository (slice 5c): grace revokes without counting the lapse.
+func TestConformance_AssignPass_GraceRevokesWithoutCounting(t *testing.T) {
+	storagetest.RunAssignPassGraceRevokesWithoutCountingConformance(t, newInMemoryAssignmentHarness)
+}
+
+// Poll freshness throttle (ADR-0017 Section 2.2, implementation note 9).
+func TestConformance_RecordPoll_ThrottlesFreshnessWrites(t *testing.T) {
+	storagetest.RunRecordPollThrottlesFreshnessWritesConformance(t, newInMemoryAssignmentHarness)
+}
+
+// ADR-0017 note 25: a pending grace state suppresses a lapse only until GracePendingUntil on the
+// repository clock. One nanosecond before the end it holds the lapse back; at the end it counts. A
+// pending state with no known end stays pending.
+func TestLapseCounts_PendingEndsAtUntil(t *testing.T) {
+	end := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	p := storage.AssignParams{GracePending: true, GracePendingUntil: end}
+	for _, c := range []struct {
+		name string
+		p    storage.AssignParams
+		now  time.Time
+		want bool
+	}{
+		{"1 ns before the end", p, end.Add(-time.Nanosecond), false},
+		{"at the end", p, end, true},
+		{"after the end", p, end.Add(time.Hour), true},
+		{"no end known", storage.AssignParams{GracePending: true}, end.Add(100 * time.Hour), false},
+		{"not pending", storage.AssignParams{}, end, true},
+	} {
+		if got := storage.LapseCounts(c.p, c.now); got != c.want {
+			t.Fatalf("%s: LapseCounts=%v, want %v", c.name, got, c.want)
+		}
+	}
 }

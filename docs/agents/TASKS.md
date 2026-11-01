@@ -29,7 +29,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | merged in PR #35 |
 | P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
-| (unassigned) | ADR-0017 slice 5c: coordinator loop, grace, API fields, fault and abuse suites, worker timing | to be assigned | to be assigned | none | planned, not specified |
+| P4-08d | ADR-0017 slice 5c, part 1: coordinator loop, grace, binary wiring | Claude Code | Claude Code (independent session) | agent/claude/P4-08d | fix round 1 pushed for re-audit |
+| P4-08e | ADR-0017 slice 5c, part 2: API fields, worker timing (INV-17), fault and abuse suites, property tests at 1,000 iterations, measurements, docs sync | to be assigned | to be assigned | none | placeholder, not specified |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
@@ -57,9 +58,14 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Owned files: `internal/worker/**`, `docs/security/findings.md`, `docs/PROJECT_STATE.md`, `docs/agents/TASKS.md`, `docs/protocol.md`, `docs/failure-model.md`, `docs/agents/handoffs/P4-09*`, `reports/gemini/P4-09.md`.
 - Out of scope: coordinator API changes, database schema or migrations, allowlist modifications.
 
-### ADR-0017 slice 5c (placeholder; task ID, builder, auditor, owned files and full spec to be written by the orchestrator)
-- Goal: ADR-0017 Section 7 slice 5c.
-- Required (P4-08c review F-R3): the coordinator binary (`cmd/coordinator/main.go`) must apply `MINICLOUD_DISPATCH_POLICY` and the assignment settings at startup through `SetAssignmentSettings` and `SetDispatchPolicy`, validated: startup fails when either returns an error. It logs one line with the effective policy. Until then the binary validates these variables but never applies them, so it always runs `fifo_pull`.
+### P4-08d — ADR-0017 slice 5c, part 1 (coordinator loop, grace, binary wiring)
+- Goal: the coordinator assignment loop of ADR-0017 Section 2.1 (timer, submit trigger, repeat rule and yield, INV-20, INV-21), decisions on the database clock only; the rate-limited stale heartbeat ERROR log (A2, Section 4.5); tests for the PostgreSQL refresh threshold and the poll-write throttle deferred by implementation note 9; grace wiring from the lease sweeper to the pass (INV-9, Section 4.4); binary wiring (P4-08c review F-R3): `cmd/coordinator` applies `SetAssignmentSettings` then `SetDispatchPolicy`, fails startup on either error, logs the effective policy and settings, and starts the loop only under round_robin (default stays `fifo_pull`); one validator for the A1 rules, with a cross-test between config and service.
+- Builder: Claude Code. Auditor: Claude Code (an independent session). Branch: `agent/claude/P4-08d`. Status: fix round 1 pushed for re-audit.
+- Owned files: `internal/coordinator/assignment*.go`, `internal/coordinator/service.go`, `internal/coordinator/sweeper.go`, `internal/coordinator/export_assignment_test.go`, `cmd/coordinator/main.go`, `cmd/coordinator/main_test.go`, `internal/storage/assignment.go`, `internal/storage/inmemory_assignment.go`, `internal/storage/inmemory_assignment_test.go`, `internal/storage/storagetest/assignment.go`, `internal/storage/postgres/assignment.go`, `internal/storage/postgres/assignment_test.go`, `internal/storage/postgres/assignment_coordinator_test.go`, `docs/adr/0017-assignment-round-robin.md` (implementation notes 16 onward only), `docs/agents/handoffs/P4-08d*`, `docs/agents/handoffs/P4-08d-evidence/`, `reports/claude/P4-08d.md`, `docs/agents/TASKS.md`.
+- Out of scope (part 2, P4-08e): API fields, worker timing constants (INV-17), the fault and abuse suites of Section 6.4, the 1,000-iteration property test, measurements, docs sync; any change to `fifo_pull` behaviour; the Q1 default flip.
+
+### P4-08e — ADR-0017 slice 5c, part 2 (placeholder; builder, auditor, owned files and full spec to be written by the orchestrator)
+- Goal: the rest of ADR-0017 Section 7 slice 5c: job view fields and the poll `policy` and `fallback_reason` fields, the worker constant extraction and `TestPollTiming_AcceptWindowExceedsBackoff` (planned test, INV-17), the fault and API abuse suites of Section 6.4 (including `TestAPI_Poll_Flood_ThrottlesFreshnessWrites` (planned test)), `TestProperty_AssignmentSubState_ModelConformance` at 1,000 iterations, measurements, and the docs sync.
 
 ### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
 - Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).

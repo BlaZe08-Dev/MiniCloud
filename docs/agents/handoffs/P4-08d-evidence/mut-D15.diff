@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index b7d93cd..be961fa 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -217,7 +217,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
+ 	if !ok {
+ 		return false
+ 	}
+-	stale, err := staleness.AssignmentPassStale(ctx, 2*interval)
++	stale, err := staleness.AssignmentPassStale(ctx, 3*interval)
+ 	if err != nil || !stale {
+ 		return false
+ 	}

@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/sweeper.go b/internal/coordinator/sweeper.go
+index fc445dd..6f561e7 100644
+--- a/internal/coordinator/sweeper.go
++++ b/internal/coordinator/sweeper.go
+@@ -87,7 +87,7 @@ func (s *Service) NewLeaseSweeper(interval time.Duration) *LeaseSweeper {
+ 	// successful tick the state is pending and no lapse is counted (implementation note 16).
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+-	s.publishPassGrace(domain.SweepGraceState{}, false, s.startupGrace)
++	s.publishPassGrace(domain.SweepGraceState{}, false, s.outageWindow)
+ 	return &LeaseSweeper{
+ 		svc:          s,
+ 		interval:     interval,

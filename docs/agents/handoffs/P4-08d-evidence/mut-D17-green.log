@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestMain_ConfigureService_FailsOnRejectedPolicy$' ./cmd/coordinator/
+=== RUN   TestMain_ConfigureService_FailsOnRejectedPolicy
+--- PASS: TestMain_ConfigureService_FailsOnRejectedPolicy (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.024s
+exit=0

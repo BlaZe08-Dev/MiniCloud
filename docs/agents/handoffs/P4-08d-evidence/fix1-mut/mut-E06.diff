@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index dc57bf4..15d6d84 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -12,7 +12,7 @@ import (
+ 
+ // StaleHeartbeatLogEvery is the rate limit of the stale pass heartbeat ERROR log (ADR-0017
+ // Section 4.5, A2): at most one line per minute.
+-const StaleHeartbeatLogEvery = time.Minute
++const StaleHeartbeatLogEvery = 50 * time.Second
+ 
+ // AssignmentLoop runs the assignment pass of ADR-0017 Section 2.1 beside the lease sweeper: on a
+ // timer (MINICLOUD_ASSIGNMENT_INTERVAL), immediately after a submit, and again after a pass that

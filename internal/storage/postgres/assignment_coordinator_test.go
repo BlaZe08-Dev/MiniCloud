@@ -262,3 +262,43 @@ func TestFault_AssignmentPassStalled_JobRunsWithinBound(t *testing.T) {
 		f.advance(t, time.Second)
 	}
 }
+
+// The poll-time refresh threshold on the database clock (ADR-0017 Section 3.2, implementation
+// notes 8 and 9): a poll runs a refresh only when the pass heartbeat is older than 2 x interval.
+// The database clock moves between statements, so the exact 2 x instant is not tested here (the
+// in-memory variant tests it); 1.5 x must not refresh and 2.5 x must. A refresh shows as a new
+// heartbeat.
+func TestPoll_RefreshThreshold_TwiceInterval(t *testing.T) {
+	f := newPGRRFixture(t)
+	svc := f.service(t)
+	pgRRHeartbeat(t, svc, "w_1")
+	ctx := context.Background()
+	if _, err := f.repo.AssignQueuedJobs(ctx, storage.AssignParams{AcceptWindow: 5 * time.Second, WorkerTimeout: pgRRTimeout, BatchLimit: 50, MaxLapses: 3}); err != nil {
+		t.Fatalf("pass: %v", err)
+	}
+	heartbeatAge := func() time.Duration {
+		t.Helper()
+		var age time.Duration
+		if err := f.pool.QueryRow(ctx, `SELECT (EXTRACT(EPOCH FROM clock_timestamp() - last_completed_at) * 1000000)::bigint FROM assignment_pass_state WHERE singleton;`).Scan(&age); err != nil {
+			t.Fatalf("read heartbeat age: %v", err)
+		}
+		return age * time.Microsecond
+	}
+	poll := func() {
+		t.Helper()
+		if _, err := svc.PollWork(ctx, "w_1"); err != nil && !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("PollWork: %v", err)
+		}
+	}
+
+	f.advance(t, pgRRInterval*3/2)
+	poll()
+	if age := heartbeatAge(); age < pgRRInterval*3/2 {
+		t.Fatalf("heartbeat 1.5 x interval old: the poll refreshed (heartbeat age now %v)", age)
+	}
+	f.advance(t, pgRRInterval)
+	poll()
+	if age := heartbeatAge(); age >= pgRRInterval {
+		t.Fatalf("heartbeat 2.5 x interval old: the poll did not refresh (heartbeat age %v)", age)
+	}
+}

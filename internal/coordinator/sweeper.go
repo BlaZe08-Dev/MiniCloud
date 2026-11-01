@@ -83,8 +83,11 @@ func (s *Service) NewLeaseSweeper(interval time.Duration) *LeaseSweeper {
 	if interval <= 0 {
 		interval = DefaultSweeperInterval
 	}
+	// From now on the assignment pass takes its grace state from this sweeper; until its first
+	// successful tick the state is pending and no lapse is counted (implementation note 16).
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.publishPassGrace(domain.SweepGraceState{}, false, s.startupGrace)
 	return &LeaseSweeper{
 		svc:          s,
 		interval:     interval,
@@ -131,6 +134,7 @@ func (w *LeaseSweeper) Tick(ctx context.Context) error {
 	now, err := w.svc.repo.Now(ctx)
 	if err != nil {
 		w.state.failedSince = true
+		w.svc.publishPassGrace(domain.SweepGraceState{}, false, w.window)
 		return err
 	}
 	if !w.state.startupSet {
@@ -139,20 +143,24 @@ func (w *LeaseSweeper) Tick(ctx context.Context) error {
 	}
 
 	next, opened := w.advance(w.state, now)
+	grace := domain.SweepGraceState{
+		StartupGraceUntil: next.startupUntil,
+		OutageWindowUntil: next.windowUntil,
+		CooldownUntil:     next.cooldownUntil,
+	}
 	res, err := w.svc.repo.SweepExpiredLeases(ctx, domain.SweepParams{
-		Limit: domain.DefaultSweepBatchSize,
-		Grace: domain.SweepGraceState{
-			StartupGraceUntil: next.startupUntil,
-			OutageWindowUntil: next.windowUntil,
-			CooldownUntil:     next.cooldownUntil,
-		},
+		Limit:   domain.DefaultSweepBatchSize,
+		Grace:   grace,
 		Backoff: w.backoff,
 	})
 	if err != nil {
 		// The window decided for this tick is discarded; the next successful tick decides again.
 		w.state.failedSince = true
+		w.svc.publishPassGrace(domain.SweepGraceState{}, false, w.window)
 		return err
 	}
+	// The assignment pass gets the same grace state as the sweep (ADR-0017 Section 4.4).
+	w.svc.publishPassGrace(grace, true, 0)
 
 	next.lastOK = now
 	next.hasLastOK = true
@@ -204,6 +212,48 @@ func (w *LeaseSweeper) report(res *domain.SweepResult) {
 		slog.Warn("lease sweeper: candidates changed state outside every sweep rule",
 			"skipped_changed", res.SkippedChanged, "candidates", res.Candidates)
 	}
+}
+
+// publishPassGrace records the grace state the assignment pass receives (ADR-0017 Section 4.4).
+// ready is false before the sweeper's first successful tick and after a failed tick; the pass then
+// counts no lapse, but only for pendingCap on the repository clock (implementation notes 16 and
+// 25). A pending state that is already running keeps its start and its cap: a further failure does
+// not extend it. The caller must not hold graceMu.
+func (s *Service) publishPassGrace(g domain.SweepGraceState, ready bool, pendingCap time.Duration) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+	if !ready && (!s.graceSource || s.graceReady) {
+		s.pendingSince = time.Time{}
+		s.pendingCap = max(pendingCap, 0)
+	}
+	s.graceSource = true
+	s.graceReady = ready
+	s.passGrace = g
+}
+
+// passGraceInput returns the grace input of an assignment pass. With no lease sweeper the pass has
+// no grace and counts every lapse, as in slices 5a and 5b. While the state is pending, the cap is
+// anchored on the first read of the repository clock after it began and the pass receives the
+// instant it ends (implementation note 25); if the clock cannot be read the pass gets no end and
+// stays pending, and a pass that works implies a clock that works.
+func (s *Service) passGraceInput(ctx context.Context) (grace domain.SweepGraceState, pending bool, pendingUntil time.Time) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+	if !s.graceSource {
+		return domain.SweepGraceState{}, false, time.Time{}
+	}
+	if s.graceReady {
+		return s.passGrace, false, time.Time{}
+	}
+	if s.pendingSince.IsZero() {
+		if now, err := s.repo.Now(ctx); err == nil {
+			s.pendingSince = now
+		}
+	}
+	if !s.pendingSince.IsZero() {
+		pendingUntil = s.pendingSince.Add(s.pendingCap)
+	}
+	return s.passGrace, true, pendingUntil
 }
 
 func newSweepRand() func() float64 { return rand.Float64 }

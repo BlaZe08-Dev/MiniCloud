@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_RecordPoll_ThrottlesFreshnessWrites$' ./internal/storage/postgres/
+=== RUN   TestConformance_RecordPoll_ThrottlesFreshnessWrites
+--- PASS: TestConformance_RecordPoll_ThrottlesFreshnessWrites (0.46s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.481s
+exit=0

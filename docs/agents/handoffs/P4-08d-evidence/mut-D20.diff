@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..f06504f 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -12,7 +12,7 @@ import (
+ const (
+ 	// assignmentPollWriteThrottle is the minimum gap between two writes of a worker's poll
+ 	// freshness (ADR-0017 Section 2.2): a write happens only when last_poll_at is older than this.
+-	assignmentPollWriteThrottle = time.Second
++	assignmentPollWriteThrottle = 0
+ 
+ 	// assignmentEventCandidateCap caps the candidate IDs in a JOB_ASSIGNED payload (ADR-0017
+ 	// Section 2.1, INV-18). It is a constant, not configuration.

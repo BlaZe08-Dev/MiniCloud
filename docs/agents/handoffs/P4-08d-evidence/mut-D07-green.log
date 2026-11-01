@@ -1,0 +1,13 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentRepeat_YieldsToPolls$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentRepeat_YieldsToPolls
+2026/11/01 10:26:48 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:48 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:48 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:48 INFO worker registered worker_id=w_idle version=v1.0.0 slots=1 supported_tasks=[sleep]
+2026/11/01 10:26:48 INFO job submitted and queued job_id=job_1_42b4253b1391 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:48 INFO job submitted and queued job_id=job_2_bbc27a0ee55b task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:48 INFO job submitted and queued job_id=job_3_201ee04f268d task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestCoordinator_AssignmentRepeat_YieldsToPolls (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.020s
+exit=0

@@ -1,0 +1,20 @@
+2026/11/01 11:24:49 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_1_97c313f3274b task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:49 INFO job dispatched to worker job_id=job_1_97c313f3274b attempt_id=att_1_77c8e6c935e4 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:24:49 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_2_93fcca3e8d70 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:49 INFO job dispatched to worker job_id=job_2_93fcca3e8d70 attempt_id=att_1_761695e17c6d attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+--- FAIL: TestCoordinator_AssignmentLoop_PendingGraceEndsAtCap (0.00s)
+    assignment_fix1_test.go:106: never-ticked: lapse events counted=[false false false true true true], want [false false true true true]
+2026/11/01 11:24:49 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_3_3545f2f01dae task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_4_c53bda37ff78 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_5_0879a4245186 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_6_4a3f22c15004 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:49 INFO job submitted and queued job_id=job_7_d55d7fa48123 task_type=echo state=QUEUED max_attempts=3
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.843s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.436s
+FAIL

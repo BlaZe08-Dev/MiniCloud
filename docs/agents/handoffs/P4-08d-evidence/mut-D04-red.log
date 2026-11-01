@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_AssignPass_GraceRevokesWithoutCounting$' ./internal/storage/postgres/
+=== RUN   TestConformance_AssignPass_GraceRevokesWithoutCounting
+    assignment.go:842: startup grace: lapsed=1 uncounted=0, want 0 and 1
+--- FAIL: TestConformance_AssignPass_GraceRevokesWithoutCounting (0.63s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.655s
+FAIL
+exit=1

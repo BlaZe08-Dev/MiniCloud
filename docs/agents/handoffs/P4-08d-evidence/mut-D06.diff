@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 0a9e68a..e668daa 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -85,7 +85,7 @@ func (l *AssignmentLoop) Round(ctx context.Context) int {
+ 		}
+ 		// The yield runs with s.mu released, so a poll waiting for the mutex takes it before the
+ 		// next pass (INV-20).
+-		if err := l.yield(ctx, minYield); err != nil {
++		if err := l.yield(ctx, minYield*0); err != nil {
+ 			break
+ 		}
+ 	}

@@ -101,6 +101,23 @@ func (s *Service) SetDispatchPolicy(name string) error {
 	return nil
 }
 
+// DispatchPolicy returns the policy in force: fifo_pull until SetDispatchPolicy selects another.
+func (s *Service) DispatchPolicy() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.policy == "" {
+		return domain.DispatchPolicyFifoPull
+	}
+	return s.policy
+}
+
+// AssignmentSettings returns the round-robin settings in force.
+func (s *Service) AssignmentSettings() AssignmentSettings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.assignment
+}
+
 // SetAssignmentSettings sets the round-robin inputs after Validate. Invalid settings are rejected
 // with domain.ErrInvalidRequest and the previous settings stay in force. NewService starts from
 // DefaultAssignmentSettings.
@@ -112,6 +129,23 @@ func (s *Service) SetAssignmentSettings(a AssignmentSettings) error {
 	defer s.mu.Unlock()
 	s.assignment = a
 	return nil
+}
+
+// assignParamsLocked returns the inputs of one assignment pass, for the loop and the poll-time
+// refresh alike: the settings, and the grace state of the lease sweeper (ADR-0017 Section 4.4).
+// Every input is a duration or a count, except the grace instants, which are repository time read
+// by the sweeper (implementation note 16). The caller holds s.mu.
+func (s *Service) assignParamsLocked(ctx context.Context) storage.AssignParams {
+	grace, pending, until := s.passGraceInput(ctx)
+	return storage.AssignParams{
+		AcceptWindow:      s.assignment.AcceptWindow,
+		WorkerTimeout:     s.workerTimeout,
+		BatchLimit:        s.assignment.BatchLimit,
+		MaxLapses:         s.assignment.MaxLapses,
+		Grace:             grace,
+		GracePending:      pending,
+		GracePendingUntil: until,
+	}
 }
 
 // pollRoundRobinLocked is the round_robin poll (ADR-0017 Sections 3.2 and 3.5). The caller holds
@@ -198,12 +232,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
 
 	s.refreshInFlight = true
 	s.refreshLastAttemptAt = now
-	_, err = ar.AssignQueuedJobs(ctx, storage.AssignParams{
-		AcceptWindow:  s.assignment.AcceptWindow,
-		WorkerTimeout: s.workerTimeout,
-		BatchLimit:    s.assignment.BatchLimit,
-		MaxLapses:     s.assignment.MaxLapses,
-	})
+	_, err = ar.AssignQueuedJobs(ctx, s.assignParamsLocked(ctx))
 	s.refreshInFlight = false
 	s.refreshLastFailed = err != nil
 	if err != nil {

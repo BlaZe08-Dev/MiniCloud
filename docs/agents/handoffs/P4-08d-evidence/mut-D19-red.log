@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_RecordPoll_ThrottlesFreshnessWrites$' ./internal/storage/postgres/
+=== RUN   TestConformance_RecordPoll_ThrottlesFreshnessWrites
+    assignment.go:910: poll inside the throttle rewrote last_poll_at (age 1.85ms, want at least 600ms)
+--- FAIL: TestConformance_RecordPoll_ThrottlesFreshnessWrites (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.441s
+FAIL
+exit=1

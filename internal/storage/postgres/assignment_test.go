@@ -109,6 +109,14 @@ func newPostgresAssignmentHarnessWithRepo(t *testing.T, opts ...postgres.Option)
 			}
 		},
 		HoldPassLock: func(t *testing.T) func() { return holdPassLock(t, pool) },
+		LastPollAt: func(t *testing.T, workerID string) *time.Time {
+			t.Helper()
+			var at *time.Time
+			if err := pool.QueryRow(context.Background(), `SELECT last_poll_at FROM workers WHERE id = $1;`, workerID).Scan(&at); err != nil {
+				t.Fatalf("read last_poll_at(%s): %v", workerID, err)
+			}
+			return at
+		},
 	}
 	return h, pool, repo
 }
@@ -204,6 +212,17 @@ func TestConformance_AssignEvent_CursorBeforeAdvancesWithinPass(t *testing.T) {
 
 func TestConformance_ClaimFallback_ExpiredUnrevokedReservation(t *testing.T) {
 	storagetest.RunClaimFallbackExpiredUnrevokedReservationConformance(t, newPostgresAssignmentHarness)
+}
+
+// INV-9 at the repository (slice 5c): grace revokes without counting the lapse, decided on the
+// database time read with the job row lock.
+func TestConformance_AssignPass_GraceRevokesWithoutCounting(t *testing.T) {
+	storagetest.RunAssignPassGraceRevokesWithoutCountingConformance(t, newPostgresAssignmentHarness)
+}
+
+// Poll freshness throttle (ADR-0017 Section 2.2, implementation note 9), on the database clock.
+func TestConformance_RecordPoll_ThrottlesFreshnessWrites(t *testing.T) {
+	storagetest.RunRecordPollThrottlesFreshnessWritesConformance(t, newPostgresAssignmentHarness)
 }
 
 // --- PostgreSQL-only invariants (ADR-0017 Section 6.3, slice 5b) ---

@@ -1,0 +1,136 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPoll_RefreshAttempts_AtMostOnePerInterval$' ./internal/coordinator/
+=== RUN   TestPoll_RefreshAttempts_AtMostOnePerInterval
+2026/11/01 10:26:54 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_d version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_e version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_f version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_g version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_h version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_i version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_j version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_d version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_e version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_f version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_g version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_h version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_i version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_j version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_k version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_l version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_m version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_n version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_o version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_p version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_q version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_r version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_s version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_t version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_u version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_v version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_w version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_x version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_y version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_z version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xa version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xb version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xc version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xd version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xe version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xf version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xg version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xh version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xi version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xj version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xk version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xl version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xm version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xn version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xo version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xp version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xq version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xr version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xs version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xt version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xu version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xv version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xw version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xx version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xy version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xz version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxa version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxb version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxc version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxd version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxe version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxf version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxg version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxh version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxi version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxj version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxk version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxl version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxm version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxn version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxo version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxp version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxq version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxr version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxs version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxt version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxu version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxv version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxw version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxx version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxy version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxz version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxa version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxb version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxc version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxd version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxe version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxf version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxg version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxh version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxi version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxj version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxk version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxl version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxm version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxn version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxo version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxp version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxq version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxr version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxs version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxt version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxu version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 INFO worker registered worker_id=w_xxxv version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:54 WARN assignment pass refresh failed error="injected assignment pass failure"
+--- PASS: TestPoll_RefreshAttempts_AtMostOnePerInterval (0.03s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.053s
+exit=0

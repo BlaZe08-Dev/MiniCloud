@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_AssignPass_GraceRevokesWithoutCounting$' ./internal/storage/
+=== RUN   TestConformance_AssignPass_GraceRevokesWithoutCounting
+--- PASS: TestConformance_AssignPass_GraceRevokesWithoutCounting (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.021s
+exit=0

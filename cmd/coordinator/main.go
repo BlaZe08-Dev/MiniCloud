@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/api"
 	"github.com/BlaZe08-Dev/Minicloud/internal/config"
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
@@ -27,20 +29,61 @@ func newMemoryRepository(cfg *config.CoordinatorConfig) *storage.InMemoryReposit
 	return storage.NewInMemoryRepository(storage.WithLeaseDuration(cfg.LeaseDuration))
 }
 
-// configureService applies the lease, grace and default max_attempts settings to the coordinator
-// service. The lease duration given to the repository and to the service (poll metadata) must be
-// the same value. It fails when the default max_attempts is outside the range a job can hold.
+// assignmentSettings maps the validated configuration to the coordinator's assignment settings
+// (ADR-0017 Section 5.5). It copies values only; coordinator.AssignmentSettings.Validate applies
+// the rules.
+func assignmentSettings(cfg *config.CoordinatorConfig) coordinator.AssignmentSettings {
+	return coordinator.AssignmentSettings{
+		AcceptWindow: cfg.AssignmentAcceptWindow,
+		Interval:     cfg.AssignmentInterval,
+		MaxLapses:    cfg.AssignmentMaxLapses,
+		FallbackAge:  cfg.AssignmentFallbackAge,
+		BatchLimit:   cfg.AssignmentBatchLimit,
+		MinYield:     cfg.AssignmentMinYield,
+	}
+}
+
+// configureService applies the lease, grace, default max_attempts, assignment settings and dispatch
+// policy to the coordinator service. The lease duration given to the repository and to the service
+// (poll metadata) must be the same value. It fails when the default max_attempts is outside the
+// range a job can hold, when SetAssignmentSettings rejects the assignment settings, or when
+// SetDispatchPolicy rejects the policy (P4-08c review F-R3); main exits on that error. The
+// settings are applied before the policy, because round_robin is refused with invalid settings.
+// On success it logs the effective policy and the settings in one line (no secrets).
 func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) error {
 	svc.SetLeaseDuration(cfg.LeaseDuration)
 	svc.SetGracePeriods(cfg.StartupGracePeriod, cfg.OutageGraceWindow)
-	return svc.SetDefaultMaxAttempts(cfg.DefaultMaxAttempts)
+	if err := svc.SetDefaultMaxAttempts(cfg.DefaultMaxAttempts); err != nil {
+		return err
+	}
+	settings := assignmentSettings(cfg)
+	if err := svc.SetAssignmentSettings(settings); err != nil {
+		return fmt.Errorf("assignment settings: %w", err)
+	}
+	if err := svc.SetDispatchPolicy(cfg.DispatchPolicy); err != nil {
+		return fmt.Errorf("dispatch policy: %w", err)
+	}
+	slog.Info("dispatch policy configured",
+		"policy", svc.DispatchPolicy(),
+		"assignment_accept_window", settings.AcceptWindow.String(),
+		"assignment_interval", settings.Interval.String(),
+		"assignment_max_lapses", settings.MaxLapses,
+		"assignment_fallback_age", settings.FallbackAge.String(),
+		"assignment_batch_limit", settings.BatchLimit,
+		"assignment_min_yield", settings.MinYield.String(),
+	)
+	return nil
 }
 
-// startBackground starts the worker reaper and the lease sweeper, each exactly once, and returns
-// a stop function that cancels both and returns only after both loops have exited. stop is safe to
-// call more than once.
+// startBackground starts the worker reaper and the lease sweeper, each exactly once, and under the
+// round_robin policy the assignment loop (ADR-0017 Section 2.1); under fifo_pull the loop does not
+// run (Section 5.2). It returns a stop function that cancels the loops and returns only after all
+// of them have exited. stop is safe to call more than once. The sweeper is built before any loop
+// starts, so the first assignment pass already takes its grace state from it (implementation
+// note 16).
 func startBackground(ctx context.Context, svc *coordinator.Service, cfg *config.CoordinatorConfig) (stop func()) {
 	bgCtx, cancel := context.WithCancel(ctx)
+	sweeper := svc.NewLeaseSweeper(cfg.SweeperInterval)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -49,8 +92,15 @@ func startBackground(ctx context.Context, svc *coordinator.Service, cfg *config.
 	}()
 	go func() {
 		defer wg.Done()
-		svc.StartLeaseSweeper(bgCtx, cfg.SweeperInterval)
+		sweeper.Run(bgCtx)
 	}()
+	if svc.DispatchPolicy() == domain.DispatchPolicyRoundRobin {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			svc.StartAssignmentLoop(bgCtx)
+		}()
+	}
 	return func() {
 		cancel()
 		wg.Wait()
@@ -147,7 +197,8 @@ func main() {
 	}
 	server := api.NewServer(cfg.HTTPAddr, svc)
 
-	// Start the worker reaper and the lease sweeper (once; stopped on shutdown below).
+	// Start the worker reaper, the lease sweeper and, under round_robin, the assignment loop (once;
+	// stopped on shutdown below).
 	stopBackground := startBackground(context.Background(), svc, cfg)
 
 	// 4. Start HTTP Server in background goroutine

@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 0a9e68a..7b1db44 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -113,7 +113,7 @@ func (l *AssignmentLoop) pass(ctx context.Context) (storage.AssignResult, time.D
+ // repeatsAfter is the repeat rule of ADR-0017 Section 2.1 (N2, further defect 19): some task
+ // type's candidate read returned a full batch, and the pass made at least one reservation.
+ func repeatsAfter(res storage.AssignResult, batchLimit int) bool {
+-	if res.Skipped || res.Reserved == 0 {
++	if res.Skipped {
+ 		return false
+ 	}
+ 	for _, n := range res.CandidatesRead {

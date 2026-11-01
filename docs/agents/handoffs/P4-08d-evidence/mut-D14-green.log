@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPoll_RefreshThreshold_TwiceInterval$' ./internal/storage/postgres/
+=== RUN   TestPoll_RefreshThreshold_TwiceInterval
+2026/11/01 10:27:12 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+--- PASS: TestPoll_RefreshThreshold_TwiceInterval (0.42s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.438s
+exit=0
