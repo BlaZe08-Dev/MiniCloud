@@ -116,6 +116,7 @@ type revokeRow struct {
 	jobID     string
 	workerID  string
 	unhealthy bool
+	now       time.Time // database time when the row was locked
 }
 
 // AssignQueuedJobs runs one assignment pass in one transaction (ADR-0017 Section 2.1): the
@@ -143,7 +144,7 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
 	}
 
 	res := storage.AssignResult{CandidatesRead: make(map[string]int)}
-	if err := assignRevoke(ctx, tx, p.BatchLimit, &res); err != nil {
+	if err := assignRevoke(ctx, tx, p, &res); err != nil {
 		return storage.AssignResult{}, err
 	}
 	cursors, err := assignReserve(ctx, tx, p, &res)
@@ -174,30 +175,31 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
 	return res, nil
 }
 
-// assignRevoke clears at most batchLimit reservations whose worker is no longer HEALTHY (revoked,
-// no lapse counted) or whose window has expired (lapsed, counted), oldest job first (ADR-0017
-// Sections 1.3, 3.3 and 3.4). Jobs are locked FOR UPDATE SKIP LOCKED; the workers row is read in
-// the same statement without a lock.
-func assignRevoke(ctx context.Context, tx pgx.Tx, batchLimit int, res *storage.AssignResult) error {
-	if batchLimit <= 0 {
+// assignRevoke clears at most p.BatchLimit reservations whose worker is no longer HEALTHY (revoked,
+// no lapse counted) or whose window has expired (lapsed), oldest job first (ADR-0017 Sections 1.3,
+// 3.3 and 3.4). An expired reservation's lapse is counted unless the grace input suppresses it at
+// the database time read with the row lock (Section 4.4, INV-9). Jobs are locked FOR UPDATE SKIP
+// LOCKED; the workers row is read in the same statement without a lock.
+func assignRevoke(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *storage.AssignResult) error {
+	if p.BatchLimit <= 0 {
 		return nil
 	}
 	rows, err := tx.Query(ctx, `
-		SELECT j.id, j.assigned_worker_id, (w.status IS DISTINCT FROM 'HEALTHY')
+		SELECT j.id, j.assigned_worker_id, (w.status IS DISTINCT FROM 'HEALTHY'), clock_timestamp()
 		FROM jobs j
 		LEFT JOIN workers w ON w.id = j.assigned_worker_id
 		WHERE j.assigned_worker_id IS NOT NULL
 		  AND (w.status IS DISTINCT FROM 'HEALTHY' OR j.assignment_expires_at <= clock_timestamp())
 		ORDER BY j.created_at ASC, j.id ASC
 		LIMIT $1
-		FOR UPDATE OF j SKIP LOCKED;`, batchLimit)
+		FOR UPDATE OF j SKIP LOCKED;`, p.BatchLimit)
 	if err != nil {
 		return mapPgError(err)
 	}
 	var revokes []revokeRow
 	for rows.Next() {
 		var rr revokeRow
-		if err := rows.Scan(&rr.jobID, &rr.workerID, &rr.unhealthy); err != nil {
+		if err := rows.Scan(&rr.jobID, &rr.workerID, &rr.unhealthy, &rr.now); err != nil {
 			rows.Close()
 			return mapPgError(err)
 		}
@@ -222,19 +224,25 @@ func assignRevoke(ctx context.Context, tx pgx.Tx, batchLimit int, res *storage.A
 			res.Revoked++
 			continue
 		}
+		// Grace gates lapse counting, never revocation (Section 4.4).
+		counted := storage.LapseCounts(p, rr.now)
 		var lapses int
 		if err := tx.QueryRow(ctx, `
 			UPDATE jobs SET assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL,
-			                assignment_lapses = assignment_lapses + 1
+			                assignment_lapses = assignment_lapses + CASE WHEN $2::boolean THEN 1 ELSE 0 END
 			WHERE id = $1
-			RETURNING assignment_lapses;`, rr.jobID).Scan(&lapses); err != nil {
+			RETURNING assignment_lapses;`, rr.jobID, counted).Scan(&lapses); err != nil {
 			return mapPgError(err)
 		}
 		if err := insertAssignmentEvent(ctx, tx, rr.jobID, domain.JobEventAssignmentLapsed,
-			map[string]any{"worker_id": rr.workerID, "lapses": lapses, "counted": true}); err != nil {
+			map[string]any{"worker_id": rr.workerID, "lapses": lapses, "counted": counted}); err != nil {
 			return err
 		}
-		res.Lapsed++
+		if counted {
+			res.Lapsed++
+		} else {
+			res.LapsedUncounted++
+		}
 	}
 	return nil
 }

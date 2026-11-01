@@ -144,15 +144,21 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
 			continue
 		}
 		if j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) {
+			// Grace gates lapse counting, never revocation (ADR-0017 Section 4.4, INV-9).
+			counted := LapseCounts(p, now)
 			j.ClearAssignment()
-			j.AssignmentLapses++
+			if counted {
+				j.AssignmentLapses++
+				res.Lapsed++
+			} else {
+				res.LapsedUncounted++
+			}
 			r.recordEventLocked(&domain.JobEvent{
 				JobID:     j.ID,
 				EventType: domain.JobEventAssignmentLapsed,
 				CreatedAt: now,
-				Details:   map[string]any{"worker_id": holder, "lapses": j.AssignmentLapses, "counted": true},
+				Details:   map[string]any{"worker_id": holder, "lapses": j.AssignmentLapses, "counted": counted},
 			})
-			res.Lapsed++
 			examined++
 		}
 	}
