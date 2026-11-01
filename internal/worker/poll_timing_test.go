@@ -127,9 +127,11 @@ func (c *recordingClock) sleeps() []time.Duration {
 // TestPollTiming_RunSleepsWithinMaxBackoff is the INV-17 relation at the worker loop: every sleep
 // Agent.Run takes between polls is at most MaxPollBackoff, and an empty or WORKER_UNHEALTHY poll
 // sleeps exactly IdlePollInterval. The coordinator answers 300 polls with 500 (the outage path),
-// 300 with 400 (the other error path), 20 with 503 WORKER_UNHEALTHY, then 204.
+// one with 204 (which resets the failure count), 300 with 400 (the other error path), 20 with 503
+// WORKER_UNHEALTHY, then 204. Each error streak must reach the capped region on its own.
 func TestPollTiming_RunSleepsWithinMaxBackoff(t *testing.T) {
-	const outage, other, unhealthy, total = 300, 300, 20, 660
+	const outage, other, unhealthy, total = 300, 300, 20, 680
+	const otherStart = outage + 1 // sleep index of the first 400 poll
 	prev := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	t.Cleanup(func() { slog.SetDefault(prev) })
@@ -149,9 +151,11 @@ func TestPollTiming_RunSleepsWithinMaxBackoff(t *testing.T) {
 				w.WriteHeader(http.StatusNoContent)
 			case n <= outage:
 				w.WriteHeader(http.StatusInternalServerError)
-			case n <= outage+other:
+			case n == outage+1:
+				w.WriteHeader(http.StatusNoContent)
+			case n <= outage+1+other:
 				w.WriteHeader(http.StatusBadRequest)
-			case n <= outage+other+unhealthy:
+			case n <= outage+1+other+unhealthy:
 				w.WriteHeader(http.StatusServiceUnavailable)
 				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": "WORKER_UNHEALTHY", "message": "x"}})
 			default:
@@ -182,20 +186,26 @@ func TestPollTiming_RunSleepsWithinMaxBackoff(t *testing.T) {
 	if len(sleeps) < total-1 {
 		t.Fatalf("recorded %d poll sleeps, want at least %d", len(sleeps), total-1)
 	}
-	var longest time.Duration
+	var longestOutage, longestOther time.Duration
 	for i, d := range sleeps {
 		if d > worker.MaxPollBackoff {
 			t.Fatalf("poll sleep %d is %v, above the maximum poll backoff %v", i, d, worker.MaxPollBackoff)
 		}
-		if i < outage+other && d > longest {
-			longest = d
+		if i < outage && d > longestOutage {
+			longestOutage = d
+		}
+		if i >= otherStart && i < otherStart+other && d > longestOther {
+			longestOther = d
 		}
 	}
-	// The failure streak must reach the capped region, or the bound above was never exercised.
-	if longest <= worker.MaxPollBackoff/2 {
-		t.Fatalf("longest error backoff %v never reached the capped region above %v", longest, worker.MaxPollBackoff/2)
+	// Each failure streak must reach the capped region, or the bound above was never exercised.
+	if longestOutage <= worker.MaxPollBackoff/2 || longestOther <= worker.MaxPollBackoff/2 {
+		t.Fatalf("longest error backoff (outage %v, other %v) never reached the capped region above %v", longestOutage, longestOther, worker.MaxPollBackoff/2)
 	}
-	for i := outage + other; i < total-1; i++ {
+	if sleeps[outage] != worker.IdlePollInterval {
+		t.Fatalf("poll sleep %d after the 204 between the streaks is %v, want %v", outage, sleeps[outage], worker.IdlePollInterval)
+	}
+	for i := otherStart + other; i < total-1; i++ {
 		if sleeps[i] != worker.IdlePollInterval {
 			t.Fatalf("poll sleep %d after an idle or WORKER_UNHEALTHY poll is %v, want %v", i, sleeps[i], worker.IdlePollInterval)
 		}
