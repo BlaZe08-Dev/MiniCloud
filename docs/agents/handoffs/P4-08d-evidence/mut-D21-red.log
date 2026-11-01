@@ -1,0 +1,10 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep
+2026/11/01 10:27:40 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:27:40 INFO job submitted and queued job_id=job_1_0c9e45e0d5f6 task_type=echo state=QUEUED max_attempts=3
+    assignment_loop_test.go:329: pass before the first sweeper tick: GracePending=false, want true
+--- FAIL: TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.018s
+FAIL
+exit=1

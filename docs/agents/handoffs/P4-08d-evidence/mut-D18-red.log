@@ -1,0 +1,18 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin$' ./cmd/coordinator/
+=== RUN   TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin
+=== RUN   TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/round_robin
+2026/11/01 10:28:26 INFO dispatch policy configured policy=round_robin assignment_accept_window=6s assignment_interval=100ms assignment_max_lapses=2 assignment_fallback_age=40s assignment_batch_limit=7 assignment_min_yield=5ms
+2026/11/01 10:28:26 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/11/01 10:28:26 INFO job submitted and queued job_id=job_1_a27fe7809e04 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/fifo_pull
+2026/11/01 10:28:26 INFO dispatch policy configured policy=fifo_pull assignment_accept_window=6s assignment_interval=100ms assignment_max_lapses=2 assignment_fallback_age=40s assignment_batch_limit=7 assignment_min_yield=5ms
+2026/11/01 10:28:26 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/11/01 10:28:26 INFO job submitted and queued job_id=job_2_386ef0068c61 task_type=echo state=QUEUED max_attempts=3
+    main_test.go:387: fifo_pull: an assignment pass ran (JOB_ASSIGNED written)
+--- FAIL: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin (1.01s)
+    --- PASS: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/round_robin (0.01s)
+    --- FAIL: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/fifo_pull (1.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.031s
+FAIL
+exit=1

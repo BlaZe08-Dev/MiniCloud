@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentLoop_SubmitTriggersPass$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentLoop_SubmitTriggersPass
+2026/11/01 10:27:56 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:27:56 INFO job submitted and queued job_id=job_1_29d469051d2e task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestCoordinator_AssignmentLoop_SubmitTriggersPass (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.023s
+exit=0

@@ -1,0 +1,13 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 3688e83..5e0d93b 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -212,7 +212,7 @@ func validateAssignment(cfg *CoordinatorConfig) error {
+ 	if cfg.AssignmentFallbackAge < lapsePathMinimum || cfg.AssignmentFallbackAge > 10*time.Minute {
+ 		return fmt.Errorf("MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (%v) and at most 10m (got %v)", lapsePathMinimum, cfg.AssignmentFallbackAge)
+ 	}
+-	if cfg.AssignmentBatchLimit < 1 || cfg.AssignmentBatchLimit > 500 {
++	if cfg.AssignmentBatchLimit < 1 || cfg.AssignmentBatchLimit > 501 {
+ 		return fmt.Errorf("MINICLOUD_ASSIGNMENT_BATCH_LIMIT must be between 1 and 500 (got %d)", cfg.AssignmentBatchLimit)
+ 	}
+ 	if cfg.AssignmentMinYield < time.Millisecond || cfg.AssignmentMinYield > time.Second {

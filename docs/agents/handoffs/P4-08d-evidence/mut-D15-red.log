@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPoll_RefreshThreshold_TwiceInterval$' ./internal/storage/postgres/
+=== RUN   TestPoll_RefreshThreshold_TwiceInterval
+2026/11/01 10:27:16 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+    assignment_coordinator_test.go:302: heartbeat 2.5 x interval old: the poll did not refresh (heartbeat age 2.537031s)
+--- FAIL: TestPoll_RefreshThreshold_TwiceInterval (0.53s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.558s
+FAIL
+exit=1

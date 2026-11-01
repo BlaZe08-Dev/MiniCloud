@@ -1,0 +1,10 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentSweep_GraceStillRevokes$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentSweep_GraceStillRevokes
+2026/11/01 10:26:26 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:26 INFO job submitted and queued job_id=job_1_547e049ef2f7 task_type=echo state=QUEUED max_attempts=3
+    assignment_loop_test.go:305: pass inside grace: uncounted lapses=0, want 1 (the expired reservation revoked)
+--- FAIL: TestCoordinator_AssignmentSweep_GraceStillRevokes (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.019s
+FAIL
+exit=1

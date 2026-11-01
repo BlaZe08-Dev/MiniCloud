@@ -1,0 +1,24 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentRepeat_OnlyWithProgress$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_of_unplaceable_jobs:_one_pass
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_1_40ef41ce8225 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_2_45e71fc7823e task_type=echo state=QUEUED max_attempts=3
+    assignment_loop_test.go:503: passes in one round = 11, want 1 (INV-21)
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_with_a_reservation_repeats_until_no_progress
+2026/11/01 10:26:50 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:50 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:50 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_3_840975c6e988 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_4_c848786fb25a task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_5_aa7e99185e12 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/reservation_without_a_full_batch:_one_pass
+2026/11/01 10:26:50 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:50 INFO job submitted and queued job_id=job_6_fca7d1fe64a3 task_type=echo state=QUEUED max_attempts=3
+--- FAIL: TestCoordinator_AssignmentRepeat_OnlyWithProgress (0.00s)
+    --- FAIL: TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_of_unplaceable_jobs:_one_pass (0.00s)
+    --- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_with_a_reservation_repeats_until_no_progress (0.00s)
+    --- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress/reservation_without_a_full_batch:_one_pass (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.023s
+FAIL
+exit=1

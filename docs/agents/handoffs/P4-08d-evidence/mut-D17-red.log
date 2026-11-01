@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestMain_ConfigureService_FailsOnRejectedPolicy$' ./cmd/coordinator/
+=== RUN   TestMain_ConfigureService_FailsOnRejectedPolicy
+2026/11/01 10:27:24 INFO dispatch policy configured policy=fifo_pull assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+    main_test.go:323: unknown policy: err=<nil>, want ErrInvalidRequest
+--- FAIL: TestMain_ConfigureService_FailsOnRejectedPolicy (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	0.020s
+FAIL
+exit=1

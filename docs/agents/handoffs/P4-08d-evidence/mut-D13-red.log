@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPoll_RefreshThreshold_TwiceInterval$' ./internal/coordinator/
+=== RUN   TestPoll_RefreshThreshold_TwiceInterval
+2026/11/01 10:27:06 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+    assignment_loop_test.go:668: heartbeat age 2.001s: 1 passes, want 2
+--- FAIL: TestPoll_RefreshThreshold_TwiceInterval (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.019s
+FAIL
+exit=1

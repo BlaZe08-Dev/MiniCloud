@@ -1,0 +1,15 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentRepeat_YieldsToPolls$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentRepeat_YieldsToPolls
+2026/11/01 10:26:45 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:45 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:45 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:45 INFO worker registered worker_id=w_idle version=v1.0.0 slots=1 supported_tasks=[sleep]
+2026/11/01 10:26:45 INFO job submitted and queued job_id=job_1_286bc0a05521 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:45 INFO job submitted and queued job_id=job_2_50ffc047a52f task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:45 INFO job submitted and queued job_id=job_3_6562a3c7c82a task_type=echo state=QUEUED max_attempts=3
+    assignment_loop_test.go:432: yield 1: the poll blocked during pass 1 did not get s.mu during the yield (INV-20)
+--- FAIL: TestCoordinator_AssignmentRepeat_YieldsToPolls (2.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	2.024s
+FAIL
+exit=1

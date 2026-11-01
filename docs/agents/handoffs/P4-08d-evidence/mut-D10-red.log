@@ -1,0 +1,18 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentLoop_RateLimitedPoll_NoAgeClaim$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentLoop_RateLimitedPoll_NoAgeClaim
+2026/11/01 10:26:57 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:57 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:57 INFO job submitted and queued job_id=job_1_758b63de6d97 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:57 INFO job submitted and queued job_id=job_2_8804d3f49882 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:57 WARN assignment pass failed err="injected assignment pass failure"
+2026/11/01 10:26:57 ERROR assignment pass heartbeat is stale: no assignment pass has completed within the threshold; remedy: set MINICLOUD_DISPATCH_POLICY=fifo_pull and restart the coordinator threshold=2s
+2026/11/01 10:26:57 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 10:26:57 INFO job dispatched to worker job_id=job_1_758b63de6d97 attempt_id=att_1_b7eda026c35e attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+2026/11/01 10:26:57 WARN assignment pass failed err="injected assignment pass failure"
+2026/11/01 10:26:57 INFO job dispatched to worker job_id=job_2_8804d3f49882 attempt_id=att_2_54cea9b34774 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=age
+    assignment_loop_test.go:572: rate-limited poll after a failing loop pass: assignment=&{JobID:job_2_8804d3f49882 AttemptID:att_2_54cea9b34774 AttemptNo:1 LeaseToken:RRfxf24CAEwc3btbaxkv6n32Ke72Q83YyDEXiYtRJgM TaskType:echo Payload:[123 125] TimeoutSeconds:30 LeaseExpiresAt:2026-11-01 12:01:01.001 +0000 UTC LeaseDurationSeconds:30 Policy:round_robin_fallback FallbackReason:age} err=<nil>, want 204 (INV-24)
+--- FAIL: TestCoordinator_AssignmentLoop_RateLimitedPoll_NoAgeClaim (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.019s
+FAIL
+exit=1

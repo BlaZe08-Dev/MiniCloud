@@ -1,0 +1,22 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentRepeat_OnlyWithProgress$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_of_unplaceable_jobs:_one_pass
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_1_1da54c671cba task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_2_b6ce88eb8b18 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_with_a_reservation_repeats_until_no_progress
+2026/11/01 10:26:51 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:51 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:51 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_3_f61fcfc6ddaa task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_4_fa313a262155 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_5_7555ffa410e9 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestCoordinator_AssignmentRepeat_OnlyWithProgress/reservation_without_a_full_batch:_one_pass
+2026/11/01 10:26:51 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 10:26:51 INFO job submitted and queued job_id=job_6_40f2e83ff875 task_type=echo state=QUEUED max_attempts=3
+--- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress (0.00s)
+    --- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_of_unplaceable_jobs:_one_pass (0.00s)
+    --- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress/full_batch_with_a_reservation_repeats_until_no_progress (0.00s)
+    --- PASS: TestCoordinator_AssignmentRepeat_OnlyWithProgress/reservation_without_a_full_batch:_one_pass (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.022s
+exit=0

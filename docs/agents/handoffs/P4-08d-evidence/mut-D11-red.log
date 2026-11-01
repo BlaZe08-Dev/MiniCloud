@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited
+    assignment_loop_test.go:634: failing=true: 181 stale heartbeat ERROR lines over 181 rounds, want 4
+--- FAIL: TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.026s
+FAIL
+exit=1

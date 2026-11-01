@@ -1,0 +1,95 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestMain_AssignmentSettings_ConfigAndServiceAgree$' ./cmd/coordinator/
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/defaults
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_4.999999999s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_5s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_30s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=30s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_30.000000001s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_99.999999ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_100ms
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=30s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_10s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=30s assignment_interval=10s assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_10.000000001s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_0
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_1
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=1 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_10
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=10 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_11
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_17.999999999s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_18s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=18s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_10m0s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_10m0.000000001s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_0
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_1
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=1 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_500
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=500 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_501
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_999.999µs
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1ms
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=1ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=1s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1.000000001s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_vs_interval_100ms
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=100ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_vs_interval_100.000001ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_interval_vs_accept_window_5s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=5s assignment_max_lapses=3 assignment_fallback_age=10m0s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_interval_vs_accept_window_5.000000001s
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_fallback_age_7s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=1 assignment_fallback_age=7s assignment_batch_limit=50 assignment_min_yield=10ms
+    main_test.go:486: config and service disagree: config err=MINICLOUD_ASSIGNMENT_FALLBACK_AGE (7s) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (7s), service err=<nil>
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_fallback_age_7.000000001s
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=1 assignment_fallback_age=7.000000001s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_fifo_pull
+2026/11/01 10:27:47 INFO dispatch policy configured policy=fifo_pull assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_ROUND_ROBIN
+2026/11/01 10:27:47 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=1s assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+=== RUN   TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_lottery
+--- FAIL: TestMain_AssignmentSettings_ConfigAndServiceAgree (0.02s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/defaults (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_4.999999999s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_5s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_30s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/accept_window_30.000000001s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_99.999999ms (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_100ms (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_10s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/interval_10.000000001s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_0 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_1 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_10 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/max_lapses_11 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_17.999999999s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_18s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_10m0s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/fallback_age_10m0.000000001s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_0 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_1 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_500 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/batch_limit_501 (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_999.999µs (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1ms (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_1.000000001s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_vs_interval_100ms (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/min_yield_vs_interval_100.000001ms (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_interval_vs_accept_window_5s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_interval_vs_accept_window_5.000000001s (0.00s)
+    --- FAIL: TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_fallback_age_7s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/A1_fallback_age_7.000000001s (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_fifo_pull (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_ROUND_ROBIN (0.00s)
+    --- PASS: TestMain_AssignmentSettings_ConfigAndServiceAgree/policy_lottery (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	0.035s
+FAIL
+exit=1

@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index b7d93cd..9a0f234 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -66,7 +66,7 @@ func (a AssignmentSettings) Validate() error {
+ 	if a.Interval > a.AcceptWindow {
+ 		return fmt.Errorf("%w: assignment interval (%v) must not exceed the accept window (%v)", domain.ErrInvalidRequest, a.Interval, a.AcceptWindow)
+ 	}
+-	if a.FallbackAge <= 2*a.Interval+a.AcceptWindow {
++	if a.FallbackAge < 2*a.Interval+a.AcceptWindow {
+ 		return fmt.Errorf("%w: assignment fallback age (%v) must be greater than 2 x interval plus the accept window (%v)", domain.ErrInvalidRequest, a.FallbackAge, 2*a.Interval+a.AcceptWindow)
+ 	}
+ 	return nil

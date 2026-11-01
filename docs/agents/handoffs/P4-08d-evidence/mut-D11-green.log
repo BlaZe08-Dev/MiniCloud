@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited$' ./internal/coordinator/
+=== RUN   TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited
+--- PASS: TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.030s
+exit=0
