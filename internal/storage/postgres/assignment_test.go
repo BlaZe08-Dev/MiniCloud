@@ -225,6 +225,16 @@ func TestConformance_RecordPoll_ThrottlesFreshnessWrites(t *testing.T) {
 	storagetest.RunRecordPollThrottlesFreshnessWritesConformance(t, newPostgresAssignmentHarness)
 }
 
+// ADR-0017 Sections 3.2 and 5.1: the policy and fallback reason per claim arm (slice 5c, part 2).
+func TestConformance_ClaimPolicy_PerArm(t *testing.T) {
+	storagetest.RunClaimPolicyPerArmConformance(t, newPostgresAssignmentHarness)
+}
+
+// ADR-0017 Section 5.1: the four assignment fields of the job view (slice 5c, part 2).
+func TestConformance_JobView_AssignmentFields(t *testing.T) {
+	storagetest.RunJobViewAssignmentFieldsConformance(t, newPostgresAssignmentHarness)
+}
+
 // --- PostgreSQL-only invariants (ADR-0017 Section 6.3, slice 5b) ---
 
 func assignmentCleared(t *testing.T, pool *pgxpool.Pool, jobID string) bool {

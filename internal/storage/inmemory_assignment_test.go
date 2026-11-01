@@ -288,6 +288,16 @@ func TestConformance_RecordPoll_ThrottlesFreshnessWrites(t *testing.T) {
 	storagetest.RunRecordPollThrottlesFreshnessWritesConformance(t, newInMemoryAssignmentHarness)
 }
 
+// ADR-0017 Sections 3.2 and 5.1: the policy and fallback reason per claim arm (slice 5c, part 2).
+func TestConformance_ClaimPolicy_PerArm(t *testing.T) {
+	storagetest.RunClaimPolicyPerArmConformance(t, newInMemoryAssignmentHarness)
+}
+
+// ADR-0017 Section 5.1: the four assignment fields of the job view (slice 5c, part 2).
+func TestConformance_JobView_AssignmentFields(t *testing.T) {
+	storagetest.RunJobViewAssignmentFieldsConformance(t, newInMemoryAssignmentHarness)
+}
+
 // ADR-0017 note 25: a pending grace state suppresses a lapse only until GracePendingUntil on the
 // repository clock. One nanosecond before the end it holds the lapse back; at the end it counts. A
 // pending state with no known end stays pending.
