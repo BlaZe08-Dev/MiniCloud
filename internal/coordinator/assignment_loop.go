@@ -105,7 +105,7 @@ func (l *AssignmentLoop) pass(ctx context.Context) (storage.AssignResult, time.D
 	if !ok {
 		return storage.AssignResult{}, 0, 0, fmt.Errorf("%w: the assignment loop needs an assignment-capable repository", domain.ErrInvalidRequest)
 	}
-	params := s.assignParamsLocked()
+	params := s.assignParamsLocked(passCtx)
 	res, err := ar.AssignQueuedJobs(passCtx, params)
 	return res, s.assignment.MinYield, params.BatchLimit, err
 }

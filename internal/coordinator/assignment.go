@@ -135,15 +135,16 @@ func (s *Service) SetAssignmentSettings(a AssignmentSettings) error {
 // refresh alike: the settings, and the grace state of the lease sweeper (ADR-0017 Section 4.4).
 // Every input is a duration or a count, except the grace instants, which are repository time read
 // by the sweeper (implementation note 16). The caller holds s.mu.
-func (s *Service) assignParamsLocked() storage.AssignParams {
-	grace, pending := s.passGraceInput()
+func (s *Service) assignParamsLocked(ctx context.Context) storage.AssignParams {
+	grace, pending, until := s.passGraceInput(ctx)
 	return storage.AssignParams{
-		AcceptWindow:  s.assignment.AcceptWindow,
-		WorkerTimeout: s.workerTimeout,
-		BatchLimit:    s.assignment.BatchLimit,
-		MaxLapses:     s.assignment.MaxLapses,
-		Grace:         grace,
-		GracePending:  pending,
+		AcceptWindow:      s.assignment.AcceptWindow,
+		WorkerTimeout:     s.workerTimeout,
+		BatchLimit:        s.assignment.BatchLimit,
+		MaxLapses:         s.assignment.MaxLapses,
+		Grace:             grace,
+		GracePending:      pending,
+		GracePendingUntil: until,
 	}
 }
 
@@ -231,7 +232,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
 
 	s.refreshInFlight = true
 	s.refreshLastAttemptAt = now
-	_, err = ar.AssignQueuedJobs(ctx, s.assignParamsLocked())
+	_, err = ar.AssignQueuedJobs(ctx, s.assignParamsLocked(ctx))
 	s.refreshInFlight = false
 	s.refreshLastFailed = err != nil
 	if err != nil {

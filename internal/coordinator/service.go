@@ -93,6 +93,10 @@ type Service struct {
 	graceSource bool                   // a LeaseSweeper exists for this service
 	graceReady  bool                   // its last tick succeeded, so passGrace is current
 	passGrace   domain.SweepGraceState // the grace state of its last successful tick
+	// pendingCap is how long the pending state may last (implementation note 25); pendingSince is
+	// its start on the repository clock, zero until a pass or poll has read it.
+	pendingCap   time.Duration
+	pendingSince time.Time
 
 	// assignKick is the submit trigger of the assignment loop: SubmitJob sends without blocking,
 	// and the buffer of one coalesces a burst of submits into one extra pass (ADR-0017

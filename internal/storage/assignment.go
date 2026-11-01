@@ -46,6 +46,10 @@ type AssignParams struct {
 	// successful tick, and after a failed tick until the next successful one. No lapse is counted
 	// then (ADR-0017 implementation note 16). The zero value counts lapses as before.
 	GracePending bool
+	// GracePendingUntil ends the pending state at repository time: from that instant on, pending
+	// no longer suppresses a lapse (implementation note 25). The zero value means no end is known
+	// and the state stays pending.
+	GracePendingUntil time.Time
 }
 
 // LapseCounts reports whether an expired reservation revoked at repository time now counts as a
@@ -53,7 +57,10 @@ type AssignParams struct {
 // Section 4.4, implementation note 16). Both repositories call it inside the pass, under the job
 // lock, with their own clock (the database clock in PostgreSQL).
 func LapseCounts(p AssignParams, now time.Time) bool {
-	return !p.GracePending && !p.Grace.Suppresses(now)
+	if p.GracePending && (p.GracePendingUntil.IsZero() || now.Before(p.GracePendingUntil)) {
+		return false
+	}
+	return !p.Grace.Suppresses(now)
 }
 
 // AssignResult reports what one pass did. CandidatesRead holds, per task type, the number of
