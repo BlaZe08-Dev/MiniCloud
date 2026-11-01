@@ -125,6 +125,13 @@ func (a *Agent) SetClock(c Clock) {
 	a.clock = c
 }
 
+// pollSleep blocks for d between work polls. It waits on the agent clock, which is the real
+// timer in production (the same wait as time.Sleep), so a test can observe every poll sleep and
+// check it against MaxPollBackoff (ADR-0017 INV-17).
+func (a *Agent) pollSleep(d time.Duration) {
+	<-a.clock.NewTimer(d).C()
+}
+
 // NewAgent constructs a new Worker Agent.
 func NewAgent(cfg *config.WorkerConfig, registry *executor.Registry) *Agent {
 	return &Agent{
@@ -169,8 +176,6 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	// 3. Work polling loop
 	consecutiveFailures := 0
-	baseBackoff := IdlePollInterval
-	maxBackoff := MaxPollBackoff
 
 	for {
 		select {
@@ -183,27 +188,27 @@ func (a *Agent) Run(ctx context.Context) error {
 				if errors.Is(err, domain.ErrWorkerUnhealthy) {
 					consecutiveFailures = 0
 					slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
-					time.Sleep(baseBackoff)
+					a.pollSleep(IdlePollInterval)
 				} else if errors.Is(err, domain.ErrNoQueuedJobs) {
 					consecutiveFailures = 0
-					time.Sleep(baseBackoff)
+					a.pollSleep(IdlePollInterval)
 				} else if errors.Is(err, ErrServiceUnavailable) {
 					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
 					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
-					time.Sleep(backoff)
+					a.pollSleep(backoff)
 				} else {
 					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
 					slog.Warn("work poll error", "err", err, "backoff", backoff)
-					time.Sleep(backoff)
+					a.pollSleep(backoff)
 				}
 				continue
 			}
 
 			consecutiveFailures = 0
 			if assignment == nil {
-				time.Sleep(baseBackoff)
+				a.pollSleep(IdlePollInterval)
 				continue
 			}
 
