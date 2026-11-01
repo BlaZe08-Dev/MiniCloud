@@ -111,6 +111,13 @@ func (s *Service) DispatchPolicy() string {
 	return s.policy
 }
 
+// AssignmentSettings returns the round-robin settings in force.
+func (s *Service) AssignmentSettings() AssignmentSettings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.assignment
+}
+
 // SetAssignmentSettings sets the round-robin inputs after Validate. Invalid settings are rejected
 // with domain.ErrInvalidRequest and the previous settings stay in force. NewService starts from
 // DefaultAssignmentSettings.
