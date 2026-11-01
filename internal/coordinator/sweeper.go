@@ -83,6 +83,9 @@ func (s *Service) NewLeaseSweeper(interval time.Duration) *LeaseSweeper {
 	if interval <= 0 {
 		interval = DefaultSweeperInterval
 	}
+	// From now on the assignment pass takes its grace state from this sweeper; until its first
+	// successful tick the state is pending and no lapse is counted (implementation note 16).
+	s.publishPassGrace(domain.SweepGraceState{}, false)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return &LeaseSweeper{
@@ -131,6 +134,7 @@ func (w *LeaseSweeper) Tick(ctx context.Context) error {
 	now, err := w.svc.repo.Now(ctx)
 	if err != nil {
 		w.state.failedSince = true
+		w.svc.publishPassGrace(domain.SweepGraceState{}, false)
 		return err
 	}
 	if !w.state.startupSet {
@@ -139,20 +143,24 @@ func (w *LeaseSweeper) Tick(ctx context.Context) error {
 	}
 
 	next, opened := w.advance(w.state, now)
+	grace := domain.SweepGraceState{
+		StartupGraceUntil: next.startupUntil,
+		OutageWindowUntil: next.windowUntil,
+		CooldownUntil:     next.cooldownUntil,
+	}
 	res, err := w.svc.repo.SweepExpiredLeases(ctx, domain.SweepParams{
-		Limit: domain.DefaultSweepBatchSize,
-		Grace: domain.SweepGraceState{
-			StartupGraceUntil: next.startupUntil,
-			OutageWindowUntil: next.windowUntil,
-			CooldownUntil:     next.cooldownUntil,
-		},
+		Limit:   domain.DefaultSweepBatchSize,
+		Grace:   grace,
 		Backoff: w.backoff,
 	})
 	if err != nil {
 		// The window decided for this tick is discarded; the next successful tick decides again.
 		w.state.failedSince = true
+		w.svc.publishPassGrace(domain.SweepGraceState{}, false)
 		return err
 	}
+	// The assignment pass gets the same grace state as the sweep (ADR-0017 Section 4.4).
+	w.svc.publishPassGrace(grace, true)
 
 	next.lastOK = now
 	next.hasLastOK = true
@@ -204,6 +212,28 @@ func (w *LeaseSweeper) report(res *domain.SweepResult) {
 		slog.Warn("lease sweeper: candidates changed state outside every sweep rule",
 			"skipped_changed", res.SkippedChanged, "candidates", res.Candidates)
 	}
+}
+
+// publishPassGrace records the grace state the assignment pass receives (ADR-0017 Section 4.4).
+// ready is false before the sweeper's first successful tick and after a failed tick; the pass then
+// counts no lapse (implementation note 16).
+func (s *Service) publishPassGrace(g domain.SweepGraceState, ready bool) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+	s.graceSource = true
+	s.graceReady = ready
+	s.passGrace = g
+}
+
+// passGraceInput returns the grace input of an assignment pass. With no lease sweeper the pass has
+// no grace and counts every lapse, as in slices 5a and 5b.
+func (s *Service) passGraceInput() (grace domain.SweepGraceState, pending bool) {
+	s.graceMu.Lock()
+	defer s.graceMu.Unlock()
+	if !s.graceSource {
+		return domain.SweepGraceState{}, false
+	}
+	return s.passGrace, !s.graceReady
 }
 
 func newSweepRand() func() float64 { return rand.Float64 }

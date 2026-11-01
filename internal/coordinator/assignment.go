@@ -114,6 +114,22 @@ func (s *Service) SetAssignmentSettings(a AssignmentSettings) error {
 	return nil
 }
 
+// assignParamsLocked returns the inputs of one assignment pass, for the loop and the poll-time
+// refresh alike: the settings, and the grace state of the lease sweeper (ADR-0017 Section 4.4).
+// Every input is a duration or a count, except the grace instants, which are repository time read
+// by the sweeper (implementation note 16). The caller holds s.mu.
+func (s *Service) assignParamsLocked() storage.AssignParams {
+	grace, pending := s.passGraceInput()
+	return storage.AssignParams{
+		AcceptWindow:  s.assignment.AcceptWindow,
+		WorkerTimeout: s.workerTimeout,
+		BatchLimit:    s.assignment.BatchLimit,
+		MaxLapses:     s.assignment.MaxLapses,
+		Grace:         grace,
+		GracePending:  pending,
+	}
+}
+
 // pollRoundRobinLocked is the round_robin poll (ADR-0017 Sections 3.2 and 3.5). The caller holds
 // s.mu.
 //
@@ -198,12 +214,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
 
 	s.refreshInFlight = true
 	s.refreshLastAttemptAt = now
-	_, err = ar.AssignQueuedJobs(ctx, storage.AssignParams{
-		AcceptWindow:  s.assignment.AcceptWindow,
-		WorkerTimeout: s.workerTimeout,
-		BatchLimit:    s.assignment.BatchLimit,
-		MaxLapses:     s.assignment.MaxLapses,
-	})
+	_, err = ar.AssignQueuedJobs(ctx, s.assignParamsLocked())
 	s.refreshInFlight = false
 	s.refreshLastFailed = err != nil
 	if err != nil {

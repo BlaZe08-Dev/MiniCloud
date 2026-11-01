@@ -86,6 +86,18 @@ type Service struct {
 	startupGrace time.Duration
 	outageWindow time.Duration
 	sweepRand    func() float64
+
+	// Grace state the lease sweeper hands to the assignment pass (ADR-0017 Section 4.4,
+	// assignment_loop.go). Guarded by graceMu, not s.mu: the sweeper never takes s.mu.
+	graceMu     sync.Mutex
+	graceSource bool                   // a LeaseSweeper exists for this service
+	graceReady  bool                   // its last tick succeeded, so passGrace is current
+	passGrace   domain.SweepGraceState // the grace state of its last successful tick
+
+	// assignKick is the submit trigger of the assignment loop: SubmitJob sends without blocking,
+	// and the buffer of one coalesces a burst of submits into one extra pass (ADR-0017
+	// Section 2.1).
+	assignKick chan struct{}
 }
 
 // NewService constructs a new Coordinator Service. Dispatch flows through repo.DispatchNextJob
@@ -108,6 +120,7 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		startupGrace:       DefaultStartupGracePeriod,
 		outageWindow:       DefaultOutageGraceWindow,
 		sweepRand:          newSweepRand(),
+		assignKick:         make(chan struct{}, 1),
 	}
 }
 
@@ -240,6 +253,13 @@ func (s *Service) SubmitJob(ctx context.Context, taskType string, payload []byte
 
 	if err := s.repo.SubmitJob(ctx, job); err != nil {
 		return nil, err
+	}
+
+	// Submit trigger of the assignment loop (ADR-0017 Section 2.1). It never blocks; without a
+	// running loop (fifo_pull) the signal stays in the buffer and nothing reads it.
+	select {
+	case s.assignKick <- struct{}{}:
+	default:
 	}
 
 	slog.Info("job submitted and queued",
