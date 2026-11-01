@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -273,5 +274,102 @@ func TestComputeBackoffWithJitter(t *testing.T) {
 		if backoff > max {
 			t.Fatalf("backoff %v exceeded max %v", backoff, max)
 		}
+	}
+}
+
+func TestComputeBackoffWithJitter_Table(t *testing.T) {
+	base := 100 * time.Millisecond
+	max := 5 * time.Second
+
+	// Counts 0..200 plus 62, 63, 64, 65, 127, 128 and math.MaxInt.
+	counts := make([]int, 0, 205)
+	for i := 0; i <= 200; i++ {
+		counts = append(counts, i)
+	}
+	for _, extra := range []int{62, 63, 64, 65, 127, 128, math.MaxInt} {
+		found := false
+		for _, c := range counts {
+			if c == extra {
+				found = true
+				break
+			}
+		}
+		if !found {
+			counts = append(counts, extra)
+		}
+	}
+
+	for _, count := range counts {
+		backoff := worker.ComputeBackoffWithJitter(count, base, max)
+		if backoff <= 0 {
+			t.Fatalf("count %d: expected backoff > 0, got %v", count, backoff)
+		}
+		if backoff > max {
+			t.Fatalf("count %d: backoff %v exceeded max %v", count, backoff, max)
+		}
+
+		if count <= 0 {
+			if backoff != base {
+				t.Fatalf("count %d: expected exact base backoff %v, got %v", count, base, backoff)
+			}
+		} else {
+			expMult := 16
+			if count < 5 {
+				expMult = 1 << (count - 1)
+			}
+			expDur := base * time.Duration(expMult)
+			if expDur > max {
+				expDur = max
+			}
+			minJitter := time.Duration(float64(expDur) * 0.5)
+			if backoff < minJitter || backoff > expDur {
+				t.Fatalf("count %d: backoff %v outside expected jitter range [%v, %v]", count, backoff, minJitter, expDur)
+			}
+		}
+	}
+}
+
+func TestComputeBackoffWithJitter_Property(t *testing.T) {
+	cases := []struct {
+		name string
+		base time.Duration
+		max  time.Duration
+	}{
+		{"standard_cap_exceeds_16x", 100 * time.Millisecond, 5 * time.Second},
+		{"worker_default_cap_below_16x", 200 * time.Millisecond, 3 * time.Second},
+		{"small_cap", 50 * time.Millisecond, 500 * time.Millisecond},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for count := 0; count <= 1000; count++ {
+				backoff := worker.ComputeBackoffWithJitter(count, tc.base, tc.max)
+				if backoff <= 0 {
+					t.Fatalf("count %d: expected backoff > 0, got %v", count, backoff)
+				}
+				if backoff > tc.max {
+					t.Fatalf("count %d: backoff %v exceeded max %v", count, backoff, tc.max)
+				}
+
+				if count <= 0 {
+					if backoff != tc.base {
+						t.Fatalf("count %d: expected base %v, got %v", count, tc.base, backoff)
+					}
+				} else {
+					expMult := 16
+					if count < 5 {
+						expMult = 1 << (count - 1)
+					}
+					expDur := tc.base * time.Duration(expMult)
+					if expDur > tc.max {
+						expDur = tc.max
+					}
+					minJitter := time.Duration(float64(expDur) * 0.5)
+					if backoff < minJitter || backoff > expDur {
+						t.Fatalf("count %d: backoff %v outside [%v, %v]", count, backoff, minJitter, expDur)
+					}
+				}
+			}
+		})
 	}
 }
