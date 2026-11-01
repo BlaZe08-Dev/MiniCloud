@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentLoop_SubmitTriggersPass$ ./internal/coordinator/
+    assignment_loop_test.go:692: timed out waiting for a pass after the submit
+--- FAIL: TestCoordinator_AssignmentLoop_SubmitTriggersPass (5.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	5.026s
+FAIL
+exit=1

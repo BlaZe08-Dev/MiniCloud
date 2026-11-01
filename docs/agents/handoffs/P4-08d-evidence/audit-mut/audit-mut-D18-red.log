@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin$ ./cmd/coordinator/
+    main_test.go:387: fifo_pull: an assignment pass ran (JOB_ASSIGNED written)
+--- FAIL: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin (1.01s)
+    --- PASS: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/round_robin (0.01s)
+    --- FAIL: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/fifo_pull (1.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.031s
+FAIL
+exit=1

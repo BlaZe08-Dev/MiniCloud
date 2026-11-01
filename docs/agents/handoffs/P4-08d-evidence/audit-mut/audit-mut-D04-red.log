@@ -1,0 +1,7 @@
+$ MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v -timeout 600s -run ^TestConformance_AssignPass_GraceRevokesWithoutCounting$ ./internal/storage/postgres/
+    assignment.go:842: startup grace: lapsed=1 uncounted=0, want 0 and 1
+--- FAIL: TestConformance_AssignPass_GraceRevokesWithoutCounting (0.45s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.470s
+FAIL
+exit=1

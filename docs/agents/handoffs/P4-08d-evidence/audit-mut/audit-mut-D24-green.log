@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentLoop_SubmitTriggersPass$ ./internal/coordinator/
+--- PASS: TestCoordinator_AssignmentLoop_SubmitTriggersPass (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.025s
+exit=0

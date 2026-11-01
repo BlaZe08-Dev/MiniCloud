@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 0a9e68a..3feb3be 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -48,7 +48,7 @@ func (l *AssignmentLoop) Run(ctx context.Context) {
+ 	l.svc.mu.Lock()
+ 	interval := l.svc.assignment.Interval
+ 	l.svc.mu.Unlock()
+-	ticker := time.NewTicker(interval)
++	ticker := time.NewTicker(interval + time.Hour)
+ 	defer ticker.Stop()
+ 	for {
+ 		l.Round(ctx)

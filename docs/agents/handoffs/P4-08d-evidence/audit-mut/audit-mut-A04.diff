@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 7af08d0..00f9f05 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -120,7 +120,7 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
+ 		startupGrace:       DefaultStartupGracePeriod,
+ 		outageWindow:       DefaultOutageGraceWindow,
+ 		sweepRand:          newSweepRand(),
+-		assignKick:         make(chan struct{}, 1),
++		assignKick:         make(chan struct{}, 64),
+ 	}
+ }
+ 

@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/sweeper.go b/internal/coordinator/sweeper.go
+index 518487c..1e0dbc2 100644
+--- a/internal/coordinator/sweeper.go
++++ b/internal/coordinator/sweeper.go
+@@ -233,7 +233,7 @@ func (s *Service) passGraceInput() (grace domain.SweepGraceState, pending bool)
+ 	if !s.graceSource {
+ 		return domain.SweepGraceState{}, false
+ 	}
+-	return s.passGrace, !s.graceReady
++	return s.passGrace, false
+ }
+ 
+ func newSweepRand() func() float64 { return rand.Float64 }

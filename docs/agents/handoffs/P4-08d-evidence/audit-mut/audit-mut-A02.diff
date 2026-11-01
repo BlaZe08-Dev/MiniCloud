@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 0a9e68a..c07c3d9 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -157,7 +157,7 @@ func (l *AssignmentLoop) checkStaleHeartbeat(ctx context.Context) {
+ 
+ // sleepContext waits d or until ctx is cancelled.
+ func sleepContext(ctx context.Context, d time.Duration) error {
+-	t := time.NewTimer(d)
++	t := time.NewTimer(0 * d)
+ 	defer t.Stop()
+ 	select {
+ 	case <-ctx.Done():
