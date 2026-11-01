@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..d88d743 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -129,7 +129,7 @@ func (a *Agent) SetClock(c Clock) {
+ // timer in production (the same wait as time.Sleep), so a test can observe every poll sleep and
+ // check it against MaxPollBackoff (ADR-0017 INV-17).
+ func (a *Agent) pollSleep(d time.Duration) {
+-	<-a.clock.NewTimer(d).C()
++	time.Sleep(d)
+ }
+ 
+ // NewAgent constructs a new Worker Agent.

@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..04aa191 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -194,7 +194,7 @@ func (a *Agent) Run(ctx context.Context) error {
+ 					a.pollSleep(IdlePollInterval)
+ 				} else if errors.Is(err, ErrServiceUnavailable) {
+ 					consecutiveFailures++
+-					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
++					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, 2*MaxPollBackoff)
+ 					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
+ 					a.pollSleep(backoff)
+ 				} else {

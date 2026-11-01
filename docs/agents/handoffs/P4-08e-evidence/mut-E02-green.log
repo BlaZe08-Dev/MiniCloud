@@ -1,0 +1,27 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_Poll_PolicyFieldOnWire$' ./internal/api/
+=== RUN   TestAPI_Poll_PolicyFieldOnWire
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/fifo_pull
+2026/11/01 12:47:35 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:35 INFO job submitted and queued job_id=job_1_15da933a2136 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:35 INFO job dispatched to worker job_id=job_1_15da933a2136 attempt_id=att_1_8b18577df9a3 attempt_no=1 worker_id=w_1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation
+2026/11/01 12:47:35 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:35 INFO job submitted and queued job_id=job_2_fe2ce489d2c7 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:35 INFO job dispatched to worker job_id=job_2_fe2ce489d2c7 attempt_id=att_1_da382114c271 attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses
+2026/11/01 12:47:35 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:35 INFO job submitted and queued job_id=job_3_f7cc9272f02d task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:35 INFO job dispatched to worker job_id=job_3_f7cc9272f02d attempt_id=att_1_c5840a789acd attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age
+2026/11/01 12:47:35 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:35 INFO job submitted and queued job_id=job_4_be5c675cb3fd task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:35 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 12:47:35 INFO job dispatched to worker job_id=job_4_be5c675cb3fd attempt_id=att_1_7f7510ae58ba attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+--- PASS: TestAPI_Poll_PolicyFieldOnWire (0.02s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/fifo_pull (0.01s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation (0.00s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses (0.00s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.047s
+exit=0

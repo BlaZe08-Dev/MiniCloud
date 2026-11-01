@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_JobView_AssignmentFields$' ./internal/storage/postgres/
+=== RUN   TestConformance_JobView_AssignmentFields
+    assignment_wire.go:169: submitted: job view lacks an assignment field; keys=[updated_at assignment_lapses max_attempts timeout_seconds created_at id task_type payload state priority assignment_expires_at assignment_fallback_reason]
+--- FAIL: TestConformance_JobView_AssignmentFields (0.57s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.591s
+FAIL
+exit=1

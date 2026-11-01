@@ -1,0 +1,13 @@
+diff --git a/internal/domain/job.go b/internal/domain/job.go
+index 943d382..8d31c1d 100644
+--- a/internal/domain/job.go
++++ b/internal/domain/job.go
+@@ -35,7 +35,7 @@ type Job struct {
+ 	AssignedAt               *time.Time `json:"-"`
+ 	AssignmentExpiresAt      *time.Time `json:"assignment_expires_at"`
+ 	AssignmentLapses         int        `json:"assignment_lapses"`
+-	AssignmentFallbackReason *string    `json:"assignment_fallback_reason"`
++	AssignmentFallbackReason *string    `json:"assignment_fallback_reason,omitempty"`
+ }
+ 
+ // TransitionTo validates and applies a state transition to the job.

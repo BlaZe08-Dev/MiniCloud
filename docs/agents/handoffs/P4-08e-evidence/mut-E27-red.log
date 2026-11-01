@@ -1,0 +1,17 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPollTiming_AcceptWindowExceedsBackoff$' ./internal/worker/
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/relation
+    poll_timing_test.go:57: slack for round trip and margin: 2s (floor 5s, max poll backoff 3s)
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/backoff_never_exceeds_the_cap
+    poll_timing_test.go:67: poll backoff 3.135263517s after 5 failures exceeds the maximum 3s
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/config_enforces_the_floor
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/service_enforces_the_floor
+--- FAIL: TestPollTiming_AcceptWindowExceedsBackoff (0.00s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/relation (0.00s)
+    --- FAIL: TestPollTiming_AcceptWindowExceedsBackoff/backoff_never_exceeds_the_cap (0.00s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/config_enforces_the_floor (0.00s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/service_enforces_the_floor (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.026s
+FAIL
+exit=1

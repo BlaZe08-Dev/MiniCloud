@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPollTiming_RunSleepsWithinMaxBackoff$' ./internal/worker/
+=== RUN   TestPollTiming_RunSleepsWithinMaxBackoff
+--- PASS: TestPollTiming_RunSleepsWithinMaxBackoff (0.40s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.449s
+exit=0

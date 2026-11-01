@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPollTiming_RunSleepsWithinMaxBackoff$' ./internal/worker/
+=== RUN   TestPollTiming_RunSleepsWithinMaxBackoff
+    poll_timing_test.go:182: Run did not finish; 29 polls
+--- FAIL: TestPollTiming_RunSleepsWithinMaxBackoff (60.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	60.037s
+FAIL
+exit=1

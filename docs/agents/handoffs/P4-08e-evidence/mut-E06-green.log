@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_Job_AssignmentFieldsAreAdditive$' ./internal/api/
+=== RUN   TestAPI_Job_AssignmentFieldsAreAdditive
+2026/11/01 12:47:52 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:52 INFO job submitted and queued job_id=job_1_b6dd141d9fbc task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:52 INFO job dispatched to worker job_id=job_1_b6dd141d9fbc attempt_id=att_1_a6900820b75a attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+--- PASS: TestAPI_Job_AssignmentFieldsAreAdditive (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.038s
+exit=0

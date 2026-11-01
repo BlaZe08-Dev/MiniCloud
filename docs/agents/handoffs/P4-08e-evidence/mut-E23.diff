@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..a95f16a 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -64,7 +64,7 @@ const (
+ 	// jitters into [0.5, 1.0) of the cap, so no poll backoff exceeds it. The assignment accept
+ 	// window must exceed it plus a round trip (ADR-0017 Section 3.1, INV-17), which
+ 	// TestPollTiming_AcceptWindowExceedsBackoff pins.
+-	MaxPollBackoff = 3 * time.Second
++	MaxPollBackoff = 6 * time.Second
+ )
+ 
+ // ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).

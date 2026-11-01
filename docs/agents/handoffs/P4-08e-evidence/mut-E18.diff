@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index 9d7e2d1..8ecc256 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -133,7 +133,7 @@ func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error)
+ 	query := `
+ 		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at,
+ 		       not_before, cancel_requested_at,
+-		       assigned_worker_id, assigned_at, assignment_expires_at, assignment_lapses, assignment_fallback_reason
++		       assigned_worker_id, assigned_at, NULL::timestamptz, assignment_lapses, assignment_fallback_reason
+ 		FROM jobs
+ 		WHERE id = $1;
+ 	`

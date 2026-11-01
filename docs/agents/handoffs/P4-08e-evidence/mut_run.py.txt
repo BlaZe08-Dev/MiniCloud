@@ -1,0 +1,50 @@
+"""Run each P4-08e mutant in a throwaway worktree: apply (exactly one occurrence), save the diff,
+run only the named test (red), restore with git checkout, run it again (green). One test process
+at a time. Usage: python3 -I run.py <worktree> <evidence-dir> [ids...]"""
+import os, re, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from mutants import MUTANTS
+
+wt, ev = sys.argv[1], sys.argv[2]
+only = set(sys.argv[3:])
+url = ""
+for line in open(os.path.join(wt, ".env")):
+    if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+        url = line.split("=", 1)[1].strip()
+env = dict(os.environ, MINICLOUD_TEST_DATABASE_URL=url)
+
+def run(pkg, test, log):
+    p = subprocess.run(["go", "test", "-race", "-count=1", "-v", "-timeout", "300s", "-run", "^" + test + "$", pkg],
+                       cwd=wt, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    out = "\n".join(l for l in p.stdout.splitlines() if not l.startswith("{\"time\"") and "level=" not in l)
+    open(log, "w").write("$ go test -race -count=1 -v -timeout 300s -run '^%s$' %s\n%s\nexit=%d\n" % (test, pkg, out, p.returncode))
+    if re.search(r"^--- FAIL: %s\b" % re.escape(test), p.stdout, re.M):
+        return "FAIL"
+    if re.search(r"^--- PASS: %s\b" % re.escape(test), p.stdout, re.M):
+        return "PASS"
+    if re.search(r"^--- SKIP: %s\b" % re.escape(test), p.stdout, re.M):
+        return "SKIP"
+    return "BUILD-OR-OTHER(exit=%d)" % p.returncode
+
+rows = []
+for mid, what, f, old, new, pkg, test in MUTANTS:
+    if only and mid not in only:
+        continue
+    path = os.path.join(wt, f)
+    src = open(path).read()
+    n = src.count(old)
+    if n != 1:
+        print(mid, "SITE COUNT", n); rows.append((mid, "SITE COUNT %d" % n)); continue
+    open(path, "w").write(src.replace(old, new))
+    diff = subprocess.run(["git", "diff", "--", f], cwd=wt, stdout=subprocess.PIPE, text=True).stdout
+    open(os.path.join(ev, "mut-%s.diff" % mid), "w").write(diff)
+    red = run(pkg, test, os.path.join(ev, "mut-%s-red.log" % mid))
+    subprocess.run(["git", "checkout", "--", f], cwd=wt, check=True)
+    green = run(pkg, test, os.path.join(ev, "mut-%s-green.log" % mid))
+    verdict = "KILLED" if red == "FAIL" and green == "PASS" else "SURVIVED" if red == "PASS" else "CHECK"
+    plus = sum(1 for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++"))
+    minus = sum(1 for l in diff.splitlines() if l.startswith("-") and not l.startswith("---"))
+    line = "\t".join([mid, what, f, test, pkg, red, green, verdict, "+%d/-%d" % (plus, minus)])
+    print(line, flush=True)
+    rows.append(line)
+open(os.path.join(ev, "mut-results.tsv"), "a").write("\n".join(rows) + "\n")

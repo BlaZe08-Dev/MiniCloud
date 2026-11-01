@@ -1,0 +1,32 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_Poll_PolicyFieldOnWire$' ./internal/api/
+=== RUN   TestAPI_Poll_PolicyFieldOnWire
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/fifo_pull
+2026/11/01 12:47:38 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:38 INFO job submitted and queued job_id=job_1_eac7a2f587e6 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:38 INFO job dispatched to worker job_id=job_1_eac7a2f587e6 attempt_id=att_1_16a3a19475c6 attempt_no=1 worker_id=w_1 policy=fifo_pull reason="claimed by polling worker with capacity"
+    assignment_wire_test.go:225: key "policy" missing
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation
+2026/11/01 12:47:38 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:38 INFO job submitted and queued job_id=job_2_4e413674fa32 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:38 INFO job dispatched to worker job_id=job_2_4e413674fa32 attempt_id=att_1_612544c02a28 attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+    assignment_wire_test.go:225: key "policy" missing
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses
+2026/11/01 12:47:38 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:38 INFO job submitted and queued job_id=job_3_dd75ac088f6a task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:38 INFO job dispatched to worker job_id=job_3_dd75ac088f6a attempt_id=att_1_b4ecf5252730 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+    assignment_wire_test.go:225: key "policy" missing
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age
+2026/11/01 12:47:38 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:38 INFO job submitted and queued job_id=job_4_bffb7f49b3ef task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:38 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 12:47:38 INFO job dispatched to worker job_id=job_4_bffb7f49b3ef attempt_id=att_1_94ab7f15c971 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+    assignment_wire_test.go:225: key "policy" missing
+--- FAIL: TestAPI_Poll_PolicyFieldOnWire (0.02s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/fifo_pull (0.01s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation (0.00s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses (0.00s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.046s
+FAIL
+exit=1

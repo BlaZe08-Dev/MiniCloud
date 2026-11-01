@@ -1,0 +1,13 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 3688e83..34b73cf 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -199,7 +199,7 @@ func validateAssignment(cfg *CoordinatorConfig) error {
+ 	if cfg.DispatchPolicy != "fifo_pull" && cfg.DispatchPolicy != "round_robin" {
+ 		return fmt.Errorf("MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got %q)", cfg.DispatchPolicy)
+ 	}
+-	if cfg.AssignmentAcceptWindow < 5*time.Second || cfg.AssignmentAcceptWindow > 30*time.Second {
++	if cfg.AssignmentAcceptWindow < 2*time.Second || cfg.AssignmentAcceptWindow > 30*time.Second {
+ 		return fmt.Errorf("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW must be between 5s and 30s (got %v)", cfg.AssignmentAcceptWindow)
+ 	}
+ 	if cfg.AssignmentInterval < 100*time.Millisecond || cfg.AssignmentInterval > 10*time.Second {

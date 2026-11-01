@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 249f6f0..a786e2e 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -54,7 +54,7 @@ type WorkAssignment struct {
+ 	LeaseDurationSeconds int        `json:"lease_duration_seconds,omitempty"`
+ 	// Policy names the policy that made the claim (ADR-0017 D13, Section 5.1). FallbackReason is
+ 	// set only on a round_robin_fallback claim: lapses or age.
+-	Policy         string `json:"policy,omitempty"`
++	Policy         string `json:"-"`
+ 	FallbackReason string `json:"fallback_reason,omitempty"`
+ }
+ 

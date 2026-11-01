@@ -1,0 +1,12 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_PerArm$' ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimPolicy_PerArm
+=== RUN   TestConformance_ClaimPolicy_PerArm/own_reservation
+=== RUN   TestConformance_ClaimPolicy_PerArm/lapse_arm
+=== RUN   TestConformance_ClaimPolicy_PerArm/age_arm
+--- PASS: TestConformance_ClaimPolicy_PerArm (1.35s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/own_reservation (0.47s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.41s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/age_arm (0.47s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.378s
+exit=0
