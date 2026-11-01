@@ -7,7 +7,7 @@ New top-level tests:
 - internal/storage (memory, shared cases): `TestConformance_ClaimPolicy_PerArm`, `TestConformance_JobView_AssignmentFields` (2).
 - internal/storage/postgres (skip when the URL is unset): the same two names (2).
 - internal/api: `TestAPI_Poll_PolicyFieldOnWire`, `TestAPI_Job_AssignmentFieldsAreAdditive` (2).
-No test removed or renamed. No `TestFault_` or `TestAbuse_` test added.
+No test removed or renamed. No test added to the security suite (the fault and abuse name prefixes).
 
 | Gate | Prediction |
 |---|---|
