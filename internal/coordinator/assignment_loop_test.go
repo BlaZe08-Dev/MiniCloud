@@ -312,13 +312,15 @@ func TestCoordinator_AssignmentSweep_GraceStillRevokes(t *testing.T) {
 	}
 }
 
-// Implementation note 16: until the sweeper's first successful tick the grace state is pending and
-// the pass counts no lapse; after the tick (with no startup grace) it counts again.
+// Implementation notes 16 and 25: until the sweeper's first successful tick the grace state is
+// pending and the pass counts no lapse (within the cap, here the 10 s startup grace); after the
+// tick the pass is no longer pending and the sweeper's own grace state governs. That a lapse
+// counts again once no grace applies is pinned by TestCoordinator_AssignmentLoop_PendingGraceEndsAtCap.
 func TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep(t *testing.T) {
 	clk := newMockClock(loopT0)
 	repo := newLoopRepo(clk)
 	svc := loopService(t, repo, clk, coordinator.DefaultAssignmentSettings())
-	svc.SetGracePeriods(0, 0)
+	svc.SetGracePeriods(10*time.Second, 0)
 	sw := svc.NewLeaseSweeper(time.Minute) // built, not yet ticked
 	loop := svc.NewAssignmentLoop()
 	ctx := context.Background()
@@ -338,9 +340,9 @@ func TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep(t *testing.T) {
 	if err := sw.Tick(ctx); err != nil {
 		t.Fatalf("sweeper tick: %v", err)
 	}
-	reserveAndExpire(t, svc, repo, loop, clk, "w_1")
-	if got := getJob(t, repo, job.ID).AssignmentLapses; got != 1 {
-		t.Fatalf("lapse after the first sweeper tick: assignment_lapses=%d, want 1", got)
+	loop.Round(ctx)
+	if p := repo.params[len(repo.params)-1]; p.GracePending {
+		t.Fatalf("pass after the first sweeper tick: GracePending=true, want false")
 	}
 }
 

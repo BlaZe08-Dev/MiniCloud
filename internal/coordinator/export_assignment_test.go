@@ -28,3 +28,9 @@ func (s *Service) SetAssignmentSettingsUncheckedForTest(a AssignmentSettings) {
 func (l *AssignmentLoop) SetYieldForTest(yield func(ctx context.Context, d time.Duration) error) {
 	l.yield = yield
 }
+
+// YieldForTest returns the wait between a pass and its repeat that NewAssignmentLoop installed, so
+// a test can run the production function instead of an injected one.
+func (l *AssignmentLoop) YieldForTest() func(ctx context.Context, d time.Duration) error {
+	return l.yield
+}
