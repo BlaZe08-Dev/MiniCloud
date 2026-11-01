@@ -65,11 +65,10 @@ func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Du
 	if failureCount <= 0 {
 		return base
 	}
-	shift := failureCount - 1
-	if shift > 4 {
-		shift = 4
+	if failureCount > 5 {
+		failureCount = 5
 	}
-	multiplier := 1 << shift
+	multiplier := 1 << (failureCount - 1)
 	dur := base * time.Duration(multiplier)
 	if dur > max {
 		dur = max

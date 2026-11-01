@@ -14,6 +14,17 @@
     --- FAIL: TestComputeBackoffWithJitter_Property/standard_cap_exceeds_16x (0.00s)
     --- FAIL: TestComputeBackoffWithJitter_Property/worker_default_cap_below_16x (0.00s)
     --- FAIL: TestComputeBackoffWithJitter_Property/small_cap (0.00s)
+=== RUN   TestComputeBackoffWithJitter_CallerSettings
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_service_unavailable
+    client_test.go:388: count 64: expected backoff > 0, got 0s
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_generic_error
+    client_test.go:402: count 64: expected backoff > 0, got 0s
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/lease_renewal_loop
+    client_test.go:417: interval 2s, count 64: expected raw backoff > 0, got 0s
+--- FAIL: TestComputeBackoffWithJitter_CallerSettings (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_service_unavailable (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_generic_error (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_CallerSettings/lease_renewal_loop (0.00s)
 FAIL
-FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.006s
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.009s
 FAIL

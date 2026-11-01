@@ -1,17 +1,25 @@
 === RUN   TestComputeBackoffWithJitter
 --- PASS: TestComputeBackoffWithJitter (0.00s)
 === RUN   TestComputeBackoffWithJitter_Table
-    client_test.go:326: count 6: backoff 3.198269577s outside expected jitter range [800ms, 1.6s]
+    client_test.go:326: count 6: backoff 2.012618518s outside expected jitter range [800ms, 1.6s]
 --- FAIL: TestComputeBackoffWithJitter_Table (0.00s)
 === RUN   TestComputeBackoffWithJitter_Property
 === RUN   TestComputeBackoffWithJitter_Property/standard_cap_exceeds_16x
-    client_test.go:369: count 6: backoff 2.145942668s outside [800ms, 1.6s]
+    client_test.go:369: count 6: backoff 3.148016797s outside [800ms, 1.6s]
 === RUN   TestComputeBackoffWithJitter_Property/worker_default_cap_below_16x
 === RUN   TestComputeBackoffWithJitter_Property/small_cap
 --- FAIL: TestComputeBackoffWithJitter_Property (0.00s)
     --- FAIL: TestComputeBackoffWithJitter_Property/standard_cap_exceeds_16x (0.00s)
     --- PASS: TestComputeBackoffWithJitter_Property/worker_default_cap_below_16x (0.00s)
     --- PASS: TestComputeBackoffWithJitter_Property/small_cap (0.00s)
+=== RUN   TestComputeBackoffWithJitter_CallerSettings
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_service_unavailable
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_generic_error
+=== RUN   TestComputeBackoffWithJitter_CallerSettings/lease_renewal_loop
+--- PASS: TestComputeBackoffWithJitter_CallerSettings (0.00s)
+    --- PASS: TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_service_unavailable (0.00s)
+    --- PASS: TestComputeBackoffWithJitter_CallerSettings/work_poll_loop_generic_error (0.00s)
+    --- PASS: TestComputeBackoffWithJitter_CallerSettings/lease_renewal_loop (0.00s)
 FAIL
-FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.014s
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.013s
 FAIL
