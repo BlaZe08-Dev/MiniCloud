@@ -55,6 +55,16 @@ const (
 	renewBackoffBase    = time.Second
 	deliveryBackoffBase = 200 * time.Millisecond
 	deliveryBackoffMax  = 5 * time.Second
+
+	// IdlePollInterval is the work loop's sleep after an empty poll, after a WORKER_UNHEALTHY poll
+	// and after a nil assignment; it is also the base of the poll error backoff (ADR-0017
+	// Section 3.1).
+	IdlePollInterval = 200 * time.Millisecond
+	// MaxPollBackoff caps the work loop's sleep after a failed poll. ComputeBackoffWithJitter
+	// jitters into [0.5, 1.0) of the cap, so no poll backoff exceeds it. The assignment accept
+	// window must exceed it plus a round trip (ADR-0017 Section 3.1, INV-17), which
+	// TestPollTiming_AcceptWindowExceedsBackoff pins.
+	MaxPollBackoff = 3 * time.Second
 )
 
 // ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).
@@ -159,8 +169,8 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	// 3. Work polling loop
 	consecutiveFailures := 0
-	baseBackoff := 200 * time.Millisecond
-	maxBackoff := 3 * time.Second
+	baseBackoff := IdlePollInterval
+	maxBackoff := MaxPollBackoff
 
 	for {
 		select {

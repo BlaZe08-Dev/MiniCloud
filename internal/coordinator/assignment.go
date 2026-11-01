@@ -24,6 +24,12 @@ type AssignmentSettings struct {
 	MinYield     time.Duration
 }
 
+// MinAcceptWindow is the floor of MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (ADR-0017 Section 3.1 and
+// Section 5.5). It must exceed the worker's maximum poll backoff plus a round trip (INV-17);
+// TestPollTiming_AcceptWindowExceedsBackoff pins the relation against the worker constants.
+// internal/config keeps its own copy of the rule (implementation note 22).
+const MinAcceptWindow = 5 * time.Second
+
 // DefaultAssignmentSettings returns the ADR-0017 Section 5.5 defaults.
 func DefaultAssignmentSettings() AssignmentSettings {
 	return AssignmentSettings{
@@ -40,7 +46,7 @@ func DefaultAssignmentSettings() AssignmentSettings {
 // validateAssignment in internal/config. It returns domain.ErrInvalidRequest naming the first rule
 // that fails.
 func (a AssignmentSettings) Validate() error {
-	if a.AcceptWindow < 5*time.Second || a.AcceptWindow > 30*time.Second {
+	if a.AcceptWindow < MinAcceptWindow || a.AcceptWindow > 30*time.Second {
 		return fmt.Errorf("%w: assignment accept window must be between 5s and 30s (got %v)", domain.ErrInvalidRequest, a.AcceptWindow)
 	}
 	if a.Interval < 100*time.Millisecond || a.Interval > 10*time.Second {
