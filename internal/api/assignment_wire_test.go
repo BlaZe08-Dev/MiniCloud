@@ -349,3 +349,37 @@ func TestAPI_Job_AssignmentFieldsAreAdditive(t *testing.T) {
 		t.Fatalf("fallback claim: state = %s", claimed["state"])
 	}
 }
+
+// TestAPI_SubmitJob_ResponseCarriesAssignmentFields: the 201 body of POST /v1/jobs is the same job
+// view as GET /v1/jobs/{job_id} (ADR-0017 Section 5.1, amended by note 5c-2.4; review F-R3). A new
+// job carries the four assignment fields at their unset values (assigned_worker_id null,
+// assignment_expires_at null, assignment_lapses 0, assignment_fallback_reason null) and never the
+// internal assigned_at.
+func TestAPI_SubmitJob_ResponseCarriesAssignmentFields(t *testing.T) {
+	h := newWireHarness(t, domain.DispatchPolicyRoundRobin)
+	code, body := h.do(http.MethodPost, "/v1/jobs", `{"task_type":"echo","payload":{"message":"x"},"max_attempts":3,"timeout_seconds":30}`)
+	if code != http.StatusCreated {
+		t.Fatalf("submit: %d %s", code, body)
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(body, &keys); err != nil {
+		t.Fatalf("submit body %s: %v", body, err)
+	}
+	for k, want := range map[string]string{
+		"assigned_worker_id":         "null",
+		"assignment_expires_at":      "null",
+		"assignment_lapses":          "0",
+		"assignment_fallback_reason": "null",
+	} {
+		got, ok := keys[k]
+		if !ok || string(got) != want {
+			t.Fatalf("201 body: %s = %s (present %v), want %s; keys=%v", k, got, ok, want, keysOfRaw(keys))
+		}
+	}
+	if _, ok := keys["assigned_at"]; ok {
+		t.Fatalf("201 body exposes the internal assigned_at")
+	}
+	if wireString(t, keys, "state") != string(domain.StateQueued) {
+		t.Fatalf("201 body state = %s", keys["state"])
+	}
+}

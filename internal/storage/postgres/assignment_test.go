@@ -230,6 +230,12 @@ func TestConformance_ClaimPolicy_PerArm(t *testing.T) {
 	storagetest.RunClaimPolicyPerArmConformance(t, newPostgresAssignmentHarness)
 }
 
+// ADR-0017 Section 3.2: a job that meets both fallback arms reports the lapse arm (current
+// behaviour, not mandated by the ADR; review F-R2).
+func TestConformance_ClaimPolicy_BothArms(t *testing.T) {
+	storagetest.RunClaimPolicyBothArmsConformance(t, newPostgresAssignmentHarness)
+}
+
 // ADR-0017 Section 5.1: the four assignment fields of the job view (slice 5c, part 2).
 func TestConformance_JobView_AssignmentFields(t *testing.T) {
 	storagetest.RunJobViewAssignmentFieldsConformance(t, newPostgresAssignmentHarness)

@@ -157,6 +157,30 @@ func RunClaimPolicyPerArmConformance(t *testing.T, newHarness func(t *testing.T)
 	}
 }
 
+// RunClaimPolicyBothArmsConformance pins current behaviour for a job that meets both fallback arms
+// of ADR-0017 Section 3.2 at once: the lapse count has reached the limit and the job is older than
+// the fallback age, with the pass silent and the age arm open. Both backends report the lapse arm
+// ("lapses"). This is not mandated by the ADR, which lists the arms without ordering them (review
+// F-R2); a change needs an ADR amendment.
+func RunClaimPolicyBothArmsConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t) // at the top level, so a backend without a database skips the whole test
+	AssignAddWorker(t, h, "w_1", 1, "echo")
+	AssignSubmit(t, h, "job_1", "echo")
+	h.SetLapses(t, "job_1", AssignTestMaxLapses)
+	h.Advance(t, AssignTestFallbackAge+time.Minute)
+	AssignPoll(t, h, "w_1")
+	claim, err := h.assignRepo(t).ClaimForPoll(context.Background(), "w_1", AssignTestClaimOpts(true))
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	if claim.Job.ID != "job_1" || claim.Policy != domain.DispatchPolicyRoundRobinFallback || claim.FallbackReason != domain.FallbackReasonLapses {
+		t.Fatalf("claim job=%s policy=%q reason=%q; want job_1 %q %q (both arms met, the lapse arm wins)",
+			claim.Job.ID, claim.Policy, claim.FallbackReason, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses)
+	}
+	checkJobView(t, "claimed job", encodeJobView(t, claim.Job), "", 0, domain.FallbackReasonLapses)
+	checkJobView(t, "job read back", encodeJobView(t, AssignJob(t, h, "job_1")), "", 0, domain.FallbackReasonLapses)
+}
+
 // RunJobViewAssignmentFieldsConformance: ADR-0017 Section 5.1 and Section 1.1. The job view always
 // carries the four assignment fields: assigned_worker_id and assignment_expires_at (null unless a
 // reservation is live), assignment_lapses (0 when none) and assignment_fallback_reason (null until
