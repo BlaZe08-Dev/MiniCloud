@@ -26,6 +26,15 @@ func testConfig() *config.CoordinatorConfig {
 		OutageGraceWindow:  0,
 		WorkerTimeout:      time.Hour,
 		ReaperInterval:     time.Hour,
+
+		// The ADR-0017 Section 5.5 defaults, as LoadCoordinatorConfig fills them.
+		DispatchPolicy:         domain.DispatchPolicyFifoPull,
+		AssignmentAcceptWindow: 5 * time.Second,
+		AssignmentInterval:     time.Second,
+		AssignmentMaxLapses:    3,
+		AssignmentFallbackAge:  30 * time.Second,
+		AssignmentBatchLimit:   50,
+		AssignmentMinYield:     10 * time.Millisecond,
 	}
 }
 

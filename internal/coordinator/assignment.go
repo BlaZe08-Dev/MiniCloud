@@ -101,6 +101,16 @@ func (s *Service) SetDispatchPolicy(name string) error {
 	return nil
 }
 
+// DispatchPolicy returns the policy in force: fifo_pull until SetDispatchPolicy selects another.
+func (s *Service) DispatchPolicy() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.policy == "" {
+		return domain.DispatchPolicyFifoPull
+	}
+	return s.policy
+}
+
 // SetAssignmentSettings sets the round-robin inputs after Validate. Invalid settings are rejected
 // with domain.ErrInvalidRequest and the previous settings stay in force. NewService starts from
 // DefaultAssignmentSettings.
