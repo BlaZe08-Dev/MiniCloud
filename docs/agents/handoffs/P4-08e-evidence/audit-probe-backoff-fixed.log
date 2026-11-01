@@ -1,0 +1,26 @@
+=== RUN   TestAuditProbe_BackoffOverflow
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=   5 min=1.501823841s max=2.997761895s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  62 min=1.500598343s max=2.999635672s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  63 min=1.500435525s max=2.999331728s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  64 min=1.500100791s max=2.998923436s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  65 min=1.500350462s max=2.999096069s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures= 100 min=1.50004528s max=2.996778743s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=1000 min=1.503564673s max=2.996773386s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=   5 min=5.000509121s max=9.998541601s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  62 min=5.006910963s max=9.999005668s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  63 min=5.000421392s max=9.998539127s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  64 min=5.001767711s max=9.982992215s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  65 min=5.000817116s max=9.992369505s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures= 100 min=5.006093787s max=9.999835147s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=1000 min=5.003961079s max=9.992946427s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=   5 min=1.600835831s max=3.198729836s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  62 min=1.602161874s max=3.199378238s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  63 min=1.602937966s max=3.19958359s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  64 min=1.600747429s max=3.196809265s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  65 min=1.600070494s max=3.197701764s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures= 100 min=1.600297306s max=3.199435728s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=1000 min=1.6035375s max=3.198951631s (expected [1.6s, 3.2s))
+--- PASS: TestAuditProbe_BackoffOverflow (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.029s
+exit=0

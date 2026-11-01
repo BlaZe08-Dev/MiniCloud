@@ -1,0 +1,14 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_PerArm$' ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimPolicy_PerArm
+=== RUN   TestConformance_ClaimPolicy_PerArm/own_reservation
+=== RUN   TestConformance_ClaimPolicy_PerArm/lapse_arm
+    assignment_wire.go:152: claim job=job_1 policy="round_robin_fallback" reason="age"; want job_1 "round_robin_fallback" "lapses"
+=== RUN   TestConformance_ClaimPolicy_PerArm/age_arm
+--- FAIL: TestConformance_ClaimPolicy_PerArm (1.58s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/own_reservation (0.42s)
+    --- FAIL: TestConformance_ClaimPolicy_PerArm/lapse_arm (0.42s)
+    --- PASS: TestConformance_ClaimPolicy_PerArm/age_arm (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.600s
+FAIL
+exit=1

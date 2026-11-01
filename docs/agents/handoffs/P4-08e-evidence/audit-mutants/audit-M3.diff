@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..a03c016 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -102,7 +102,7 @@ type Timer interface {
+ 
+ type realClock struct{}
+ 
+-func (realClock) NewTimer(d time.Duration) Timer { return realTimer{time.NewTimer(d)} }
++func (realClock) NewTimer(d time.Duration) Timer { return realTimer{time.NewTimer(d / 2)} }
+ 
+ type realTimer struct{ t *time.Timer }
+ 

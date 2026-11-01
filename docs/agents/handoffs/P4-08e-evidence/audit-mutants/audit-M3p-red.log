@@ -1,0 +1,27 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestAuditProbe_RealClockPollSleeps$ ./internal/worker/
+=== RUN   TestAuditProbe_RealClockPollSleeps
+    audit_probe_realsleep_test.go:90: gap  1 (idle     )    101.9 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 1 = 101.883276ms outside [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  2 (idle     )    102.0 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 2 = 102.040554ms outside [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  3 (idle     )    101.8 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 3 = 101.796142ms outside [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  4 (idle     )    101.5 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 4 = 101.531367ms outside [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  5 (idle     )    101.5 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 5 = 101.487954ms outside [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  6 (backoff  )     76.9 ms  bound [100ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 6 = 76.857395ms outside [100ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  7 (backoff  )    131.4 ms  bound [200ms, 550ms]
+    audit_probe_realsleep_test.go:92: gap 7 = 131.409731ms outside [200ms, 550ms]
+    audit_probe_realsleep_test.go:90: gap  8 (backoff  )    332.1 ms  bound [400ms, 950ms]
+    audit_probe_realsleep_test.go:92: gap 8 = 332.136449ms outside [400ms, 950ms]
+    audit_probe_realsleep_test.go:90: gap  9 (backoff  )    516.3 ms  bound [800ms, 1.75s]
+    audit_probe_realsleep_test.go:92: gap 9 = 516.342465ms outside [800ms, 1.75s]
+    audit_probe_realsleep_test.go:90: gap 10 (unhealthy)    103.1 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:92: gap 10 = 103.092459ms outside [200ms, 350ms]
+--- FAIL: TestAuditProbe_RealClockPollSleeps (1.73s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.752s
+FAIL
+exit=1

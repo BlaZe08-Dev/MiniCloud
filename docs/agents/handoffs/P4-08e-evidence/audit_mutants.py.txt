@@ -1,0 +1,29 @@
+# P4-08e audit mutants: (id, what, [(file, old, new), ...], package, test-regex, expect).
+# Each old text must occur exactly once in its file. test-regex is passed to -run as is.
+WK, ST, API = "./internal/worker/", "./internal/storage/", "./internal/api/"
+CL, ASG, CFG = "internal/worker/client.go", "internal/coordinator/assignment.go", "internal/config/config.go"
+JOB, MEM = "internal/domain/job.go", "internal/storage/inmemory_assignment.go"
+T17 = "^TestPollTiming_AcceptWindowExceedsBackoff$"
+MUTANTS = [
+ ("audit-I1", "INV-17: window floor constant 5 s -> 3 s (MinAcceptWindow only)",
+  [(ASG, "const MinAcceptWindow = 5 * time.Second", "const MinAcceptWindow = 3 * time.Second")], WK, T17, "KILLED"),
+ ("audit-I2", "INV-17: maximum poll backoff 3 s -> 5 s",
+  [(CL, "MaxPollBackoff = 3 * time.Second", "MaxPollBackoff = 5 * time.Second")], WK, T17, "KILLED"),
+ ("audit-I3", "INV-17: both floors 3 s together (config literal and MinAcceptWindow), consistent with each other",
+  [(ASG, "const MinAcceptWindow = 5 * time.Second", "const MinAcceptWindow = 3 * time.Second"),
+   (CFG, "if cfg.AssignmentAcceptWindow < 5*time.Second ||", "if cfg.AssignmentAcceptWindow < 3*time.Second ||")], WK, T17, "KILLED"),
+ ("audit-I4", "INV-17 margin: maximum poll backoff 3 s -> 4.999 s (1 ms below the floor)",
+  [(CL, "MaxPollBackoff = 3 * time.Second", "MaxPollBackoff = 4999 * time.Millisecond")], WK, T17, "SURVIVES (no margin pinned; Q1)"),
+ ("audit-M1", "field renamed: assignment_expires_at -> assignment_expiry",
+  [(JOB, 'json:"assignment_expires_at"`', 'json:"assignment_expiry"`')], API, "^TestAPI_Job_AssignmentFieldsAreAdditive$", "KILLED"),
+ ("audit-M1b", "field renamed: assignment_expires_at -> assignment_expiry (memory conformance)",
+  [(JOB, 'json:"assignment_expires_at"`', 'json:"assignment_expiry"`')], ST, "^TestConformance_JobView_AssignmentFields$", "KILLED"),
+ ("audit-M2", "memory: when both fallback arms qualify, report age instead of lapses (whole storage, api and coordinator packages)",
+  [(MEM, "if j.AssignmentLapses >= opts.MaxLapses {",
+    "if j.AssignmentLapses >= opts.MaxLapses && !(opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore)) {")],
+  "./internal/storage/ ./internal/api/ ./internal/coordinator/", ".", "SURVIVES (Q3 not pinned)"),
+ ("audit-M3", "production clock halves every timer (whole worker package)",
+  [(CL, "return realTimer{time.NewTimer(d)}", "return realTimer{time.NewTimer(d / 2)}")], WK, ".", "SURVIVES (no test covers realClock)"),
+ ("audit-M3p", "production clock halves every timer, against the real-clock probe",
+  [(CL, "return realTimer{time.NewTimer(d)}", "return realTimer{time.NewTimer(d / 2)}")], WK, "^TestAuditProbe_RealClockPollSleeps$", "KILLED by probe"),
+]

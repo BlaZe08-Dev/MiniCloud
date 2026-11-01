@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index ab8fa7a..5ef2296 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -28,7 +28,7 @@ type AssignmentSettings struct {
+ // Section 5.5). It must exceed the worker's maximum poll backoff plus a round trip (INV-17);
+ // TestPollTiming_AcceptWindowExceedsBackoff pins the relation against the worker constants.
+ // internal/config keeps its own copy of the rule (implementation note 22).
+-const MinAcceptWindow = 5 * time.Second
++const MinAcceptWindow = 3 * time.Second
+ 
+ // DefaultAssignmentSettings returns the ADR-0017 Section 5.5 defaults.
+ func DefaultAssignmentSettings() AssignmentSettings {

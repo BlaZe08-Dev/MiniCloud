@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..97870ef 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -279,7 +279,7 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string,
+ 			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+ 		}
+ 		if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {
+-			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonAge, now)
++			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+ 		}
+ 	}
+ 	return nil, domain.ErrNoQueuedJobs
