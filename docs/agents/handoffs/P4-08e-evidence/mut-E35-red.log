@@ -1,0 +1,9 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_SubmitJob_ResponseCarriesAssignmentFields$' ./internal/api/
+=== RUN   TestAPI_SubmitJob_ResponseCarriesAssignmentFields
+2026/11/02 03:11:50 INFO job submitted and queued job_id=job_1_65f638dcfab1 task_type=echo state=QUEUED max_attempts=3
+    assignment_wire_test.go:376: 201 body: assignment_lapses =  (present false), want 0; keys=[id priority created_at assignment_fallback_reason updated_at assigned_worker_id assignment_expires_at task_type payload state max_attempts timeout_seconds]
+--- FAIL: TestAPI_SubmitJob_ResponseCarriesAssignmentFields (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.028s
+FAIL
+exit=1

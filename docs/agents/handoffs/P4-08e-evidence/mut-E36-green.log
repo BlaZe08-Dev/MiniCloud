@@ -1,0 +1,16 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPollTiming_RealClockSleeps$' ./internal/worker/
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:288: gap  1: 201.132388ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  2: 202.449337ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  3: 201.886579ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  4: 201.773718ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  5: 202.181824ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  6: 181.703001ms, bound [100ms, 350ms]
+    poll_timing_test.go:288: gap  7: 223.44274ms, bound [200ms, 550ms]
+    poll_timing_test.go:288: gap  8: 525.302884ms, bound [400ms, 950ms]
+    poll_timing_test.go:288: gap  9: 1.035966371s, bound [800ms, 1.75s]
+    poll_timing_test.go:288: gap 10: 201.918985ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.32s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	4.346s
+exit=0

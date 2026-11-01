@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_BothArms$' ./internal/storage/
+=== RUN   TestConformance_ClaimPolicy_BothArms
+    assignment_wire.go:177: claim job=job_1 policy="round_robin_fallback" reason="age"; want job_1 "round_robin_fallback" "lapses" (both arms met, the lapse arm wins)
+--- FAIL: TestConformance_ClaimPolicy_BothArms (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.029s
+FAIL
+exit=1

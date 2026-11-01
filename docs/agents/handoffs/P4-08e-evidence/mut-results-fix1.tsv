@@ -1,0 +1,6 @@
+E32	audit-I4 (F-R1): maximum poll backoff 3 s -> 4.999 s, 1 ms below the window floor	internal/worker/client.go	TestPollTiming_AcceptWindowExceedsBackoff	./internal/worker/	FAIL	PASS	KILLED	+1/-1
+E33	audit-M2 (F-R2): memory reports age when both fallback arms qualify	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_BothArms	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E34	F-R2 PostgreSQL twin: both arms qualify, reason reported as age	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_BothArms	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E35	F-R3: assignment_lapses removed from the job encoding (201 body)	internal/domain/job.go	TestAPI_SubmitJob_ResponseCarriesAssignmentFields	./internal/api/	FAIL	PASS	KILLED	+1/-1
+E36	audit-M3p (F-R4): production clock halves every timer, real-clock test alone	internal/worker/client.go	TestPollTiming_RealClockSleeps	./internal/worker/	FAIL	PASS	KILLED	+1/-1
+E37	audit-M3 (F-R4): production clock halves every timer, whole worker package	internal/worker/client.go	TestPollTiming_RealClockSleeps (whole package)	./internal/worker/	FAIL	PASS	KILLED	+1/-1
