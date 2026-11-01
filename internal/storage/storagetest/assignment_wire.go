@@ -135,6 +135,9 @@ func RunClaimPolicyPerArmConformance(t *testing.T, newHarness func(t *testing.T)
 			wantReason: domain.FallbackReasonAge,
 		},
 	}
+	// Build one harness at the top level first, so a backend without a database skips the whole
+	// test, not only its subtests (a top-level PASS over skipped subtests would read as a pass).
+	newHarness(t)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newHarness(t)
