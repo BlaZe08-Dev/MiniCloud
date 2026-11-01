@@ -37,24 +37,29 @@ func pollTimingConfig(t *testing.T, window string) (*config.CoordinatorConfig, e
 	return config.LoadCoordinatorConfig()
 }
 
+// acceptWindowMargin is the slack INV-17 requires between the accept window floor and the worker's
+// maximum poll backoff, for the poll round trip and clock slack (ADR-0017 Section 3.1 and note
+// 5c-2.4). The ADR gives no number; 1 s is the V1 choice. Changing MinAcceptWindow or
+// MaxPollBackoff so that the difference drops below it must re-justify this value in the ADR.
+const acceptWindowMargin = 1 * time.Second
+
 // TestPollTiming_AcceptWindowExceedsBackoff is INV-17 (ADR-0017 Section 3.1, R6). The accept
-// window floor must exceed the worker's maximum poll backoff, and both the configuration and the
-// service must refuse a window below the floor.
+// window floor must exceed the worker's maximum poll backoff by at least acceptWindowMargin, and
+// both the configuration and the service must refuse a window below the floor.
 //
 // The ADR states the requirement as "window > maximum poll backoff + round trip + margin" and gives
-// no number for the round trip or the margin (implementation note 27), so the relation pinned here
-// is the strict one the ADR's own example uses (5 s > 3 s), and the slack is logged.
+// no number for the round trip or the margin, so the margin is the named constant above.
 func TestPollTiming_AcceptWindowExceedsBackoff(t *testing.T) {
 	floor := coordinator.MinAcceptWindow
 
 	t.Run("relation", func(t *testing.T) {
-		if floor <= worker.MaxPollBackoff {
-			t.Fatalf("accept window floor %v does not exceed the maximum poll backoff %v", floor, worker.MaxPollBackoff)
+		if slack := floor - worker.MaxPollBackoff; slack < acceptWindowMargin {
+			t.Fatalf("accept window floor %v exceeds the maximum poll backoff %v by %v, less than the margin %v", floor, worker.MaxPollBackoff, slack, acceptWindowMargin)
 		}
 		if floor <= worker.IdlePollInterval {
 			t.Fatalf("accept window floor %v does not exceed the idle poll interval %v", floor, worker.IdlePollInterval)
 		}
-		t.Logf("slack for round trip and margin: %v (floor %v, max poll backoff %v)", floor-worker.MaxPollBackoff, floor, worker.MaxPollBackoff)
+		t.Logf("slack for round trip and margin: %v (floor %v, max poll backoff %v, required margin %v)", floor-worker.MaxPollBackoff, floor, worker.MaxPollBackoff, acceptWindowMargin)
 	})
 
 	t.Run("backoff never exceeds the cap", func(t *testing.T) {
@@ -208,6 +213,81 @@ func TestPollTiming_RunSleepsWithinMaxBackoff(t *testing.T) {
 	for i := otherStart + other; i < total-1; i++ {
 		if sleeps[i] != worker.IdlePollInterval {
 			t.Fatalf("poll sleep %d after an idle or WORKER_UNHEALTHY poll is %v, want %v", i, sleeps[i], worker.IdlePollInterval)
+		}
+	}
+}
+
+// TestPollTiming_RealClockSleeps runs Agent.Run on the production clock (no SetClock) against a
+// fake coordinator and measures the real gap between polls, so the clock the poll loop waits on is
+// covered (review F-R4; an earlier version of this loop slept with time.Sleep). The gap is the
+// sleep plus one local round trip. Sequence: 5 x 204, 4 x 500, 1 x 503 WORKER_UNHEALTHY, then 204
+// with a cancel. After a 204 or WORKER_UNHEALTHY the gap is in [IdlePollInterval, IdlePollInterval
+// + slack]; after the k-th 500 it is in [c_k/2, c_k + slack], c_k = min(IdlePollInterval x
+// 2^(k-1), MaxPollBackoff). A clock that fires early fails the lower bounds. About 3.5 s.
+func TestPollTiming_RealClockSleeps(t *testing.T) {
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var mu sync.Mutex
+	var at []time.Time
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/workers/register", "/v1/workers/w-realclock/heartbeat":
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "ACK"})
+		case "/v1/workers/w-realclock/poll":
+			mu.Lock()
+			at = append(at, time.Now())
+			n := len(at)
+			mu.Unlock()
+			switch {
+			case n <= 5:
+				w.WriteHeader(http.StatusNoContent)
+			case n <= 9:
+				w.WriteHeader(http.StatusInternalServerError)
+			case n == 10:
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": "WORKER_UNHEALTHY", "message": "x"}})
+			default:
+				cancel()
+				w.WriteHeader(http.StatusNoContent)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer ts.Close()
+
+	agent := worker.NewAgent(&config.WorkerConfig{WorkerID: "w-realclock", CoordinatorURL: ts.URL, HeartbeatInterval: time.Hour, TotalSlots: 1}, nil)
+	done := make(chan error, 1)
+	go func() { done <- agent.Run(ctx) }()
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatalf("Run did not finish")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(at) < 11 {
+		t.Fatalf("only %d polls", len(at))
+	}
+	const slack = 150 * time.Millisecond
+	for i := 1; i <= 10; i++ {
+		gap := at[i].Sub(at[i-1])
+		lo, hi := worker.IdlePollInterval, worker.IdlePollInterval+slack
+		if i >= 6 && i <= 9 { // the gap after the (i-5)-th 500
+			c := worker.IdlePollInterval << (i - 6)
+			if c > worker.MaxPollBackoff {
+				c = worker.MaxPollBackoff
+			}
+			lo, hi = c/2, c+slack
+		}
+		t.Logf("gap %2d: %v, bound [%v, %v]", i, gap, lo, hi)
+		if gap < lo || gap > hi {
+			t.Errorf("gap %d = %v outside [%v, %v]", i, gap, lo, hi)
 		}
 	}
 }

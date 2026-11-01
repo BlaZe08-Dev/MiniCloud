@@ -52,15 +52,26 @@ Submits a computational job for asynchronous execution.
 }
 ```
 
-**Response (201 Created):**
+**Response (201 Created):** the same job view as `GET /v1/jobs/{job_id}` (Section 3.2), for a job that has just been queued.
 ```json
 {
-  "job_id": "job_01j7xyz...",
-  "state": "QUEUED",
+  "id": "job_01j7xyz...",
   "task_type": "sha256_loop",
-  "created_at": "2026-10-19T22:00:00Z"
+  "payload": {"iterations": 10000, "input": "minicloud-benchmark"},
+  "state": "QUEUED",
+  "priority": 0,
+  "max_attempts": 3,
+  "timeout_seconds": 30,
+  "created_at": "2026-10-19T22:00:00Z",
+  "updated_at": "2026-10-19T22:00:00Z",
+  "assigned_worker_id": null,
+  "assignment_expires_at": null,
+  "assignment_lapses": 0,
+  "assignment_fallback_reason": null
 }
 ```
+
+The 201 body carries the four assignment fields of Section 3.2 at their unset values (ADR-0017 Section 5.1, note 5c-2.4): `assigned_worker_id` `null`, `assignment_expires_at` `null`, `assignment_lapses` `0`, `assignment_fallback_reason` `null`. It never carries the internal `assigned_at`.
 
 **Errors:**
 - `400 Bad Request`: `UNKNOWN_TASK_TYPE`, `PAYLOAD_TOO_LARGE`, `INVALID_TIMEOUT`.
