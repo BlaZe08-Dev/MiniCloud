@@ -79,7 +79,9 @@ test-db:
 
 # P4-4e executed fault-injection and API-abuse security suite, against the .env test database only.
 # The fault proxy simulates every outage; this target never touches the shared container and never
-# sets the container-control variables. The sorted names printed by go test -list for the pattern
+# sets the container-control variables. The target requires a dedicated per-agent test database
+# (refusing minicloud_test early); override with ALLOW_SHARED_DB=1.
+# The sorted names printed by go test -list for the pattern
 # must equal tests/security-tests.list exactly: a count alone would stay green when one test is
 # renamed and another added, and go test -run exits 0 for a pattern that matches nothing. On a
 # difference the target prints the missing and the extra names and fails. After adding, removing or
@@ -87,13 +89,22 @@ test-db:
 #   env -u MINICLOUD_TEST_DATABASE_URL go test -list '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > tests/security-tests.list
 SECURITY_TESTS := ^(TestFault_|TestAbuse_)
 SECURITY_TEST_LIST := tests/security-tests.list
+ALLOW_SHARED_DB ?=
+MINICLOUD_TEST_DATABASE_URL ?=
 
 test-security:
-	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
 	@if [ ! -f $(SECURITY_TEST_LIST) ]; then echo "$(SECURITY_TEST_LIST) missing" >&2; exit 1; fi
 	@set -e; \
-	URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
-	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	if [ -n "$${MINICLOUD_TEST_DATABASE_URL+x}" ]; then \
+		URL="$$MINICLOUD_TEST_DATABASE_URL"; \
+	elif [ -n "$(MINICLOUD_TEST_DATABASE_URL)" ]; then \
+		URL="$(MINICLOUD_TEST_DATABASE_URL)"; \
+	elif [ -f .env ]; then \
+		URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+	else \
+		URL=""; \
+	fi; \
+	ALLOW_SHARED_DB="$${ALLOW_SHARED_DB:-$(ALLOW_SHARED_DB)}" tests/require-own-db.sh "$$URL"; \
 	ACT=$$(mktemp); trap 'rm -f "$$ACT"' EXIT; \
 	env -u MINICLOUD_TEST_DATABASE_URL go test -list '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > "$$ACT" || true; \
 	if ! diff -q $(SECURITY_TEST_LIST) "$$ACT" >/dev/null; then \

@@ -123,4 +123,8 @@ db-reset-test:
 # Run database tests with MINICLOUD_TEST_DATABASE_URL loaded from .env without echoing
 test-db:
 	@...
+
+# Run security test suite against a dedicated per-agent test database (refuses minicloud_test early; override with ALLOW_SHARED_DB=1)
+test-security:
+	@...
 ```

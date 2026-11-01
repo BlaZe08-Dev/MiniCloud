@@ -2,12 +2,16 @@
 
 ## 1. Current Phase & Milestone
 - **Current Branch:** `main`
-- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, 4e (PR #29), P4-03, P0-03, P4-T1, P4-T2, P4-05, P4-06a (PR #30), P4-06b (PR #31), P4-07 (PR #32), P4-08a (PR #33), P4-09 (PR #34), P4-08b (PR #35), and P4-10 (PR #36) merged.
+- **Current Milestone:** Phase 4 Slices 4a, 4b, 4c-a, 4c-b, 4d, 4e (PR #29), P4-03, P0-03, P4-T1, P4-T2, P4-05, P4-06a (PR #30), P4-06b (PR #31), P4-07 (PR #32), P4-08a (PR #33), P4-09 (PR #34), P4-08b (PR #35), P4-10 (PR #36), P4-11 (PR #37), and P4-08c (PR #38) merged.
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
 
 ## 2. Done
+- **Post-Phase 4 Assignment-Based Round-Robin Slice 5b (P4-08c, PR #38, `main` at `3b12ae5`):**
+  - Implemented ADR-0017 Slice 5b: migration `000005_assignment_round_robin.sql`, PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on database clock), 5a assignment cases moved into shared `storagetest` runner, and PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).
+  - Independent audit verdict: CHANGES REQUIRED (F-R4 major); findings F-R2, F-R4, F-R5, and F-R6 were fixed in fix round 2. F-R1 (database-wide pass lock) is accepted and documented in ADR note 15. F-R3 (the coordinator binary does not apply the policy or assignment settings) is the slice 5c task.
+  - Quality gates on `main` at `3b12ae5` (orchestrator-verified): unset suite 324 PASS / 81 SKIP / 0 FAIL, `make test-security` 54 PASS / 0 SKIP / 0 FAIL, `make test-db` 134 PASS / 0 SKIP / 0 FAIL (own database).
 - **Phase 4 Worker Response Body Limit & URL Path Escaping (P4-10, PR #36, `main` at `cb51adc`):**
   - Wrapped both `json.NewDecoder` calls in `internal/worker/client.go` func `pollWork` (HTTP 503 error envelope and HTTP 200 assignment decode) in `io.LimitReader(resp.Body, MaxPollResponseBytes)` with `MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024` (448 KiB), mitigating unbounded reader allocation on coordinator response (SEC-060).
   - Applied `url.PathEscape` to `JobID` and `AttemptID` in `internal/worker/client.go` func `renewOnce` and func `reportResult` URL construction (SEC-061).
@@ -295,7 +299,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 3. **No Counter Drift:** Worker capacity is dynamically derived from active attempts in memory (`AvailableSlots`) and in SQL (`worker_capacity` view) rather than relying on mutable increment/decrement counters (**Completed in Slice 3a**; persisted in 3b/3c).
 4. **Honest FIFO Pull & Hard Gate:** V1 Phase 3 dispatch uses honest `fifo_pull`. Dispatch logs record real facts only. See [Section 5](#5-post-phase-4-hard-gate-assignment-based-round-robin-slice) for the mandatory hard-gate rule.
 5. **Lease Expiry & Automated Requeue:** Dead workers' expired attempts are reaped by the coordinator sweeper (`internal/coordinator/sweeper.go` using repository `SweepExpiredLeases`), transitioning attempts to `LOST` and rescheduling retries (`RETRYING` with exponential backoff) up to `max_attempts` (Phase 4 slices 4b, 4c-a, 4d; see ADR-0014 and ADR-0015).
-6. **Make test-security Shared Database Guard**: `make test-security` prints 47 failures when run against the shared database (`minicloud_test`). Follow-up: add check to print one clear line refusing execution on the shared database. Note: `make test-security` must be run from a worktree with its own `minicloud_<agent>_test` database; `make test-db` is the suite for the shared one.
+6. **Make test-security Shared Database Guard (Completed in Slice P4-12)**: `make test-security` refuses execution early (exit 2) when run against the shared database (`minicloud_test`) or when `MINICLOUD_TEST_DATABASE_URL` is unset, requiring an own database ending in `_test`. Override with `ALLOW_SHARED_DB=1` to bypass the guard.
 7. **CLI Output Sanitization (F-4e-18, Completed in Slice P4-07)**: CLI `cmd/mc` sanitises ANSI control characters, escape sequences, and lone carriage returns from untrusted task outputs and error strings before printing (`cmd/mc/sanitize.go`).
 8. **Rate and Connection Limits (F-4e-17, OPEN)**: HTTP endpoints lack rate limiting and connection bounding (accepted risk under SEC-004 until V3).
 9. **Next Slices (Post-Phase 4)**: Phase 4 core is complete. Next milestone is the Post-Phase 4 Assignment-Based Round-Robin Slice (Candidate A pre-assignment with bounded accept window) required before V1 release tagging.
@@ -381,4 +385,5 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 *(Note: Database tests in `internal/storage/postgres` skip gracefully when `MINICLOUD_TEST_DATABASE_URL` is unset).*
 
 - **Last Verified Commands:**
+  - `main` `3b12ae5` on 2026-10-31 (orchestrator-verified; not run by this agent): unset suite 324 PASS / 81 SKIP / 0 FAIL, `make test-security` 54 PASS / 0 SKIP / 0 FAIL, `make test-db` 134 PASS / 0 SKIP / 0 FAIL (own database).
   - `main` `cb51adc` on 2026-10-31 (orchestrator-verified; not run by this agent): unset suite 318 PASS / 58 SKIP / 0 FAIL, `make test-security` 54/0/0, `make test-db` 96 PASS / 11 SKIP / 0 FAIL (own-DB worktree).
