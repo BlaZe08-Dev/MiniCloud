@@ -1,0 +1,326 @@
+package postgres_test
+
+// P4-08d audit probes B and I. Copied to internal/storage/postgres/audit_loop_race_test.go only to
+// run, then deleted. Not part of the builder's suite. Real clocks, real PostgreSQL, the real loop
+// (StartAssignmentLoop), the real lease sweeper (Run) and the reaper, all at once, under -race.
+//
+// AUDIT_SECONDS sets the run length (default 60). AUDIT_SUBMITTERS sets the submit goroutines
+// (default 2, no pause: a flood). AUDIT_WORKERS sets the polling workers (default 8).
+// AUDIT_SUBMIT_PAUSE_MS paces each submitter (default 0, a flood).
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+)
+
+type auditSpan struct{ start, end time.Time }
+
+type auditRepo struct {
+	*postgres.Repository
+	mu       sync.Mutex
+	passes   []auditSpan
+	skipped  int
+	failed   int
+	repeats  int // passes whose result satisfies the repeat rule
+	reserved int
+	sweeps   int
+	sweepErr int
+	errs     []string
+}
+
+func (r *auditRepo) note(err error) {
+	if err == nil {
+		return
+	}
+	r.mu.Lock()
+	if len(r.errs) < 20 || strings.Contains(err.Error(), "40P01") {
+		r.errs = append(r.errs, err.Error())
+	}
+	r.mu.Unlock()
+}
+
+func (r *auditRepo) AssignQueuedJobs(ctx context.Context, p storage.AssignParams) (storage.AssignResult, error) {
+	st := time.Now()
+	res, err := r.Repository.AssignQueuedJobs(ctx, p)
+	en := time.Now()
+	r.mu.Lock()
+	r.passes = append(r.passes, auditSpan{st, en})
+	switch {
+	case err != nil:
+		r.failed++
+	case res.Skipped:
+		r.skipped++
+	default:
+		r.reserved += res.Reserved
+		if res.Reserved > 0 {
+			for _, n := range res.CandidatesRead {
+				if n >= p.BatchLimit {
+					r.repeats++
+					break
+				}
+			}
+		}
+	}
+	r.mu.Unlock()
+	r.note(err)
+	return res, err
+}
+
+func (r *auditRepo) SweepExpiredLeases(ctx context.Context, p domain.SweepParams) (*domain.SweepResult, error) {
+	res, err := r.Repository.SweepExpiredLeases(ctx, p)
+	r.mu.Lock()
+	r.sweeps++
+	if err != nil {
+		r.sweepErr++
+	}
+	r.mu.Unlock()
+	r.note(err)
+	return res, err
+}
+
+type auditLogCount struct {
+	mu     sync.Mutex
+	byLvl  map[slog.Level]int
+	stale  int
+	failed int
+}
+
+func (c *auditLogCount) Enabled(context.Context, slog.Level) bool { return true }
+func (c *auditLogCount) Handle(_ context.Context, r slog.Record) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.byLvl[r.Level]++
+	if strings.Contains(r.Message, "heartbeat is stale") {
+		c.stale++
+	}
+	if strings.Contains(r.Message, "assignment pass failed") {
+		c.failed++
+	}
+	return nil
+}
+func (c *auditLogCount) WithAttrs([]slog.Attr) slog.Handler { return c }
+func (c *auditLogCount) WithGroup(string) slog.Handler      { return c }
+
+func auditEnvInt(name string, def int) int {
+	if v, err := strconv.Atoi(os.Getenv(name)); err == nil && v > 0 {
+		return v
+	}
+	return def
+}
+
+type auditDBStats struct{ commit, rollback, ins, upd, fetched, deadlocks int64 }
+
+func TestAudit_LoopRace_FloodWithPolls(t *testing.T) {
+	seconds := auditEnvInt("AUDIT_SECONDS", 60)
+	submitters := auditEnvInt("AUDIT_SUBMITTERS", 2)
+	workers := auditEnvInt("AUDIT_WORKERS", 8)
+	pauseMS := auditEnvInt("AUDIT_SUBMIT_PAUSE_MS", 0) // 0: no pause (flood)
+
+	pool, _ := setupTestPool(t)
+	repo := &auditRepo{Repository: postgres.NewRepository(pool)}
+	svc := coordinator.NewService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	if err := svc.SetAssignmentSettings(coordinator.DefaultAssignmentSettings()); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
+		t.Fatal(err)
+	}
+	logs := &auditLogCount{byLvl: map[slog.Level]int{}}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(logs))
+	defer slog.SetDefault(prev)
+
+	readStats := func() auditDBStats {
+		var s auditDBStats
+		ctx := context.Background()
+		if _, err := pool.Exec(ctx, `SELECT pg_stat_clear_snapshot();`); err != nil {
+			t.Fatalf("clear snapshot: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT xact_commit, xact_rollback, tup_inserted, tup_updated, tup_fetched, deadlocks
+			FROM pg_stat_database WHERE datname = current_database();`).Scan(&s.commit, &s.rollback, &s.ins, &s.upd, &s.fetched, &s.deadlocks); err != nil {
+			t.Fatalf("pg_stat_database: %v", err)
+		}
+		return s
+	}
+
+	ctx := context.Background()
+	for i := 0; i < workers; i++ {
+		id := fmt.Sprintf("w_%02d", i)
+		if err := svc.RegisterWorker(ctx, &domain.Worker{ID: id, Version: "v1.0.0", TotalSlots: 1,
+			Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
+			t.Fatalf("RegisterWorker: %v", err)
+		}
+	}
+
+	time.Sleep(1500 * time.Millisecond) // let the stats of the setup flush
+	before := readStats()
+
+	runCtx, cancel := context.WithTimeout(ctx, time.Duration(seconds)*time.Second)
+	defer cancel()
+	stop := make(chan struct{})
+	var bg sync.WaitGroup
+	bgCtx, bgCancel := context.WithCancel(ctx)
+	sweeper := svc.NewLeaseSweeper(200 * time.Millisecond)
+	bg.Add(3)
+	go func() { defer bg.Done(); sweeper.Run(bgCtx) }()
+	go func() { defer bg.Done(); svc.StartAssignmentLoop(bgCtx) }()
+	go func() { defer bg.Done(); svc.StartReaper(bgCtx, time.Second) }()
+
+	var submits, submitErr, polls, claims, commits, otherErr atomic.Int64
+	var latMu sync.Mutex
+	var pollSpans []auditSpan
+	var wg sync.WaitGroup
+	for i := 0; i < submitters; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for runCtx.Err() == nil {
+				if _, err := svc.SubmitJob(ctx, "echo", []byte(`{}`), 30, 3); err != nil {
+					submitErr.Add(1)
+					repo.note(err)
+					continue
+				}
+				submits.Add(1)
+				if pauseMS > 0 {
+					time.Sleep(time.Duration(pauseMS) * time.Millisecond)
+				}
+			}
+		}()
+	}
+	for i := 0; i < workers; i++ {
+		id := fmt.Sprintf("w_%02d", i)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			lastHB := time.Time{}
+			for runCtx.Err() == nil {
+				if time.Since(lastHB) > time.Second {
+					if err := svc.Heartbeat(ctx, id, 1); err != nil {
+						otherErr.Add(1)
+						repo.note(err)
+					}
+					lastHB = time.Now()
+				}
+				st := time.Now()
+				wa, err := svc.PollWork(ctx, id)
+				en := time.Now()
+				polls.Add(1)
+				latMu.Lock()
+				pollSpans = append(pollSpans, auditSpan{st, en})
+				latMu.Unlock()
+				switch {
+				case err == nil:
+					claims.Add(1)
+					if _, err := svc.CommitResult(ctx, wa.JobID, wa.AttemptID, wa.LeaseToken, id, 0, "ok", "", ""); err != nil {
+						otherErr.Add(1)
+						repo.note(err)
+					} else {
+						commits.Add(1)
+					}
+				case errors.Is(err, domain.ErrNoQueuedJobs):
+					time.Sleep(200 * time.Millisecond) // the worker's idle sleep
+				default:
+					otherErr.Add(1)
+					repo.note(err)
+					time.Sleep(200 * time.Millisecond)
+				}
+			}
+		}()
+	}
+	<-runCtx.Done()
+	close(stop)
+	wg.Wait()
+	bgCancel()
+	bg.Wait()
+	time.Sleep(1500 * time.Millisecond)
+	after := readStats()
+
+	repo.mu.Lock()
+	passes := append([]auditSpan(nil), repo.passes...)
+	skipped, failed, repeats, reserved, sweeps, sweepErr := repo.skipped, repo.failed, repo.repeats, repo.reserved, repo.sweeps, repo.sweepErr
+	errs := append([]string(nil), repo.errs...)
+	repo.mu.Unlock()
+
+	// Poll latency and the "a poll never waits behind two passes" claim: count the passes that
+	// both start and end inside one poll call.
+	lats := make([]time.Duration, len(pollSpans))
+	behind2, maxInside := 0, 0
+	for i, p := range pollSpans {
+		lats[i] = p.end.Sub(p.start)
+		inside := 0
+		j := sort.Search(len(passes), func(k int) bool { return !passes[k].start.Before(p.start) })
+		for ; j < len(passes) && !passes[j].start.After(p.end); j++ {
+			if !passes[j].end.After(p.end) {
+				inside++
+			}
+		}
+		if inside >= 2 {
+			behind2++
+		}
+		if inside > maxInside {
+			maxInside = inside
+		}
+	}
+	sort.Slice(lats, func(a, b int) bool { return lats[a] < lats[b] })
+	pct := func(q float64) time.Duration {
+		if len(lats) == 0 {
+			return 0
+		}
+		return lats[int(q*float64(len(lats)-1))]
+	}
+	pdur := make([]time.Duration, len(passes))
+	for i, p := range passes {
+		pdur[i] = p.end.Sub(p.start)
+	}
+	sort.Slice(pdur, func(a, b int) bool { return pdur[a] < pdur[b] })
+	pp := func(q float64) time.Duration {
+		if len(pdur) == 0 {
+			return 0
+		}
+		return pdur[int(q*float64(len(pdur)-1))]
+	}
+	dl := 0
+	for _, e := range errs {
+		if strings.Contains(e, "40P01") || strings.Contains(strings.ToLower(e), "deadlock") {
+			dl++
+		}
+	}
+	s := float64(seconds)
+	t.Logf("AUDIT run=%ds submitters=%d workers=%d submit_pause_ms=%d", seconds, submitters, workers, pauseMS)
+	t.Logf("AUDIT iterations: submits=%d submit_errors=%d polls=%d claims=%d commits=%d other_errors=%d sweeper_ticks=%d sweeper_errors=%d",
+		submits.Load(), submitErr.Load(), polls.Load(), claims.Load(), commits.Load(), otherErr.Load(), sweeps, sweepErr)
+	t.Logf("AUDIT passes: total=%d (%.1f/s) skipped=%d failed=%d repeat_rule_true=%d reserved=%d",
+		len(passes), float64(len(passes))/s, skipped, failed, repeats, reserved)
+	t.Logf("AUDIT pass duration: p50=%v p99=%v max=%v", pp(0.5), pp(0.99), pp(1))
+	t.Logf("AUDIT poll latency: n=%d p50=%v p90=%v p99=%v max=%v", len(lats), pct(0.5), pct(0.9), pct(0.99), pct(1))
+	t.Logf("AUDIT polls that waited behind >=2 complete passes: %d of %d (max passes inside one poll: %d)", behind2, len(lats), maxInside)
+	t.Logf("AUDIT logs: error=%d warn=%d stale_heartbeat_error=%d pass_failed_warn=%d", logs.byLvl[slog.LevelError], logs.byLvl[slog.LevelWarn], logs.stale, logs.failed)
+	t.Logf("AUDIT deadlocks: 40P01 in errors=%d, pg_stat_database.deadlocks delta=%d", dl, after.deadlocks-before.deadlocks)
+	t.Logf("AUDIT DB load (whole test database, %ds): xact_commit=%d (%.0f/s) xact_rollback=%d tup_inserted=%d (%.0f/s) tup_updated=%d (%.0f/s) tup_fetched=%d (%.0f/s)",
+		seconds, after.commit-before.commit, float64(after.commit-before.commit)/s, after.rollback-before.rollback,
+		after.ins-before.ins, float64(after.ins-before.ins)/s, after.upd-before.upd, float64(after.upd-before.upd)/s,
+		after.fetched-before.fetched, float64(after.fetched-before.fetched)/s)
+	for i, e := range errs {
+		if i >= 10 {
+			break
+		}
+		t.Logf("AUDIT error sample: %s", e)
+	}
+}

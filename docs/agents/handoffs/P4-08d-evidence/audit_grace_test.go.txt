@@ -1,0 +1,101 @@
+package coordinator_test
+
+// P4-08d audit probe C (grace, notes 16 and 17). Copied to internal/coordinator/audit_grace_test.go
+// only to run, then deleted. Not part of the builder's suite.
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+)
+
+var errAuditSweep = errors.New("audit: injected sweep failure")
+
+// auditSweepFailRepo answers Now (the database answers) but fails every SweepExpiredLeases while
+// failSweep is set. The assignment pass keeps working.
+type auditSweepFailRepo struct {
+	*loopRepo
+	failSweep bool
+}
+
+func (r *auditSweepFailRepo) SweepExpiredLeases(ctx context.Context, p domain.SweepParams) (*domain.SweepResult, error) {
+	if r.failSweep {
+		return nil, errAuditSweep
+	}
+	return r.loopRepo.SweepExpiredLeases(ctx, p)
+}
+
+// mode: "fail-always" = every sweeper tick fails; "never-ticked" = sweeper built, never ticked;
+// "first-ok-then-fail" = one good tick, then every tick fails; "control" = every tick succeeds.
+func auditGraceCycles(t *testing.T, mode string, cycles int) (lapses int, uncounted int, stale bool, fallbackClaimed bool) {
+	t.Helper()
+	clk := newMockClock(loopT0)
+	base := newLoopRepo(clk)
+	repo := &auditSweepFailRepo{loopRepo: base}
+	svc := loopService(t, repo, clk, coordinator.DefaultAssignmentSettings())
+	svc.SetGracePeriods(0, 0) // no startup or outage window: only note 16 can suppress counting
+	sw := svc.NewLeaseSweeper(time.Minute)
+	loop := svc.NewAssignmentLoop()
+	ctx := context.Background()
+	tick := func() {
+		switch mode {
+		case "never-ticked":
+			return
+		case "fail-always":
+			repo.failSweep = true
+		case "first-ok-then-fail":
+			// set below
+		case "control":
+			repo.failSweep = false
+		}
+		_ = sw.Tick(ctx)
+	}
+	if mode == "first-ok-then-fail" {
+		if err := sw.Tick(ctx); err != nil {
+			t.Fatalf("first tick: %v", err)
+		}
+		repo.failSweep = true
+	}
+	loopWorker(t, svc, base, "w_1", "echo")
+	job := rrSubmit(t, svc, "echo")
+	for i := 0; i < cycles; i++ {
+		tick()
+		if err := svc.Heartbeat(ctx, "w_1", 1); err != nil {
+			t.Fatalf("Heartbeat: %v", err)
+		}
+		if err := base.RecordPoll(ctx, "w_1"); err != nil { // fresh, but never claims in time
+			t.Fatalf("RecordPoll: %v", err)
+		}
+		loop.Round(ctx)
+		clk.Advance(rrWindow + time.Millisecond)
+		loop.Round(ctx)
+	}
+	j := getJob(t, base, job.ID)
+	for _, e := range lapseEvents(t, base, job.ID) {
+		if e.Details["counted"] == false {
+			uncounted++
+		}
+	}
+	st, err := base.AssignmentPassStale(ctx, 2*coordinator.DefaultAssignmentSettings().Interval)
+	if err != nil {
+		t.Fatalf("stale: %v", err)
+	}
+	// A second worker polls: it can take the job only by the fallback arm (lapses or age).
+	rrHeartbeat(t, svc, "w_2", "echo")
+	wa, err := svc.PollWork(ctx, "w_2")
+	fallbackClaimed = err == nil && wa != nil && wa.JobID == job.ID
+	return j.AssignmentLapses, uncounted, st, fallbackClaimed
+}
+
+func TestAudit_Grace_NeverLifts(t *testing.T) {
+	const cycles = 20 // 20 windows = 100 s of reservations that all lapse
+	for _, mode := range []string{"control", "never-ticked", "fail-always", "first-ok-then-fail"} {
+		lapses, unc, stale, fb := auditGraceCycles(t, mode, cycles)
+		t.Logf("mode=%-18s cycles=%d assignment_lapses=%d uncounted_lapse_events=%d heartbeat_stale=%v fallback_claim_by_other_worker=%v",
+			mode, cycles, lapses, unc, stale, fb)
+	}
+}
