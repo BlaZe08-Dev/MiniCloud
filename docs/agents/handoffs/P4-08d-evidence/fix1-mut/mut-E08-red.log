@@ -1,0 +1,6 @@
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.860s
+--- FAIL: TestLapseCounts_PendingEndsAtUntil (0.00s)
+    inmemory_assignment_test.go:310: at the end: LapseCounts=false, want true
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.445s
+FAIL

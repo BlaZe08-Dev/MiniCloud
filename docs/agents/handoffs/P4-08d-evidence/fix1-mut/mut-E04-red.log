@@ -1,0 +1,26 @@
+2026/11/01 11:24:56 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_1_6d3b57c9dc27 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job dispatched to worker job_id=job_1_6d3b57c9dc27 attempt_id=att_1_b801a27bef10 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:24:56 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_2_d4998741a96d task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job dispatched to worker job_id=job_2_d4998741a96d attempt_id=att_1_9ad8bd807dd9 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:24:56 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_3_ad2b7202ce63 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job dispatched to worker job_id=job_3_ad2b7202ce63 attempt_id=att_1_85a4f04a017e attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+--- FAIL: TestCoordinator_AssignmentLoop_PendingGraceEndsAtCap (0.00s)
+    assignment_fix1_test.go:106: failed-sweep: lapse events counted=[false false true true true], want [false true true true]
+--- FAIL: TestCoordinator_AssignmentLoop_FailedSweepMarksGracePending (0.00s)
+    assignment_fix1_test.go:147: pass after a failed sweep tick: GracePending=false, want true (note 16)
+2026/11/01 11:24:56 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_4_0b2b68086626 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_5_bd6408d83d34 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_6_01c14d39b5b7 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_7_05e441cfe5c7 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:24:56 INFO job submitted and queued job_id=job_8_4a60960dc78d task_type=echo state=QUEUED max_attempts=3
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.874s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.610s
+FAIL

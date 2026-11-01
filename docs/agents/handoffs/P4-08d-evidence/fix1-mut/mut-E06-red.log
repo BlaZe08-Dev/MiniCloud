@@ -1,0 +1,24 @@
+2026/11/01 11:25:02 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_1_e62ace68e5ae task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job dispatched to worker job_id=job_1_e62ace68e5ae attempt_id=att_1_55803cd2189f attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:02 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_2_97320662f3bb task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job dispatched to worker job_id=job_2_97320662f3bb attempt_id=att_1_f4ea784a3f3d attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:02 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_3_251df7823539 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job dispatched to worker job_id=job_3_251df7823539 attempt_id=att_1_8254b7395f52 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:02 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_4_d6f6cdb8be57 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_5_6b67ed9e272f task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_6_f1fc9a377d68 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_7_41fbc77396c3 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:02 INFO job submitted and queued job_id=job_8_af8153dbb8ae task_type=echo state=QUEUED max_attempts=3
+--- FAIL: TestCoordinator_AssignmentLoop_StaleHeartbeatWindowIsOneMinute (0.00s)
+    assignment_fix1_test.go:200: at 50 s: 2 stale heartbeat ERROR lines, want 1
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.847s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.430s
+FAIL

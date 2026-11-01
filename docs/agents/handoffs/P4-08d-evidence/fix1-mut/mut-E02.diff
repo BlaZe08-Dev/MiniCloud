@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/sweeper.go b/internal/coordinator/sweeper.go
+index fc445dd..d2b3751 100644
+--- a/internal/coordinator/sweeper.go
++++ b/internal/coordinator/sweeper.go
+@@ -251,7 +251,7 @@ func (s *Service) passGraceInput(ctx context.Context) (grace domain.SweepGraceSt
+ 		}
+ 	}
+ 	if !s.pendingSince.IsZero() {
+-		pendingUntil = s.pendingSince.Add(s.pendingCap)
++		pendingUntil = s.pendingSince.Add(s.pendingCap + 5*time.Second)
+ 	}
+ 	return s.passGrace, true, pendingUntil
+ }

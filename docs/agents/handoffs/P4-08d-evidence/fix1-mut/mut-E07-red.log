@@ -1,0 +1,24 @@
+2026/11/01 11:25:06 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_1_e695fb10e8ca task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job dispatched to worker job_id=job_1_e695fb10e8ca attempt_id=att_1_25ba2f70c0f3 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:06 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_2_e280881bcde0 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job dispatched to worker job_id=job_2_e280881bcde0 attempt_id=att_1_ee33a8e99159 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:06 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_3_52b3c3b63c09 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job dispatched to worker job_id=job_3_52b3c3b63c09 attempt_id=att_1_12a6623c5ac3 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:06 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_4_7679db97fe7b task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_5_932014901604 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_6_a7f6a5ec2bc7 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_7_4f4978961f43 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:06 INFO job submitted and queued job_id=job_8_3a90a371d09e task_type=echo state=QUEUED max_attempts=3
+--- FAIL: TestAssignmentLoop_RealYield_Waits (0.00s)
+    assignment_fix1_test.go:217: real yield returned after 16.428µs, want at least 100ms
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.802s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.561s
+FAIL

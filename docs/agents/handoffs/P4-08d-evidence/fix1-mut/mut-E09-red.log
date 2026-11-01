@@ -1,0 +1,22 @@
+2026/11/01 11:25:14 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_1_6885df50c5ed task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:14 INFO job dispatched to worker job_id=job_1_6885df50c5ed attempt_id=att_1_cc76dcdb5100 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+2026/11/01 11:25:14 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_2_5e0260f0ea69 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO worker registered worker_id=w_2 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:14 INFO job dispatched to worker job_id=job_2_5e0260f0ea69 attempt_id=att_1_459b10e37070 attempt_no=1 worker_id=w_2 policy=round_robin_fallback fallback_reason=lapses
+--- FAIL: TestCoordinator_AssignmentLoop_PendingGraceEndsAtCap (0.00s)
+    assignment_fix1_test.go:106: never-ticked: lapse events counted=[false true true true], want [false false true true true]
+2026/11/01 11:25:14 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_3_ae4ec75fa14e task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_4_05bf542c560d task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_5_ba06560a13de task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_6_0986717d020f task_type=echo state=QUEUED max_attempts=3
+2026/11/01 11:25:14 INFO job submitted and queued job_id=job_7_48e5ff0da2d8 task_type=echo state=QUEUED max_attempts=3
+--- FAIL: TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep (0.00s)
+    assignment_loop_test.go:337: lapse counted before the first sweeper tick: 1
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.883s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.460s
+FAIL

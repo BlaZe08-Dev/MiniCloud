@@ -1,0 +1,12 @@
+diff --git a/internal/coordinator/sweeper.go b/internal/coordinator/sweeper.go
+index fc445dd..014d58c 100644
+--- a/internal/coordinator/sweeper.go
++++ b/internal/coordinator/sweeper.go
+@@ -156,7 +156,6 @@ func (w *LeaseSweeper) Tick(ctx context.Context) error {
+ 	if err != nil {
+ 		// The window decided for this tick is discarded; the next successful tick decides again.
+ 		w.state.failedSince = true
+-		w.svc.publishPassGrace(domain.SweepGraceState{}, false, w.window)
+ 		return err
+ 	}
+ 	// The assignment pass gets the same grace state as the sweep (ADR-0017 Section 4.4).
