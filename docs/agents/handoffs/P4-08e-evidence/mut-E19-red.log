@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_JobView_AssignmentFields$' ./internal/storage/
+=== RUN   TestConformance_JobView_AssignmentFields
+    assignment_wire.go:180: reserved: assignment_expires_at = 2026-10-31 12:00:10 +0000 UTC, want one accept window (5s) after the pass, within [2026-10-31 12:00:05 +0000 UTC, 2026-10-31 12:00:05 +0000 UTC]
+--- FAIL: TestConformance_JobView_AssignmentFields (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.022s
+FAIL
+exit=1

@@ -52,15 +52,26 @@ Submits a computational job for asynchronous execution.
 }
 ```
 
-**Response (201 Created):**
+**Response (201 Created):** the same job view as `GET /v1/jobs/{job_id}` (Section 3.2), for a job that has just been queued.
 ```json
 {
-  "job_id": "job_01j7xyz...",
-  "state": "QUEUED",
+  "id": "job_01j7xyz...",
   "task_type": "sha256_loop",
-  "created_at": "2026-10-19T22:00:00Z"
+  "payload": {"iterations": 10000, "input": "minicloud-benchmark"},
+  "state": "QUEUED",
+  "priority": 0,
+  "max_attempts": 3,
+  "timeout_seconds": 30,
+  "created_at": "2026-10-19T22:00:00Z",
+  "updated_at": "2026-10-19T22:00:00Z",
+  "assigned_worker_id": null,
+  "assignment_expires_at": null,
+  "assignment_lapses": 0,
+  "assignment_fallback_reason": null
 }
 ```
+
+The 201 body carries the four assignment fields of Section 3.2 at their unset values (ADR-0017 Section 5.1, note 5c-2.4): `assigned_worker_id` `null`, `assignment_expires_at` `null`, `assignment_lapses` `0`, `assignment_fallback_reason` `null`. It never carries the internal `assigned_at`.
 
 **Errors:**
 - `400 Bad Request`: `UNKNOWN_TASK_TYPE`, `PAYLOAD_TOO_LARGE`, `INVALID_TIMEOUT`.
@@ -84,9 +95,24 @@ Fetches current state, timestamps, and latest attempt summary.
     "exit_code": 0,
     "output": "{\"hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"}",
     "error": ""
-  }
+  },
+  "assigned_worker_id": null,
+  "assignment_expires_at": null,
+  "assignment_lapses": 0,
+  "assignment_fallback_reason": "lapses"
 }
 ```
+
+**Assignment fields (ADR-0017 Section 5.1, additive).** The job view always carries these four keys, under either dispatch policy:
+
+| Field | Type | Value |
+|---|---|---|
+| `assigned_worker_id` | string or `null` | The worker holding a live reservation of the job (`round_robin` only); `null` when no reservation is held. A registered worker ID, so at most 128 characters of `[A-Za-z0-9_-]`. |
+| `assignment_expires_at` | RFC 3339 timestamp or `null` | End of the accept window of that reservation; `null` exactly when `assigned_worker_id` is `null`. |
+| `assignment_lapses` | integer | Counted lapses since the last claim, `0` when none; reset to `0` by every claim. |
+| `assignment_fallback_reason` | `"lapses"`, `"age"` or `null` | Set by a `round_robin_fallback` claim and never cleared afterwards (history); `null` until such a claim. |
+
+The internal reservation time (`assigned_at`) is not part of the view.
 
 **Errors:**
 - `404 Not Found`: `JOB_NOT_FOUND`.
@@ -463,6 +489,19 @@ The assignment payload expands additively with lease metadata:
   }
 }
 ```
+
+*Dispatch policy fields (ADR-0017 Section 5.1, additive)*:
+Every 200 poll response carries `assignment.policy`, the path that claimed the job: `"fifo_pull"` under the `fifo_pull` policy; `"round_robin"` for a claim of the worker's own reservation; `"round_robin_fallback"` for a claim by a fallback arm. `assignment.fallback_reason` is present only on a `round_robin_fallback` claim, with the value `"lapses"` (the job reached `MINICLOUD_ASSIGNMENT_MAX_LAPSES`) or `"age"` (the age arm of ADR-0017 Section 3.2); on any other claim the key is absent. Both values are fixed strings chosen by the coordinator (at most 20 bytes), never client input. Under `round_robin`, a 204 means no job reserved to this worker and no fallback job; the wire form is unchanged.
+```json
+{
+  "assignment": {
+    "job_id": "job_01j7xyz...",
+    "policy": "round_robin_fallback",
+    "fallback_reason": "lapses"
+  }
+}
+```
+(Other assignment keys as above, omitted here.)
 
 *Worker Execution Timeout Clamping (SEC-012)*:
 The worker clamps the coordinator-supplied `timeout_seconds` to `[1, 86400]` seconds (`MaxExecutionTimeoutSeconds = coordinator.MaxTimeoutSeconds`). If `timeout_seconds` exceeds 86400 s or integer overflow bounds, it is clamped to 86400 s (24 hours). If `timeout_seconds` is less than 1, it is clamped to 1 s (tasks must have a bounded positive execution deadline). A warning is logged whenever clamping occurs. The worker bounds the poll response size and escapes path IDs.

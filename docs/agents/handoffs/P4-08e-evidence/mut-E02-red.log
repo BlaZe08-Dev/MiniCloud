@@ -1,0 +1,30 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_Poll_PolicyFieldOnWire$' ./internal/api/
+=== RUN   TestAPI_Poll_PolicyFieldOnWire
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/fifo_pull
+2026/11/01 12:47:34 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:34 INFO job submitted and queued job_id=job_1_3ce93cc80dc1 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:34 INFO job dispatched to worker job_id=job_1_3ce93cc80dc1 attempt_id=att_1_6888b809d7ef attempt_no=1 worker_id=w_1 policy=fifo_pull reason="claimed by polling worker with capacity"
+    assignment_wire_test.go:231: fallback_reason present ("") on a fifo_pull claim
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation
+2026/11/01 12:47:34 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:34 INFO job submitted and queued job_id=job_2_9659c020988e task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:34 INFO job dispatched to worker job_id=job_2_9659c020988e attempt_id=att_1_c5b3b18fd7d9 attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+    assignment_wire_test.go:231: fallback_reason present ("") on a round_robin claim
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses
+2026/11/01 12:47:34 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:34 INFO job submitted and queued job_id=job_3_8cf6a2fbbc20 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:34 INFO job dispatched to worker job_id=job_3_8cf6a2fbbc20 attempt_id=att_1_d82bf6168e92 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age
+2026/11/01 12:47:34 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:34 INFO job submitted and queued job_id=job_4_b912b99ff854 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:34 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 12:47:34 INFO job dispatched to worker job_id=job_4_b912b99ff854 attempt_id=att_1_cca9145e977d attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+--- FAIL: TestAPI_Poll_PolicyFieldOnWire (0.02s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/fifo_pull (0.01s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation (0.00s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses (0.00s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.044s
+FAIL
+exit=1

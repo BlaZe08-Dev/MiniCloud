@@ -1,0 +1,55 @@
+"""P4-08e fix round 1 mutants E32 to E37, one at a time in a throwaway worktree.
+For each: apply (old text must occur exactly once), save diff, run red, git checkout, run green.
+Red passes when the named test shows '--- FAIL'; green when it shows '--- PASS' (whole-package runs:
+green also needs exit 0). Usage: python3 -I fix1_mut.py <worktree> <evidence-dir>"""
+import os, re, subprocess, sys
+wt, ev = sys.argv[1], sys.argv[2]
+url = ""
+for line in open(os.path.join(wt, ".env")):
+    if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+        url = line.split("=", 1)[1].strip()
+env = dict(os.environ, MINICLOUD_TEST_DATABASE_URL=url)
+WK, ST, PG, API = "./internal/worker/", "./internal/storage/", "./internal/storage/postgres/", "./internal/api/"
+T17, BA, SUB, RC = "TestPollTiming_AcceptWindowExceedsBackoff", "TestConformance_ClaimPolicy_BothArms", "TestAPI_SubmitJob_ResponseCarriesAssignmentFields", "TestPollTiming_RealClockSleeps"
+CL, MEM, PGA, JOB = "internal/worker/client.go", "internal/storage/inmemory_assignment.go", "internal/storage/postgres/assignment.go", "internal/domain/job.go"
+# (id, what, file, old, new, pkg, test, run-regex)
+M = [
+ ("E32", "audit-I4 (F-R1): maximum poll backoff 3 s -> 4.999 s, 1 ms below the window floor", CL,
+  "MaxPollBackoff = 3 * time.Second", "MaxPollBackoff = 4999 * time.Millisecond", WK, T17, None),
+ ("E33", "audit-M2 (F-R2): memory reports age when both fallback arms qualify", MEM,
+  "if j.AssignmentLapses >= opts.MaxLapses {", "if j.AssignmentLapses >= opts.MaxLapses && !(opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore)) {", ST, BA, None),
+ ("E34", "F-R2 PostgreSQL twin: both arms qualify, reason reported as age", PGA,
+  "\t\tif byLapses {\n\t\t\treason = domain.FallbackReasonLapses", "\t\tif byLapses && !opts.AgeArmOpen {\n\t\t\treason = domain.FallbackReasonLapses", PG, BA, None),
+ ("E35", "F-R3: assignment_lapses removed from the job encoding (201 body)", JOB,
+  'AssignmentLapses         int        `json:"assignment_lapses"`', 'AssignmentLapses         int        `json:"-"`', API, SUB, None),
+ ("E36", "audit-M3p (F-R4): production clock halves every timer, real-clock test alone", CL,
+  "realTimer{time.NewTimer(d)}", "realTimer{time.NewTimer(d / 2)}", WK, RC, None),
+ ("E37", "audit-M3 (F-R4): production clock halves every timer, whole worker package", CL,
+  "realTimer{time.NewTimer(d)}", "realTimer{time.NewTimer(d / 2)}", WK, RC, "."),
+]
+def run(pkg, test, rx, log):
+    p = subprocess.run(["go", "test", "-race", "-count=1", "-v", "-timeout", "300s", "-run", rx or "^" + test + "$", pkg],
+                       cwd=wt, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    out = "\n".join(l for l in p.stdout.splitlines() if not l.startswith("{\"time\"") and "level=" not in l)
+    open(log, "w").write("$ go test -race -count=1 -v -timeout 300s -run '%s' %s\n%s\nexit=%d\n" % (rx or "^" + test + "$", pkg, out, p.returncode))
+    if re.search(r"^--- FAIL: %s\b" % re.escape(test), p.stdout, re.M): return "FAIL"
+    if re.search(r"^--- PASS: %s\b" % re.escape(test), p.stdout, re.M) and p.returncode == 0: return "PASS"
+    if re.search(r"^--- SKIP: %s\b" % re.escape(test), p.stdout, re.M): return "SKIP"
+    return "OTHER(exit=%d)" % p.returncode
+rows = []
+for mid, what, f, old, new, pkg, test, rx in M:
+    path = os.path.join(wt, f); src = open(path).read(); n = src.count(old)
+    if n != 1:
+        print(mid, "SITE COUNT", n); rows.append(mid + "\tSITE COUNT %d" % n); continue
+    open(path, "w").write(src.replace(old, new))
+    diff = subprocess.run(["git", "diff", "--", f], cwd=wt, stdout=subprocess.PIPE, text=True).stdout
+    open(os.path.join(ev, "mut-%s.diff" % mid), "w").write(diff)
+    red = run(pkg, test, rx, os.path.join(ev, "mut-%s-red.log" % mid))
+    subprocess.run(["git", "checkout", "--", f], cwd=wt, check=True)
+    green = run(pkg, test, rx, os.path.join(ev, "mut-%s-green.log" % mid))
+    verdict = "KILLED" if red == "FAIL" and green == "PASS" else "SURVIVED" if red == "PASS" else "CHECK"
+    plus = sum(1 for l in diff.splitlines() if l.startswith("+") and not l.startswith("+++"))
+    minus = sum(1 for l in diff.splitlines() if l.startswith("-") and not l.startswith("---"))
+    line = "\t".join([mid, what, f, test + (" (whole package)" if rx else ""), pkg, red, green, verdict, "+%d/-%d" % (plus, minus)])
+    print(line, flush=True); rows.append(line)
+open(os.path.join(ev, "mut-results-fix1.tsv"), "w").write("\n".join(rows) + "\n")

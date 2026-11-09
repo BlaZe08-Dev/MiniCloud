@@ -1,0 +1,12 @@
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 249f6f0..aa7e1c4 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -451,7 +451,6 @@ func (s *Service) PollWork(ctx context.Context, workerID string) (*WorkAssignmen
+ 
+ 		LeaseExpiresAt:       attempt.LeaseExpiresAt,
+ 		LeaseDurationSeconds: int(s.leaseDuration / time.Second),
+-		Policy:               domain.DispatchPolicyFifoPull,
+ 	}, nil
+ }
+ 

@@ -30,7 +30,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-08d | ADR-0017 slice 5c, part 1: coordinator loop, grace, binary wiring | Claude Code | Claude Code (independent session) | agent/claude/P4-08d | fix round 1 pushed for re-audit |
-| P4-08e | ADR-0017 slice 5c, part 2: API fields, worker timing (INV-17), fault and abuse suites, property tests at 1,000 iterations, measurements, docs sync | to be assigned | to be assigned | none | placeholder, not specified |
+| P4-08e | ADR-0017 slice 5c, part 2: API fields (poll `policy` and `fallback_reason`, job view assignment fields) and worker timing (INV-17); fault and abuse suites move to P4-08f | Claude Code | to be assigned | agent/claude/P4-08e | fix round 1 pushed for re-audit |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 

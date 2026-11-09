@@ -1,0 +1,12 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index ab8fa7a..ab2f238 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -203,7 +203,6 @@ func (s *Service) pollRoundRobinLocked(ctx context.Context, workerID string) (*W
+ 		LeaseExpiresAt:       claim.Attempt.LeaseExpiresAt,
+ 		LeaseDurationSeconds: int(s.leaseDuration / time.Second),
+ 		Policy:               claim.Policy,
+-		FallbackReason:       claim.FallbackReason,
+ 	}, nil
+ }
+ 

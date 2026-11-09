@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..a26d958 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -199,7 +199,7 @@ func (a *Agent) Run(ctx context.Context) error {
+ 					a.pollSleep(backoff)
+ 				} else {
+ 					consecutiveFailures++
+-					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
++					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, 2*MaxPollBackoff)
+ 					slog.Warn("work poll error", "err", err, "backoff", backoff)
+ 					a.pollSleep(backoff)
+ 				}

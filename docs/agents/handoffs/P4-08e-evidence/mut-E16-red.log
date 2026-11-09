@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_JobView_AssignmentFields$' ./internal/storage/postgres/
+=== RUN   TestConformance_JobView_AssignmentFields
+    assignment_wire.go:197: fallback claim: assignment_lapses = 3, want 0
+--- FAIL: TestConformance_JobView_AssignmentFields (0.48s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.503s
+FAIL
+exit=1

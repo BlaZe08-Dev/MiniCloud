@@ -1,0 +1,12 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..1e435ba 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -294,7 +294,6 @@ func (r *InMemoryRepository) claimLocked(j *domain.Job, workerID, policy, reason
+ 	}
+ 	j.NotBefore = nil
+ 	j.ClearAssignment()
+-	j.AssignmentLapses = 0
+ 	if reason != "" {
+ 		fallback := reason
+ 		j.AssignmentFallbackReason = &fallback

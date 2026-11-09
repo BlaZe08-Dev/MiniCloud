@@ -1,0 +1,27 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestPollTiming_RealClockSleeps$' ./internal/worker/
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:288: gap  1: 101.875474ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 1 = 101.875474ms outside [200ms, 350ms]
+    poll_timing_test.go:288: gap  2: 101.678609ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 2 = 101.678609ms outside [200ms, 350ms]
+    poll_timing_test.go:288: gap  3: 101.24599ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 3 = 101.24599ms outside [200ms, 350ms]
+    poll_timing_test.go:288: gap  4: 101.881937ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 4 = 101.881937ms outside [200ms, 350ms]
+    poll_timing_test.go:288: gap  5: 102.163879ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 5 = 102.163879ms outside [200ms, 350ms]
+    poll_timing_test.go:288: gap  6: 90.518766ms, bound [100ms, 350ms]
+    poll_timing_test.go:290: gap 6 = 90.518766ms outside [100ms, 350ms]
+    poll_timing_test.go:288: gap  7: 117.956532ms, bound [200ms, 550ms]
+    poll_timing_test.go:290: gap 7 = 117.956532ms outside [200ms, 550ms]
+    poll_timing_test.go:288: gap  8: 287.252517ms, bound [400ms, 950ms]
+    poll_timing_test.go:290: gap 8 = 287.252517ms outside [400ms, 950ms]
+    poll_timing_test.go:288: gap  9: 416.300664ms, bound [800ms, 1.75s]
+    poll_timing_test.go:290: gap 9 = 416.300664ms outside [800ms, 1.75s]
+    poll_timing_test.go:288: gap 10: 103.108391ms, bound [200ms, 350ms]
+    poll_timing_test.go:290: gap 10 = 103.108391ms outside [200ms, 350ms]
+--- FAIL: TestPollTiming_RealClockSleeps (1.59s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.614s
+FAIL
+exit=1

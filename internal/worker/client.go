@@ -55,6 +55,16 @@ const (
 	renewBackoffBase    = time.Second
 	deliveryBackoffBase = 200 * time.Millisecond
 	deliveryBackoffMax  = 5 * time.Second
+
+	// IdlePollInterval is the work loop's sleep after an empty poll, after a WORKER_UNHEALTHY poll
+	// and after a nil assignment; it is also the base of the poll error backoff (ADR-0017
+	// Section 3.1).
+	IdlePollInterval = 200 * time.Millisecond
+	// MaxPollBackoff caps the work loop's sleep after a failed poll. ComputeBackoffWithJitter
+	// jitters into [0.5, 1.0) of the cap, so no poll backoff exceeds it. The assignment accept
+	// window must exceed it plus a round trip (ADR-0017 Section 3.1, INV-17), which
+	// TestPollTiming_AcceptWindowExceedsBackoff pins.
+	MaxPollBackoff = 3 * time.Second
 )
 
 // ErrServiceUnavailable indicates an upstream coordinator or database outage (HTTP 503/5xx).
@@ -115,6 +125,13 @@ func (a *Agent) SetClock(c Clock) {
 	a.clock = c
 }
 
+// pollSleep blocks for d between work polls. It waits on the agent clock, which is the real
+// timer in production (the same wait as time.Sleep), so a test can observe every poll sleep and
+// check it against MaxPollBackoff (ADR-0017 INV-17).
+func (a *Agent) pollSleep(d time.Duration) {
+	<-a.clock.NewTimer(d).C()
+}
+
 // NewAgent constructs a new Worker Agent.
 func NewAgent(cfg *config.WorkerConfig, registry *executor.Registry) *Agent {
 	return &Agent{
@@ -159,8 +176,6 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	// 3. Work polling loop
 	consecutiveFailures := 0
-	baseBackoff := 200 * time.Millisecond
-	maxBackoff := 3 * time.Second
 
 	for {
 		select {
@@ -173,27 +188,27 @@ func (a *Agent) Run(ctx context.Context) error {
 				if errors.Is(err, domain.ErrWorkerUnhealthy) {
 					consecutiveFailures = 0
 					slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
-					time.Sleep(baseBackoff)
+					a.pollSleep(IdlePollInterval)
 				} else if errors.Is(err, domain.ErrNoQueuedJobs) {
 					consecutiveFailures = 0
-					time.Sleep(baseBackoff)
+					a.pollSleep(IdlePollInterval)
 				} else if errors.Is(err, ErrServiceUnavailable) {
 					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
 					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
-					time.Sleep(backoff)
+					a.pollSleep(backoff)
 				} else {
 					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, baseBackoff, maxBackoff)
+					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
 					slog.Warn("work poll error", "err", err, "backoff", backoff)
-					time.Sleep(backoff)
+					a.pollSleep(backoff)
 				}
 				continue
 			}
 
 			consecutiveFailures = 0
 			if assignment == nil {
-				time.Sleep(baseBackoff)
+				a.pollSleep(IdlePollInterval)
 				continue
 			}
 

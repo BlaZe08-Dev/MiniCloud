@@ -1,0 +1,10 @@
+    zz_probe_test.go:11: failures=1 backoff=198.658801ms
+    zz_probe_test.go:11: failures=5 backoff=2.592109333s
+    zz_probe_test.go:11: failures=32 backoff=2.431553112s
+    zz_probe_test.go:11: failures=33 backoff=2.910325029s
+    zz_probe_test.go:11: failures=63 backoff=1.775747855s
+    zz_probe_test.go:11: failures=64 backoff=0s
+    zz_probe_test.go:11: failures=65 backoff=0s
+    zz_probe_test.go:11: failures=100 backoff=0s
+    zz_probe_test.go:11: failures=301 backoff=0s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.005s

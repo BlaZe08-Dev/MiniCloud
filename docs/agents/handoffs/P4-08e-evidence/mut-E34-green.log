@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_ClaimPolicy_BothArms$' ./internal/storage/postgres/
+=== RUN   TestConformance_ClaimPolicy_BothArms
+--- PASS: TestConformance_ClaimPolicy_BothArms (0.50s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.590s
+exit=0

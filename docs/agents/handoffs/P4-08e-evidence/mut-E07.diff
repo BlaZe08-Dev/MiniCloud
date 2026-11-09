@@ -1,0 +1,13 @@
+diff --git a/internal/domain/job.go b/internal/domain/job.go
+index 943d382..5708763 100644
+--- a/internal/domain/job.go
++++ b/internal/domain/job.go
+@@ -34,7 +34,7 @@ type Job struct {
+ 	AssignedWorkerID         *string    `json:"assigned_worker_id"`
+ 	AssignedAt               *time.Time `json:"-"`
+ 	AssignmentExpiresAt      *time.Time `json:"assignment_expires_at"`
+-	AssignmentLapses         int        `json:"assignment_lapses"`
++	AssignmentLapses         int        `json:"assignment_lapses,omitempty"`
+ 	AssignmentFallbackReason *string    `json:"assignment_fallback_reason"`
+ }
+ 

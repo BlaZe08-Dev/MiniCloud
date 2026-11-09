@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index ab8fa7a..33c9a4a 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -46,7 +46,7 @@ func DefaultAssignmentSettings() AssignmentSettings {
+ // validateAssignment in internal/config. It returns domain.ErrInvalidRequest naming the first rule
+ // that fails.
+ func (a AssignmentSettings) Validate() error {
+-	if a.AcceptWindow < MinAcceptWindow || a.AcceptWindow > 30*time.Second {
++	if a.AcceptWindow < 2*time.Second || a.AcceptWindow > 30*time.Second {
+ 		return fmt.Errorf("%w: assignment accept window must be between 5s and 30s (got %v)", domain.ErrInvalidRequest, a.AcceptWindow)
+ 	}
+ 	if a.Interval < 100*time.Millisecond || a.Interval > 10*time.Second {

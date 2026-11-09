@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..6ef42b7 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -609,7 +609,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 			return nil, mapPgError(err)
+ 		}
+ 		policy = domain.DispatchPolicyRoundRobinFallback
+-		reason = domain.FallbackReasonAge
++		reason = domain.FallbackReasonLapses
+ 		if byLapses {
+ 			reason = domain.FallbackReasonLapses
+ 		}

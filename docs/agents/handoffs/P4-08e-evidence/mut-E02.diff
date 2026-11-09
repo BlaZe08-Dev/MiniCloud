@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/service.go b/internal/coordinator/service.go
+index 249f6f0..3a3a4f7 100644
+--- a/internal/coordinator/service.go
++++ b/internal/coordinator/service.go
+@@ -55,7 +55,7 @@ type WorkAssignment struct {
+ 	// Policy names the policy that made the claim (ADR-0017 D13, Section 5.1). FallbackReason is
+ 	// set only on a round_robin_fallback claim: lapses or age.
+ 	Policy         string `json:"policy,omitempty"`
+-	FallbackReason string `json:"fallback_reason,omitempty"`
++	FallbackReason string `json:"fallback_reason"`
+ }
+ 
+ // Service orchestrates jobs, worker coordination, scheduling, and attempt lifecycle.

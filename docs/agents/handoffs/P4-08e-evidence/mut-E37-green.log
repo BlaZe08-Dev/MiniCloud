@@ -1,0 +1,275 @@
+$ go test -race -count=1 -v -timeout 300s -run '.' ./internal/worker/
+=== RUN   TestPollWork_OversizedResponseRejected
+=== RUN   TestPollWork_OversizedResponseRejected/AssignmentDecode
+=== RUN   TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode
+--- PASS: TestPollWork_OversizedResponseRejected (0.10s)
+    --- PASS: TestPollWork_OversizedResponseRejected/AssignmentDecode (0.05s)
+    --- PASS: TestPollWork_OversizedResponseRejected/ErrorEnvelopeDecode (0.05s)
+=== RUN   TestPollWork_MaxLegalAssignmentAccepted
+--- PASS: TestPollWork_MaxLegalAssignmentAccepted (0.02s)
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/RenewOnce
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/dotdot_slash
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/question_mark
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/hash_fragment
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/percent_encoded_slash
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment
+=== RUN   TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash
+--- PASS: TestWorker_URLPathEscaping_RenewAndReport (0.02s)
+    --- PASS: TestWorker_URLPathEscaping_RenewAndReport/RenewOnce (0.01s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/dotdot_slash (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/question_mark (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/hash_fragment (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/RenewOnce/percent_encoded_slash (0.00s)
+    --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult (0.01s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/dotdot_slash (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/question_mark (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/hash_fragment (0.00s)
+        --- PASS: TestWorker_URLPathEscaping_RenewAndReport/ReportResult/percent_encoded_slash (0.00s)
+=== RUN   TestPollWork_MaxLegalAssignmentEscapedAccepted
+--- PASS: TestPollWork_MaxLegalAssignmentEscapedAccepted (0.14s)
+=== RUN   TestPollWork_NullAssignmentRejected
+--- PASS: TestPollWork_NullAssignmentRejected (0.00s)
+=== RUN   TestWorker_ExecuteAndReport_ReportsFailureClassification
+=== RUN   TestWorker_ExecuteAndReport_ReportsFailureClassification/validation_failure_is_PERMANENT
+2026/11/02 03:12:12 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=echo timeout_seconds=3600
+2026/11/02 03:12:12 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+=== RUN   TestWorker_ExecuteAndReport_ReportsFailureClassification/task_deadline_is_TRANSIENT
+2026/11/02 03:12:12 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=1
+2026/11/02 03:12:13 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+=== RUN   TestWorker_ExecuteAndReport_ReportsFailureClassification/success_carries_no_classification
+2026/11/02 03:12:13 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:13 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=0
+--- PASS: TestWorker_ExecuteAndReport_ReportsFailureClassification (1.02s)
+    --- PASS: TestWorker_ExecuteAndReport_ReportsFailureClassification/validation_failure_is_PERMANENT (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_ReportsFailureClassification/task_deadline_is_TRANSIENT (1.01s)
+    --- PASS: TestWorker_ExecuteAndReport_ReportsFailureClassification/success_carries_no_classification (0.00s)
+=== RUN   TestWorker_CooperativeCancellation_ContextPreemption
+2026/11/02 03:12:13 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:13 INFO cancellation requested by coordinator; cancelling task job_id=job-1 attempt_id=att-1
+2026/11/02 03:12:13 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+--- PASS: TestWorker_CooperativeCancellation_ContextPreemption (0.01s)
+=== RUN   TestIsNonRetryableReportError
+--- PASS: TestIsNonRetryableReportError (0.00s)
+=== RUN   TestAgent_ReportResult_RejectionHandling
+=== RUN   TestAgent_ReportResult_RejectionHandling/200_OK_success
+=== RUN   TestAgent_ReportResult_RejectionHandling/403_Forbidden_worker_mismatch
+=== RUN   TestAgent_ReportResult_RejectionHandling/404_Not_Found_restarted_coordinator_without_durable_state
+=== RUN   TestAgent_ReportResult_RejectionHandling/409_Conflict_stale_attempt
+=== RUN   TestAgent_ReportResult_RejectionHandling/500_Internal_Server_Error_retryable
+--- PASS: TestAgent_ReportResult_RejectionHandling (0.01s)
+    --- PASS: TestAgent_ReportResult_RejectionHandling/200_OK_success (0.00s)
+    --- PASS: TestAgent_ReportResult_RejectionHandling/403_Forbidden_worker_mismatch (0.00s)
+    --- PASS: TestAgent_ReportResult_RejectionHandling/404_Not_Found_restarted_coordinator_without_durable_state (0.00s)
+    --- PASS: TestAgent_ReportResult_RejectionHandling/409_Conflict_stale_attempt (0.00s)
+    --- PASS: TestAgent_ReportResult_RejectionHandling/500_Internal_Server_Error_retryable (0.00s)
+=== RUN   TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating
+2026/11/02 03:12:13 INFO starting worker agent worker_id=test-worker coordinator_url=http://127.0.0.1:38097 slots=1
+2026/11/02 03:12:13 INFO worker successfully registered with coordinator worker_id=test-worker
+2026/11/02 03:12:13 INFO worker is marked unhealthy by coordinator; waiting for heartbeat to restore health worker_id=test-worker
+2026/11/02 03:12:13 INFO worker is marked unhealthy by coordinator; waiting for heartbeat to restore health worker_id=test-worker
+2026/11/02 03:12:13 INFO worker is marked unhealthy by coordinator; waiting for heartbeat to restore health worker_id=test-worker
+2026/11/02 03:12:13 INFO worker agent shutting down worker_id=test-worker
+--- PASS: TestAgent_Run_WorkerUnhealthy_KeepsPollingAndHeartbeating (0.61s)
+=== RUN   TestAgent_AutoReRegistration_On404HeartbeatAndPoll
+2026/11/02 03:12:13 INFO starting worker agent worker_id=rereg-worker coordinator_url=http://127.0.0.1:45333 slots=1
+2026/11/02 03:12:13 INFO worker successfully registered with coordinator worker_id=rereg-worker
+2026/11/02 03:12:13 WARN worker not found on coordinator during poll (404); re-registering worker_id=rereg-worker
+2026/11/02 03:12:13 INFO worker successfully registered with coordinator worker_id=rereg-worker
+2026/11/02 03:12:13 WARN worker not found on coordinator during heartbeat (404); re-registering worker_id=rereg-worker
+2026/11/02 03:12:13 INFO worker successfully registered with coordinator worker_id=rereg-worker
+2026/11/02 03:12:14 INFO worker agent shutting down worker_id=rereg-worker
+--- PASS: TestAgent_AutoReRegistration_On404HeartbeatAndPoll (0.41s)
+=== RUN   TestAgent_Run_DatabaseOutage_DistinguishedFromWorkerUnhealthy
+2026/11/02 03:12:14 INFO starting worker agent worker_id=outage-worker coordinator_url=http://127.0.0.1:45639 slots=1
+2026/11/02 03:12:14 INFO worker successfully registered with coordinator worker_id=outage-worker
+2026/11/02 03:12:14 WARN coordinator or database unavailable; backing off before next poll worker_id=outage-worker failures=1 backoff=140.331753ms
+2026/11/02 03:12:14 WARN coordinator or database unavailable; backing off before next poll worker_id=outage-worker failures=2 backoff=238.22276ms
+2026/11/02 03:12:14 INFO worker agent shutting down worker_id=outage-worker
+--- PASS: TestAgent_Run_DatabaseOutage_DistinguishedFromWorkerUnhealthy (0.39s)
+=== RUN   TestComputeBackoffWithJitter
+--- PASS: TestComputeBackoffWithJitter (0.00s)
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/11/02 03:12:14 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+=== RUN   TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=OUTPUT_TOO_LARGE
+2026/11/02 03:12:14 INFO result successfully committed job_id=job-1 attempt_id=att-1 exit_code=1
+--- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport (0.01s)
+    --- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/INVALID_REQUEST (0.01s)
+    --- PASS: TestWorker_ResultRejected400_SendsOneFallbackFailureReport/OUTPUT_TOO_LARGE (0.00s)
+=== RUN   TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator rejected the result as invalid; sending one fallback failure report job_id=job-1 attempt_id=att-1 status=400 code=INVALID_REQUEST
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+--- PASS: TestWorker_ResultRejected400_FallbackAlsoRejected_NoLoop (0.02s)
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/INVALID_STATE_TRANSITION_Bad_Request
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/_Bad_Request
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/STALE_ATTEMPT_REJECTED_Conflict
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/JOB_ALREADY_TERMINAL_Conflict
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/LEASE_EXPIRED_Conflict
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=409 err="non-retryable report rejection (HTTP 409)"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/WORKER_MISMATCH_Forbidden
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=403 err="non-retryable report rejection (HTTP 403)"
+=== RUN   TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/JOB_NOT_FOUND_Not_Found
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=404 err="non-retryable report rejection (HTTP 404)"
+--- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted (0.02s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/INVALID_STATE_TRANSITION_Bad_Request (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/_Bad_Request (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/STALE_ATTEMPT_REJECTED_Conflict (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/JOB_ALREADY_TERMINAL_Conflict (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/LEASE_EXPIRED_Conflict (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/WORKER_MISMATCH_Forbidden (0.00s)
+    --- PASS: TestWorker_ResultRejected_NoFallbackWhenResultNoLongerWanted/JOB_NOT_FOUND_Not_Found (0.00s)
+=== RUN   TestWorker_ResultRejected400_MalformedJSON_NoFallback
+2026/11/02 03:12:14 INFO executing job assignment job_id=job-1 attempt_id=att-1 task_type=block timeout_seconds=3600
+2026/11/02 03:12:14 WARN coordinator permanently rejected result (non-retryable) job_id=job-1 attempt_id=att-1 status=400 err="report failed with status 400"
+--- PASS: TestWorker_ResultRejected400_MalformedJSON_NoFallback (0.02s)
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/relation
+    poll_timing_test.go:62: slack for round trip and margin: 2s (floor 5s, max poll backoff 3s, required margin 1s)
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/backoff_never_exceeds_the_cap
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/config_enforces_the_floor
+=== RUN   TestPollTiming_AcceptWindowExceedsBackoff/service_enforces_the_floor
+--- PASS: TestPollTiming_AcceptWindowExceedsBackoff (0.03s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/relation (0.00s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/backoff_never_exceeds_the_cap (0.03s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/config_enforces_the_floor (0.00s)
+    --- PASS: TestPollTiming_AcceptWindowExceedsBackoff/service_enforces_the_floor (0.00s)
+=== RUN   TestPollTiming_RunSleepsWithinMaxBackoff
+--- PASS: TestPollTiming_RunSleepsWithinMaxBackoff (0.50s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:288: gap  1: 201.970696ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  2: 201.556523ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  3: 201.108393ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  4: 201.914871ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  5: 201.026817ms, bound [200ms, 350ms]
+    poll_timing_test.go:288: gap  6: 129.057669ms, bound [100ms, 350ms]
+    poll_timing_test.go:288: gap  7: 278.912857ms, bound [200ms, 550ms]
+    poll_timing_test.go:288: gap  8: 469.383142ms, bound [400ms, 950ms]
+    poll_timing_test.go:288: gap  9: 894.25873ms, bound [800ms, 1.75s]
+    poll_timing_test.go:288: gap 10: 201.71679ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.09s)
+=== RUN   TestAgent_PeriodicLeaseRenewal_Success
+--- PASS: TestAgent_PeriodicLeaseRenewal_Success (0.03s)
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/30_s_lease_renews_every_10_s
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/9_s_lease_renews_every_3_s
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/missing_duration_falls_back_to_10_s
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/tiny_lease_is_floored_at_1_s
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/3600_s_lease_is_clamped_to_the_10_s_ceiling
+=== RUN   TestWorker_Renewal_IntervalDerivedFromAssignment/31_s_lease_is_clamped_to_the_10_s_ceiling
+--- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment (0.03s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/30_s_lease_renews_every_10_s (0.00s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/9_s_lease_renews_every_3_s (0.00s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/missing_duration_falls_back_to_10_s (0.00s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/tiny_lease_is_floored_at_1_s (0.00s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/3600_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+    --- PASS: TestWorker_Renewal_IntervalDerivedFromAssignment/31_s_lease_is_clamped_to_the_10_s_ceiling (0.00s)
+=== RUN   TestAgent_LeaseRenewal_ReceivesCancelRequested
+--- PASS: TestAgent_LeaseRenewal_ReceivesCancelRequested (0.01s)
+=== RUN   TestAgent_LeaseRenewal_CancelRequested_StopsRenewingEvenIfTaskIgnoresCancel
+--- PASS: TestAgent_LeaseRenewal_CancelRequested_StopsRenewingEvenIfTaskIgnoresCancel (0.04s)
+=== RUN   TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s
+--- PASS: TestAgent_LeaseRenewal_LongAdvertisedLease_CancelStillReachesTaskWithin10s (0.00s)
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_JOB_ALREADY_TERMINAL
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_LEASE_EXPIRED
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_STALE_ATTEMPT_REJECTED
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/403_WORKER_MISMATCH
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_JOB_NOT_FOUND
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_ATTEMPT_NOT_FOUND
+=== RUN   TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_WORKER_NOT_FOUND
+--- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult (0.03s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_JOB_ALREADY_TERMINAL (0.01s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_LEASE_EXPIRED (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/409_STALE_ATTEMPT_REJECTED (0.01s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/403_WORKER_MISMATCH (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_JOB_NOT_FOUND (0.01s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_ATTEMPT_NOT_FOUND (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_LeaseLost_AbortsAndSuppressesResult/404_WORKER_NOT_FOUND (0.00s)
+=== RUN   TestWorker_Client_RenewOldCoordinatorGracefulDegradation
+=== RUN   TestWorker_Client_RenewOldCoordinatorGracefulDegradation/plain_text_404_from_a_coordinator_without_the_route
+=== RUN   TestWorker_Client_RenewOldCoordinatorGracefulDegradation/404_with_an_unrecognised_error_code
+=== RUN   TestWorker_Client_RenewOldCoordinatorGracefulDegradation/404_with_an_empty_body
+--- PASS: TestWorker_Client_RenewOldCoordinatorGracefulDegradation (0.14s)
+    --- PASS: TestWorker_Client_RenewOldCoordinatorGracefulDegradation/plain_text_404_from_a_coordinator_without_the_route (0.04s)
+    --- PASS: TestWorker_Client_RenewOldCoordinatorGracefulDegradation/404_with_an_unrecognised_error_code (0.04s)
+    --- PASS: TestWorker_Client_RenewOldCoordinatorGracefulDegradation/404_with_an_empty_body (0.05s)
+=== RUN   TestWorker_Client_Renew400KeepsRunning
+=== RUN   TestWorker_Client_Renew400KeepsRunning/INVALID_REQUEST
+=== RUN   TestWorker_Client_Renew400KeepsRunning/WORKER_TASK_UNSUPPORTED
+--- PASS: TestWorker_Client_Renew400KeepsRunning (0.10s)
+    --- PASS: TestWorker_Client_Renew400KeepsRunning/INVALID_REQUEST (0.05s)
+    --- PASS: TestWorker_Client_Renew400KeepsRunning/WORKER_TASK_UNSUPPORTED (0.05s)
+=== RUN   TestWorker_Renewal_TransientErrorsNeverAbortAndAreBackedOff
+--- PASS: TestWorker_Renewal_TransientErrorsNeverAbortAndAreBackedOff (0.03s)
+=== RUN   TestWorker_Client_ResultDeliveryLoop_BoundedRetry
+--- PASS: TestWorker_Client_ResultDeliveryLoop_BoundedRetry (0.08s)
+=== RUN   TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success
+--- PASS: TestWorker_ExecuteAndReport_RetryDuringCoordinatorDowntime_Success (0.05s)
+=== RUN   TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport
+--- PASS: TestWorker_ExecuteAndReport_OngoingRenewalWhileRetryingReport (0.06s)
+=== RUN   TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace
+--- PASS: TestWorker_ExecuteAndReport_BoundedTimeout_GivesUpAfterLeaseAndGrace (0.02s)
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/409_JOB_ALREADY_TERMINAL
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/409_LEASE_EXPIRED
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/403_WORKER_MISMATCH
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/404_JOB_NOT_FOUND
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/400_INVALID_STATE_TRANSITION
+=== RUN   TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/400_INVALID_REQUEST
+--- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately (0.02s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/409_JOB_ALREADY_TERMINAL (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/409_LEASE_EXPIRED (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/403_WORKER_MISMATCH (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/404_JOB_NOT_FOUND (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/400_INVALID_STATE_TRANSITION (0.00s)
+    --- PASS: TestWorker_ExecuteAndReport_TerminalRejection_HaltsImmediately/400_INVALID_REQUEST (0.00s)
+=== RUN   TestWorker_ExecuteAndReport_LeaseLostDuringDelivery_StopsRetrying
+--- PASS: TestWorker_ExecuteAndReport_LeaseLostDuringDelivery_StopsRetrying (0.02s)
+=== RUN   TestWorker_ExecuteAndReport_Shutdown_StopsRenewalAndReturns
+--- PASS: TestWorker_ExecuteAndReport_Shutdown_StopsRenewalAndReturns (0.00s)
+=== RUN   TestAgent_Run_ProductionPathStartsRenewals
+--- PASS: TestAgent_Run_ProductionPathStartsRenewals (2.51s)
+=== RUN   TestClampExecutionTimeout
+=== RUN   TestClampExecutionTimeout/zero_clamped_to_min
+=== RUN   TestClampExecutionTimeout/negative_clamped_to_min
+=== RUN   TestClampExecutionTimeout/minimum_valid_unchanged
+=== RUN   TestClampExecutionTimeout/maximum_valid_unchanged
+=== RUN   TestClampExecutionTimeout/above_maximum_clamped_to_max
+=== RUN   TestClampExecutionTimeout/max_int32_clamped_to_max
+=== RUN   TestClampExecutionTimeout/max_int64_clamped_to_max
+=== RUN   TestClampExecutionTimeout/multiplication_overflow_clamped_to_max
+--- PASS: TestClampExecutionTimeout (0.01s)
+    --- PASS: TestClampExecutionTimeout/zero_clamped_to_min (0.00s)
+    --- PASS: TestClampExecutionTimeout/negative_clamped_to_min (0.00s)
+    --- PASS: TestClampExecutionTimeout/minimum_valid_unchanged (0.00s)
+    --- PASS: TestClampExecutionTimeout/maximum_valid_unchanged (0.00s)
+    --- PASS: TestClampExecutionTimeout/above_maximum_clamped_to_max (0.00s)
+    --- PASS: TestClampExecutionTimeout/max_int32_clamped_to_max (0.00s)
+    --- PASS: TestClampExecutionTimeout/max_int64_clamped_to_max (0.00s)
+    --- PASS: TestClampExecutionTimeout/multiplication_overflow_clamped_to_max (0.00s)
+=== RUN   TestWorker_ExcessiveTimeoutClamped
+--- PASS: TestWorker_ExcessiveTimeoutClamped (0.22s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	10.874s
+exit=0

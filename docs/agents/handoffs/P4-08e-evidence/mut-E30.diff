@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index ca4a21d..3eeee14 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -191,7 +191,7 @@ func (a *Agent) Run(ctx context.Context) error {
+ 					a.pollSleep(IdlePollInterval)
+ 				} else if errors.Is(err, domain.ErrNoQueuedJobs) {
+ 					consecutiveFailures = 0
+-					a.pollSleep(IdlePollInterval)
++					a.pollSleep(2 * IdlePollInterval)
+ 				} else if errors.Is(err, ErrServiceUnavailable) {
+ 					consecutiveFailures++
+ 					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)

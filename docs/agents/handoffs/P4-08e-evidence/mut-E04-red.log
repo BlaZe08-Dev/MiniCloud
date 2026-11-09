@@ -1,0 +1,30 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestAPI_Poll_PolicyFieldOnWire$' ./internal/api/
+=== RUN   TestAPI_Poll_PolicyFieldOnWire
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/fifo_pull
+2026/11/01 12:47:42 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:42 INFO job submitted and queued job_id=job_1_1eb21c5ca988 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:42 INFO job dispatched to worker job_id=job_1_1eb21c5ca988 attempt_id=att_1_5fcce357390c attempt_no=1 worker_id=w_1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation
+2026/11/01 12:47:42 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:42 INFO job submitted and queued job_id=job_2_9796bce4a8f7 task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:42 INFO job dispatched to worker job_id=job_2_9796bce4a8f7 attempt_id=att_1_1638936686fb attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses
+2026/11/01 12:47:42 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:42 INFO job submitted and queued job_id=job_3_fc80ea67062b task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:42 INFO job dispatched to worker job_id=job_3_fc80ea67062b attempt_id=att_1_7d87451a546a attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+    assignment_wire_test.go:233: key "fallback_reason" missing
+=== RUN   TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age
+2026/11/01 12:47:42 INFO worker registered worker_id=w_1 version=v slots=1 supported_tasks=[echo]
+2026/11/01 12:47:42 INFO job submitted and queued job_id=job_4_a7517cbdeaec task_type=echo state=QUEUED max_attempts=3
+2026/11/01 12:47:42 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/01 12:47:42 INFO job dispatched to worker job_id=job_4_a7517cbdeaec attempt_id=att_1_d86a8efd0dbb attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=age
+    assignment_wire_test.go:233: key "fallback_reason" missing
+--- FAIL: TestAPI_Poll_PolicyFieldOnWire (0.03s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/fifo_pull (0.01s)
+    --- PASS: TestAPI_Poll_PolicyFieldOnWire/round_robin_own_reservation (0.01s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_lapses (0.00s)
+    --- FAIL: TestAPI_Poll_PolicyFieldOnWire/round_robin_fallback_age (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.046s
+FAIL
+exit=1

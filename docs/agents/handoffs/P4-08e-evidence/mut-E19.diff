@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..55a301d 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -199,7 +199,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 			}
+ 			holder := selected
+ 			assignedAt := now
+-			expires := now.Add(p.AcceptWindow)
++			expires := now.Add(2 * p.AcceptWindow)
+ 			j.AssignedWorkerID = &holder
+ 			j.AssignedAt = &assignedAt
+ 			j.AssignmentExpiresAt = &expires
