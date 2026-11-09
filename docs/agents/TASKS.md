@@ -22,6 +22,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| P4-14 | Fix backoff overflow (finding F-5c2-1) | Gemini | Claude Code | agent/gemini/P4-14 | active |
 | P4-12 | Friendlier make test-security guard | Gemini | Claude Code | agent/gemini/P4-12 | active |
 | P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | merged in PR #37 |
 | P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | merged in PR #36 |
@@ -33,6 +34,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08e | ADR-0017 slice 5c, part 2: API fields (poll `policy` and `fallback_reason`, job view assignment fields) and worker timing (INV-17); fault and abuse suites move to P4-08f | Claude Code | to be assigned | agent/claude/P4-08e | fix round 1 pushed for re-audit |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-14 — Fix backoff overflow (finding F-5c2-1)
+- Goal: Fix integer shift overflow in `ComputeBackoffWithJitter` (`internal/worker/client.go`) for failure counts >= 64; ensure positive, bounded backoff for all failure counts (0..MaxInt) with unchanged growth; add table and property tests in `internal/worker/client_test.go`.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-14`. Status: active.
+- Owned files: `internal/worker/client.go`, `internal/worker/client_test.go`, `docs/agents/handoffs/P4-14.md`, `docs/agents/handoffs/P4-14-evidence/**`, `reports/gemini/P4-14.md`, `docs/agents/TASKS.md`.
+- Out of scope: coordinator API changes, database schema or migrations, allowlist modifications, PROJECT_STATE.md.
 
 ### P4-12 — Friendlier make test-security guard (refuse shared database early)
 - Goal: Add an early refusal guard (`tests/require-own-db.sh`) to `make test-security` when `MINICLOUD_TEST_DATABASE_URL` is unset or points to the shared database `minicloud_test`, printing a clear 5-line message explaining the own-database requirement and how to override with `ALLOW_SHARED_DB=1`.

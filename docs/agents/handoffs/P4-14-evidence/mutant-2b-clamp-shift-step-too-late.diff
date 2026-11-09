@@ -1,0 +1,19 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index b8ddf90..d22d94d 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -65,11 +65,10 @@ func ComputeBackoffWithJitter(failureCount int, base, max time.Duration) time.Du
+ 	if failureCount <= 0 {
+ 		return base
+ 	}
+-	shift := failureCount - 1
+-	if shift > 4 {
+-		shift = 4
++	if failureCount > 6 {
++		failureCount = 6
+ 	}
+-	multiplier := 1 << shift
++	multiplier := 1 << (failureCount - 1)
+ 	dur := base * time.Duration(multiplier)
+ 	if dur > max {
+ 		dur = max
