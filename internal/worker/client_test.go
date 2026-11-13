@@ -380,8 +380,8 @@ func TestComputeBackoffWithJitter_CallerSettings(t *testing.T) {
 	// For each caller's settings, backoff must be > 0 and within its maximum for counts 60..70.
 
 	t.Run("work_poll_loop_service_unavailable", func(t *testing.T) {
-		baseBackoff := 200 * time.Millisecond
-		maxBackoff := 3 * time.Second
+		baseBackoff := worker.IdlePollInterval
+		maxBackoff := worker.MaxPollBackoff
 		for count := 60; count <= 70; count++ {
 			backoff := worker.ComputeBackoffWithJitter(count, baseBackoff, maxBackoff)
 			if backoff <= 0 {
@@ -394,8 +394,25 @@ func TestComputeBackoffWithJitter_CallerSettings(t *testing.T) {
 	})
 
 	t.Run("work_poll_loop_generic_error", func(t *testing.T) {
-		baseBackoff := 200 * time.Millisecond
-		maxBackoff := 3 * time.Second
+		baseBackoff := worker.IdlePollInterval
+		maxBackoff := worker.MaxPollBackoff
+		for count := 60; count <= 70; count++ {
+			backoff := worker.ComputeBackoffWithJitter(count, baseBackoff, maxBackoff)
+			if backoff <= 0 {
+				t.Fatalf("count %d: expected backoff > 0, got %v", count, backoff)
+			}
+			if backoff > maxBackoff {
+				t.Fatalf("count %d: backoff %v exceeded maxBackoff %v", count, backoff, maxBackoff)
+			}
+		}
+	})
+
+	t.Run("result_delivery_loop", func(t *testing.T) {
+		baseBackoff := worker.DeliveryBackoffBaseForTest
+		maxBackoff := worker.DeliveryBackoffMaxForTest
+		if baseBackoff != 200*time.Millisecond || maxBackoff != 5*time.Second {
+			t.Fatalf("delivery backoff settings changed to %v/%v; review this row", baseBackoff, maxBackoff)
+		}
 		for count := 60; count <= 70; count++ {
 			backoff := worker.ComputeBackoffWithJitter(count, baseBackoff, maxBackoff)
 			if backoff <= 0 {

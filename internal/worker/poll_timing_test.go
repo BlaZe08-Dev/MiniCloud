@@ -193,6 +193,9 @@ func TestPollTiming_RunSleepsWithinMaxBackoff(t *testing.T) {
 	}
 	var longestOutage, longestOther time.Duration
 	for i, d := range sleeps {
+		if d <= 0 {
+			t.Fatalf("poll sleep %d is %v, want a positive sleep", i, d)
+		}
 		if d > worker.MaxPollBackoff {
 			t.Fatalf("poll sleep %d is %v, above the maximum poll backoff %v", i, d, worker.MaxPollBackoff)
 		}
