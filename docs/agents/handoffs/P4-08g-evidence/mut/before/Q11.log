@@ -1,0 +1,2 @@
+# go test ./internal/storage/postgres/ (P4-08f suite at origin/main, mutant Q11)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	111.725s

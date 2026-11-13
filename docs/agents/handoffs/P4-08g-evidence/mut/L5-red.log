@@ -1,0 +1,13 @@
+# go test -run TestAbuse_Poll_Flood ./tests/abuse/
+2026/11/14 05:00:54 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 05:00:54 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 05:00:54 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 05:00:54 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 05:00:54 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 05:00:54 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+--- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (3.92s)
+    --- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (3.77s)
+        assignment_test.go:181: postgres worker w1: 1 writes over 3.474540652s, want at least 2: the throttle suppresses more than the one-second window
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	3.923s
+FAIL

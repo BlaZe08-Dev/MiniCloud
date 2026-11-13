@@ -1,0 +1,10 @@
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.60s)
+        assignment_test.go:617: only 16 polls completed during the round: polls are starved between passes
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.72s)
+        assignment_test.go:617: only 11 polls completed during the round: polls are starved between passes
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.70s)
+        assignment_test.go:617: only 14 polls completed during the round: polls are starved between passes
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.80s)
+        assignment_test.go:617: only 12 polls completed during the round: polls are starved between passes
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.63s)
+        assignment_test.go:617: only 13 polls completed during the round: polls are starved between passes

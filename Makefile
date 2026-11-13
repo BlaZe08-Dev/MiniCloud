@@ -12,11 +12,15 @@ build:
 	go build -o $(BIN_DIR)/migrate ./cmd/migrate
 	@echo "Build complete. Executables located in $(BIN_DIR)/"
 
+# -p 1: ./... runs the PostgreSQL, faultinject and abuse packages as parallel test processes. When
+# MINICLOUD_TEST_DATABASE_URL is set they share one test database, and the assignment pass lock is
+# one advisory key per database (ADR-0017 note 15), so their passes make each other skip and the
+# assignment tests fail (P4-08f audit M4). One package at a time avoids that. The cost is wall time.
 test:
-	go test -v ./...
+	go test -v -p 1 ./...
 
 test-race:
-	go test -v -race ./...
+	go test -v -race -p 1 ./...
 
 test-docs:
 	go test ./tests/docs

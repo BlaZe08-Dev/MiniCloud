@@ -171,6 +171,17 @@ func TestAbuse_Poll_Flood_ThrottlesFreshnessWrites(t *testing.T) {
 		if r.Clock != nil && writes["w1"] < 25 {
 			t.Fatalf("memory: %d writes over %v: the throttle suppresses more than the one-second window", writes["w1"], span)
 		}
+		// PostgreSQL runs on real time: a write every 1 s of polling gives about span/1 s writes; one
+		// per 1.25 s is the floor that tolerates slow polls and still fails an over-throttle of 2 s or
+		// more (P4-08g L5; the measured value on this machine is 4 writes over 3.5 s).
+		if r.Clock == nil {
+			floor := int(span / (1250 * time.Millisecond))
+			for _, w := range workers {
+				if writes[w] < floor {
+					t.Fatalf("postgres worker %s: %d writes over %v, want at least %d: the throttle suppresses more than the one-second window", w, writes[w], span, floor)
+				}
+			}
+		}
 		t.Logf("%s: %d polls per worker over %v wrote last_poll_at %v times", kind, polls, span, writes)
 	})
 }
