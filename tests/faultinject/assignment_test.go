@@ -243,9 +243,11 @@ func TestFault_CoordinatorCrash_BetweenAssignAndPoll(t *testing.T) {
 	})
 }
 
-// passUntilReserved runs a pass and returns the job's holder. A pass can be skipped when another
-// pass holds the database-wide pass lock (ADR-0017 note 15), which is not "nothing to reserve", so
-// it is retried a bounded number of times; when the bound is hit the failure says so.
+// passUntilReserved runs a pass and returns the job's holder. A pass is skipped when another pass
+// holds the database-wide pass lock (ADR-0017 note 15); that is not "nothing to reserve", so only a
+// skipped round is retried, a bounded number of times. A round whose passes ran (or failed) and left
+// the job unreserved fails at once: retrying it would hide a pass that reserves intermittently
+// (P4-08g L2).
 func passUntilReserved(t *testing.T, r *sectest.RRRig, job string) string {
 	t.Helper()
 	const attempts = 5
@@ -254,9 +256,12 @@ func passUntilReserved(t *testing.T, r *sectest.RRRig, job string) string {
 		if h := r.Holder(job); h != "" {
 			return h
 		}
+		if !r.LastRoundSkipped() {
+			t.Fatalf("job %s unreserved after a pass that ran (not skipped for the pass lock): the pass reserves nothing", job)
+		}
 		time.Sleep(100 * time.Millisecond) // bounded: at most attempts passes
 	}
-	t.Fatalf("job %s still unreserved after %d passes (skipped passes are retried; a pass that never reserves is a failure)", job, attempts)
+	t.Fatalf("job %s still unreserved after %d passes, every one skipped for the pass lock", job, attempts)
 	return ""
 }
 
@@ -571,21 +576,25 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 		}
 
 		var done atomic.Bool
-		var during atomic.Int64
+		var pollMu sync.Mutex
+		var completed []time.Time // wall-clock completion of each poll that got its answer
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for !done.Load() {
 				// An unknown worker: answered by the service under s.mu, never reserved or claiming.
-				if resp := r.PollResp("ghost"); resp.Status == http.StatusNotFound && !done.Load() {
-					during.Add(1)
+				if resp := r.PollResp("ghost"); resp.Status == http.StatusNotFound {
+					pollMu.Lock()
+					completed = append(completed, time.Now())
+					pollMu.Unlock()
 				}
 			}
 		}()
 		time.Sleep(20 * time.Millisecond) // let the poller start before the round
 		// A round that never stops (a repeat without progress) is cut after 5 s and fails below.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		logBefore := len(r.Fault.PassLog())
 		roundStart := time.Now()
 		passes := r.Loop.Round(ctx)
 		elapsed := time.Since(roundStart)
@@ -612,9 +621,30 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 		if elapsed < 2*s.MinYield {
 			t.Fatalf("round took %v, less than two yields of %v", elapsed, s.MinYield)
 		}
-		// Two yields of 200 ms with the mutex released: a poll loop completes many calls in them.
-		if during.Load() < 20 {
-			t.Fatalf("only %d polls completed during the round: polls are starved between passes", during.Load())
+		// INV-20: count only the polls that complete inside a yield, after a pass returned and
+		// before the next one entered (wall-clock times from the repository wrapper). A poll loop
+		// completes many calls in 200 ms with the mutex released; with the mutex held through the
+		// yield it completes none (P4-08g M2, kills the ADR's mutant).
+		log := r.Fault.PassLog()[logBefore:]
+		if len(log) != 3 {
+			t.Fatalf("the round logged %d passes, want 3", len(log))
+		}
+		pollMu.Lock()
+		defer pollMu.Unlock()
+		for g := 0; g < 2; g++ {
+			from, to := log[g].End, log[g+1].Start
+			if to.Sub(from) < s.MinYield {
+				t.Fatalf("gap %d between passes is %v, less than the yield %v", g+1, to.Sub(from), s.MinYield)
+			}
+			n := 0
+			for _, c := range completed {
+				if c.After(from) && c.Before(to) {
+					n++
+				}
+			}
+			if n < 20 {
+				t.Fatalf("only %d polls completed in yield %d (%v): polls are starved between passes", n, g+1, to.Sub(from))
+			}
 		}
 	})
 }

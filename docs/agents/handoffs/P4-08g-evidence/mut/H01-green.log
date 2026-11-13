@@ -1,0 +1,2 @@
+# go test -run TestFault_CancelRacesAccept ./tests/faultinject/
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	1.278s

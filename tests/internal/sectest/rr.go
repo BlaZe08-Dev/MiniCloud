@@ -36,6 +36,24 @@ type FaultRepo struct {
 	failAll    bool
 	passes     int
 	polls      int
+	passLog    []PassRecord
+}
+
+// PassRecord is one AssignQueuedJobs call as the repository saw it, in wall-clock time (never the
+// rig's mock clock): when it entered and returned, whether it was skipped for the pass lock, the
+// error it returned (an injected failure included), and what it reserved.
+type PassRecord struct {
+	Start, End time.Time
+	Skipped    bool
+	Err        error
+	Reserved   int
+}
+
+// PassLog returns a copy of every pass recorded so far, failed and skipped ones included.
+func (f *FaultRepo) PassLog() []PassRecord {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]PassRecord(nil), f.passLog...)
 }
 
 // NewFaultRepo wraps inner, which must implement the assignment interfaces.
@@ -91,14 +109,25 @@ func (f *FaultRepo) RecordPoll(ctx context.Context, workerID string) error {
 }
 
 func (f *FaultRepo) AssignQueuedJobs(ctx context.Context, p storage.AssignParams) (storage.AssignResult, error) {
+	rec := PassRecord{Start: time.Now()}
 	f.mu.Lock()
 	f.passes++
 	fail := f.failAll || f.failPasses
 	f.mu.Unlock()
+	var (
+		res storage.AssignResult
+		err error
+	)
 	if fail {
-		return storage.AssignResult{}, ErrInjected
+		err = ErrInjected
+	} else {
+		res, err = f.ar.AssignQueuedJobs(ctx, p)
 	}
-	return f.ar.AssignQueuedJobs(ctx, p)
+	rec.End, rec.Skipped, rec.Err, rec.Reserved = time.Now(), res.Skipped, err, res.Reserved
+	f.mu.Lock()
+	f.passLog = append(f.passLog, rec)
+	f.mu.Unlock()
+	return res, err
 }
 
 func (f *FaultRepo) ClaimForPoll(ctx context.Context, workerID string, o storage.ClaimOptions) (*storage.AssignedClaim, error) {
@@ -135,6 +164,8 @@ type RRRig struct {
 	Fault *FaultRepo
 	Loop  *coordinator.AssignmentLoop
 	opts  RROptions
+
+	lastRound []PassRecord
 }
 
 // NewRRRig builds a round_robin rig and runs one successful sweeper tick, which ends the startup
@@ -168,7 +199,19 @@ func (r *RRRig) configure() {
 }
 
 // Pass runs one assignment round (a pass and its repeats) and returns the number of passes.
-func (r *RRRig) Pass() int { return r.Loop.Round(context.Background()) }
+func (r *RRRig) Pass() int {
+	before := len(r.Fault.PassLog())
+	n := r.Loop.Round(context.Background())
+	r.lastRound = r.Fault.PassLog()[before:]
+	return n
+}
+
+// LastRoundSkipped reports why the last Pass reserved nothing, if it did: true when its final pass
+// was skipped because another pass held the pass lock (the only reason a caller may retry), false
+// when every pass ran or failed.
+func (r *RRRig) LastRoundSkipped() bool {
+	return len(r.lastRound) > 0 && r.lastRound[len(r.lastRound)-1].Skipped
+}
 
 // Settings returns the assignment settings in force.
 func (r *RRRig) Settings() coordinator.AssignmentSettings { return r.Svc.AssignmentSettings() }

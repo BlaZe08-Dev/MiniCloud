@@ -1,0 +1,20 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..051a03b 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -113,6 +113,9 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 		return AssignResult{Skipped: true}, nil
+ 	}
+ 	defer r.passMu.Unlock()
++	if passHiccup++; passHiccup%2 == 0 {
++		return AssignResult{}, nil // mutant: every second pass silently reserves nothing
++	}
+ 
+ 	r.mu.Lock()
+ 	defer r.mu.Unlock()
+@@ -361,3 +364,5 @@ func (r *InMemoryRepository) AssignmentPassState(ctx context.Context) (time.Time
+ }
+ 
+ var _ AssignmentRepository = (*InMemoryRepository)(nil)
++
++var passHiccup int

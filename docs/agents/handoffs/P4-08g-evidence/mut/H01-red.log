@@ -1,0 +1,86 @@
+# go test -run TestFault_CancelRacesAccept ./tests/faultinject/
+2026/11/14 04:58:47 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO job submitted and queued job_id=job_1_371b4bd9ccc3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:47 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:47 INFO job submitted and queued job_id=job_2_f0a8f8b9ac2b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:47 INFO job cancellation requested job_id=job_2_f0a8f8b9ac2b state=CANCELLED
+2026/11/14 04:58:47 INFO job submitted and queued job_id=job_3_f13d5d2deb2b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:47 INFO job dispatched to worker job_id=job_3_f13d5d2deb2b attempt_id=att_job_3_f13d5d2deb2b_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:47 INFO job cancellation requested job_id=job_3_f13d5d2deb2b state=CANCEL_REQUESTED
+2026/11/14 04:58:47 INFO job result committed job_id=job_3_f13d5d2deb2b attempt_id=att_job_3_f13d5d2deb2b_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:47 INFO job submitted and queued job_id=job_4_8815a2462fcb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:47 INFO job cancellation requested job_id=job_4_8815a2462fcb state=CANCELLED
+2026/11/14 04:58:47 INFO job submitted and queued job_id=job_5_4e3925d735ce task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:47 INFO job cancellation requested job_id=job_5_4e3925d735ce state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_6_02d09690f6ae task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_6_02d09690f6ae attempt_id=att_job_6_02d09690f6ae_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_6_02d09690f6ae state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_6_02d09690f6ae attempt_id=att_job_6_02d09690f6ae_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_7_03a2e8110278 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_7_03a2e8110278 attempt_id=att_job_7_03a2e8110278_1 attempt_no=1 worker_id=w3 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_7_03a2e8110278 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_7_03a2e8110278 attempt_id=att_job_7_03a2e8110278_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_8_9cc995281d09 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_8_9cc995281d09 state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_9_813bba945316 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_9_813bba945316 attempt_id=att_job_9_813bba945316_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_9_813bba945316 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_9_813bba945316 attempt_id=att_job_9_813bba945316_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_10_57325afdafe8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_10_57325afdafe8 attempt_id=att_job_10_57325afdafe8_1 attempt_no=1 worker_id=w3 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_10_57325afdafe8 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_10_57325afdafe8 attempt_id=att_job_10_57325afdafe8_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_11_f61cc58e0521 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_11_f61cc58e0521 state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_12_62aae4ff1749 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_12_62aae4ff1749 attempt_id=att_job_12_62aae4ff1749_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_12_62aae4ff1749 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_12_62aae4ff1749 attempt_id=att_job_12_62aae4ff1749_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_13_487c7a5b7c50 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_13_487c7a5b7c50 state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_14_83779e71a185 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_14_83779e71a185 attempt_id=att_job_14_83779e71a185_1 attempt_no=1 worker_id=w1 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_14_83779e71a185 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_14_83779e71a185 attempt_id=att_job_14_83779e71a185_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_15_821e79382b7b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_15_821e79382b7b attempt_id=att_job_15_821e79382b7b_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_15_821e79382b7b state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_15_821e79382b7b attempt_id=att_job_15_821e79382b7b_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_16_234c27d95253 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_16_234c27d95253 state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_17_1e8aa442b316 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_17_1e8aa442b316 attempt_id=att_job_17_1e8aa442b316_1 attempt_no=1 worker_id=w1 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_17_1e8aa442b316 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_17_1e8aa442b316 attempt_id=att_job_17_1e8aa442b316_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_18_d08f1069b422 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_18_d08f1069b422 attempt_id=att_job_18_d08f1069b422_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_18_d08f1069b422 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_18_d08f1069b422 attempt_id=att_job_18_d08f1069b422_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_19_624a2a6d9ec4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_19_624a2a6d9ec4 state=CANCELLED
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_20_a37345c9328f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_20_a37345c9328f attempt_id=att_job_20_a37345c9328f_1 attempt_no=1 worker_id=w1 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_20_a37345c9328f state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_20_a37345c9328f attempt_id=att_job_20_a37345c9328f_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_21_ad9cac17b991 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_21_ad9cac17b991 attempt_id=att_job_21_ad9cac17b991_1 attempt_no=1 worker_id=w2 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_21_ad9cac17b991 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_21_ad9cac17b991 attempt_id=att_job_21_ad9cac17b991_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_22_b4014ca95c8f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_22_b4014ca95c8f attempt_id=att_job_22_b4014ca95c8f_1 attempt_no=1 worker_id=w3 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_22_b4014ca95c8f state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_22_b4014ca95c8f attempt_id=att_job_22_b4014ca95c8f_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:58:48 INFO job submitted and queued job_id=job_23_711adca23495 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:48 INFO job dispatched to worker job_id=job_23_711adca23495 attempt_id=att_job_23_711adca23495_1 attempt_no=1 worker_id=w1 policy=round_robin fallback_reason=""
+2026/11/14 04:58:48 INFO job cancellation requested job_id=job_23_711adca23495 state=CANCEL_REQUESTED
+2026/11/14 04:58:48 INFO job result committed job_id=job_23_711adca23495 attempt_id=att_job_23_711adca23495_1 final_state=SUCCEEDED exit_code=0 error_class=""
+--- FAIL: TestFault_CancelRacesAccept (1.23s)
+    --- FAIL: TestFault_CancelRacesAccept/memory (0.00s)
+        assignment_test.go:278: job job_1_371b4bd9ccc3 unreserved after a pass that ran (not skipped for the pass lock): the pass reserves nothing
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	1.240s
+FAIL
