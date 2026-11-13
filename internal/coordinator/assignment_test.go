@@ -27,6 +27,9 @@ type passFaultRepo struct {
 	mu      sync.Mutex
 	failing bool
 	passes  int
+	// afterPass, when set, runs after every pass that ran to completion on the inner repository
+	// (not failed, not skipped), outside p.mu. The property test snapshots the reservations there.
+	afterPass func()
 }
 
 func (p *passFaultRepo) setFailing(v bool) {
@@ -49,7 +52,11 @@ func (p *passFaultRepo) AssignQueuedJobs(ctx context.Context, params storage.Ass
 	if fail {
 		return storage.AssignResult{}, errPassFault
 	}
-	return p.InMemoryRepository.AssignQueuedJobs(ctx, params)
+	res, err := p.InMemoryRepository.AssignQueuedJobs(ctx, params)
+	if err == nil && !res.Skipped && p.afterPass != nil {
+		p.afterPass()
+	}
+	return res, err
 }
 
 const (
@@ -361,7 +368,8 @@ func TestConformance_PollResponse_PolicyField(t *testing.T) {
 // every step the in-memory state must satisfy:
 //   - INV-1: at most one RUNNING attempt per job;
 //   - INV-3: a poll never claims a job that is live-reserved to another worker, and a round_robin
-//     claim that no pass made inside the poll was the claimant's own live reservation;
+//     claim was the claimant's own live reservation. When the poll ran the refresh pass, the
+//     reservations are those read right after that pass, before the claim (P4-08g H2);
 //   - INV-6: right after a successful pass, no reservation is held at or past its expiry;
 //   - INV-8: a cancelled job is never claimed and holds no reservation;
 //   - INV-10: no worker holds two live reservations, or one while it runs an attempt.
@@ -380,14 +388,16 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 		first, last = n, n
 	}
 	reservations, rrClaims, drained := 0, 0, 0
+	claims, checkedAfterPass := 0, 0
 	var current int64
 	defer func() {
 		if t.Failed() {
 			t.Logf("property test failed at seed %d: rerun with MINICLOUD_PROPERTY_SEED=%d", current, current)
 			return
 		}
-		if first == 1 && (reservations == 0 || rrClaims == 0 || drained == 0) {
-			t.Errorf("model exercised no reservations (%d), round-robin claims (%d) or stalled drains (%d); the property is vacuous", reservations, rrClaims, drained)
+		t.Logf("claims %d, of which INV-3 checked against the post-refresh reservations %d (all %d are checked)", claims, checkedAfterPass, claims)
+		if first == 1 && (reservations == 0 || rrClaims == 0 || drained == 0 || checkedAfterPass == 0) {
+			t.Errorf("model exercised no reservations (%d), round-robin claims (%d), stalled drains (%d) or claims after a refresh (%d); the property is vacuous", reservations, rrClaims, drained, checkedAfterPass)
 		}
 	}()
 	for seed := first; seed <= last; seed++ {
@@ -397,11 +407,13 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 		repo := newPassFaultRepo(clk)
 		svc := newRRService(t, repo, clk)
 		ctx := context.Background()
+		var jobs []string
+		var postPass map[string]reservation // reservations right after the last completed pass
+		repo.afterPass = func() { postPass = reservationsOf(t, repo, jobs) }
 		workers := []string{"w_a", "w_b", "w_c"}
 		for _, w := range workers {
 			rrHeartbeat(t, svc, w, "echo")
 		}
-		var jobs []string
 		cancelled := map[string]bool{}
 		running := map[string]string{} // job -> lease token, for finishing
 
@@ -412,21 +424,27 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 				jobs = append(jobs, rrSubmit(t, svc, "echo").ID)
 			case 1, 2:
 				before := reservationsOf(t, repo, jobs)
-				passesBefore := repo.passCount()
+				postPass = nil
 				pollAt := clk.Now()
 				got, err := svc.PollWork(ctx, w)
 				if err == nil {
 					if cancelled[got.JobID] {
 						t.Fatalf("seed %d step %d: INV-8: cancelled job %s was claimed", seed, step, got.JobID)
 					}
-					passRan := repo.passCount() != passesBefore
-					if r, ok := before[got.JobID]; ok && r.holder != w && r.expires.After(pollAt) && !passRan {
+					// What the claim saw: the state right after the poll's own pass, if it ran one.
+					seen := before
+					if postPass != nil {
+						seen = postPass
+						checkedAfterPass++
+					}
+					claims++
+					if r, ok := seen[got.JobID]; ok && r.holder != w && r.expires.After(pollAt) {
 						t.Fatalf("seed %d step %d: INV-3: %s claimed %s, live-reserved to %s until %v", seed, step, w, got.JobID, r.holder, r.expires)
 					}
 					if got.Policy == domain.DispatchPolicyRoundRobin {
 						rrClaims++
-						r, ok := before[got.JobID]
-						if !passRan && (!ok || r.holder != w || !r.expires.After(pollAt)) {
+						r, ok := seen[got.JobID]
+						if !ok || r.holder != w || !r.expires.After(pollAt) {
 							t.Fatalf("seed %d step %d: INV-3: round_robin claim of %s by %s without its live reservation (%+v)", seed, step, got.JobID, w, r)
 						}
 						att, _ := repo.GetAttempt(ctx, got.AttemptID)

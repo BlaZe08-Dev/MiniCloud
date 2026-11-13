@@ -1,0 +1,2 @@
+# go test -run TestProperty_AssignmentSubState ./internal/coordinator/
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.136s
