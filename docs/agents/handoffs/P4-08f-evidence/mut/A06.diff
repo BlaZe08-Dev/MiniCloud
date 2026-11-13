@@ -1,0 +1,15 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..4456be0 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -71,9 +71,7 @@ func (r *InMemoryRepository) eligibleWorkersLocked(taskType string, now time.Tim
+ 		if r.computeAvailableSlotsLocked(id, w.TotalSlots) <= 0 {
+ 			continue
+ 		}
+-		if r.liveReservationLocked(id, now) {
+-			continue
+-		}
++		_ = now
+ 		ids = append(ids, id)
+ 	}
+ 	sort.Strings(ids)

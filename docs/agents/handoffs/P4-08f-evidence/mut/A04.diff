@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..edb8f8b 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -58,7 +58,7 @@ const touchPollSQL = `
+ 	SET last_poll_at = clock_timestamp()
+ 	WHERE id = $1
+ 	  AND status = 'HEALTHY'
+-	  AND (last_poll_at IS NULL OR last_poll_at < clock_timestamp() - make_interval(secs => $2::double precision));`
++	  AND (last_poll_at IS NULL OR last_poll_at < clock_timestamp() + make_interval(secs => $2::double precision));`
+ 
+ // RecordPoll writes the poll freshness of a HEALTHY worker in its own statement, which holds no
+ // other lock (ADR-0017 Sections 2.2 and 4.3). An unknown worker is ErrWorkerNotFound and an

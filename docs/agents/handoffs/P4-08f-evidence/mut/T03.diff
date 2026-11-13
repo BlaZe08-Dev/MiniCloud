@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 6afebf0..bf070a6 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -54,7 +54,7 @@ const (
+ 
+ 	renewBackoffBase    = time.Second
+ 	deliveryBackoffBase = 200 * time.Millisecond
+-	deliveryBackoffMax  = 5 * time.Second
++	deliveryBackoffMax  = 6 * time.Second
+ 
+ 	// IdlePollInterval is the work loop's sleep after an empty poll, after a WORKER_UNHEALTHY poll
+ 	// and after a nil assignment; it is also the base of the poll error backoff (ADR-0017

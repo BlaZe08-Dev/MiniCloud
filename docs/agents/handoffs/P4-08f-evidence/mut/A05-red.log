@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_ConstantPoller_NoLargerShare$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_ConstantPoller_NoLargerShare (0.11s)
+    --- FAIL: TestAbuse_ConstantPoller_NoLargerShare/memory (0.11s)
+        assignment_test.go:210: shares map[w1:9], want 3 each: constant polling must not win extra decisions
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.115s
+FAIL

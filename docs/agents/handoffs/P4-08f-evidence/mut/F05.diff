@@ -1,0 +1,12 @@
+diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+index cbc6fe2..c8d4c24 100644
+--- a/internal/storage/inmemory.go
++++ b/internal/storage/inmemory.go
+@@ -1077,7 +1077,6 @@ func (r *InMemoryRepository) sweepAttemptLocked(job *domain.Job, att *domain.Att
+ 		notBefore := now.Add(delay)
+ 		job.UpdatedAt = now
+ 		job.NotBefore = &notBefore
+-		markLost()
+ 		leaseExpiredEvent()
+ 		jobEvent(domain.JobEventRetrying, from, domain.StateRetrying, map[string]any{
+ 			"attempt_no":      att.AttemptNo,

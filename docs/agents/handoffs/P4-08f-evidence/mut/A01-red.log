@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_Poll_ForeignAssignment_Returns204$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_Poll_ForeignAssignment_Returns204 (0.01s)
+    --- FAIL: TestAbuse_Poll_ForeignAssignment_Returns204/memory (0.01s)
+        assignment_test.go:54: poll 0 by foreign worker w2 = 200 {"assignment":{"job_id":"job_1_0e3233a49e50","attempt_id":"att_1_c6c2a182f200","attempt_no":1,"lease_token":"A2ZcmiqfgHmTmozbQUYdNEHtViQvCZTv3m5oBF0UKXY","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-10-29T09:00:30Z","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.012s
+FAIL

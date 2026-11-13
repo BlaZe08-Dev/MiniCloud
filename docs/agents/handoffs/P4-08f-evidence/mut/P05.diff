@@ -1,0 +1,12 @@
+diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+index cbc6fe2..8bb57f0 100644
+--- a/internal/storage/inmemory.go
++++ b/internal/storage/inmemory.go
+@@ -858,7 +858,6 @@ func (r *InMemoryRepository) CancelJob(ctx context.Context, jobID string) (*doma
+ 		job.CancelRequestedAt = &now
+ 	} else {
+ 		job.NotBefore = nil
+-		job.ClearAssignment()
+ 	}
+ 
+ 	r.recordEventLocked(&domain.JobEvent{

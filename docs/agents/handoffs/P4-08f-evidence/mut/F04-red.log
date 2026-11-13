@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_AssignedWorkerDiesBeforePoll$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_AssignedWorkerDiesBeforePoll (0.01s)
+    --- FAIL: TestFault_AssignedWorkerDiesBeforePoll/memory (0.01s)
+        assignment_test.go:131: lapses 1, lapse events []: an UNHEALTHY revoke must count no lapse
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.015s
+FAIL

@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_Poll_Flood_ThrottlesFreshnessWrites$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (0.19s)
+    --- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/memory (0.19s)
+        assignment_test.go:168: worker w1: 300 freshness writes for 300 polls over 30s, want between 1 and 31 (one per second)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.194s
+FAIL

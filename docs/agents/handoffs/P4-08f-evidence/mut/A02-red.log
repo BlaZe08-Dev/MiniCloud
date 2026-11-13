@@ -1,0 +1,8 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_Poll_UnhealthyWorker_Still503$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503 (0.01s)
+    --- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503/memory (0.01s)
+        --- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503/memory/round_robin (0.01s)
+            assignment_test.go:108: an UNHEALTHY worker's poll wrote last_poll_at: 0 -> 1793264404000000
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.024s
+FAIL

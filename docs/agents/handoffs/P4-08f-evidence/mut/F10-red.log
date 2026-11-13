@@ -1,0 +1,10 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(RestartThenPoll_NoAgeClaim|OutageRecovery_NoAgeClaim)$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_RestartThenPoll_NoAgeClaim (0.00s)
+    --- FAIL: TestFault_RestartThenPoll_NoAgeClaim/memory (0.00s)
+        assignment_test.go:508: 0 polls claimed after the restart, want exactly 1
+--- FAIL: TestFault_OutageRecovery_NoAgeClaim (0.00s)
+    --- FAIL: TestFault_OutageRecovery_NoAgeClaim/memory (0.00s)
+        assignment_test.go:536: 0 polls claimed after recovery, want exactly 1
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.011s
+FAIL

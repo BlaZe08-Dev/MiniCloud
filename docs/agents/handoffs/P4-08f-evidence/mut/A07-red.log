@@ -1,0 +1,8 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_Poll_UnhealthyWorker_Still503$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503 (0.00s)
+    --- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503/memory (0.00s)
+        --- FAIL: TestAbuse_Poll_UnhealthyWorker_Still503/memory/fifo_pull (0.00s)
+            assignment_test.go:104: poll 0 by an UNHEALTHY worker = 200 {"assignment":{"job_id":"job_1_cb6996befa61","attempt_id":"att_1_eafca32611a8","attempt_no":1,"lease_token":"iE1GbmYTYNX7GUHFSrKZKyyJDJpFR116gKnWOLuykYE","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-10-29T09:00:34Z","lease_duration_seconds":30,"policy":"fifo_pull"}}, want 503 WORKER_UNHEALTHY
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.010s
+FAIL

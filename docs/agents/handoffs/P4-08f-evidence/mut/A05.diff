@@ -1,0 +1,13 @@
+diff --git a/internal/scheduler/round_robin_rule.go b/internal/scheduler/round_robin_rule.go
+index 4818926..f76e817 100644
+--- a/internal/scheduler/round_robin_rule.go
++++ b/internal/scheduler/round_robin_rule.go
+@@ -38,7 +38,7 @@ func NewCursorSet() CursorSet {
+ // new cursor for that type. It reports false, and leaves the cursor unchanged, when there are no
+ // candidates.
+ func (c *CursorSet) Select(taskType string, candidates []string) (string, bool) {
+-	next, ok := NextAfterCursor(c.last[taskType], candidates)
++	next, ok := NextAfterCursor("", candidates)
+ 	if !ok {
+ 		return "", false
+ 	}

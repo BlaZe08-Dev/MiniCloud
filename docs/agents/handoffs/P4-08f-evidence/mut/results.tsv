@@ -1,0 +1,30 @@
+A01	a foreign worker claims a live reservation	internal/storage/inmemory_assignment.go	KILLED	TestAbuse_Poll_ForeignAssignment_Returns204
+A02	RecordPoll accepts an UNHEALTHY worker	internal/storage/inmemory_assignment.go	KILLED	TestAbuse_Poll_UnhealthyWorker_Still503
+A03	poll freshness write not throttled (memory)	internal/storage/inmemory_assignment.go	KILLED	TestAbuse_Poll_Flood_ThrottlesFreshnessWrites
+A04	poll freshness write not throttled (PostgreSQL)	internal/storage/postgres/assignment.go	KILLED	TestAbuse_Poll_Flood_ThrottlesFreshnessWrites
+A05	cursor resets to the lowest worker on every decision	internal/scheduler/round_robin_rule.go	KILLED	TestAbuse_ConstantPoller_NoLargerShare
+A06	a worker may hold several reservations	internal/storage/inmemory_assignment.go	KILLED	TestAbuse_LargeTotalSlots_NoLargerShare
+A07	fifo_pull accepts an UNHEALTHY worker	internal/storage/inmemory.go	KILLED	TestAbuse_Poll_UnhealthyWorker_Still503
+F01	memory pass does not count a lapse	internal/storage/inmemory_assignment.go	KILLED	TestFault_AssignedWorkerNeverPolls,TestFault_AssignmentLapseLoop_BoundedByLimit,TestFault_PollRoundTripBeyondWindow
+F02	PostgreSQL pass does not count a lapse	internal/storage/postgres/assignment.go	KILLED	TestFault_AssignedWorkerNeverPolls,TestFault_AssignmentLapseLoop_BoundedByLimit,TestFault_PollRoundTripBeyondWindow
+F03	lapse arm opens one lapse late (limit off by one)	internal/storage/inmemory_assignment.go	KILLED	TestFault_AssignmentLapseLoop_BoundedByLimit
+F04	UNHEALTHY revoke counts a lapse	internal/storage/inmemory_assignment.go	KILLED	TestFault_AssignedWorkerDiesBeforePoll
+F05	sweeper does not close the attempt of a lost response	internal/storage/inmemory.go	KILLED	TestFault_PollResponseLostAfterClaim
+F06	grace ignored: every lapse counts	internal/storage/assignment.go	KILLED	TestFault_CoordinatorCrash_BetweenAssignAndPoll,TestFault_DatabaseOutage_DuringPass
+F07	revocation skipped under grace (job stuck)	internal/storage/inmemory_assignment.go	KILLED	TestFault_CoordinatorCrash_BetweenAssignAndPoll,TestFault_DatabaseOutage_DuringPass
+F08	cancel keeps the reservation	internal/storage/inmemory.go	KILLED	TestFault_CancelRacesAccept
+F09	refresh not rate limited	internal/coordinator/assignment.go	KILLED	TestFault_OutageRecovery_RateWindow,TestFault_PersistentPassFailure_AgeClaimRate
+F10	poll-time refresh removed	internal/coordinator/assignment.go	KILLED	TestFault_OutageRecovery_NoAgeClaim,TestFault_RestartThenPoll_NoAgeClaim
+F11	age arm removed	internal/storage/inmemory_assignment.go	KILLED	TestFault_OutageRecovery_RateWindow,TestFault_PersistentPassFailure_AgeClaimRate
+F12	repeat without waiting between passes	internal/coordinator/assignment_loop.go	KILLED	TestFault_DeepBacklog_PollsNotStarved
+F13	repeat without progress	internal/coordinator/assignment_loop.go	KILLED	TestFault_DeepBacklog_PollsNotStarved
+P01	a foreign worker claims a live reservation (property)	internal/storage/inmemory_assignment.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+P02	own arm ignores the window expiry (property)	internal/storage/inmemory_assignment.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+P03	pass never revokes an expired reservation (property)	internal/storage/inmemory_assignment.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+P04	age arm removed (property, INV-14)	internal/storage/inmemory_assignment.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+P05	cancel keeps the reservation (property, INV-8)	internal/storage/inmemory.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+P06	one reservation check dropped from eligibility (property, INV-10)	internal/storage/inmemory_assignment.go	KILLED	TestProperty_AssignmentSubState_ModelConformance
+T01	failure-count clamp removed: poll backoff overflows to 0	internal/worker/client.go	KILLED	TestPollTiming_RunSleepsWithinMaxBackoff
+T02	failure-count clamp removed: delivery row sees 0	internal/worker/client.go	KILLED	TestComputeBackoffWithJitter_CallerSettings
+T03	delivery maximum changed: the row guard trips	internal/worker/client.go	KILLED	TestComputeBackoffWithJitter_CallerSettings
+T04	idle poll interval is zero: the poll-loop rows use the constant	internal/worker/client.go	KILLED	TestComputeBackoffWithJitter_CallerSettings

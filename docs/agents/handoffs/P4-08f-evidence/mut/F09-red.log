@@ -1,0 +1,10 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(PersistentPassFailure_AgeClaimRate|OutageRecovery_RateWindow)$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_PersistentPassFailure_AgeClaimRate (0.01s)
+    --- FAIL: TestFault_PersistentPassFailure_AgeClaimRate/memory (0.01s)
+        assignment_test.go:633: interval 0: 3 refresh attempts, want exactly 1
+--- FAIL: TestFault_OutageRecovery_RateWindow (0.00s)
+    --- FAIL: TestFault_OutageRecovery_RateWindow/memory (0.00s)
+        assignment_test.go:688: poll inside the rate window = 200 {"assignment":{"job_id":"job_5_29933b535ba9","attempt_id":"att_2_6f4bdf86428b","attempt_no":1,"lease_token":"iZObdxNWh8QBZlcpYADIKY6Gvit5q8RnvmJjACOlQTc","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-10-29T09:01:01Z","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.013s
+FAIL

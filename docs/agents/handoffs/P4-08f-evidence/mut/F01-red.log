@@ -1,0 +1,13 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(AssignedWorkerNeverPolls|AssignmentLapseLoop_BoundedByLimit|PollRoundTripBeyondWindow)$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_AssignedWorkerNeverPolls (0.00s)
+    --- FAIL: TestFault_AssignedWorkerNeverPolls/memory (0.00s)
+        assignment_test.go:80: lapses = 0, want 1 (counted outside grace)
+--- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit (0.00s)
+    --- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit/memory (0.00s)
+        assignment_test.go:357: job lapsed in 6 windows, want exactly the limit 3
+--- FAIL: TestFault_PollRoundTripBeyondWindow (0.01s)
+    --- FAIL: TestFault_PollRoundTripBeyondWindow/memory (0.01s)
+        assignment_test.go:459: lapses = 0, want 1 (counted outside grace)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.022s
+FAIL

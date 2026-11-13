@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_Poll_Flood_ThrottlesFreshnessWrites$ ./tests/abuse/  (PostgreSQL URL set)
+--- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (7.48s)
+    --- FAIL: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (7.23s)
+        assignment_test.go:168: worker w1: 300 freshness writes for 300 polls over 6.663540962s, want between 1 and 7 (one per second)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	7.488s
+FAIL

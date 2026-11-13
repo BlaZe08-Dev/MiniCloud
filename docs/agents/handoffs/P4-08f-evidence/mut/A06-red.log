@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestAbuse_LargeTotalSlots_NoLargerShare$ ./tests/abuse/  (URL unset)
+--- FAIL: TestAbuse_LargeTotalSlots_NoLargerShare (0.01s)
+    --- FAIL: TestAbuse_LargeTotalSlots_NoLargerShare/memory (0.01s)
+        assignment_test.go:239: reservations per worker map[w1:2 w2:2 w_big:2], want exactly one each (total_slots must not buy more)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.020s
+FAIL
