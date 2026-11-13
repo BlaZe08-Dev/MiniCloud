@@ -573,7 +573,12 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 			}
 		}()
 		time.Sleep(20 * time.Millisecond) // let the poller start before the round
-		passes := r.Pass()
+		// A round that never stops (a repeat without progress) is cut after 5 s and fails below.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		roundStart := time.Now()
+		passes := r.Loop.Round(ctx)
+		elapsed := time.Since(roundStart)
+		cancel()
 		done.Store(true)
 		wg.Wait()
 
@@ -590,6 +595,11 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 		// repeat), pass 3 reads a full batch and reserves nothing, so it does not repeat.
 		if passes != 3 {
 			t.Fatalf("round ran %d passes, want 3 (repeat with progress, stop without)", passes)
+		}
+		// The yield is a real wait: two of them take at least 2 x MinYield (a repeat with no wait
+		// between passes would finish in milliseconds).
+		if elapsed < 2*s.MinYield {
+			t.Fatalf("round took %v, less than two yields of %v", elapsed, s.MinYield)
 		}
 		// Two yields of 200 ms with the mutex released: a poll loop completes many calls in them.
 		if during.Load() < 20 {
