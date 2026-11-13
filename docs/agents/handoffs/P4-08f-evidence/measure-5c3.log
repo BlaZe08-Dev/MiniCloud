@@ -1,0 +1,394 @@
+=== RUN   TestMeasure5c3_PassCost
+2026/11/14 01:15:06 INFO worker registered worker_id=w_000 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_001 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_002 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_003 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_004 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_005 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_006 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_007 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_008 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO worker registered worker_id=w_009 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_1_25a3a79aa8d1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_2_bcc88711ad85 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_3_360515019bb7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_4_ca9e59b8c059 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_5_b52f44e5fe9c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_6_18adec322cde task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_7_e0c13a20cb3c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_8_0b6dcdd2c716 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_9_e321f43db102 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_10_fdd53b7fc63f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_11_8e0dfd71fdbc task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_12_8564aa348840 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_13_97b7388a887c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_14_14510e7cb8ac task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_15_dfa9ee19efba task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_16_d72624b441e0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_17_8bea469ac2ce task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_18_53547c1cd5d7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_19_4ed078eecf19 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:06 INFO job submitted and queued job_id=job_20_a40625045087 task_type=echo state=QUEUED max_attempts=3
+    measure_5c3_test.go:133: 
+        W=10 cycle=0 reserved=10 revoked=0 lapsed=0 uncounted=0 round_trips=81 bound(6+2T+4W)=48 duration=61.040582ms
+        W=10 cycle=1 reserved=10 revoked=0 lapsed=10 uncounted=0 round_trips=101 bound(6+2T+4W)=48 duration=53.162644ms
+        W=10 cycle=2 reserved=10 revoked=0 lapsed=10 uncounted=0 round_trips=101 bound(6+2T+4W)=48 duration=44.047741ms
+        W=10 cycle=3 reserved=10 revoked=0 lapsed=10 uncounted=0 round_trips=100 bound(6+2T+4W)=48 duration=43.356669ms
+        W=10 cycle=4 reserved=10 revoked=0 lapsed=10 uncounted=0 round_trips=100 bound(6+2T+4W)=48 duration=44.259276ms
+        W=10 cycle=5 reserved=10 revoked=0 lapsed=10 uncounted=0 round_trips=100 bound(6+2T+4W)=48 duration=47.373622ms
+        W=10 cycle=6 reserved=0 revoked=0 lapsed=10 uncounted=0 round_trips=27 bound(6+2T+4W)=8 duration=13.371131ms
+        W=10 cycle=7 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.432439ms
+        W=10 cycle=8 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=5.677899ms
+        W=10 cycle=9 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.512504ms
+        W=10 cycle=10 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.36001ms
+        W=10 cycle=11 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.793083ms
+        W=10 cycle=12 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.295087ms
+        W=10 cycle=13 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.353962ms
+        W=10 cycle=14 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=5.003461ms
+        W=10 cycle=15 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=26.698273ms
+        W=10 cycle=16 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=4.624298ms
+        W=10 cycle=17 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.448878ms
+        W=10 cycle=18 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.46238ms
+        W=10 cycle=19 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.414011ms
+        W=10 cycle=20 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=6.048269ms
+        W=10 cycle=21 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=4.351805ms
+        W=10 cycle=22 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.54588ms
+        W=10 cycle=23 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.676273ms
+        W=10 cycle=24 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.614846ms
+        W=10 idle pass (all workers hold): reserved=0 round_trips=7 duration=5.699051ms
+        W=10 full reserving passes without revoke (n=1): p50=61.040582ms max=61.040582ms
+        W=10 full revoke-and-reserve passes (n=5): p50=44.259276ms p99=47.373622ms max=53.162644ms
+        
+2026/11/14 01:15:07 INFO worker registered worker_id=w_000 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_001 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_002 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_003 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_004 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_005 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_006 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_007 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_008 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_009 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_010 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_011 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_012 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:07 INFO worker registered worker_id=w_013 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_014 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_015 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_016 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_017 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_018 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_019 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_020 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_021 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_022 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_023 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_024 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_025 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_026 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_027 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_028 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_029 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_030 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_031 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_032 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_033 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_034 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_035 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_036 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_037 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_038 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_039 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_040 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_041 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_042 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_043 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_044 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_045 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_046 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_047 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_048 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_049 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_050 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_051 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_052 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_053 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_054 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_055 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_056 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_057 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_058 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_059 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_060 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_061 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_062 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_063 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_064 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_065 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_066 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_067 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_068 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_069 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_070 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_071 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_072 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_073 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_074 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_075 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_076 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_077 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_078 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_079 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_080 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_081 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_082 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_083 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_084 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_085 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_086 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_087 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_088 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_089 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_090 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_091 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_092 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_093 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_094 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_095 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_096 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_097 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_098 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO worker registered worker_id=w_099 version=v1 slots=1 supported_tasks=[echo]
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_21_8778960b6bda task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_22_b3825e4c619b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_23_8a833535d54e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_24_68e7e6ba2adb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_25_38a108a84507 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_26_4a87dcf3151e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_27_dff6be6529e9 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_28_743e3180ab92 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_29_5c1c34ce7810 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_30_c34c10a5c00f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_31_19899432ea69 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_32_57f2bfa7cc7a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_33_564a685fd23b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_34_b5edeec9b540 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_35_1684aba0982d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_36_a1f3e8378cdd task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_37_0eb7971baa0c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_38_b5fcfc35fe93 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_39_1e9cbf2fc025 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_40_c025ba16dd8a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_41_0da8e1cd51da task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_42_ef9bfc26ba52 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_43_4d37480396f6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_44_1d0d71b7ef44 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_45_1ea29d259a3c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_46_778a19d80a63 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_47_2a49c153af7d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_48_30208fa21192 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_49_d7ea03826e8f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_50_82f407675159 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_51_c1d4b3de069f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_52_82ed50262edd task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_53_f66185dac45f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_54_ba6c1acef705 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_55_7e4cd594cc0d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_56_c3af063d7607 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_57_5f76dd53af38 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_58_2214a2292050 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_59_efc3244b2859 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_60_eba3778bcbe1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_61_4fbdf83a4036 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_62_cbf20b6affeb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_63_2173a37aadca task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_64_ab15f5a9172e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_65_28af78bd0f7f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_66_e140a087f686 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_67_a627c1fd88a2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_68_4fb45b45625a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_69_d6ee491107a2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_70_028504396540 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_71_f8443b6a6503 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_72_fc164133435a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_73_15154e6fd8f1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_74_b07451f041d5 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_75_fa7fa794afed task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_76_62ebbfc4d521 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_77_ddd36b585f65 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_78_2db24d7d11ee task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_79_c7f8eaa123be task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_80_6f91d7cfd7c4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_81_dd3a9f3e5bc9 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_82_c7e0f7421651 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_83_b5a8c9e288db task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_84_653c33a424c2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_85_964026fb7b6f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_86_67d834137a93 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_87_e9e0134375e8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_88_cf981ce52274 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_89_9e9443e5d649 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_90_610805ae4b30 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_91_2845f786bb7a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_92_bf4b4ef5df5d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_93_451d3be4eafa task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_94_e8fe812729f1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_95_e580f0fe89fe task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_96_e80fa84b8f93 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_97_1336d29b5e74 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_98_d16d10507671 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_99_b02817291471 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_100_4ca43a345419 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_101_286e1d75cd9c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_102_ffbc9df2c84a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_103_3dc271e7f634 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_104_d5281365341d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_105_25e0cccf862b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_106_64be69615c76 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_107_05acfbc9df03 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_108_40756a72069c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_109_f46a584aa6f9 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_110_69b5e0070242 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_111_f0baecb29253 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_112_c441dfdadfc3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_113_4c6ac899707b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_114_2d1eed6cd929 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_115_3377a8cfbe13 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_116_72c9ec8130b2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_117_196529a4b415 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_118_ebd1e40c4caf task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_119_208c4f5dab60 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_120_ef1f15624a93 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_121_7b899fefb215 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_122_2aa2cba373ff task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_123_ecf8b81e30a6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_124_2a78ffe42c00 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_125_1a8a6d8968f3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_126_782df4fc13a2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_127_ffd2045eb88a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_128_c0a5e8d3571e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_129_66328bf7c3a1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_130_5994b73db5b0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_131_e31131444d80 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_132_30785e024453 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_133_5adbcf062784 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_134_eef67623b49a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_135_87af52245f0b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_136_3e2b31d9c911 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_137_d50fd72b6d95 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_138_7c9894e49194 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_139_fb994436483c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_140_d87117b8cbfb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_141_cf19da50c59c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_142_78116b035bdc task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_143_5fc5660a57b7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_144_f9fcd77ab8f3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_145_2eb68841a79f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_146_7aabcc35d12c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_147_531e171e2c3d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_148_1bdb29dfe8cf task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_149_67b4d6797d8c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_150_72ddfbcc78e8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_151_b9f63f770f0c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_152_5137854e3458 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_153_5e3ad368f468 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_154_6e05e9409e0c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_155_c67d66d6e215 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_156_920f2cb396fe task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_157_e322e5eb0a8f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_158_6607855a3ad7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_159_a04443af1e78 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_160_46bdd656dcc5 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_161_9b6c4ef2fb66 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_162_aa15de5d4ed0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_163_0ccc2cd36171 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_164_1d33f139e89e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_165_1fd913a433d8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_166_160ef6a83657 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_167_baa2bf83f89e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_168_d32b4c0c6f81 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_169_077659382c12 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_170_b307003eb41e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_171_4e753f694508 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_172_06d1282c0c21 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_173_263882c030f0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_174_20e504506edd task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_175_36787e94b1d4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_176_0a0d6ef3d1b1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_177_be36353810bb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_178_573bec24210d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_179_d364f52e9698 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_180_a42e47fb704b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_181_552415c5c7f7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_182_95f2f6e3b2f2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_183_03f52a4c124c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_184_7d55b78a3d2a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_185_7a5bcbc0818a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_186_81613f00707c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_187_683cdeb0ff71 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_188_2b96dc2fad0c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_189_3bcaac8e4ed1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_190_27c62ea67d16 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_191_b35c9e0f3c4a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_192_32ac5a603fb4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_193_80c93727726a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_194_c0d2b9c75a98 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_195_f13beb10352b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_196_2342f60c6280 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_197_da82fb761d26 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_198_1073c55fcbe7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_199_76f0131df010 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_200_7ee0e4d3974a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_201_1a5eaf7dd207 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_202_4ad30740ea53 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_203_a93ed1600a76 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_204_41160c3b4852 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_205_796861e5b951 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_206_07dce02d4716 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_207_1b6ada11ea14 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_208_45493401af09 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_209_fae2d75d2970 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_210_2779f0ca75c3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_211_53796c5271f2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_212_8adcffd4917a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_213_990a37ae4a98 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_214_6b3e10725447 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_215_950720994379 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_216_a071b461443b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_217_329b006d6a53 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_218_f305205ffc8d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_219_24c260f1f62e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 01:15:08 INFO job submitted and queued job_id=job_220_6df80e9331f4 task_type=echo state=QUEUED max_attempts=3
+    measure_5c3_test.go:133: 
+        W=100 cycle=0 reserved=50 revoked=0 lapsed=0 uncounted=0 round_trips=360 bound(6+2T+4W)=208 duration=191.952088ms
+        W=100 cycle=1 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=244.727781ms
+        W=100 cycle=2 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=253.556374ms
+        W=100 cycle=3 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=265.675665ms
+        W=100 cycle=4 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=283.072755ms
+        W=100 cycle=5 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=265.912102ms
+        W=100 cycle=6 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=261.673799ms
+        W=100 cycle=7 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=264.581878ms
+        W=100 cycle=8 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=249.097387ms
+        W=100 cycle=9 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=245.088085ms
+        W=100 cycle=10 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=242.355478ms
+        W=100 cycle=11 reserved=50 revoked=0 lapsed=50 uncounted=0 round_trips=460 bound(6+2T+4W)=208 duration=257.180959ms
+        W=100 cycle=12 reserved=0 revoked=0 lapsed=50 uncounted=0 round_trips=107 bound(6+2T+4W)=8 duration=70.326472ms
+        W=100 cycle=13 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.918786ms
+        W=100 cycle=14 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.172007ms
+        W=100 cycle=15 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.794871ms
+        W=100 cycle=16 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.10652ms
+        W=100 cycle=17 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.851571ms
+        W=100 cycle=18 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.352596ms
+        W=100 cycle=19 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=57.83951ms
+        W=100 cycle=20 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.123716ms
+        W=100 cycle=21 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.29396ms
+        W=100 cycle=22 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.038326ms
+        W=100 cycle=23 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=3.548772ms
+        W=100 cycle=24 reserved=0 revoked=0 lapsed=0 uncounted=0 round_trips=7 bound(6+2T+4W)=8 duration=2.752599ms
+        W=100 idle pass (all workers hold): reserved=0 round_trips=7 duration=2.842262ms
+        W=100 full reserving passes without revoke (n=1): p50=191.952088ms max=191.952088ms
+        W=100 full revoke-and-reserve passes (n=11): p50=257.180959ms p99=265.912102ms max=283.072755ms
+        
+--- PASS: TestMeasure5c3_PassCost (10.98s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	10.987s

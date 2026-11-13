@@ -32,6 +32,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | active |
 | P4-08d | ADR-0017 slice 5c, part 1: coordinator loop, grace, binary wiring | Claude Code | Claude Code (independent session) | agent/claude/P4-08d | fix round 1 pushed for re-audit |
 | P4-08e | ADR-0017 slice 5c, part 2: API fields (poll `policy` and `fallback_reason`, job view assignment fields) and worker timing (INV-17); fault and abuse suites move to P4-08f | Claude Code | to be assigned | agent/claude/P4-08e | fix round 1 pushed for re-audit |
+| P4-08f | ADR-0017 slice 5c, part 3: the fault, abuse and property suites, measurements, worker test tidy-ups | Claude Code | to be assigned | agent/claude/P4-08f | in progress |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
@@ -73,6 +74,11 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### P4-08e — ADR-0017 slice 5c, part 2 (placeholder; builder, auditor, owned files and full spec to be written by the orchestrator)
 - Goal: the rest of ADR-0017 Section 7 slice 5c: job view fields and the poll `policy` and `fallback_reason` fields, the worker constant extraction and `TestPollTiming_AcceptWindowExceedsBackoff` (planned test, INV-17), the fault and API abuse suites of Section 6.4 (including `TestAPI_Poll_Flood_ThrottlesFreshnessWrites` (planned test)), `TestProperty_AssignmentSubState_ModelConformance` at 1,000 iterations, measurements, and the docs sync.
+
+### P4-08f — ADR-0017 slice 5c, part 3 (fault, abuse and property suites, measurements)
+- Goal: every test ADR-0017 Section 6.4 plans for slice 5c, under `tests/faultinject` and `tests/abuse` so `make test-security` runs them; the 1,000-iteration sub-state property test; the Section 6 measurements (the P4-08d flood numbers are reused); the worker test tidy-ups from the P4-08d and P4-08e audits. No production code change.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-08f`. Status: in progress.
+- Owned files: `tests/faultinject/assignment_test.go`, `tests/abuse/assignment_test.go`, `tests/internal/sectest/rr.go`, `tests/internal/sectest/rig.go`, `tests/security-tests.list`, `internal/coordinator/assignment_test.go`, `internal/worker/export_test.go`, `internal/worker/client_test.go`, `internal/worker/poll_timing_test.go`, `docs/adr/0017-assignment-round-robin.md` (implementation notes 31 to 36 only), `docs/agents/handoffs/P4-08f.md`, `docs/agents/handoffs/P4-08f-evidence/**`, `reports/claude/P4-08f.md`, `docs/agents/TASKS.md`.
 
 ### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
 - Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).

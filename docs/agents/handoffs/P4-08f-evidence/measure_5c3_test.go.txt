@@ -1,0 +1,135 @@
+package postgres_test
+
+// P4-08f measurement probe (ADR-0017 Section 6, "Cost of a persistently failing pass" and the
+// D-against-I limit). Copied to internal/storage/postgres/measure_5c3_test.go only to run, then
+// deleted. Not part of the suite. Real clocks and real PostgreSQL, no -race, no other load on the
+// process. Counts the database round trips (statements and batches) of one assignment pass with a
+// pgx tracer, and the wall time of the pass.
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type roundTripCounter struct{ n atomic.Int64 }
+
+func (c *roundTripCounter) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
+	c.n.Add(1)
+	return ctx
+}
+func (c *roundTripCounter) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
+func (c *roundTripCounter) TraceBatchStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceBatchStartData) context.Context {
+	c.n.Add(1)
+	return ctx
+}
+func (c *roundTripCounter) TraceBatchQuery(context.Context, *pgx.Conn, pgx.TraceBatchQueryData) {}
+func (c *roundTripCounter) TraceBatchEnd(context.Context, *pgx.Conn, pgx.TraceBatchEndData)     {}
+
+func pct(d []time.Duration, p float64) time.Duration {
+	sort.Slice(d, func(i, j int) bool { return d[i] < d[j] })
+	return d[int(float64(len(d)-1)*p)]
+}
+
+func TestMeasure5c3_PassCost(t *testing.T) {
+	setup, schema := setupTestPool(t)
+	_ = setup
+	cfg, err := pgxpool.ParseConfig(os.Getenv("MINICLOUD_TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	cfg.MaxConns = 8
+	counter := &roundTripCounter{}
+	cfg.ConnConfig.Tracer = counter
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	repo := postgres.NewRepository(pool)
+	ctx := context.Background()
+	svc := coordinator.NewPostgresService(repo, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), time.Hour)
+	params := storage.AssignParams{AcceptWindow: 5 * time.Second, WorkerTimeout: time.Hour, BatchLimit: 50, MaxLapses: 3}
+	const T = 1
+
+	for _, W := range []int{10, 100} {
+		if _, err := pool.Exec(ctx, "TRUNCATE jobs, workers, attempts, job_events, results, assignment_cursor, assignment_pass_state CASCADE"); err != nil {
+			t.Fatalf("truncate: %v", err)
+		}
+		for i := 0; i < W; i++ {
+			id := fmt.Sprintf("w_%03d", i)
+			if err := svc.RegisterWorker(ctx, &domain.Worker{ID: id, Version: "v1", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.RecordPoll(ctx, id); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for i := 0; i < 2*W; i++ {
+			if _, err := svc.SubmitJob(ctx, "echo", []byte(`{}`), 30, 3); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var out strings.Builder
+		var durs, durRevoke []time.Duration
+		// Cycle: a reserving pass, then the window passes (stored times shift back) and the next
+		// pass revokes every reservation and reserves again.
+		for cycle := 0; cycle < 25; cycle++ {
+			counter.n.Store(0)
+			start := time.Now()
+			res, err := repo.AssignQueuedJobs(ctx, params)
+			d := time.Since(start)
+			if err != nil {
+				t.Fatalf("pass: %v", err)
+			}
+			trips := counter.n.Load()
+			bound := 6 + 2*T + 4*res.Reserved
+			fmt.Fprintf(&out, "W=%d cycle=%d reserved=%d revoked=%d lapsed=%d uncounted=%d round_trips=%d bound(6+2T+4W)=%d duration=%v\n", W, cycle, res.Reserved, res.Revoked, res.Lapsed, res.LapsedUncounted, trips, bound, d)
+			if res.Reserved == min(W, params.BatchLimit) {
+				if res.Lapsed == 0 {
+					durs = append(durs, d)
+				} else {
+					durRevoke = append(durRevoke, d)
+				}
+			}
+			shiftTimestampsBack(t, pool, 6*time.Second)
+			// keep the workers polling fresh, as the idle poll does
+			for i := 0; i < W; i++ {
+				if _, err := pool.Exec(ctx, "UPDATE workers SET last_poll_at = clock_timestamp(), last_heartbeat_at = clock_timestamp() WHERE id = $1", fmt.Sprintf("w_%03d", i)); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		// A pass that reserves nothing: every worker holds a reservation (no shift).
+		counter.n.Store(0)
+		start := time.Now()
+		res, err := repo.AssignQueuedJobs(ctx, params)
+		idle := time.Since(start)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&out, "W=%d idle pass (all workers hold): reserved=%d round_trips=%d duration=%v\n", W, res.Reserved, counter.n.Load(), idle)
+		if len(durs) > 0 {
+			fmt.Fprintf(&out, "W=%d full reserving passes without revoke (n=%d): p50=%v max=%v\n", W, len(durs), pct(durs, 0.5), pct(durs, 1))
+		}
+		if len(durRevoke) > 0 {
+			fmt.Fprintf(&out, "W=%d full revoke-and-reserve passes (n=%d): p50=%v p99=%v max=%v\n", W, len(durRevoke), pct(durRevoke, 0.5), pct(durRevoke, 0.99), pct(durRevoke, 1))
+		}
+		t.Log("\n" + out.String())
+	}
+}
