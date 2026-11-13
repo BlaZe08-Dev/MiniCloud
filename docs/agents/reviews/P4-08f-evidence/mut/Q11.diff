@@ -1,0 +1,14 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..736dda2 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -596,8 +596,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 			       OR ($3::boolean
+ 			           AND GREATEST(created_at, COALESCE(not_before, created_at))
+ 			               <= clock_timestamp() - make_interval(secs => $4::double precision)
+-			           AND (SELECT last_completed_at FROM assignment_pass_state WHERE singleton)
+-			               <= clock_timestamp() - make_interval(secs => $4::double precision)))
++			           AND TRUE))
+ 			ORDER BY created_at ASC, id ASC
+ 			LIMIT 1
+ 			FOR UPDATE SKIP LOCKED;`, supportedTasks, opts.MaxLapses, opts.AgeArmOpen, opts.FallbackAge.Seconds()).

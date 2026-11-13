@@ -1,0 +1,5 @@
+env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 ./internal/coordinator/ (C01 applied)
+--- FAIL: TestCoordinator_AssignmentRepeat_YieldsToPolls (2.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	3.339s
+FAIL

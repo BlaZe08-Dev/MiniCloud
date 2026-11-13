@@ -1,0 +1,5 @@
+env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run TestProbe_FS22 ./tests/faultinject/  (probe file in ~/mc-mut-claude only)
+    zz_probe_fs22_test.go:20: late poll by holder w1 with a stale heartbeat: status 200 lapses 0 events [true]
+    zz_probe_fs22_test.go:22: FS-22 '204' does not hold here: the late poll's refresh re-reserved and the same call claimed
+--- PASS: TestProbe_FS22_StaleHeartbeat (0.00s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.013s

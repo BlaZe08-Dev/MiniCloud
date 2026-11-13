@@ -1,0 +1,6 @@
+go test -count=1 -p 1 ./internal/storage/postgres/ (PostgreSQL URL set, mutant applied)
+--- FAIL: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow (1.02s)
+--- FAIL: TestConformance_ClaimOwnArm_ClosedAtExactExpiry (0.30s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	77.951s
+FAIL
