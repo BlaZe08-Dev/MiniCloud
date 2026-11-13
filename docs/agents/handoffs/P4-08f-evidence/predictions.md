@@ -2,7 +2,7 @@
 
 Baselines from the task: unset 361 PASS / 87 SKIP / 0 FAIL, security 54 / 0 / 0, db 157 / 0 / 0. Counts are top-level `--- PASS`, `--- SKIP`, `--- FAIL` lines.
 
-New top-level tests: 13 `TestFault_` in tests/faultinject and 5 `TestAbuse_` in tests/abuse. The property test and the worker tidy-ups change existing tests only (a subtest was added, no top-level test).
+New top-level tests: 13 fault tests in tests/faultinject and 5 abuse tests in tests/abuse. The property test and the worker tidy-ups change existing tests only (a subtest was added, no top-level test).
 
 | Gate | Predicted | Why |
 |---|---|---|
