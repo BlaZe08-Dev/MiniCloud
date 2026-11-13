@@ -1,0 +1,9 @@
+# go test -run TestConformance_ClaimFallback_LiveReservationOfOther ./internal/storage/postgres/
+--- FAIL: TestConformance_ClaimFallback_LiveReservationOfOther (0.66s)
+    --- FAIL: TestConformance_ClaimFallback_LiveReservationOfOther/lapse_arm (0.31s)
+        assignment.go:712: job at the lapse limit with another worker's live reservation was claimed: err=<nil>
+    --- FAIL: TestConformance_ClaimFallback_LiveReservationOfOther/age_arm (0.34s)
+        assignment.go:724: aged job with another worker's live reservation was claimed: err=<nil>
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.662s
+FAIL

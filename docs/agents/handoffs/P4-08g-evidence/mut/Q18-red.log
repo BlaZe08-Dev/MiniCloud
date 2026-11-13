@@ -1,0 +1,6 @@
+# go test -run TestConformance_AssignRevoke_BatchLimit ./internal/storage/postgres/
+--- FAIL: TestConformance_AssignRevoke_BatchLimit (0.33s)
+    assignment.go:760: pass cleared 5 reservations with 5 expired left, want 2 (BatchLimit 2)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.342s
+FAIL
