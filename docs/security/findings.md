@@ -73,8 +73,8 @@ For findings of **Medium** severity and above, the full structured report format
 | **SEC-061** | Informational | Fixed (Slice P4-10) | Worker Coordination Client | Worker request URLs in `internal/worker/client.go` func `renewOnce` and func `reportResult` interpolated unescaped `JobID` and `AttemptID` directly via `fmt.Sprintf`. Fixed by escaping both identifiers with `url.PathEscape`. | Tested in `TestWorker_URLPathEscaping_RenewAndReport` (`internal/worker/hardening_test.go`). |
 | **SEC-062** | Low | Open (confirmed by code reading) | Configuration / Environment | The older environment helpers (`getIntEnv` and `getDurationEnv` in `internal/config/config.go`) silently fall back to the default on a malformed value, so a typo in an existing variable is not a startup error. | Confirmed by code reading of `getIntEnv` and `getDurationEnv` in `internal/config/config.go`, contrasted with strict variants `lookupIntEnvStrict` and `lookupDurationEnvStrict` added in Slice 5a. |
 | **SEC-063** | Low | Accepted Risk (V1) | HTTP API / Coordinator Submit | The submit endpoint (`POST /v1/jobs`) is unauthenticated (SEC-004) so a client can flood it. In ADR-0017 note 26 (executed audit finding F-5c-1), an unthrottled flood of 385 submits/s yielded 6.6 passes/s with worker poll latency p50 138 ms and p99 325 ms (paced submits yielded 22 ms p50 and 99 ms p99). The trigger channel buffer of one coalesces bursts, bounding passes by pass cost rather than submit rate; no throttle in V1. Closed by V3 auth and TLS (SEC-004); revisit after V2 benchmark. | Revisit after V2 benchmark generator (ADR-0017 note 26, audit finding F-5c-1). |
-| **SEC-064** | Medium | Fixed in P4-14 (PR #42) | Worker Client | Audit finding F-5c2-1: `ComputeBackoffWithJitter` returned 0 s from 64 consecutive failures due to integer shift overflow, causing workers to poll or renew in a tight loop after ~2.5 minutes of outage. Exposed callers: poll loop and lease renewal loop (result delivery not exposed; bounded by 60 s budget). Fixed by pre-shift clamp (`if failureCount > 5 { failureCount = 5 }`). | `TestComputeBackoffWithJitter_Table`, `TestComputeBackoffWithJitter_Property`, `TestComputeBackoffWithJitter_CallerSettings` (`internal/worker/client_test.go`). |
-| **SEC-065** | Low | Accepted Risk (V1) | Coordinator / Storage | Mixed clocks (ADR-0017 note 14/15): `jobs.created_at` is stamped by the coordinator process clock while decisions use the database clock. In PostgreSQL, `jobs.not_before` is computed from the database clock (`CommitAttempt` and `SweepExpiredLeases` read `clock_timestamp()`), so only `created_at` mixes the clocks there. Harmless on one host; accepted for V1; requirement for V3 multi-machine. | Confirmed by code reading (ADR-0017 implementation notes); requirement for V3 multi-machine. |
+| **SEC-064** | Medium | Fixed in P4-14 (PR #42) | Worker Client | Audit finding F-5c2-1: `ComputeBackoffWithJitter` returned 0 s from 64 consecutive failures due to integer shift overflow, causing workers to poll or renew in a tight loop after 90 to 180 s (1.5 to 3 minutes) of outage. Exposed callers: poll loop and lease renewal loop (result delivery not exposed; bounded by 60 s budget). Fixed by pre-shift clamp (`if failureCount > 5 { failureCount = 5 }`). | `TestComputeBackoffWithJitter_Table`, `TestComputeBackoffWithJitter_Property`, `TestComputeBackoffWithJitter_CallerSettings` (`internal/worker/client_test.go`). |
+| **SEC-065** | Low | Accepted Risk (V1) | Coordinator / Storage | Mixed clocks (ADR-0017 note 14): `jobs.created_at` is stamped by the coordinator process clock while decisions use the database clock. In PostgreSQL, `jobs.not_before` is computed from the database clock (`CommitAttempt` and `SweepExpiredLeases` read `clock_timestamp()`), so only `created_at` mixes the clocks there. Harmless on one host; accepted for V1; requirement for V3 multi-machine. | Confirmed by code reading (ADR-0017 implementation notes); requirement for V3 multi-machine. |
 
 ---
 
@@ -574,10 +574,10 @@ FAIL
 
 ### SEC-064: Integer Shift Overflow in ComputeBackoffWithJitter (F-5c2-1)
 - **Severity**: Medium
-- **Status**: Fixed in P4-14 (PR #42) (executed).
+- **Status**: Fixed in P4-14 (PR #42).
 - **Affected Component**: Worker Client (`internal/worker/client.go` func `ComputeBackoffWithJitter`)
-- **Detail**: Audit finding F-5c2-1: `ComputeBackoffWithJitter` returned 0 s from 64 consecutive failures due to integer shift overflow (`multiplier := 1 << (failureCount - 1)`), so workers would poll in a tight loop after about 2.5 minutes of outage. In Go, shifting a 64-bit signed integer by 63 yields a negative integer, and shifting by 64 or more yields 0. This negative multiplier bypassed `if multiplier > 16`, causing backoff to calculate as 0 s.
-- **Severity Reason**: In sustained network or coordinator outages, `consecutiveFailures` increases indefinitely (64+ poll failures); workers enter a tight polling loop sleeping 0 s after approximately 2.5 minutes of outage, consuming 100% CPU on worker processes and hammering coordinator endpoints during outage recovery.
+- **Detail**: Audit finding F-5c2-1: `ComputeBackoffWithJitter` returned 0 s from 64 consecutive failures due to integer shift overflow (`multiplier := 1 << (failureCount - 1)`), so workers would poll in a tight loop after 90 to 180 s (1.5 to 3 minutes) of outage (poll constants base 200 ms, max 3 s, jitter 0.5 to 1.0, 16x cap: first 5 sleeps sum to 3.0–6.0 s, 58 capped sleeps at 1.5–3.0 s: 3.0 + 58×1.5 = 90 s, 6.0 + 58×3.0 = 180 s). In Go, shifting a 64-bit signed integer by 63 yields a negative integer, and shifting by 64 or more yields 0. This negative multiplier bypassed `if multiplier > 16`, causing backoff to calculate as 0 s.
+- **Severity Reason**: In sustained network or coordinator outages, `consecutiveFailures` increases indefinitely (64+ poll failures); workers enter a tight polling loop sleeping 0 s after 90 to 180 s (1.5 to 3 minutes) of outage, consuming 100% CPU on worker processes and hammering coordinator endpoints during outage recovery.
 - **Exposed Callers**:
   - Work poll loop (`Agent.Run`, both `ErrServiceUnavailable` and generic error branches in `internal/worker/client.go`).
   - Lease renewal loop (`renewLoop` in `internal/worker/client.go`).
@@ -594,12 +594,12 @@ FAIL
 
 ---
 
-### SEC-065: Mixed Clocks Between Coordinator Process and Database (ADR-0017 Note 14/15)
+### SEC-065: Mixed Clocks Between Coordinator Process and Database (ADR-0017 Note 14)
 - **Severity**: Low
 - **Status**: Accepted Risk (V1) (confirmed by code reading).
 - **Affected Component**: Coordinator Service & Storage (`internal/coordinator/service.go` func `SubmitJob`, `internal/storage/postgres/repository.go`)
 - **Detail**: Mixed clocks (ADR-0017 implementation notes): `jobs.created_at` is stamped by the coordinator process clock while decisions use the database clock. In PostgreSQL, `jobs.not_before` is computed from the database clock (`CommitAttempt` and `SweepExpiredLeases` read `clock_timestamp()`), so only `created_at` mixes the clocks there. Harmless on one host; accepted for V1; requirement for V3 multi-machine operation. No code change in V1.
-- **Verification Step**: Revisit during V3 multi-machine coordinator implementation (ADR-0017 note 14/15).
+- **Verification Step**: Revisit during V3 multi-machine coordinator implementation (ADR-0017 note 14).
 
 ---
 

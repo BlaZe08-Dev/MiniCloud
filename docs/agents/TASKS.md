@@ -37,7 +37,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
 ### P4-15 — Register findings SEC-063..065 and correct P4-14 result delivery estimate
-- Goal: Register SEC-063 (submit flood / unauthenticated API), SEC-064 (backoff shift overflow F-5c2-1), and SEC-065 (mixed clocks ADR-0017 note 14/15) in `docs/security/findings.md`; correct retry count estimate arithmetic for result delivery in `docs/agents/handoffs/P4-14.md`.
+- Goal: Register SEC-063 (submit flood / unauthenticated API), SEC-064 (backoff shift overflow F-5c2-1), and SEC-065 (mixed clocks ADR-0017 note 14) in `docs/security/findings.md`; correct retry count estimate arithmetic for result delivery in `docs/agents/handoffs/P4-14.md`.
 - Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-15`. Status: active.
 - Owned files: `docs/security/findings.md`, `docs/agents/handoffs/P4-14.md`, `docs/agents/TASKS.md`, `reports/gemini/P4-15.md`.
 - Out of scope: Go code files, `docs/PROJECT_STATE.md`, `docs/adr/0017-assignment-round-robin.md`, database schema or migrations.
