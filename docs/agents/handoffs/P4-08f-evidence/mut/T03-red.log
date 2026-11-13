@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestComputeBackoffWithJitter_CallerSettings$ ./internal/worker/  (URL unset)
+--- FAIL: TestComputeBackoffWithJitter_CallerSettings (0.00s)
+    --- FAIL: TestComputeBackoffWithJitter_CallerSettings/result_delivery_loop (0.00s)
+        client_test.go:414: delivery backoff settings changed to 200ms/6s; review this row
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.007s
+FAIL

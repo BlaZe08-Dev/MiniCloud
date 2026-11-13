@@ -1,0 +1,10 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(PersistentPassFailure_AgeClaimRate|OutageRecovery_RateWindow)$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_PersistentPassFailure_AgeClaimRate (0.00s)
+    --- FAIL: TestFault_PersistentPassFailure_AgeClaimRate/memory (0.00s)
+        assignment_test.go:636: interval 0: 0 claims and 3 204s among 3 polls, want 1 and 2
+--- FAIL: TestFault_OutageRecovery_RateWindow (0.00s)
+    --- FAIL: TestFault_OutageRecovery_RateWindow/memory (0.00s)
+        assignment_test.go:682: attempting poll = <nil>, want an age claim
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.012s
+FAIL

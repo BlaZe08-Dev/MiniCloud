@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..9fb754d 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -148,7 +148,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 			counted := LapseCounts(p, now)
+ 			j.ClearAssignment()
+ 			if counted {
+-				j.AssignmentLapses++
++				j.AssignmentLapses += 0
+ 				res.Lapsed++
+ 			} else {
+ 				res.LapsedUncounted++

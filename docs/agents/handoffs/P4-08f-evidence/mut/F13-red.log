@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_DeepBacklog_PollsNotStarved$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (5.03s)
+    --- FAIL: TestFault_DeepBacklog_PollsNotStarved/memory (5.03s)
+        assignment_test.go:597: round ran 25 passes, want 3 (repeat with progress, stop without)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	5.037s
+FAIL

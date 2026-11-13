@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestProperty_AssignmentSubState_ModelConformance$ ./internal/coordinator/  (URL unset)
+--- FAIL: TestProperty_AssignmentSubState_ModelConformance (0.02s)
+    assignment_test.go:424: seed 12 step 23: INV-3: w_b claimed job_53_6bdd3fcef7ab, live-reserved to w_c until 2026-10-31 12:00:20 +0000 UTC
+    assignment_test.go:386: property test failed at seed 12: rerun with MINICLOUD_PROPERTY_SEED=12
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.018s
+FAIL

@@ -1,0 +1,10 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(CoordinatorCrash_BetweenAssignAndPoll|DatabaseOutage_DuringPass)$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll (0.01s)
+    --- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll/memory (0.01s)
+        assignment_test.go:226: lapse events [], want exactly one uncounted lapse
+--- FAIL: TestFault_DatabaseOutage_DuringPass (0.00s)
+    --- FAIL: TestFault_DatabaseOutage_DuringPass/memory (0.00s)
+        assignment_test.go:423: lapse events [], want exactly one uncounted lapse
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.014s
+FAIL

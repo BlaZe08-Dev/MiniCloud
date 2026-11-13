@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..305095f 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -189,7 +189,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 
+ 		for _, j := range candidates {
+ 			eligible := r.eligibleWorkersLocked(ty, now, p)
+-			if len(eligible) == 0 {
++			if true || len(eligible) == 0 {
+ 				continue
+ 			}
+ 			before := r.cursors.Cursor(ty)

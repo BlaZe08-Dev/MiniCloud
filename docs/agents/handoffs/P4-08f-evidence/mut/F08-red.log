@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_CancelRacesAccept$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_CancelRacesAccept (0.00s)
+    --- FAIL: TestFault_CancelRacesAccept/memory (0.00s)
+        assignment_test.go:265: cancel first: state CANCELLED attempts 0 holder "w1"
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.010s
+FAIL

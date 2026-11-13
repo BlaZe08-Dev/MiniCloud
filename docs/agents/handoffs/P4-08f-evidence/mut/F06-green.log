@@ -1,0 +1,2 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(CoordinatorCrash_BetweenAssignAndPoll|DatabaseOutage_DuringPass)$ ./tests/faultinject/  (PostgreSQL URL set)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.939s

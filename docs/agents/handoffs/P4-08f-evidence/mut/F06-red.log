@@ -1,0 +1,14 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_(CoordinatorCrash_BetweenAssignAndPoll|DatabaseOutage_DuringPass)$ ./tests/faultinject/  (PostgreSQL URL set)
+--- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll (1.73s)
+    --- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll/memory (0.01s)
+        assignment_test.go:223: lapses after the restart pass = 1, want 0 (grace pending counts none)
+    --- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll/postgres (1.72s)
+        assignment_test.go:223: lapses after the restart pass = 1, want 0 (grace pending counts none)
+--- FAIL: TestFault_DatabaseOutage_DuringPass (1.39s)
+    --- FAIL: TestFault_DatabaseOutage_DuringPass/memory (0.00s)
+        assignment_test.go:420: lapses after the outage = 1, want 0 (outage grace counts none)
+    --- FAIL: TestFault_DatabaseOutage_DuringPass/postgres (1.39s)
+        assignment_test.go:420: lapses after the outage = 1, want 0 (outage grace counts none)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.156s
+FAIL

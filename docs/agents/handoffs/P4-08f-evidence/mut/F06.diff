@@ -1,0 +1,16 @@
+diff --git a/internal/storage/assignment.go b/internal/storage/assignment.go
+index ba7c4e3..44e6944 100644
+--- a/internal/storage/assignment.go
++++ b/internal/storage/assignment.go
+@@ -57,10 +57,7 @@ type AssignParams struct {
+ // Section 4.4, implementation note 16). Both repositories call it inside the pass, under the job
+ // lock, with their own clock (the database clock in PostgreSQL).
+ func LapseCounts(p AssignParams, now time.Time) bool {
+-	if p.GracePending && (p.GracePendingUntil.IsZero() || now.Before(p.GracePendingUntil)) {
+-		return false
+-	}
+-	return !p.Grace.Suppresses(now)
++	return true
+ }
+ 
+ // AssignResult reports what one pass did. CandidatesRead holds, per task type, the number of

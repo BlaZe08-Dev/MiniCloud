@@ -1,0 +1,2 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_PollResponseLostAfterClaim$ ./tests/faultinject/  (URL unset)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.013s

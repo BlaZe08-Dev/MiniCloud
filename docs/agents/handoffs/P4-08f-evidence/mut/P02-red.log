@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestProperty_AssignmentSubState_ModelConformance$ ./internal/coordinator/  (URL unset)
+--- FAIL: TestProperty_AssignmentSubState_ModelConformance (0.55s)
+    assignment_test.go:430: seed 400 step 14: INV-3: round_robin claim of job_1963_def661f8bc2f by w_a without its live reservation ({holder:w_a expires:{wall:0 ext:63929044809 loc:<nil>}})
+    assignment_test.go:386: property test failed at seed 400: rerun with MINICLOUD_PROPERTY_SEED=400
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.554s
+FAIL

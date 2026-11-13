@@ -1,0 +1,14 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..e614518 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -99,9 +99,6 @@ func (r *InMemoryRepository) RecordPoll(ctx context.Context, workerID string) er
+ 	if !exists {
+ 		return domain.ErrWorkerNotFound
+ 	}
+-	if w.Status != domain.WorkerStatusHealthy {
+-		return domain.ErrWorkerUnhealthy
+-	}
+ 	r.touchPollLocked(w, r.clock.Now())
+ 	return nil
+ }

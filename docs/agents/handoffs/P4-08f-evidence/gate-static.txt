@@ -1,0 +1,4 @@
+gofmt: 0 files listed
+go vet rc 0
+go build rc 0
+make test-docs rc 0

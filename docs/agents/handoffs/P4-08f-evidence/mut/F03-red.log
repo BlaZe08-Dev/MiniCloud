@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_AssignmentLapseLoop_BoundedByLimit$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit (0.01s)
+    --- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit/memory (0.01s)
+        assignment_test.go:376: claim after the limit = <nil>, want round_robin_fallback with reason lapses
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.016s
+FAIL

@@ -1,0 +1,15 @@
+diff --git a/internal/storage/inmemory.go b/internal/storage/inmemory.go
+index cbc6fe2..245b895 100644
+--- a/internal/storage/inmemory.go
++++ b/internal/storage/inmemory.go
+@@ -530,9 +530,7 @@ func (r *InMemoryRepository) DispatchNextJob(ctx context.Context, workerID strin
+ 	if !exists {
+ 		return nil, nil, domain.ErrWorkerNotFound
+ 	}
+-	if worker.Status != domain.WorkerStatusHealthy {
+-		return nil, nil, domain.ErrWorkerUnhealthy
+-	}
++	_ = worker.Status
+ 
+ 	availSlots := r.computeAvailableSlotsLocked(worker.ID, worker.TotalSlots)
+ 	if availSlots <= 0 {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"math/rand"
+	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -354,19 +356,42 @@ func TestConformance_PollResponse_PolicyField(t *testing.T) {
 	})
 }
 
-// Property: the sub-state model. Random submit, poll, pass, cancel, reap, stall, heartbeat,
-// finish and clock advance. After every step the in-memory state must satisfy INV-1, INV-6,
-// INV-8 and INV-10. INV-3 is checked as far as a poll's result shows it (the claiming worker holds
-// the attempt). The liveness half of INV-14 is covered by TestFault_AssignmentPassStalled_JobRunsWithinBound.
+// Property: the sub-state model (ADR-0017 Section 6.4, 1,000 iterations). Random submit, poll,
+// pass, cancel, reap, stall, heartbeat, finish and clock advance, one seed per iteration. After
+// every step the in-memory state must satisfy:
+//   - INV-1: at most one RUNNING attempt per job;
+//   - INV-3: a poll never claims a job that is live-reserved to another worker, and a round_robin
+//     claim that no pass made inside the poll was the claimant's own live reservation;
+//   - INV-6: right after a successful pass, no reservation is held at or past its expiry;
+//   - INV-8: a cancelled job is never claimed and holds no reservation;
+//   - INV-10: no worker holds two live reservations, or one while it runs an attempt.
+//
+// INV-14 (liveness) closes every iteration: the pass is stalled, a fresh worker polls once per
+// interval, and every job still QUEUED must be claimed within FALLBACK_AGE plus one interval per job
+// plus the 3 s poll gap. The failing seed is logged; MINICLOUD_PROPERTY_SEED=<n> replays one seed.
 func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 	const iterations = 1000
-	reservations, rrClaims := 0, 0
+	first, last := int64(1), int64(iterations)
+	if v := os.Getenv("MINICLOUD_PROPERTY_SEED"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			t.Fatalf("MINICLOUD_PROPERTY_SEED=%q: %v", v, err)
+		}
+		first, last = n, n
+	}
+	reservations, rrClaims, drained := 0, 0, 0
+	var current int64
 	defer func() {
-		if reservations == 0 || rrClaims == 0 {
-			t.Errorf("model exercised no reservations (%d) or round-robin claims (%d); the property is vacuous", reservations, rrClaims)
+		if t.Failed() {
+			t.Logf("property test failed at seed %d: rerun with MINICLOUD_PROPERTY_SEED=%d", current, current)
+			return
+		}
+		if first == 1 && (reservations == 0 || rrClaims == 0 || drained == 0) {
+			t.Errorf("model exercised no reservations (%d), round-robin claims (%d) or stalled drains (%d); the property is vacuous", reservations, rrClaims, drained)
 		}
 	}()
-	for seed := int64(1); seed <= iterations; seed++ {
+	for seed := first; seed <= last; seed++ {
+		current = seed
 		rnd := rand.New(rand.NewSource(seed))
 		clk := newMockClock(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
 		repo := newPassFaultRepo(clk)
@@ -386,13 +411,24 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 			case 0:
 				jobs = append(jobs, rrSubmit(t, svc, "echo").ID)
 			case 1, 2:
+				before := reservationsOf(t, repo, jobs)
+				passesBefore := repo.passCount()
+				pollAt := clk.Now()
 				got, err := svc.PollWork(ctx, w)
 				if err == nil {
 					if cancelled[got.JobID] {
-						t.Fatalf("seed %d step %d: cancelled job %s was claimed", seed, step, got.JobID)
+						t.Fatalf("seed %d step %d: INV-8: cancelled job %s was claimed", seed, step, got.JobID)
+					}
+					passRan := repo.passCount() != passesBefore
+					if r, ok := before[got.JobID]; ok && r.holder != w && r.expires.After(pollAt) && !passRan {
+						t.Fatalf("seed %d step %d: INV-3: %s claimed %s, live-reserved to %s until %v", seed, step, w, got.JobID, r.holder, r.expires)
 					}
 					if got.Policy == domain.DispatchPolicyRoundRobin {
 						rrClaims++
+						r, ok := before[got.JobID]
+						if !passRan && (!ok || r.holder != w || !r.expires.After(pollAt)) {
+							t.Fatalf("seed %d step %d: INV-3: round_robin claim of %s by %s without its live reservation (%+v)", seed, step, got.JobID, w, r)
+						}
 						att, _ := repo.GetAttempt(ctx, got.AttemptID)
 						if att.WorkerID != w {
 							t.Fatalf("seed %d step %d: claim by %s recorded worker %s", seed, step, w, att.WorkerID)
@@ -403,6 +439,13 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 			case 3:
 				if res, err := repo.AssignQueuedJobs(ctx, storage.AssignParams{AcceptWindow: rrWindow, WorkerTimeout: rrTimeout, BatchLimit: 50, MaxLapses: 3}); err == nil {
 					reservations += res.Reserved
+					if !res.Skipped {
+						for id, r := range reservationsOf(t, repo, jobs) {
+							if !r.expires.After(clk.Now()) {
+								t.Fatalf("seed %d step %d: INV-6: job %s still reserved to %s at expiry %v after a pass at %v", seed, step, id, r.holder, r.expires, clk.Now())
+							}
+						}
+					}
 				}
 			case 4:
 				if len(jobs) > 0 {
@@ -430,8 +473,74 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 				_, _ = svc.ReapInactiveWorkers(ctx)
 			}
 			checkSubStateInvariants(t, repo, clk, seed, step, workers, jobs)
+			for _, id := range jobs {
+				if j, _ := repo.GetJob(ctx, id); j.State == domain.StateCancelled && j.AssignedWorkerID != nil {
+					t.Fatalf("seed %d step %d: INV-8: cancelled job %s holds a reservation to %s", seed, step, id, *j.AssignedWorkerID)
+				}
+			}
+		}
+		if livenessAfterStall(t, repo, svc, clk, seed, jobs) {
+			drained++
 		}
 	}
+}
+
+type reservation struct {
+	holder  string
+	expires time.Time
+}
+
+// reservationsOf returns the live and expired-but-held reservations of the given jobs.
+func reservationsOf(t *testing.T, repo storage.Repository, jobs []string) map[string]reservation {
+	t.Helper()
+	out := map[string]reservation{}
+	for _, id := range jobs {
+		j, err := repo.GetJob(context.Background(), id)
+		if err != nil {
+			t.Fatalf("GetJob(%s): %v", id, err)
+		}
+		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil {
+			out[id] = reservation{holder: *j.AssignedWorkerID, expires: *j.AssignmentExpiresAt}
+		}
+	}
+	return out
+}
+
+// livenessAfterStall is INV-14: with the pass stalled, every job still QUEUED is claimed by a fresh
+// polling worker within FALLBACK_AGE + one interval per job + the 3 s poll gap. The worker polls
+// once per second and commits each claim, so it is free again for the next interval. It returns
+// whether any job had to be drained.
+func livenessAfterStall(t *testing.T, repo *passFaultRepo, svc *coordinator.Service, clk *mockClock, seed int64, jobs []string) bool {
+	t.Helper()
+	ctx := context.Background()
+	var queued []string
+	for _, id := range jobs {
+		if j, _ := repo.GetJob(ctx, id); j.State == domain.StateQueued {
+			queued = append(queued, id)
+		}
+	}
+	if len(queued) == 0 {
+		return false
+	}
+	repo.setFailing(true)
+	start := clk.Now()
+	bound := rrFallbackAge + time.Duration(len(queued)+1)*rrInterval + 3*time.Second
+	left := map[string]bool{}
+	for _, id := range queued {
+		left[id] = true
+	}
+	for len(left) > 0 {
+		if waited := clk.Now().Sub(start); waited > bound {
+			t.Fatalf("seed %d: INV-14: %d of %d queued jobs unclaimed after %v with the pass stalled (bound %v)", seed, len(left), len(queued), waited, bound)
+		}
+		rrHeartbeat(t, svc, "w_drain", "echo")
+		if got, err := svc.PollWork(ctx, "w_drain"); err == nil {
+			delete(left, got.JobID)
+			_, _ = svc.CommitResult(ctx, got.JobID, got.AttemptID, got.LeaseToken, "w_drain", 0, "ok", "", "")
+		}
+		clk.Advance(time.Second)
+	}
+	return true
 }
 
 // attemptOf returns the job's current attempt, or nil.

@@ -1,0 +1,7 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_PollResponseLostAfterClaim$ ./tests/faultinject/  (URL unset)
+--- FAIL: TestFault_PollResponseLostAfterClaim (0.00s)
+    --- FAIL: TestFault_PollResponseLostAfterClaim/memory (0.00s)
+        assignment_test.go:172: attempt after the sweep = [0xc00011ba00], want one LOST attempt (one attempt consumed)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.012s
+FAIL

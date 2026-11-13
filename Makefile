@@ -87,6 +87,10 @@ test-db:
 # difference the target prints the missing and the extra names and fails. After adding, removing or
 # renaming a security test, regenerate the list with:
 #   env -u MINICLOUD_TEST_DATABASE_URL go test -list '^(TestFault_|TestAbuse_)' ./tests/faultinject/ ./tests/abuse/ | grep '^Test' | LC_ALL=C sort > tests/security-tests.list
+# The two packages run one after the other (-p 1). The assignment pass lock is one advisory key per
+# database (ADR-0017 note 15), and both packages use the one test database, each test in its own
+# schema, so a pass in one package makes a pass in the other skip and the test sees nothing
+# reserved. Measured in P4-08f fix round 1: before -p 1, 4 of 6 runs failed with a skipped pass.
 SECURITY_TESTS := ^(TestFault_|TestAbuse_)
 SECURITY_TEST_LIST := tests/security-tests.list
 ALLOW_SHARED_DB ?=
@@ -113,7 +117,7 @@ test-security:
 		echo "extra (found by go test -list, not in the list):" >&2; LC_ALL=C comm -13 $(SECURITY_TEST_LIST) "$$ACT" | sed 's/^/  /' >&2; \
 		exit 1; \
 	fi; \
-	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -timeout 20m -run '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/
+	MINICLOUD_TEST_DATABASE_URL="$$URL" go test -v -race -count=1 -p 1 -timeout 20m -run '$(SECURITY_TESTS)' ./tests/faultinject/ ./tests/abuse/
 
 # DANGEROUS: runs the tests that stop and start the SHARED minicloud-postgres container.
 # Never part of test-db or any default target. Requires CONFIRM=minicloud-postgres.

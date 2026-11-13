@@ -1,0 +1,2 @@
+cmd: go test -count=1 -timeout 90s -run ^TestProperty_AssignmentSubState_ModelConformance$ ./internal/coordinator/  (URL unset)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.324s

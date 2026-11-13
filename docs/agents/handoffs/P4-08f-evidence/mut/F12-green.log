@@ -1,0 +1,2 @@
+cmd: go test -count=1 -timeout 90s -run ^TestFault_DeepBacklog_PollsNotStarved$ ./tests/faultinject/  (URL unset)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.436s

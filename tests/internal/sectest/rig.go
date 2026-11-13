@@ -58,6 +58,9 @@ type Options struct {
 	PoolURL       string    // postgres only: connect through this URL (a fault proxy) instead of PG.SchemaURL
 	PoolMaxConns  int32
 	Tasks         []executor.Task
+	// WrapRepo, when set, wraps the repository before the service is built (the round-robin fault
+	// rigs use it to count and fail assignment calls).
+	WrapRepo func(storage.Repository) storage.Repository
 }
 
 // Rig is an in-process coordinator (real api handler, real service, real repository) behind an
@@ -100,6 +103,9 @@ func NewRig(t *testing.T, kind string, opts ...Options) *Rig {
 	case KindMemory:
 		r.Clock = workertest.NewFakeClock(time.Date(2026, 10, 29, 9, 0, 0, 0, time.UTC))
 		r.Repo = storage.NewInMemoryRepository(storage.WithClock(r.Clock), storage.WithLeaseDuration(o.Lease))
+		if o.WrapRepo != nil {
+			r.Repo = o.WrapRepo(r.Repo)
+		}
 		r.Svc = coordinator.NewService(r.Repo, scheduler.NewRoundRobinScheduler(), r.Reg, o.WorkerTimeout)
 		r.Svc.SetClock(r.Clock)
 	case KindPostgres:
@@ -121,6 +127,9 @@ func NewRig(t *testing.T, kind string, opts ...Options) *Rig {
 		}
 		t.Cleanup(pool.Close)
 		r.Repo = postgres.NewRepository(pool, postgres.WithLeaseDuration(o.Lease))
+		if o.WrapRepo != nil {
+			r.Repo = o.WrapRepo(r.Repo)
+		}
 		r.Svc = coordinator.NewPostgresService(r.Repo, scheduler.NewRoundRobinScheduler(), r.Reg, o.WorkerTimeout)
 	default:
 		t.Fatalf("unknown backend kind %q", kind)

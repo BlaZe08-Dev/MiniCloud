@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..37cbbea 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -143,7 +143,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 			examined++
+ 			continue
+ 		}
+-		if j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) {
++		if j.AssignmentExpiresAt != nil && !j.AssignmentExpiresAt.After(now) && LapseCounts(p, now) {
+ 			// Grace gates lapse counting, never revocation (ADR-0017 Section 4.4, INV-9).
+ 			counted := LapseCounts(p, now)
+ 			j.ClearAssignment()

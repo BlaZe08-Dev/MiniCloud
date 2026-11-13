@@ -1,0 +1,6 @@
+cmd: go test -count=1 -run ^TestFault_CancelRacesAccept$ ./tests/faultinject/ (URL unset); mutant R01: the pass never reserves
+--- FAIL: TestFault_CancelRacesAccept (0.51s)
+        assignment_test.go:273: job job_1_f30075e7c0f8 still unreserved after 5 passes (skipped passes are retried; a pass that never reserves is a failure)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.518s
+FAIL
