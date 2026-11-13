@@ -243,6 +243,23 @@ func TestFault_CoordinatorCrash_BetweenAssignAndPoll(t *testing.T) {
 	})
 }
 
+// passUntilReserved runs a pass and returns the job's holder. A pass can be skipped when another
+// pass holds the database-wide pass lock (ADR-0017 note 15), which is not "nothing to reserve", so
+// it is retried a bounded number of times; when the bound is hit the failure says so.
+func passUntilReserved(t *testing.T, r *sectest.RRRig, job string) string {
+	t.Helper()
+	const attempts = 5
+	for i := 0; i < attempts; i++ {
+		r.Pass()
+		if h := r.Holder(job); h != "" {
+			return h
+		}
+		time.Sleep(100 * time.Millisecond) // bounded: at most attempts passes
+	}
+	t.Fatalf("job %s still unreserved after %d passes (skipped passes are retried; a pass that never reserves is a failure)", job, attempts)
+	return ""
+}
+
 // TestFault_CancelRacesAccept is FS-18: a cancel and the poll that claims the reserved job run at
 // the same time. Either the cancel wins (CANCELLED, the poll gets 204, no attempt) or the claim
 // wins (the attempt exists and the cancel sees a RUNNING job: CANCEL_REQUESTED). Never both.
@@ -253,8 +270,7 @@ func TestFault_CancelRacesAccept(t *testing.T) {
 
 		// The two orders, run in sequence, pin each outcome.
 		jc := r.Submit(3)
-		r.Pass()
-		hc := r.Holder(jc)
+		hc := passUntilReserved(t, r, jc)
 		if resp := r.Cancel(jc); resp.Status != http.StatusOK {
 			t.Fatalf("cancel of a reserved job = %s, want 200", resp)
 		}
@@ -265,8 +281,7 @@ func TestFault_CancelRacesAccept(t *testing.T) {
 			t.Fatalf("cancel first: state %s attempts %d holder %q", j.State, len(r.Attempts(jc)), r.Holder(jc))
 		}
 		jp := r.Submit(3)
-		r.Pass()
-		hp := r.Holder(jp)
+		hp := passUntilReserved(t, r, jp)
 		pa := mustAssignment(t, r.Poll(hp), jp, domain.DispatchPolicyRoundRobin)
 		if resp := r.Cancel(jp); resp.Status != http.StatusOK {
 			t.Fatalf("cancel of a claimed job = %s, want 200", resp)
@@ -285,11 +300,7 @@ func TestFault_CancelRacesAccept(t *testing.T) {
 			r.Keepalive("w1", "w2", "w3")
 			job := r.Submit(3)
 			jobs = append(jobs, job)
-			r.Pass()
-			h := r.Holder(job)
-			if h == "" {
-				t.Fatalf("round %d: nothing reserved", i)
-			}
+			h := passUntilReserved(t, r, job)
 			var wg sync.WaitGroup
 			var pollResp, cancelResp sectest.Resp
 			start := make(chan struct{})

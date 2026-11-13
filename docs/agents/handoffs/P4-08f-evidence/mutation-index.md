@@ -1,6 +1,6 @@
 # P4-08f mutation index
 
-Each row is one single-site mutant applied alone in the throwaway worktree `~/mc-mut-claude` (detached at the task tip), run red, restored with `git checkout`, and run green. `mut/<ID>.diff` is the mutation, `mut/<ID>-red.log` and `mut/<ID>-green.log` are the filtered outputs (the first line of each names the command and whether the PostgreSQL URL was set). A PostgreSQL URL was set only where the row says PostgreSQL; the other rows ran the in-memory variants. Result: 30 killed, 0 surviving.
+Each row is one single-site mutant applied alone in the throwaway worktree `~/mc-mut-claude` (detached at the task tip), run red, restored with `git checkout`, and run green. `mut/<ID>.diff` is the mutation, `mut/<ID>-red.log` and `mut/<ID>-green.log` are the filtered outputs (the first line of each names the command and whether the PostgreSQL URL was set). A PostgreSQL URL was set only where the row says PostgreSQL; the other rows ran the in-memory variants. Result: 30 killed, 0 surviving (plus R01 of fix round 1).
 
 | ID | Group | Mutant | File | Killed by | Result |
 |---|---|---|---|---|---|
@@ -42,3 +42,9 @@ Each row is one single-site mutant applied alone in the throwaway worktree `~/mc
 - F13 (repeat without progress) is killed by the pass count (25 passes in 5 s against the expected 3), not by a hang: the round runs under a 5 s context.
 - T01 shows the new `> 0` check of `TestPollTiming_RunSleepsWithinMaxBackoff` at work (a poll sleep of a negative duration after the failure count overflows); T02 and T03 show the result-delivery row, T04 the poll-loop rows reading the named constants.
 - Not mutated: the round_robin rig itself (`tests/internal/sectest/rr.go`). Its helpers are exercised by every killed row; a wrong `Elapse` or `Restart` would make the fault tests fail in their green runs.
+
+## Fix round 1
+
+| ID | Group | Mutant | File | Killed by | Result |
+|---|---|---|---|---|---|
+| R01 | fault tests | the pass never reserves (bounded retry must still fail) | `internal/storage/inmemory_assignment.go` | TestFault_CancelRacesAccept | red then green, killed |
