@@ -61,28 +61,57 @@ type WorkerConfig struct {
 
 // LoadCoordinatorConfig loads and validates configuration from environment variables.
 func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
-	hbInterval := getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
-	workerTimeout := getDurationEnv("MINICLOUD_WORKER_TIMEOUT", 10*time.Second)
+	// Every variable is parsed strictly (SEC-062): the first parse or range error is kept and
+	// returned before any cross-variable validation, so the message names the bad variable.
+	var parseErr error
+	keep := func(err error) {
+		if err != nil && parseErr == nil {
+			parseErr = err
+		}
+	}
+	posDuration := func(key string, def time.Duration) time.Duration {
+		v, err := getPositiveDurationEnv(key, def)
+		keep(err)
+		return v
+	}
+	plainDuration := func(key string, def time.Duration) time.Duration {
+		v, err := getDurationEnv(key, def)
+		keep(err)
+		return v
+	}
+	posInt := func(key string, def int) int {
+		v, err := getPositiveIntEnv(key, def)
+		keep(err)
+		return v
+	}
+	plainInt := func(key string, def int) int {
+		v, err := getIntEnv(key, def)
+		keep(err)
+		return v
+	}
+
+	hbInterval := posDuration("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
+	workerTimeout := posDuration("MINICLOUD_WORKER_TIMEOUT", 10*time.Second)
 
 	// Default reaper interval is at most half the worker timeout
 	defaultReaperInterval := workerTimeout / 2
 	if defaultReaperInterval <= 0 {
 		defaultReaperInterval = 1 * time.Second
 	}
-	reaperInterval := getDurationEnv("MINICLOUD_REAPER_INTERVAL", defaultReaperInterval)
+	reaperInterval := posDuration("MINICLOUD_REAPER_INTERVAL", defaultReaperInterval)
 
 	storageDriver := strings.ToLower(getEnv("MINICLOUD_STORAGE_DRIVER", "memory"))
 	if storageDriver == "" {
 		storageDriver = "memory"
 	}
 	dbURL := getEnv("MINICLOUD_DATABASE_URL", "")
-	dbMaxConns := getIntEnv("MINICLOUD_DB_MAX_CONNS", 20)
-	dbMinConns := getIntEnv("MINICLOUD_DB_MIN_CONNS", 2)
-	dbQueryTimeout := getDurationEnv("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
+	dbMaxConns := posInt("MINICLOUD_DB_MAX_CONNS", 20)
+	dbMinConns := plainInt("MINICLOUD_DB_MIN_CONNS", 2)
+	dbQueryTimeout := posDuration("MINICLOUD_DB_QUERY_TIMEOUT", 5*time.Second)
 
 	// The assignment variables (ADR-0017 Section 5.5) are parsed strictly: a set value that does
 	// not parse is a startup error, not the default (F-5a-8). The first parse error is kept and
-	// returned before validateAssignment. The older variables keep getIntEnv and getDurationEnv.
+	// returned before validateAssignment. The older variables use getIntEnv and getDurationEnv, strict since SEC-062.
 	var assignParseErr error
 	strictDuration := func(key string, def time.Duration) time.Duration {
 		v, err := lookupDurationEnvStrict(key, def)
@@ -104,8 +133,8 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		HeartbeatInterval:  hbInterval,
 		WorkerTimeout:      workerTimeout,
 		ReaperInterval:     reaperInterval,
-		DefaultMaxAttempts: getIntEnv("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
-		MaxJobRuntime:      getDurationEnv("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
+		DefaultMaxAttempts: plainInt("MINICLOUD_DEFAULT_MAX_ATTEMPTS", 3),
+		MaxJobRuntime:      posDuration("MINICLOUD_MAX_JOB_RUNTIME", 60*time.Second),
 		LogLevel:           getEnv("MINICLOUD_LOG_LEVEL", "info"),
 		StorageDriver:      storageDriver,
 		DatabaseURL:        dbURL,
@@ -113,10 +142,10 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		DBMinConns:         dbMinConns,
 		DBQueryTimeout:     dbQueryTimeout,
 
-		LeaseDuration:      getDurationEnv("MINICLOUD_LEASE_DURATION", 30*time.Second),
-		SweeperInterval:    getDurationEnv("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
-		StartupGracePeriod: getDurationEnv("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
-		OutageGraceWindow:  getDurationEnv("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
+		LeaseDuration:      posDuration("MINICLOUD_LEASE_DURATION", 30*time.Second),
+		SweeperInterval:    posDuration("MINICLOUD_SWEEPER_INTERVAL", 5*time.Second),
+		StartupGracePeriod: plainDuration("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
+		OutageGraceWindow:  plainDuration("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
 
 		DispatchPolicy:         strings.ToLower(getEnv("MINICLOUD_DISPATCH_POLICY", "fifo_pull")),
 		AssignmentAcceptWindow: strictDuration("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", 5*time.Second),
@@ -127,6 +156,9 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		AssignmentMinYield:     strictDuration("MINICLOUD_ASSIGNMENT_MIN_YIELD", 10*time.Millisecond),
 	}
 
+	if parseErr != nil {
+		return nil, parseErr
+	}
 	if cfg.HTTPAddr == "" {
 		return nil, fmt.Errorf("MINICLOUD_HTTP_ADDR cannot be empty")
 	}
@@ -234,11 +266,19 @@ func validateAssignment(cfg *CoordinatorConfig) error {
 
 // LoadWorkerConfig loads and validates worker configuration from environment variables.
 func LoadWorkerConfig() (*WorkerConfig, error) {
+	slots, err := getPositiveIntEnv("MINICLOUD_WORKER_SLOTS", 4)
+	if err != nil {
+		return nil, err
+	}
+	heartbeat, err := getPositiveDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &WorkerConfig{
 		WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
 		CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
-		TotalSlots:        getIntEnv("MINICLOUD_WORKER_SLOTS", 4),
-		HeartbeatInterval: getDurationEnv("MINICLOUD_HEARTBEAT_INTERVAL", 2*time.Second),
+		TotalSlots:        slots,
+		HeartbeatInterval: heartbeat,
 		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
 	}
 
@@ -262,28 +302,58 @@ func getEnv(key, defaultVal string) string {
 	return defaultVal
 }
 
-func getIntEnv(key string, defaultVal int) int {
+// getIntEnv returns defaultVal when key is unset or empty (SEC-062), and an error naming key and
+// the value when it is set to something that does not parse as an integer (overflow included).
+// The message style matches lookupIntEnvStrict.
+func getIntEnv(key string, defaultVal int) (int, error) {
 	valStr := os.Getenv(key)
 	if valStr == "" {
-		return defaultVal
+		return defaultVal, nil
 	}
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
-		return defaultVal
+		return defaultVal, fmt.Errorf("%s must be an integer (got %q)", key, valStr)
 	}
-	return val
+	return val, nil
 }
 
-func getDurationEnv(key string, defaultVal time.Duration) time.Duration {
+// getPositiveIntEnv is getIntEnv for a variable that must be greater than zero.
+func getPositiveIntEnv(key string, defaultVal int) (int, error) {
+	val, err := getIntEnv(key, defaultVal)
+	if err != nil {
+		return defaultVal, err
+	}
+	if val <= 0 {
+		return defaultVal, fmt.Errorf("%s must be positive (got %q)", key, os.Getenv(key))
+	}
+	return val, nil
+}
+
+// getDurationEnv returns defaultVal when key is unset or empty (SEC-062), and an error naming key
+// and the value when it is set to something time.ParseDuration rejects (a number without a unit
+// and overflow included). The message style matches lookupDurationEnvStrict.
+func getDurationEnv(key string, defaultVal time.Duration) (time.Duration, error) {
 	valStr := os.Getenv(key)
 	if valStr == "" {
-		return defaultVal
+		return defaultVal, nil
 	}
 	val, err := time.ParseDuration(valStr)
 	if err != nil {
-		return defaultVal
+		return defaultVal, fmt.Errorf("%s must be a duration with a unit, such as 5s (got %q)", key, valStr)
 	}
-	return val
+	return val, nil
+}
+
+// getPositiveDurationEnv is getDurationEnv for a variable that must be greater than zero.
+func getPositiveDurationEnv(key string, defaultVal time.Duration) (time.Duration, error) {
+	val, err := getDurationEnv(key, defaultVal)
+	if err != nil {
+		return defaultVal, err
+	}
+	if val <= 0 {
+		return defaultVal, fmt.Errorf("%s must be positive (got %q)", key, os.Getenv(key))
+	}
+	return val, nil
 }
 
 // lookupIntEnvStrict returns defaultVal when key is unset, and an error naming key when it is set
