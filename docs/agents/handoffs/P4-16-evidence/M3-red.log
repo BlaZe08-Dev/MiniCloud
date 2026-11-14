@@ -1,0 +1,6 @@
+--- FAIL: TestGetPositiveIntEnv_Table (0.00s)
+    --- FAIL: TestGetPositiveIntEnv_Table/zero (0.00s)
+        env_helpers_test.go:73: value "0": want an error, got none (value 0)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.003s
+FAIL

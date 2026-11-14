@@ -1,0 +1,10 @@
+--- FAIL: TestGetDurationEnv_Table (0.00s)
+    --- FAIL: TestGetDurationEnv_Table/unparsable (0.00s)
+        env_helpers_test.go:97: value "5sec": want an error, got none (value 7s)
+    --- FAIL: TestGetDurationEnv_Table/no_unit (0.00s)
+        env_helpers_test.go:97: value "5": want an error, got none (value 7s)
+    --- FAIL: TestGetDurationEnv_Table/overflow (0.00s)
+        env_helpers_test.go:97: value "99999999999h": want an error, got none (value 7s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.003s
+FAIL
