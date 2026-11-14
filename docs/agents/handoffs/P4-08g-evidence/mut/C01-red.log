@@ -1,0 +1,41 @@
+# go test -run TestFault_DeepBacklog_PollsNotStarved ./tests/faultinject/
+2026/11/14 04:58:40 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:40 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:40 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:40 INFO worker registered worker_id=w4 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_1_3da124124e41 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_2_ed7c6529745e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_3_cae33da9103c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_4_5d6974f1d8df task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_5_e31920b51cb1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_6_0c0a598d8c59 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_7_fdf3f63b64cc task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_8_ba308adf1821 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_9_5890d512dcdc task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_10_c12a12a87fb1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_11_151760332dd3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:40 INFO job submitted and queued job_id=job_12_6dc6af2d3a89 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO worker registered worker_id=w1 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:41 INFO worker registered worker_id=w2 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:41 INFO worker registered worker_id=w3 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:41 INFO worker registered worker_id=w4 version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_13_c8d0c37bd3fd task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_14_4accb8a25119 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_15_e2768755d855 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_16_3df97019c1ca task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_17_b1c34bace806 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_18_ad4f2361a262 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_19_2a525eae33d5 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_20_1510f2454ee6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_21_b0bf8f0cc005 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_22_300853d95b7f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_23_1d6c501a1853 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:58:41 INFO job submitted and queued job_id=job_24_ee213e7f75ad task_type=echo state=QUEUED max_attempts=3
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (1.38s)
+    --- FAIL: TestFault_DeepBacklog_PollsNotStarved/memory (0.43s)
+        assignment_test.go:646: only 1 polls completed in yield 1 (200.644597ms): polls are starved between passes
+    --- FAIL: TestFault_DeepBacklog_PollsNotStarved/postgres (0.95s)
+        assignment_test.go:646: only 1 polls completed in yield 1 (208.162651ms): polls are starved between passes
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	1.386s
+FAIL

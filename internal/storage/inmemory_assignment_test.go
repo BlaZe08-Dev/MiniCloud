@@ -257,6 +257,20 @@ func TestConformance_ClaimAgeArm_UsesNotBefore(t *testing.T) {
 	storagetest.RunClaimAgeArmUsesNotBeforeConformance(t, newInMemoryAssignmentHarness)
 }
 
+// P4-08g H1.
+func TestConformance_ClaimAgeArm_NeedsSilentPass(t *testing.T) {
+	storagetest.RunClaimAgeArmNeedsSilentPassConformance(t, newInMemoryAssignmentHarness)
+}
+
+// P4-08g: kills Q10 and Q18 on PostgreSQL; the in-memory run keeps the two repositories equal.
+func TestConformance_ClaimFallback_LiveReservationOfOther(t *testing.T) {
+	storagetest.RunClaimFallbackLiveReservationOfOtherConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_AssignRevoke_BatchLimit(t *testing.T) {
+	storagetest.RunAssignRevokeBatchLimitConformance(t, newInMemoryAssignmentHarness)
+}
+
 // F-5a-7: 20 rounds, as in slice 5a.
 func TestConformance_AssignEvent_CandidatesInIDOrder(t *testing.T) {
 	storagetest.RunAssignEventCandidatesInIDOrderConformance(t, newInMemoryAssignmentHarness, 20)

@@ -1,0 +1,2 @@
+# go test -run TestFault_DeepBacklog_PollsNotStarved ./tests/faultinject/
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	1.319s

@@ -243,9 +243,11 @@ func TestFault_CoordinatorCrash_BetweenAssignAndPoll(t *testing.T) {
 	})
 }
 
-// passUntilReserved runs a pass and returns the job's holder. A pass can be skipped when another
-// pass holds the database-wide pass lock (ADR-0017 note 15), which is not "nothing to reserve", so
-// it is retried a bounded number of times; when the bound is hit the failure says so.
+// passUntilReserved runs a pass and returns the job's holder. A pass is skipped when another pass
+// holds the database-wide pass lock (ADR-0017 note 15); that is not "nothing to reserve", so only a
+// skipped round is retried, a bounded number of times. A round whose passes ran (or failed) and left
+// the job unreserved fails at once: retrying it would hide a pass that reserves intermittently
+// (P4-08g L2).
 func passUntilReserved(t *testing.T, r *sectest.RRRig, job string) string {
 	t.Helper()
 	const attempts = 5
@@ -254,9 +256,12 @@ func passUntilReserved(t *testing.T, r *sectest.RRRig, job string) string {
 		if h := r.Holder(job); h != "" {
 			return h
 		}
+		if !r.LastRoundSkipped() {
+			t.Fatalf("job %s unreserved after a pass that ran (not skipped for the pass lock): the pass reserves nothing", job)
+		}
 		time.Sleep(100 * time.Millisecond) // bounded: at most attempts passes
 	}
-	t.Fatalf("job %s still unreserved after %d passes (skipped passes are retried; a pass that never reserves is a failure)", job, attempts)
+	t.Fatalf("job %s still unreserved after %d passes, every one skipped for the pass lock", job, attempts)
 	return ""
 }
 
@@ -529,27 +534,39 @@ func TestFault_RestartThenPoll_NoAgeClaim(t *testing.T) {
 // TestFault_OutageRecovery_NoAgeClaim is FS-23 and INV-19: the database is down for longer than
 // FALLBACK_AGE; polls fail meanwhile. The first poll after recovery refreshes, and no job is
 // claimed by age.
+//
+// It differs from TestFault_RestartThenPoll_NoAgeClaim in what it pins: the same coordinator process
+// lives through the outage, and a poll that fails in RecordPoll never reaches the refresh, so the
+// outage must leave the refresh state untouched. Checked here: no pass ran during the outage, and
+// the first poll after recovery runs exactly one refresh at once (no rate window left over from the
+// outage) and claims by reservation, as the only worker that polled successfully (P4-08g L4). The
+// overlap that remains is structural: after recovery both tests take the same refresh path.
 func TestFault_OutageRecovery_NoAgeClaim(t *testing.T) {
 	sectest.EachBackend(t, func(t *testing.T, kind string) {
 		r := rrRig(t, kind, sectest.RROptions{})
 		r.Join("w1", "w2")
 		jobs := agedJobs(r, 1)
-		_ = jobs
 		r.Fault.FailAll(true)
+		passesBefore := r.Fault.Passes()
 		for _, w := range []string{"w1", "w2"} {
 			if resp := r.PollResp(w); resp.Status == http.StatusOK || resp.Status == http.StatusNoContent {
 				t.Fatalf("poll of %s during the outage = %s, want an error", w, resp)
 			}
 		}
+		if n := r.Fault.Passes() - passesBefore; n != 0 {
+			t.Fatalf("%d passes ran during the outage, want 0 (a failed poll never reaches the refresh)", n)
+		}
 		r.Fault.FailAll(false)
 		claims, _ := pollAll(r, "w1", "w2")
+		if n := r.Fault.Passes() - passesBefore; n != 1 {
+			t.Fatalf("%d refresh attempts after recovery, want exactly 1 (no rate window consumed by the outage)", n)
+		}
 		if len(claims) != 1 {
 			t.Fatalf("%d polls claimed after recovery, want exactly 1", len(claims))
 		}
-		for w, c := range claims {
-			if c.JobID != jobs[0] || c.Policy != domain.DispatchPolicyRoundRobin {
-				t.Fatalf("%s claimed %s under %q, want round_robin", w, c.JobID, c.Policy)
-			}
+		c := claims["w1"]
+		if c == nil || c.JobID != jobs[0] || c.Policy != domain.DispatchPolicyRoundRobin || c.FallbackReason != "" {
+			t.Fatalf("claims after recovery = %+v, want w1 (the first poll, whose refresh ran) to claim %s under round_robin", claims, jobs[0])
 		}
 	})
 }
@@ -571,21 +588,25 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 		}
 
 		var done atomic.Bool
-		var during atomic.Int64
+		var pollMu sync.Mutex
+		var completed []time.Time // wall-clock completion of each poll that got its answer
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for !done.Load() {
 				// An unknown worker: answered by the service under s.mu, never reserved or claiming.
-				if resp := r.PollResp("ghost"); resp.Status == http.StatusNotFound && !done.Load() {
-					during.Add(1)
+				if resp := r.PollResp("ghost"); resp.Status == http.StatusNotFound {
+					pollMu.Lock()
+					completed = append(completed, time.Now())
+					pollMu.Unlock()
 				}
 			}
 		}()
 		time.Sleep(20 * time.Millisecond) // let the poller start before the round
 		// A round that never stops (a repeat without progress) is cut after 5 s and fails below.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		logBefore := len(r.Fault.PassLog())
 		roundStart := time.Now()
 		passes := r.Loop.Round(ctx)
 		elapsed := time.Since(roundStart)
@@ -612,9 +633,30 @@ func TestFault_DeepBacklog_PollsNotStarved(t *testing.T) {
 		if elapsed < 2*s.MinYield {
 			t.Fatalf("round took %v, less than two yields of %v", elapsed, s.MinYield)
 		}
-		// Two yields of 200 ms with the mutex released: a poll loop completes many calls in them.
-		if during.Load() < 20 {
-			t.Fatalf("only %d polls completed during the round: polls are starved between passes", during.Load())
+		// INV-20: count only the polls that complete inside a yield, after a pass returned and
+		// before the next one entered (wall-clock times from the repository wrapper). A poll loop
+		// completes many calls in 200 ms with the mutex released; with the mutex held through the
+		// yield it completes none (P4-08g M2, kills the ADR's mutant).
+		log := r.Fault.PassLog()[logBefore:]
+		if len(log) != 3 {
+			t.Fatalf("the round logged %d passes, want 3", len(log))
+		}
+		pollMu.Lock()
+		defer pollMu.Unlock()
+		for g := 0; g < 2; g++ {
+			from, to := log[g].End, log[g+1].Start
+			if to.Sub(from) < s.MinYield {
+				t.Fatalf("gap %d between passes is %v, less than the yield %v", g+1, to.Sub(from), s.MinYield)
+			}
+			n := 0
+			for _, c := range completed {
+				if c.After(from) && c.Before(to) {
+					n++
+				}
+			}
+			if n < 20 {
+				t.Fatalf("only %d polls completed in yield %d (%v): polls are starved between passes", n, g+1, to.Sub(from))
+			}
 		}
 	})
 }
@@ -657,8 +699,27 @@ func TestFault_PersistentPassFailure_AgeClaimRate(t *testing.T) {
 				t.Fatalf("interval %d: claim of %s repeats or is unknown", k, c.JobID)
 			}
 			claimed[c.JobID] = true
-			if bound := rrAge + time.Duration(k+1)*poll + 3*time.Second; rrAge+silence > bound {
-				t.Fatalf("interval %d: claimed %v after the silence began, bound %v", k, rrAge+silence, bound)
+			if c.FallbackReason != domain.FallbackReasonAge {
+				t.Fatalf("interval %d: fallback reason %q, want %q", k, c.FallbackReason, domain.FallbackReasonAge)
+			}
+			// FS-21 bound (ADR-0017 Section 6.1): the k-th aged job is claimed within FALLBACK_AGE +
+			// (k+1) intervals + 3 s of the pass going silent, and never before FALLBACK_AGE. Silence is
+			// read from the repository (its clock minus the stored pass heartbeat), not from a number
+			// this test accumulated, and the bound is built from the ADR's constants (P4-08g L1).
+			hb, err := r.Fault.AssignmentPassState(context.Background())
+			if err != nil {
+				t.Fatalf("AssignmentPassState: %v", err)
+			}
+			now, err := r.Fault.Now(context.Background())
+			if err != nil {
+				t.Fatalf("repository Now: %v", err)
+			}
+			silent := now.Sub(hb)
+			if upper := 30*time.Second + time.Duration(k+1)*time.Second + 3*time.Second; silent > upper {
+				t.Fatalf("interval %d: claimed after the pass was silent for %v, bound FALLBACK_AGE 30s + %d x 1s + 3s = %v", k, silent, k+1, upper)
+			}
+			if silent < 30*time.Second {
+				t.Fatalf("interval %d: age claim after only %v of pass silence, FALLBACK_AGE is 30s", k, silent)
 			}
 			r.Wait(poll + 20*time.Millisecond)
 			silence += poll + 20*time.Millisecond

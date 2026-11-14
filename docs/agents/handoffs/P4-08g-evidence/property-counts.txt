@@ -1,0 +1,1 @@
+    assignment_test.go:398: claims 792, of which INV-3 checked against the post-refresh reservations 713 (all 792 are checked)

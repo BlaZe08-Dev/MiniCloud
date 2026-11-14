@@ -197,6 +197,20 @@ func TestConformance_ClaimAgeArm_UsesNotBefore(t *testing.T) {
 	storagetest.RunClaimAgeArmUsesNotBeforeConformance(t, newPostgresAssignmentHarness)
 }
 
+// P4-08g H1: INV-16, the age arm needs a pass silent for FallbackAge.
+func TestConformance_ClaimAgeArm_NeedsSilentPass(t *testing.T) {
+	storagetest.RunClaimAgeArmNeedsSilentPassConformance(t, newPostgresAssignmentHarness)
+}
+
+// P4-08g: INV-3 on the fallback arm, and the revoke batch limit.
+func TestConformance_ClaimFallback_LiveReservationOfOther(t *testing.T) {
+	storagetest.RunClaimFallbackLiveReservationOfOtherConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_AssignRevoke_BatchLimit(t *testing.T) {
+	storagetest.RunAssignRevokeBatchLimitConformance(t, newPostgresAssignmentHarness)
+}
+
 // 20 rounds, as in memory: each round is a fresh schema.
 func TestConformance_AssignEvent_CandidatesInIDOrder(t *testing.T) {
 	storagetest.RunAssignEventCandidatesInIDOrderConformance(t, newPostgresAssignmentHarness, 20)

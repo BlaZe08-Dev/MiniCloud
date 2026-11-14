@@ -660,6 +660,111 @@ func RunClaimAgeArmUsesNotBeforeConformance(t *testing.T, newHarness func(t *tes
 	}
 }
 
+// RunClaimAgeArmNeedsSilentPassConformance: ADR-0017 Section 3.2 and INV-16, the age arm opens only
+// when the pass has been silent for FallbackAge. The job is old enough and unreserved, the poll's own
+// refresh failed (age arm open), but the pass completed moments ago, so the poll gets nothing. Once
+// the pass has been silent for FallbackAge the same call claims the job by age (P4-08g H1: kills
+// the mutant that drops the silence term).
+func RunClaimAgeArmNeedsSilentPassConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	h := newHarness(t)
+	ctx := context.Background()
+	ar := h.assignRepo(t)
+	AssignAddWorker(t, h, "w_1", 1, "echo")
+	AssignSubmit(t, h, "job_1", "echo")
+	h.Advance(t, AssignTestFallbackAge+time.Minute)
+	// w_1 has never polled, so it is not eligible: the pass completes (heartbeat now) and reserves nothing.
+	if res := AssignRunPass(t, h); res.Reserved != 0 {
+		t.Fatalf("setup: pass reserved %d jobs for a worker that never polled", res.Reserved)
+	}
+	AssignPoll(t, h, "w_1")
+	if _, err := ar.ClaimForPoll(ctx, "w_1", AssignTestClaimOpts(true)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+		t.Fatalf("aged job claimed by age while the pass completed moments ago: err=%v", err)
+	}
+	if job := AssignJob(t, h, "job_1"); job.State != domain.StateQueued {
+		t.Fatalf("job state %s after a refused claim, want QUEUED", job.State)
+	}
+	h.Advance(t, AssignTestFallbackAge+time.Second)
+	AssignPoll(t, h, "w_1")
+	claim, err := ar.ClaimForPoll(ctx, "w_1", AssignTestClaimOpts(true))
+	if err != nil {
+		t.Fatalf("claim after the pass was silent for FallbackAge: %v", err)
+	}
+	if claim.Policy != domain.DispatchPolicyRoundRobinFallback || claim.FallbackReason != domain.FallbackReasonAge {
+		t.Fatalf("claim policy %q reason %q, want round_robin_fallback / age", claim.Policy, claim.FallbackReason)
+	}
+}
+
+// RunClaimFallbackLiveReservationOfOtherConformance: INV-3 on the fallback arm. A job with another
+// worker's live reservation is never claimable by lapses or by age, even when it is at the lapse limit
+// or old enough and the pass has been silent. The seam writes a state the pass would not produce
+// (a reserved job at the limit), so the claim query's own reservation condition is what is tested
+// (P4-08g, kills Q10).
+func RunClaimFallbackLiveReservationOfOtherConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	t.Run("lapse arm", func(t *testing.T) {
+		h := newHarness(t)
+		AssignAddWorker(t, h, "w_1", 1, "echo")
+		AssignAddWorker(t, h, "w_2", 1, "echo")
+		AssignSubmit(t, h, "job_1", "echo")
+		h.SetLapses(t, "job_1", AssignTestMaxLapses)
+		h.SetReservation(t, "job_1", "w_2", AssignTestAcceptWindow)
+		AssignPoll(t, h, "w_1")
+		if _, err := h.assignRepo(t).ClaimForPoll(context.Background(), "w_1", AssignTestClaimOpts(false)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("job at the lapse limit with another worker's live reservation was claimed: err=%v", err)
+		}
+	})
+	t.Run("age arm", func(t *testing.T) {
+		h := newHarness(t)
+		AssignAddWorker(t, h, "w_1", 1, "echo")
+		AssignAddWorker(t, h, "w_2", 1, "echo")
+		AssignSubmit(t, h, "job_1", "echo")
+		h.Advance(t, AssignTestFallbackAge+time.Minute)
+		h.SetReservation(t, "job_1", "w_2", AssignTestAcceptWindow)
+		AssignPoll(t, h, "w_1")
+		if _, err := h.assignRepo(t).ClaimForPoll(context.Background(), "w_1", AssignTestClaimOpts(true)); !errors.Is(err, domain.ErrNoQueuedJobs) {
+			t.Fatalf("aged job with another worker's live reservation was claimed: err=%v", err)
+		}
+	})
+}
+
+// RunAssignRevokeBatchLimitConformance: ADR-0017 Section 6.2 and D14, one pass revokes at most
+// BatchLimit expired reservations; the next pass revokes the next ones (P4-08g, kills Q18).
+func RunAssignRevokeBatchLimitConformance(t *testing.T, newHarness func(t *testing.T) AssignmentHarness) {
+	const total, limit = 5, 2
+	h := newHarness(t)
+	for i := 1; i <= total; i++ {
+		w, j := fmt.Sprintf("w_%d", i), fmt.Sprintf("job_%d", i)
+		AssignAddWorker(t, h, w, 1, "echo")
+		AssignSubmit(t, h, j, "echo")
+		h.SetReservation(t, j, w, -time.Millisecond)
+	}
+	params := AssignTestParams()
+	params.BatchLimit = limit
+	reserved := func() int {
+		n := 0
+		for i := 1; i <= total; i++ {
+			if AssignJob(t, h, fmt.Sprintf("job_%d", i)).AssignedWorkerID != nil {
+				n++
+			}
+		}
+		return n
+	}
+	for want, left := limit, total; left > 0; left -= want {
+		if left < limit {
+			want = left
+		}
+		res, err := h.assignRepo(t).AssignQueuedJobs(context.Background(), params)
+		if err != nil {
+			t.Fatalf("AssignQueuedJobs: %v", err)
+		}
+		if got := res.Revoked + res.Lapsed + res.LapsedUncounted; got != want {
+			t.Fatalf("pass cleared %d reservations with %d expired left, want %d (BatchLimit %d)", got, left, want, limit)
+		}
+		if got := reserved(); got != left-want {
+			t.Fatalf("%d reservations remain after the pass, want %d", got, left-want)
+		}
+	}
+}
+
 // RunAssignEventCandidatesInIDOrderConformance: ADR-0017 Section 2.1, the JOB_ASSIGNED payload
 // lists the first 10 eligible worker IDs in ID order. Repeated over fresh repositories with
 // workers inserted in reverse, so map iteration order or insertion order would show (F-5a-7).

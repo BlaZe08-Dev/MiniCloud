@@ -1,0 +1,1478 @@
+# go test -run TestProperty_AssignmentSubState ./internal/coordinator/
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_1_c3d17e4ede89 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_1_c3d17e4ede89 state=CANCELLED
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_a w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_2_b2cad1faf987 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_2_b2cad1faf987 attempt_id=att_1_8f1c9f2390f7 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_2_b2cad1faf987 attempt_id=att_1_8f1c9f2390f7 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_3_0d1b4802fc7d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_4_2b2d8e5f4ee3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_5_fe7d0c2d86a3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_3_0d1b4802fc7d attempt_id=att_1_dc5d9c4de12e attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_3_0d1b4802fc7d attempt_id=att_1_dc5d9c4de12e final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_4_2b2d8e5f4ee3 attempt_id=att_2_6354466034e8 attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_4_2b2d8e5f4ee3 attempt_id=att_2_6354466034e8 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_6_fa5b84dcab73 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_7_ae2d6af455b4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_a w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_8_0fcc6473d4b4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_9_00ec19660200 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_5_fe7d0c2d86a3 attempt_id=att_3_df63acfc14ed attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_10_37eeb8714ac7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_7_ae2d6af455b4 state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_11_a5c37bc66a87 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_6_fa5b84dcab73 attempt_id=att_4_938a500a36dd attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_6_fa5b84dcab73 attempt_id=att_4_938a500a36dd final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_8_0fcc6473d4b4 attempt_id=att_5_c81afa6f913b attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_8_0fcc6473d4b4 attempt_id=att_5_c81afa6f913b final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_9_00ec19660200 attempt_id=att_6_13a0f496895b attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_9_00ec19660200 attempt_id=att_6_13a0f496895b final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_10_37eeb8714ac7 attempt_id=att_7_a3b9d446cfb3 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_10_37eeb8714ac7 attempt_id=att_7_a3b9d446cfb3 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_11_a5c37bc66a87 attempt_id=att_8_73e260256111 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_11_a5c37bc66a87 attempt_id=att_8_73e260256111 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_12_2d9cc9822967 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_13_58991fd10121 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_14_11fc501d0ab2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_15_50ca18d81cac task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_16_8a7f2dbb0ce6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_13_58991fd10121 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_17_adebab5e4020 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_14_11fc501d0ab2 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_12_2d9cc9822967 attempt_id=att_1_1131b0284573 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_12_2d9cc9822967 attempt_id=att_1_1131b0284573 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_15_50ca18d81cac attempt_id=att_2_61cf88e6f603 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_15_50ca18d81cac attempt_id=att_2_61cf88e6f603 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_16_8a7f2dbb0ce6 attempt_id=att_3_f9f2453300d8 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_16_8a7f2dbb0ce6 attempt_id=att_3_f9f2453300d8 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_17_adebab5e4020 attempt_id=att_4_25146d46cf74 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_17_adebab5e4020 attempt_id=att_4_25146d46cf74 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_18_fc2683b87a39 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_19_9ca9ecc27490 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_19_9ca9ecc27490 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_20_2ac0fae369f1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_18_fc2683b87a39 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_21_a460bf5dea5b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_22_135cca26c62c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_c]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_21_a460bf5dea5b state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_20_2ac0fae369f1 attempt_id=att_1_ddd925088983 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_20_2ac0fae369f1 attempt_id=att_1_ddd925088983 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_22_135cca26c62c attempt_id=att_2_a62b2645b792 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_22_135cca26c62c attempt_id=att_2_a62b2645b792 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_23_99aebf2c1300 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_c w_a w_b]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_23_99aebf2c1300 attempt_id=att_1_34fe6622db56 attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_23_99aebf2c1300 state=CANCEL_REQUESTED
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_23_99aebf2c1300 state=CANCEL_REQUESTED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_23_99aebf2c1300 attempt_id=att_1_34fe6622db56 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_24_6347e99fc0a6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_24_6347e99fc0a6 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_25_3ab09250a59b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_26_555980b5d8ac task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_b w_c w_a]" timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_27_3e23883d1b7a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_27_3e23883d1b7a state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_28_0f930dfedb9d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_25_3ab09250a59b attempt_id=att_1_c16f5affcba6 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_25_3ab09250a59b attempt_id=att_1_c16f5affcba6 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_26_555980b5d8ac attempt_id=att_2_a7365209cb69 attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_29_0d5b61078cea task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_26_555980b5d8ac attempt_id=att_2_a7365209cb69 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_28_0f930dfedb9d attempt_id=att_3_6c3c795404ea attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_28_0f930dfedb9d attempt_id=att_3_6c3c795404ea final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_29_0d5b61078cea attempt_id=att_4_692967b685e3 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_29_0d5b61078cea attempt_id=att_4_692967b685e3 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_30_0cc5ab6f4d4c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_30_0cc5ab6f4d4c attempt_id=att_1_c26aac035154 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job result committed job_id=job_30_0cc5ab6f4d4c attempt_id=att_1_c26aac035154 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_31_2d949f605139 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_32_ff6c56ece17b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_33_6946b1b138b5 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_31_2d949f605139 attempt_id=att_2_926674c8579d attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_31_2d949f605139 attempt_id=att_2_926674c8579d final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_32_ff6c56ece17b attempt_id=att_3_d431722a3646 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_32_ff6c56ece17b attempt_id=att_3_d431722a3646 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_33_6946b1b138b5 attempt_id=att_4_6342c13e3029 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_33_6946b1b138b5 attempt_id=att_4_6342c13e3029 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_34_61e080396af3 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_35_24434e1beb49 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_36_66150559401e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_34_61e080396af3 attempt_id=att_1_292ece76a486 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_36_66150559401e state=CANCELLED
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_b]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job result committed job_id=job_34_61e080396af3 attempt_id=att_1_292ece76a486 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_37_1649396f0e8a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_35_24434e1beb49 attempt_id=att_2_efe143502d99 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_35_24434e1beb49 attempt_id=att_2_efe143502d99 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_37_1649396f0e8a attempt_id=att_3_57132078981d attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_37_1649396f0e8a attempt_id=att_3_57132078981d final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_38_b3cab671604a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_38_b3cab671604a attempt_id=att_1_05727fc8fd85 attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_38_b3cab671604a state=CANCEL_REQUESTED
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job result committed job_id=job_38_b3cab671604a attempt_id=att_1_05727fc8fd85 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_a w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_39_7f35cae38efa task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_40_90eea33d982d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_39_7f35cae38efa attempt_id=att_1_26c4d88d2715 attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_39_7f35cae38efa attempt_id=att_1_26c4d88d2715 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_41_b5df5e938ba5 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_40_90eea33d982d state=CANCELLED
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_b]" timeout=10s
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_41_b5df5e938ba5 attempt_id=att_2_39fc38fb06fd attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_41_b5df5e938ba5 attempt_id=att_2_39fc38fb06fd final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_42_ea26dac98ea6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_43_44c34e646cb6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_44_01188385fa7e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_42_ea26dac98ea6 attempt_id=att_3_dd5197a9e41e attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_43_44c34e646cb6 attempt_id=att_4_794cc1d8091c attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_42_ea26dac98ea6 attempt_id=att_3_dd5197a9e41e final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_44_01188385fa7e attempt_id=att_5_8c7416f3be2d attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_44_01188385fa7e attempt_id=att_5_8c7416f3be2d final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_45_d77e75af9beb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_46_5293485682e8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_47_86ee4d695473 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_45_d77e75af9beb state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_48_ba894735b07d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_49_b144c3e240f2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_46_5293485682e8 attempt_id=att_1_7533372c75ed attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_46_5293485682e8 attempt_id=att_1_7533372c75ed final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_47_86ee4d695473 attempt_id=att_2_ee556ce0fddd attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_47_86ee4d695473 attempt_id=att_2_ee556ce0fddd final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_48_ba894735b07d attempt_id=att_3_76770cbe2d97 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_48_ba894735b07d attempt_id=att_3_76770cbe2d97 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_49_b144c3e240f2 attempt_id=att_4_5383f841f7b7 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_49_b144c3e240f2 attempt_id=att_4_5383f841f7b7 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_50_cd8d8509da94 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_50_cd8d8509da94 state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_51_6ba75f35a5cf task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_52_220250d52a10 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_53_fbdbee72fce7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_52_220250d52a10 state=CANCELLED
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_51_6ba75f35a5cf attempt_id=att_1_19bd11d8f3d3 attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_51_6ba75f35a5cf attempt_id=att_1_19bd11d8f3d3 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_54_557c4435eaf1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_53_fbdbee72fce7 attempt_id=att_2_6c4787e0ca30 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_55_dc8e0c4a2647 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job result committed job_id=job_53_fbdbee72fce7 attempt_id=att_2_6c4787e0ca30 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_54_557c4435eaf1 attempt_id=att_3_423876bfd005 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_54_557c4435eaf1 attempt_id=att_3_423876bfd005 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_55_dc8e0c4a2647 attempt_id=att_4_120a3ea84591 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_55_dc8e0c4a2647 attempt_id=att_4_120a3ea84591 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_56_a74eef23e6df task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_57_9a9234b043fa task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_58_bb56d839492d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_56_a74eef23e6df attempt_id=att_1_44cbd39cd6b6 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_56_a74eef23e6df attempt_id=att_1_44cbd39cd6b6 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_57_9a9234b043fa state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_59_64b4d31533f4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_58_bb56d839492d attempt_id=att_2_2b0112bb808b attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_59_64b4d31533f4 state=CANCELLED
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_58_bb56d839492d state=CANCEL_REQUESTED
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job result committed job_id=job_58_bb56d839492d attempt_id=att_2_2b0112bb808b final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_60_14b9363b04b6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_61_1584a0bce3c7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_60_14b9363b04b6 attempt_id=att_1_67ecf82903d4 attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_60_14b9363b04b6 attempt_id=att_1_67ecf82903d4 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_61_1584a0bce3c7 attempt_id=att_2_76aab97612a1 attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_61_1584a0bce3c7 attempt_id=att_2_76aab97612a1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_c w_b]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_62_9743f6b0f2e4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_63_e0026a727155 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_64_01b15d668b3c task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_a w_b]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_62_9743f6b0f2e4 attempt_id=att_3_cf890a7609ab attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_62_9743f6b0f2e4 attempt_id=att_3_cf890a7609ab final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_63_e0026a727155 attempt_id=att_4_a0470a3796c6 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_63_e0026a727155 attempt_id=att_4_a0470a3796c6 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_64_01b15d668b3c attempt_id=att_5_fb5415ade000 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_64_01b15d668b3c attempt_id=att_5_fb5415ade000 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_b w_c]" timeout=10s
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_65_7baf2e68fad7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_66_2991cebf9eec task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_67_10737e0ed7a7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_67_10737e0ed7a7 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_68_4ab662a86c14 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_69_886f1b6c5a45 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_65_7baf2e68fad7 attempt_id=att_1_4b030be1362d attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_65_7baf2e68fad7 attempt_id=att_1_4b030be1362d final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_66_2991cebf9eec attempt_id=att_2_fad1c8bdff81 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_66_2991cebf9eec attempt_id=att_2_fad1c8bdff81 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_68_4ab662a86c14 attempt_id=att_3_b2ecc0a83295 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_68_4ab662a86c14 attempt_id=att_3_b2ecc0a83295 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_69_886f1b6c5a45 attempt_id=att_4_9e9587e30dd5 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_69_886f1b6c5a45 attempt_id=att_4_9e9587e30dd5 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_70_af71c36ac941 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_71_1b57e1121aa0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_71_1b57e1121aa0 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_70_af71c36ac941 state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_72_0893f30e9dc8 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_73_331a0ca59f28 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_74_f3593f9ed19e task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_73_331a0ca59f28 state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_75_2175b85d9a56 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_76_ef7081ae86da task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_72_0893f30e9dc8 attempt_id=att_1_86828ef99686 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_72_0893f30e9dc8 attempt_id=att_1_86828ef99686 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_74_f3593f9ed19e attempt_id=att_2_43a9e61c924e attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_74_f3593f9ed19e attempt_id=att_2_43a9e61c924e final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_75_2175b85d9a56 attempt_id=att_3_6aaeecdc96cd attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_75_2175b85d9a56 attempt_id=att_3_6aaeecdc96cd final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_76_ef7081ae86da attempt_id=att_4_078f287ecd95 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_76_ef7081ae86da attempt_id=att_4_078f287ecd95 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_77_9638cd225f6b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_77_9638cd225f6b state=CANCELLED
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_78_bfe7a9545dfe task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_79_e60dac2ac0f0 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_80_f9f16acdc17d task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_80_f9f16acdc17d state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_81_1751a813919b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_78_bfe7a9545dfe attempt_id=att_1_d075d083af06 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_78_bfe7a9545dfe attempt_id=att_1_d075d083af06 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_79_e60dac2ac0f0 attempt_id=att_2_eb882aff4add attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_79_e60dac2ac0f0 attempt_id=att_2_eb882aff4add final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_81_1751a813919b attempt_id=att_3_dafb0498742b attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_81_1751a813919b attempt_id=att_3_dafb0498742b final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_82_7bb1eec21acb task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_82_7bb1eec21acb state=CANCELLED
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=3 worker_ids="[w_a w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_83_3491eafed370 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_84_62f63a15fab2 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_84_62f63a15fab2 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_83_3491eafed370 attempt_id=att_1_fdff0af86920 attempt_no=1 worker_id=w_b policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_83_3491eafed370 attempt_id=att_1_fdff0af86920 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_85_9c532d5f5fe1 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_85_9c532d5f5fe1 state=CANCELLED
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_86_aaf8496d6374 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_86_aaf8496d6374 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_b w_c]" timeout=10s
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_87_cfc0086b870f task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_88_0d50ad2091e4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_87_cfc0086b870f attempt_id=att_1_40254fc5a769 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_87_cfc0086b870f attempt_id=att_1_40254fc5a769 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_88_0d50ad2091e4 attempt_id=att_2_e3afe32c3ee0 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_88_0d50ad2091e4 attempt_id=att_2_e3afe32c3ee0 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_89_1356fd378374 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_90_f44a15c2818a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_89_1356fd378374 attempt_id=att_1_1e50f1f0927e attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_90_f44a15c2818a state=CANCELLED
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_91_87e8d16e6342 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_91_87e8d16e6342 state=CANCELLED
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job result committed job_id=job_89_1356fd378374 attempt_id=att_1_1e50f1f0927e final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=2 worker_ids="[w_b w_c]" timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_92_65ff2ec963b4 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_93_908f55e4771a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_92_65ff2ec963b4 attempt_id=att_2_32b58070191c attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_92_65ff2ec963b4 attempt_id=att_2_32b58070191c final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_93_908f55e4771a attempt_id=att_3_c773f415afef attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_93_908f55e4771a attempt_id=att_3_c773f415afef final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_94_76b504b12e12 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job cancellation requested job_id=job_94_76b504b12e12 state=CANCELLED
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_c] timeout=10s
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_95_f09e28d42b9b task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_96_5f8e388abce7 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_97_ef16c11fb4e6 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_98_44cad18d6600 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_a] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_99_8c3f2a378431 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_95_f09e28d42b9b attempt_id=att_1_7957780a567e attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_95_f09e28d42b9b attempt_id=att_1_7957780a567e final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_96_5f8e388abce7 attempt_id=att_2_a82c36e2e720 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_96_5f8e388abce7 attempt_id=att_2_a82c36e2e720 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_97_ef16c11fb4e6 attempt_id=att_3_e263f71d96b9 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_97_ef16c11fb4e6 attempt_id=att_3_e263f71d96b9 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_98_44cad18d6600 attempt_id=att_4_c2c6af69ea9f attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_98_44cad18d6600 attempt_id=att_4_c2c6af69ea9f final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO worker registered worker_id=w_drain version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_99_8c3f2a378431 attempt_id=att_5_da23ca4f1a26 attempt_no=1 worker_id=w_drain policy=round_robin_fallback fallback_reason=age
+2026/11/14 04:57:33 INFO job result committed job_id=job_99_8c3f2a378431 attempt_id=att_5_da23ca4f1a26 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_b version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 INFO worker registered worker_id=w_c version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_100_553f1ce1f98a task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_100_553f1ce1f98a attempt_id=att_1_0681bb98d5d1 attempt_no=1 worker_id=w_a policy=round_robin fallback_reason=""
+2026/11/14 04:57:33 INFO job result committed job_id=job_100_553f1ce1f98a attempt_id=att_1_0681bb98d5d1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/14 04:57:33 INFO worker registered worker_id=w_a version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/11/14 04:57:33 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[w_b] timeout=10s
+2026/11/14 04:57:33 INFO job submitted and queued job_id=job_101_e2dd831c2943 task_type=echo state=QUEUED max_attempts=3
+2026/11/14 04:57:33 INFO job dispatched to worker job_id=job_101_e2dd831c2943 attempt_id=att_2_4106554c0c95 attempt_no=1 worker_id=w_c policy=round_robin fallback_reason=""
+--- FAIL: TestProperty_AssignmentSubState_ModelConformance (0.03s)
+    assignment_test.go:442: seed 22 step 18: INV-3: w_c claimed job_101_e2dd831c2943, live-reserved to w_a until 2026-10-31 12:00:18 +0000 UTC
+    assignment_test.go:395: property test failed at seed 22: rerun with MINICLOUD_PROPERTY_SEED=22
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.028s
+FAIL

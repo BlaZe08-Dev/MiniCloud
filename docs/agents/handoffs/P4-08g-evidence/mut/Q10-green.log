@@ -1,0 +1,2 @@
+# go test -run TestConformance_ClaimFallback_LiveReservationOfOther ./internal/storage/postgres/
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.695s

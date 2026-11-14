@@ -1,0 +1,6 @@
+# go test -run TestConformance_ClaimAgeArm_NeedsSilentPass ./internal/storage/postgres/
+--- FAIL: TestConformance_ClaimAgeArm_NeedsSilentPass (0.39s)
+    assignment.go:681: aged job claimed by age while the pass completed moments ago: err=<nil>
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.395s
+FAIL
