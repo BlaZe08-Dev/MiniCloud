@@ -18,7 +18,7 @@ The following capabilities are implemented and verified in the codebase (`cmd/`,
 - **Command-Line Interface (`cmd/mc`):** CLI tool for job submission, job status inspection, attempt history retrieval, and worker capacity monitoring.
 - **Database Migrations (`cmd/migrate`):** Forward-only embedded SQL migrator with PostgreSQL transaction advisory locking (`pg_advisory_xact_lock`) and schema checksum verification.
 - **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`SUBMITTED`, `QUEUED`, `RUNNING`, `CANCEL_REQUESTED`, `RETRYING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) and attempt states (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT` (reserved, not written in V1), `CANCELLED`, `LOST`); the full transition matrix is specified in [docs/state-machine.md](docs/state-machine.md) (Section 3 and Section 4).
-- **Transactional Pull Dispatch (`fifo_pull`):** Single-transaction FIFO work acquisition in PostgreSQL using `SELECT ... FOR UPDATE SKIP LOCKED` on eligible jobs with worker slot capacity checks.
+- **Dispatch Policies:** The default dispatch policy is assignment-based round-robin (`round_robin` since Slice P4-17), with single-transaction FIFO pull dispatch (`fifo_pull`) selectable via `MINICLOUD_DISPATCH_POLICY=fifo_pull` using `SELECT ... FOR UPDATE SKIP LOCKED` on eligible jobs with worker slot capacity checks.
 - **Health and Readiness Probes:** Liveness check at `/healthz` and database connectivity probe at `/readyz` mapping connection failures to HTTP 503 `SERVICE_UNAVAILABLE`.
 - **API Boundary Protections:** Worker ID and route parameter validation (`^[a-zA-Z0-9_-]+$`, max 128 chars), numeric bounds validation on attempts (1..20) and timeouts (1..86400s), and payload size limits (64 KiB).
 - **Outage Resilience:** Worker client exponential backoff with jitter (200 ms base, 3 s cap) on HTTP 5xx or poll errors, and automatic worker re-registration upon coordinator restart.
@@ -230,11 +230,18 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_WORKER_TIMEOUT` | `10s` | Coordinator | `internal/config/config.go` | Liveness window before an uncommunicative worker is declared dead (>= 3x heartbeat interval) |
 | `MINICLOUD_REAPER_INTERVAL` | `5s` (`workerTimeout / 2`) | Coordinator | `internal/config/config.go` | Interval for coordinator worker liveness sweep |
 | `MINICLOUD_DEFAULT_MAX_ATTEMPTS` | `3` | Coordinator | `internal/config/config.go` | Default maximum attempt count for jobs submitted without `max_attempts` (default 3, valid range 1..20) |
-| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component. The worker applies the per-job `timeout_seconds` (1..86400) to task execution and does not clamp it (open finding SEC-012 in [docs/security/findings.md](docs/security/findings.md)) |
+| `MINICLOUD_MAX_JOB_RUNTIME` | `60s` | Coordinator | `internal/config/config.go` | Parsed and validated at startup, but not enforced by any component. The worker applies the per-job `timeout_seconds` (1..86400) to task execution and clamps it to `[1, 86400]` seconds via `ClampExecutionTimeout` (SEC-012 fixed in Slice P4-09) |
 | `MINICLOUD_LEASE_DURATION` | `30s` | Coordinator | `internal/config/config.go` | Attempt lease duration ([ADR-0014](docs/adr/0014-lease-model-and-expiry.md)) |
 | `MINICLOUD_SWEEPER_INTERVAL` | `5s` | Coordinator | `internal/config/config.go` | Interval for coordinator attempt lease sweeper passes |
 | `MINICLOUD_STARTUP_GRACE_PERIOD` | `30s` | Coordinator | `internal/config/config.go` | Reaping suppression window after coordinator start (grace values must be at least the lease duration) |
 | `MINICLOUD_OUTAGE_GRACE_WINDOW` | `30s` | Coordinator | `internal/config/config.go` | Reaping suppression and cooldown window following a database outage (grace values must be at least the lease duration) |
+| `MINICLOUD_DISPATCH_POLICY` | `round_robin` | Coordinator | `internal/config/config.go` | Dispatch policy selection (`round_robin` default since P4-17; `fifo_pull` selectable) |
+| `MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW` | `5s` | Coordinator | `internal/config/config.go` | Assignment accept window before reservation lapses (valid range 5s..30s) |
+| `MINICLOUD_ASSIGNMENT_INTERVAL` | `1s` | Coordinator | `internal/config/config.go` | Interval for assignment pass loop (valid range 100ms..10s, must not exceed accept window) |
+| `MINICLOUD_ASSIGNMENT_MAX_LAPSES` | `3` | Coordinator | `internal/config/config.go` | Maximum assignment lapses before job falls back to pull dispatch (valid range 1..10) |
+| `MINICLOUD_ASSIGNMENT_FALLBACK_AGE` | `30s` | Coordinator | `internal/config/config.go` | Job age threshold for age-ordered fallback claims (valid range: at least `MAX_LAPSES * (ACCEPT_WINDOW + INTERVAL)` up to 10m) |
+| `MINICLOUD_ASSIGNMENT_BATCH_LIMIT` | `50` | Coordinator | `internal/config/config.go` | Maximum jobs reserved per assignment pass (valid range 1..500) |
+| `MINICLOUD_ASSIGNMENT_MIN_YIELD` | `10ms` | Coordinator | `internal/config/config.go` | Minimum yield sleep when assignment pass makes progress (valid range 1ms..1s, must not exceed assignment interval) |
 | `MINICLOUD_LOG_LEVEL` | `info` | Coordinator, Worker | `internal/config/config.go` | Parsed, but not applied; logging is fixed at `info` |
 | `MINICLOUD_DB_MAX_CONNS` | `20` | Coordinator | `internal/config/config.go` | Maximum connections in the PostgreSQL pool |
 | `MINICLOUD_DB_MIN_CONNS` | `2` | Coordinator | `internal/config/config.go` | Minimum idle connections in the PostgreSQL pool |
@@ -244,7 +251,7 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_WORKER_SLOTS` | `4` | Worker | `internal/config/config.go` | Concurrency execution capacity of the worker |
 | `MINICLOUD_TEST_DATABASE_URL` | `""` | Test Suites | `internal/storage/postgres/testhelper_test.go` | Isolated database URL for PostgreSQL integration tests (DB name must end in `_test`) |
 
-Unparseable numeric or duration values silently fall back to their defaults (e.g., `MINICLOUD_WORKER_SLOTS=abc` falls back to `4`). Coordinator validation requires `MINICLOUD_DEFAULT_MAX_ATTEMPTS` to be between 1 and 20, and grace values (`MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW`) to be at least the lease duration (`MINICLOUD_LEASE_DURATION`).
+Malformed or unparseable numeric or duration values stop service startup with an error naming the variable; unset or empty values take their defaults. Coordinator validation requires `MINICLOUD_DEFAULT_MAX_ATTEMPTS` to be between 1 and 20, and grace values (`MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW`) to be at least the lease duration (`MINICLOUD_LEASE_DURATION`).
 
 Database container provisioning in `deployments/docker-compose.yml` also uses:
 - `POSTGRES_USER` (default: `postgres`)
@@ -292,7 +299,7 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 ### Worker Protocol
 - `POST /v1/workers/register` - Register a worker, its capacity slots, and supported task types.
 - `POST /v1/workers/{id}/heartbeat` - Send periodic liveness ping and report available capacity slots.
-- `POST /v1/workers/{id}/poll` - Poll for next available job assignment (`fifo_pull`).
+- `POST /v1/workers/{id}/poll` - Poll for next available job assignment (claims assigned work under default `round_robin` or pulls work under selectable `fifo_pull`).
 - `POST /v1/jobs/{id}/attempts/{attempt_id}/result` - Report completion or failure of an assigned attempt.
 - `POST /v1/jobs/{id}/attempts/{attempt_id}/renew` - Renew an active attempt lease and receive cancellation notifications.
 - `GET /v1/workers` - Operator endpoint listing registered workers.
@@ -315,7 +322,7 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 │   ├── domain/                 # Core domain models (Job, Attempt, Worker) and central FSM
 │   ├── executor/               # Task execution interface and allowlisted in-process tasks
 │   ├── queue/                  # Dispatch queue interface and in-memory queue implementation
-│   ├── scheduler/              # Deterministic round-robin scheduler (not yet used for dispatch)
+│   ├── scheduler/              # Deterministic round-robin scheduler
 │   ├── storage/                # Storage interfaces, in-memory repository, and PostgreSQL driver
 │   └── worker/                 # Worker client loop, heartbeat manager, and execution runner
 ├── scripts/                    # Helper scripts for demos and verification
@@ -334,9 +341,10 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 - `make build`: Compiles all binaries into `bin/` (`coordinator`, `worker`, `mc`, `migrate`).
 - `make run-coordinator`: Compiles and runs the coordinator binary in the foreground.
 - `make run-worker`: Compiles and runs the worker binary in the foreground.
-- `make test`: Runs standard unit and integration tests (`go test -v ./...`).
-- `make test-race`: Runs the test suite with the Go race detector enabled (`go test -v -race ./...`).
+- `make test`: Runs standard unit and integration tests with package execution serialized (`go test -v -p 1 ./...`).
+- `make test-race`: Runs the test suite with the Go race detector enabled and package execution serialized (`go test -v -race -p 1 ./...`).
 - `make test-docs`: Verifies documentation citations, links, and rules via `tests/docs`.
+- `make test-security`: Runs the 72-test security and adversarial test suite (`tests/faultinject` and `tests/abuse`) using `-p 1` against a dedicated per-agent test database; `-p 1` is required because the assignment pass lock is database-wide.
 - `make test-db`: Runs the PostgreSQL-backed tests in `internal/storage/postgres` and `internal/coordinator`, plus one coordinator-restart integration test in `tests/integration`, using the `MINICLOUD_TEST_DATABASE_URL` value read from `.env`.
 - `make fmt`: Automatically formats Go source code using `gofmt -s -w .`.
 - `make vet`: Executes Go static code analysis (`go vet ./...`).
@@ -356,7 +364,7 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 
 MiniCloud development follows a three-version roadmap defined in [docs/roadmap.md](docs/roadmap.md):
 
-- **V1 (Phases 0–4):** Core execution with allowlisted tasks, transactional FIFO pull dispatch (`fifo_pull`), PostgreSQL durability, lease management, bounded retries, cancellation reaching running workers, and post-Phase 4 assignment-based round-robin scheduling.
+- **V1 (Phases 0–4):** Core execution with allowlisted tasks, transactional dispatch (`round_robin` default since P4-17; `fifo_pull` selectable), PostgreSQL durability, lease management, bounded retries, cancellation reaching running workers, and post-Phase 4 assignment-based round-robin scheduling.
 - **V2 (Phase 6 & Transport Evaluation):** Resource-aware scheduling policies, comparative benchmark generator, fault injection harness, and Redis Streams dispatch evaluation against the PostgreSQL baseline (ADR-0006). PostgreSQL remains the durable source of truth.
 - **V3 (Docker Isolation & Multi-Machine):** Docker container task isolation behind the executor interface (ADR-0005), worker mutual TLS (mTLS), worker API token authentication, and multi-machine deployment hardening.
 
