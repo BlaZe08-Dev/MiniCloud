@@ -1,6 +1,8 @@
 === RUN   TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail
---- PASS: TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail (4.95s)
-=== RUN   TestFault_CoordinatorLogLeakScanner_PositiveControl
---- PASS: TestFault_CoordinatorLogLeakScanner_PositiveControl (0.00s)
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:43:07.670511226+05:30","level":"WARN","msg":"assignment pass failed","err":"connection_reset"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:43:07.168795245+05:30","level":"WARN","msg":"lease sweeper tick failed","err":"connection_closed"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:43:06.75242924+05:30","level":"ERROR","msg":"database outage or connection failure","err":"connection_reset"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:43:06.74775261+05:30","level":"ERROR","msg":"readiness probe failed","err":"connection_closed"}
+--- PASS: TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail (3.75s)
 PASS
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	4.972s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.757s

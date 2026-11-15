@@ -152,6 +152,12 @@ func TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail(t *testing.T) {
 		}
 		t.Fatalf("SECURITY LEAK IN COORDINATOR LOGS: %v\nfirst offending lines:\n%s", found, redact(strings.Join(lines, "\n"), dbURL))
 	}
+	// Evidence: one logged line per failure path, as the coordinator wrote it.
+	for _, m := range append(controls, "database outage or connection failure", "readiness probe failed") {
+		if l := offendingLines(logs, `"msg":"`+m+`"`); len(l) > 0 {
+			t.Logf("logged: %s", l[0])
+		}
+	}
 }
 
 // TestFault_CoordinatorLogLeakScanner_PositiveControl proves the scanner of the test above detects
@@ -172,9 +178,47 @@ func TestFault_CoordinatorLogLeakScanner_PositiveControl(t *testing.T) {
 			t.Errorf("%s: scanner missed the planted detail in %s", name, line)
 		}
 	}
-	clean := `{"level":"WARN","msg":"assignment pass failed","err_class":"connection_refused"}` + "\n" +
+	clean := `{"level":"WARN","msg":"assignment pass failed","err":"connection_refused"}` + "\n" +
 		`{"level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18080"}`
 	if found := coordinatorLogLeaks(clean, dial, up, dbURL); len(found) > 0 {
 		t.Errorf("scanner flagged a clean log: %v", found)
+	}
+}
+
+// TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail is SEC-066 for the startup path: the
+// real coordinator binary is started against a database URL it cannot use (a closed port: the
+// ping fails; an invalid sslmode: the parse fails). It must exit non-zero, log the startup line
+// for that failure, and log none of the host, port, user, database name or password. It needs no
+// database.
+func TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail(t *testing.T) {
+	bin := sectest.Binaries(t)
+	httpAddr := sectest.FreePort(t)
+	port := strings.TrimPrefix(sectest.FreePort(t), "127.0.0.1:") // nothing listens here
+	cases := []struct {
+		name, url, msg string
+	}{
+		{"ping fails", "postgres://leakuser:leakpass@127.0.0.1:" + port + "/leakdb_test?sslmode=disable&connect_timeout=2", "failed to ping postgres database"},
+		{"parse fails", "postgres://leakuser:leakpass@db.leak.internal:" + port + "/leakdb_test?sslmode=bogus", "failed to parse database configuration"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p := sectest.StartProc(t, "coordinator-"+c.name, filepath.Join(bin, "coordinator"), []string{
+				"MINICLOUD_HTTP_ADDR=" + httpAddr,
+				"MINICLOUD_STORAGE_DRIVER=postgres",
+				"MINICLOUD_DATABASE_URL=" + c.url,
+			})
+			if !p.WaitExit(20 * time.Second) {
+				t.Fatalf("coordinator did not exit on an unusable database URL")
+			}
+			out := p.Out.String()
+			if !strings.Contains(out, `"msg":"`+c.msg+`"`) {
+				t.Fatalf("positive control: no %q line; output:\n%s", c.msg, out)
+			}
+			for _, s := range []string{"leakuser", "leakpass", "leakdb_test", "db.leak.internal", ":" + port, "dial", "failed to connect", "cannot parse"} {
+				if strings.Contains(out, s) {
+					t.Fatalf("SECURITY LEAK: startup output contains %q:\n%s", s, out)
+				}
+			}
+		})
 	}
 }
