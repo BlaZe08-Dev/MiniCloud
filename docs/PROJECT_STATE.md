@@ -10,7 +10,7 @@
 ## 2. Done
 - **V1 Security & Resilience Gate (executed on `main` at `d7a397c`, orchestrator-verified):**
   - `make test-outage CONFIRM=minicloud-postgres`: 3 PASS, 0 FAIL (`TestSecurity_PartD_Outage_MidDispatchAndMidCommit`, `TestSecurity_PartD_LeakScan`, `TestPostgresWiring_DatabaseOutageAndRecovery`). Unset suite 401 PASS / 91 SKIP / 0 FAIL. `make test-security` 75 / 0 / 0. `make test-db` 163 / 0 / 0 (three runs). `make test-race` 401 / 91 / 0 with 0 data races. Later commits on `main` (PR #51) are docs only.
-- **Docs part 1 (P4-19, PR #51, `main` at `2111407`):** ADR-0017 status and test labels (53 names flipped to executed, 3 API tests recorded under `TestAbuse_`), findings SEC-062, SEC-064, SEC-066 and the SEC-010/SEC-047 dispositions, test-plan and fault-injection plan rows for ADR-0017 (FS-14 to FS-24), roadmap and task statuses.
+- **Docs part 1 (P4-19, PR #51, `main` at `2111407`):** ADR-0017 status and test labels (53 names flipped to executed, 3 API tests recorded under their abuse-suite names), findings SEC-062, SEC-064, SEC-066 and the SEC-010/SEC-047 dispositions, test-plan and fault-injection plan rows for ADR-0017 (FS-14 to FS-24), roadmap and task statuses.
 - **Fix SEC-066 (P4-22, PR #50, `main` at `d7a397c`):** raw database errors no longer reach coordinator logs; `internal/logsafe` logs a fixed error class at 10 sites; error values and statuses unchanged.
 - **Docs part 2 (P4-21, PR #49, `main` at `9c00672`):** README, schema, field limits, roadmap, state machine, architecture, ADR-0003 and ADR-0011 amendment lines, `.env.example`.
 - **LeakScan under the default policy (P4-20, PR #48, `main` at `f4c6f5b`):** bounded poll retry in `TestSecurity_PartD_LeakScan`; test-only.
