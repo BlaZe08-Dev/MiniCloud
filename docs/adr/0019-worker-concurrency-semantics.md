@@ -1,7 +1,7 @@
 # ADR 0019: Worker Concurrency Semantics
 
 ## Status
-Accepted (2026-11-16, end of task V2-0 Stage B). Proposed in Stage A; approved by the orchestrator with the answers recorded in Section 6; implemented on `agent/claude/V2-0`; audited (APPROVE WITH FIXES, `docs/agents/reviews/V2-0.md` on `agent/claude/V2-0-audit`), fix round 1 applied (audit findings A-1 to A-4), awaiting merge.
+Accepted (2026-11-16, end of task V2-0 Stage B). Proposed in Stage A; approved by the orchestrator with the answers recorded in Section 6; implemented on `agent/claude/V2-0`; audited (APPROVE WITH FIXES, review V2-0 on branch `agent/claude/V2-0-audit`), fix round 1 applied (audit findings A-1 to A-4), awaiting merge.
 
 Builds on ADR-0003 (pull protocol), ADR-0007 (liveness), ADR-0014 (leases), ADR-0016 (cancellation) and ADR-0017 (assignment round-robin, Section 2.4 and question Q5). Version gate: first V2 slice (ADR-0004, ADR-0018 roadmap).
 
