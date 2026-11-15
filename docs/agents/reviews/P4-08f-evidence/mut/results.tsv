@@ -1,0 +1,18 @@
+Q01	RecordPoll writes last_poll_at for a non-HEALTHY worker	TestAbuse_Poll_UnhealthyWorker_Still503	killed; green ok
+Q02	revoke selects only expired reservations (UNHEALTHY holder not revoked)	TestFault_AssignedWorkerDiesBeforePoll	killed; green ok
+Q03	UNHEALTHY revoke takes the lapse path	TestFault_AssignedWorkerDiesBeforePoll	killed; green ok
+Q04	PostgreSQL revoke ignores grace: every lapse counted	TestFault_CoordinatorCrash_BetweenAssignAndPoll,TestFault_DatabaseOutage_DuringPass	killed; green ok
+Q05	candidate read ignores the lapse limit (job at L re-reserved)	-	SURVIVED; green ok
+Q06	cursor never persisted	TestAbuse_ConstantPoller_NoLargerShare,TestFault_PollRoundTripBeyondWindow	killed; green ok
+Q07	pass heartbeat never written	TestFault_AssignedWorkerNeverPolls,TestFault_AssignmentLapseLoop_BoundedByLimit,TestFault_CoordinatorCrash_BetweenAssignAndPoll,TestFault_DatabaseOutage_DuringPass,TestFault_PollResponseLostAfterClaim,TestFault_PollRoundTripBeyondWindow	killed; green ok
+Q08	own arm ignores the holder (any worker claims a live reservation)	TestAbuse_Poll_ForeignAssignment_Returns204,TestFault_AssignedWorkerDiesBeforePoll,TestFault_AssignedWorkerNeverPolls	killed; green ok
+Q09	own arm ignores the window expiry	-	SURVIVED; green ok
+Q10	fallback arm ignores live reservations of other workers	-	SURVIVED; green ok
+Q11	age arm drops the pass-silence condition	-	SURVIVED; green ok
+Q12	age arm drops the job-age condition	-	SURVIVED; green ok
+Q13	age arm ignores AgeArmOpen	TestFault_OutageRecovery_RateWindow,TestFault_PersistentPassFailure_AgeClaimRate	killed; green ok
+Q14	fallback reason: lapses reported as age at the limit	TestFault_AssignmentLapseLoop_BoundedByLimit	killed; green ok
+Q15	claim does not reset assignment_lapses	-	SURVIVED; green ok
+Q16	AssignmentPassStale always false	TestFault_OutageRecovery_NoAgeClaim,TestFault_OutageRecovery_RateWindow,TestFault_PersistentPassFailure_AgeClaimRate,TestFault_RestartThenPoll_NoAgeClaim	killed; green ok
+Q17	reservation window doubled	TestFault_AssignedWorkerNeverPolls,TestFault_AssignmentLapseLoop_BoundedByLimit,TestFault_CoordinatorCrash_BetweenAssignAndPoll,TestFault_PollRoundTripBeyondWindow	killed; green ok
+Q18	revoke drops its BatchLimit (LIMIT removed)	-	SURVIVED; green ok

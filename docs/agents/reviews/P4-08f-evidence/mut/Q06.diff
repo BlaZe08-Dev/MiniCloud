@@ -1,0 +1,14 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..0199c59 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -152,7 +152,8 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
+ 		return storage.AssignResult{}, err
+ 	}
+ 
+-	for taskType, workerID := range cursors {
++	for taskType, workerID := range map[string]string{} {
++		_ = cursors
+ 		if _, err := tx.Exec(ctx, `
+ 			INSERT INTO assignment_cursor (task_type, last_worker_id, updated_at)
+ 			VALUES ($1, $2, clock_timestamp())

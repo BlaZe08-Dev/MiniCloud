@@ -1,0 +1,5 @@
+go test -count=1 -p 1 ./internal/storage/postgres/ (PostgreSQL URL set, mutant applied)
+--- FAIL: TestConformance_ClaimAgeArm_UsesNotBefore (0.40s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	85.380s
+FAIL

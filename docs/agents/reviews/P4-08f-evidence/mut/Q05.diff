@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..6aec693 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -299,7 +299,7 @@ func assignReserve(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *
+ 		// lapse limit has left round-robin (implementation note 1).
+ 		candRows, err := tx.Query(ctx, `
+ 			SELECT id FROM jobs
+-			WHERE task_type = $1 AND assigned_worker_id IS NULL AND assignment_lapses < $2 AND (state = 'QUEUED' OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp())))
++			WHERE task_type = $1 AND assigned_worker_id IS NULL AND $2::int >= 0 AND (state = 'QUEUED' OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp())))
+ 			ORDER BY created_at ASC, id ASC
+ 			LIMIT $3
+ 			FOR UPDATE SKIP LOCKED;`, ty, p.MaxLapses, p.BatchLimit)

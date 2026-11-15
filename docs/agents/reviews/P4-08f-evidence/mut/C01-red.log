@@ -1,0 +1,12 @@
+run 1: env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run '^TestFault_DeepBacklog_PollsNotStarved$' ./tests/faultinject/ (URL unset: memory variant)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.44s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/memory (0.44s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.443s
+run 2: env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run '^TestFault_DeepBacklog_PollsNotStarved$' ./tests/faultinject/ (URL unset: memory variant)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.43s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/memory (0.43s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.435s
+run 3: env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run '^TestFault_DeepBacklog_PollsNotStarved$' ./tests/faultinject/ (URL unset: memory variant)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.43s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/memory (0.43s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	0.434s

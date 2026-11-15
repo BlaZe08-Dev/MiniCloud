@@ -1,0 +1,22 @@
+env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run '^TestFault_CancelRacesAccept$' ./tests/faultinject/ (URL unset: memory)
+    assignment_test.go:335: 20 concurrent rounds on memory: claim won 12, cancel won 8
+--- PASS: TestFault_CancelRacesAccept (2.30s)
+    --- PASS: TestFault_CancelRacesAccept/memory (2.30s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	2.309s
+--- whole P4-08f memory suite:
+--- FAIL: TestFault_AssignedWorkerNeverPolls (0.00s)
+--- FAIL: TestFault_AssignedWorkerDiesBeforePoll (0.00s)
+--- FAIL: TestFault_PollResponseLostAfterClaim (0.00s)
+--- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll (0.00s)
+--- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit (0.01s)
+--- FAIL: TestFault_DatabaseOutage_DuringPass (0.01s)
+--- FAIL: TestFault_PollRoundTripBeyondWindow (0.01s)
+--- FAIL: TestFault_DeepBacklog_PollsNotStarved (0.23s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.479s
+--- FAIL: TestAbuse_Poll_ForeignAssignment_Returns204 (0.01s)
+--- FAIL: TestAbuse_ConstantPoller_NoLargerShare (0.01s)
+--- FAIL: TestAbuse_LargeTotalSlots_NoLargerShare (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	14.116s
+FAIL

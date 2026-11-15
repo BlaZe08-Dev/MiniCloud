@@ -1,0 +1,4 @@
+# command: one psql session holds pg_advisory_lock(424242) in database "postgres" for 4 s; meanwhile
+# pg_try_advisory_lock(424242) is tried from database minicloud_claude_test and from "postgres".
+other db try-lock: true
+same db try-lock: false

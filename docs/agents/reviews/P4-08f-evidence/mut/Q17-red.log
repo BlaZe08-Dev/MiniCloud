@@ -1,0 +1,50 @@
+go test -count=1 -p 1 -v -run '<18 P4-08f tests>/postgres' ./tests/faultinject/ ./tests/abuse/  (PostgreSQL URL set)
+    assignment_test.go:80: lapses = 0, want 1 (counted outside grace)
+--- FAIL: TestFault_AssignedWorkerNeverPolls (0.38s)
+    --- FAIL: TestFault_AssignedWorkerNeverPolls/postgres (0.38s)
+--- PASS: TestFault_AssignedWorkerDiesBeforePoll (0.39s)
+    --- PASS: TestFault_AssignedWorkerDiesBeforePoll/postgres (0.39s)
+--- PASS: TestFault_PollResponseLostAfterClaim (0.40s)
+    --- PASS: TestFault_PollResponseLostAfterClaim/postgres (0.40s)
+    assignment_test.go:238: lapses after grace = 0, want 1
+--- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll (2.73s)
+    --- FAIL: TestFault_CoordinatorCrash_BetweenAssignAndPoll/postgres (2.73s)
+    assignment_test.go:335: 20 concurrent rounds on postgres: claim won 12, cancel won 8
+--- PASS: TestFault_CancelRacesAccept (1.22s)
+    --- PASS: TestFault_CancelRacesAccept/postgres (1.22s)
+    assignment_test.go:363: keepalive poll of w1 = 200 {"assignment":{"job_id":"job_28_8498d1327719","attempt_id":"att_job_28_8498d1327719_1","attempt_no":1,"lease_token":"HnpdCpVQzGsRFCXP1zqUKxrVxXv_8g-cg8dGgu_a9WM","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:23:30.130906+05:30","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+--- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit (0.39s)
+    --- FAIL: TestFault_AssignmentLapseLoop_BoundedByLimit/postgres (0.39s)
+--- PASS: TestFault_DatabaseOutage_DuringPass (0.41s)
+    --- PASS: TestFault_DatabaseOutage_DuringPass/postgres (0.41s)
+    assignment_test.go:462: late poll = 200 {"assignment":{"job_id":"job_30_19ae1a0e0ea0","attempt_id":"att_job_30_19ae1a0e0ea0_1","attempt_no":1,"lease_token":"kEvH4lXz2Mr3qE1iRYsYSmGj6Lp010Orq3k2eAxA2JQ","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:23:30.910385+05:30","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+--- FAIL: TestFault_PollRoundTripBeyondWindow (0.36s)
+    --- FAIL: TestFault_PollRoundTripBeyondWindow/postgres (0.36s)
+--- PASS: TestFault_RestartThenPoll_NoAgeClaim (0.40s)
+    --- PASS: TestFault_RestartThenPoll_NoAgeClaim/postgres (0.40s)
+--- PASS: TestFault_OutageRecovery_NoAgeClaim (0.38s)
+    --- PASS: TestFault_OutageRecovery_NoAgeClaim/postgres (0.38s)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.93s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/postgres (0.93s)
+--- PASS: TestFault_PersistentPassFailure_AgeClaimRate (3.86s)
+    --- PASS: TestFault_PersistentPassFailure_AgeClaimRate/postgres (3.86s)
+--- PASS: TestFault_OutageRecovery_RateWindow (1.72s)
+    --- PASS: TestFault_OutageRecovery_RateWindow/postgres (1.72s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	13.586s
+--- PASS: TestAbuse_Poll_ForeignAssignment_Returns204 (0.58s)
+    --- PASS: TestAbuse_Poll_ForeignAssignment_Returns204/postgres (0.58s)
+--- PASS: TestAbuse_Poll_UnhealthyWorker_Still503 (0.74s)
+    --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres (0.74s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/fifo_pull (0.36s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/round_robin (0.38s)
+    assignment_test.go:174: postgres: 300 polls per worker over 5.157694123s wrote last_poll_at map[w1:6 w2:6 w3:6] times
+--- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (5.47s)
+    --- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (5.46s)
+--- PASS: TestAbuse_ConstantPoller_NoLargerShare (1.40s)
+    --- PASS: TestAbuse_ConstantPoller_NoLargerShare/postgres (1.40s)
+--- PASS: TestAbuse_LargeTotalSlots_NoLargerShare (0.39s)
+    --- PASS: TestAbuse_LargeTotalSlots_NoLargerShare/postgres (0.39s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	8.589s
+FAIL

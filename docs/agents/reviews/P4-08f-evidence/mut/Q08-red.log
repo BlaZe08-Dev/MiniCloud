@@ -1,0 +1,49 @@
+go test -count=1 -p 1 -v -run '<18 P4-08f tests>/postgres' ./tests/faultinject/ ./tests/abuse/  (PostgreSQL URL set)
+    assignment_test.go:92: poll of the silent worker w1 after the lapse = 200 {"assignment":{"job_id":"job_1_640828c80700","attempt_id":"att_job_1_640828c80700_1","attempt_no":1,"lease_token":"voAxQeY66DnVK9vJTyCFsAM-VyNhjY2xR_IxCHlj7mo","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:16:42.237362+05:30","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+--- FAIL: TestFault_AssignedWorkerNeverPolls (0.43s)
+    --- FAIL: TestFault_AssignedWorkerNeverPolls/postgres (0.43s)
+    assignment_test.go:122: poll of w2 = 200 {"assignment":{"job_id":"job_2_e4be06085270","attempt_id":"att_job_2_e4be06085270_1","attempt_no":1,"lease_token":"ZTO-iJx-_OEO6S6hpKuB3F5E7_KQSMev-qPmZLbkw5M","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:16:42.621132+05:30","lease_duration_seconds":30,"policy":"round_robin"}}, want 204 (the job is reserved to w1)
+--- FAIL: TestFault_AssignedWorkerDiesBeforePoll (0.38s)
+    --- FAIL: TestFault_AssignedWorkerDiesBeforePoll/postgres (0.38s)
+--- PASS: TestFault_PollResponseLostAfterClaim (0.44s)
+    --- PASS: TestFault_PollResponseLostAfterClaim/postgres (0.44s)
+--- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll (2.77s)
+    --- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll/postgres (2.77s)
+    assignment_test.go:335: 20 concurrent rounds on postgres: claim won 13, cancel won 7
+--- PASS: TestFault_CancelRacesAccept (1.31s)
+    --- PASS: TestFault_CancelRacesAccept/postgres (1.31s)
+--- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit (0.65s)
+    --- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit/postgres (0.65s)
+--- PASS: TestFault_DatabaseOutage_DuringPass (0.52s)
+    --- PASS: TestFault_DatabaseOutage_DuringPass/postgres (0.52s)
+--- PASS: TestFault_PollRoundTripBeyondWindow (0.54s)
+    --- PASS: TestFault_PollRoundTripBeyondWindow/postgres (0.54s)
+--- PASS: TestFault_RestartThenPoll_NoAgeClaim (0.52s)
+    --- PASS: TestFault_RestartThenPoll_NoAgeClaim/postgres (0.52s)
+--- PASS: TestFault_OutageRecovery_NoAgeClaim (0.48s)
+    --- PASS: TestFault_OutageRecovery_NoAgeClaim/postgres (0.48s)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.97s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/postgres (0.97s)
+--- PASS: TestFault_PersistentPassFailure_AgeClaimRate (3.60s)
+    --- PASS: TestFault_PersistentPassFailure_AgeClaimRate/postgres (3.60s)
+--- PASS: TestFault_OutageRecovery_RateWindow (1.60s)
+    --- PASS: TestFault_OutageRecovery_RateWindow/postgres (1.60s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	14.226s
+    assignment_test.go:54: poll 0 by foreign worker w2 = 200 {"assignment":{"job_id":"job_1_a5a2d4bd8460","attempt_id":"att_job_1_a5a2d4bd8460_1","attempt_no":1,"lease_token":"z7BpYatH6E4wl4o0tobGyzli8sy1CSC12fHdkEaCdF8","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:16:56.932092+05:30","lease_duration_seconds":30,"policy":"round_robin"}}, want 204
+--- FAIL: TestAbuse_Poll_ForeignAssignment_Returns204 (0.34s)
+    --- FAIL: TestAbuse_Poll_ForeignAssignment_Returns204/postgres (0.34s)
+--- PASS: TestAbuse_Poll_UnhealthyWorker_Still503 (0.68s)
+    --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres (0.68s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/fifo_pull (0.33s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/round_robin (0.35s)
+    assignment_test.go:174: postgres: 300 polls per worker over 3.212142347s wrote last_poll_at map[w1:4 w2:4 w3:4] times
+--- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (3.50s)
+    --- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (3.50s)
+--- PASS: TestAbuse_ConstantPoller_NoLargerShare (1.37s)
+    --- PASS: TestAbuse_ConstantPoller_NoLargerShare/postgres (1.37s)
+--- PASS: TestAbuse_LargeTotalSlots_NoLargerShare (0.36s)
+    --- PASS: TestAbuse_LargeTotalSlots_NoLargerShare/postgres (0.35s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	6.256s
+FAIL
