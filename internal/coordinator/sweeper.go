@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/logsafe"
 )
 
 const (
@@ -116,7 +117,7 @@ func (w *LeaseSweeper) Run(ctx context.Context) {
 		err := w.Tick(tickCtx)
 		cancel()
 		if err != nil && ctx.Err() == nil {
-			slog.Warn("lease sweeper tick failed", "err", err)
+			slog.Warn("lease sweeper tick failed", logsafe.Err(err))
 		}
 		select {
 		case <-ctx.Done():

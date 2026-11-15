@@ -1,0 +1,59 @@
+$ go test -count=1 -v -run ^TestLogsafe_Class_ ./internal/logsafe/
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/connection_refused
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/timeout:_server_accepts_and_never_answers_(context_deadline)
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/timeout:_dial_i/o_timeout
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/host_unreachable
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/network_unreachable
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/connection_reset_during_startup
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/closed_pool
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/TLS:_server_answers_S_then_plaintext
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/TLS:_server_refuses_TLS
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/DNS_failure
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/invalid_sslmode_in_the_database_URL_(parse_error)
+=== RUN   TestLogsafe_Class_RealPgxConnectErrors/server_FATAL_during_startup_(auth)
+--- PASS: TestLogsafe_Class_RealPgxConnectErrors (0.31s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/connection_refused (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/timeout:_server_accepts_and_never_answers_(context_deadline) (0.30s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/timeout:_dial_i/o_timeout (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/host_unreachable (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/network_unreachable (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/connection_reset_during_startup (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/closed_pool (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/TLS:_server_answers_S_then_plaintext (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/TLS:_server_refuses_TLS (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/DNS_failure (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/invalid_sslmode_in_the_database_URL_(parse_error) (0.00s)
+    --- PASS: TestLogsafe_Class_RealPgxConnectErrors/server_FATAL_during_startup_(auth) (0.00s)
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/pg_error_wrapped
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/admin_shutdown_57P01
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/hostile_sqlstate
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/lowercase_sqlstate
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/domain_wrapped
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/domain_lease_expired
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/invalid_transition
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/context_canceled
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/deadline
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/unknown_with_secrets
+    logsafe_test.go:333: Class = "pq: host=pg.internal:5432 user=secret_user password=secret_password SELECT 1", want "unclassified"
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/nil
+--- FAIL: TestLogsafe_Class_ServerAndDomainErrors (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/pg_error_wrapped (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/admin_shutdown_57P01 (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/hostile_sqlstate (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/lowercase_sqlstate (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/domain_wrapped (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/domain_lease_expired (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/invalid_transition (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/context_canceled (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/deadline (0.00s)
+    --- FAIL: TestLogsafe_Class_ServerAndDomainErrors/unknown_with_secrets (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/nil (0.00s)
+=== RUN   TestLogsafe_Class_NeverEchoesInput
+    logsafe_test.go:353: label "Zq0 host=h0:1000" for "Zq0 host=h0:1000" is outside the closed set
+--- FAIL: TestLogsafe_Class_NeverEchoesInput (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/logsafe	0.320s
+FAIL
+rc=1

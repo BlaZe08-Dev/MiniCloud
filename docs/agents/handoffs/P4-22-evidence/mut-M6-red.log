@@ -1,0 +1,14 @@
+$ go test -count=1 -v -run ^TestLogSafe_APISites_LogClassOnly_StatusUnchanged$ ./internal/api/
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/connection_error_on_submit
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/readiness_probe
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/unmapped_error
+    logsafe_sites_test.go:105: "internal server error" line does not carry class "unclassified": {"time":"2026-11-15T12:44:21.142563115+05:30","level":"ERROR","msg":"internal server error","err":"ERROR: relation \"jobs_secret\" does not exist; SELECT id FROM jobs_secret; host=pg.internal:5432 user=secret_user password=secret_password"}
+--- FAIL: TestLogSafe_APISites_LogClassOnly_StatusUnchanged (0.01s)
+    --- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/connection_error_on_submit (0.00s)
+    --- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/readiness_probe (0.00s)
+    --- FAIL: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/unmapped_error (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.012s
+FAIL
+rc=1

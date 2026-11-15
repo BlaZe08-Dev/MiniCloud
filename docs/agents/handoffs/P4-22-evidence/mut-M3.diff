@@ -1,0 +1,20 @@
+diff --git a/internal/coordinator/sweeper.go b/internal/coordinator/sweeper.go
+index f3d0606..84b45f4 100644
+--- a/internal/coordinator/sweeper.go
++++ b/internal/coordinator/sweeper.go
+@@ -117,7 +117,7 @@ func (w *LeaseSweeper) Run(ctx context.Context) {
+ 		err := w.Tick(tickCtx)
+ 		cancel()
+ 		if err != nil && ctx.Err() == nil {
+-			slog.Warn("lease sweeper tick failed", logsafe.Err(err))
++			slog.Warn("lease sweeper tick failed", "err", err)
+ 		}
+ 		select {
+ 		case <-ctx.Done():
+@@ -258,3 +258,6 @@ func (s *Service) passGraceInput(ctx context.Context) (grace domain.SweepGraceSt
+ }
+ 
+ func newSweepRand() func() float64 { return rand.Float64 }
++
++// mutation: keep the import used
++var _ = logsafe.Err

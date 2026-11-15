@@ -1,0 +1,13 @@
+diff --git a/cmd/coordinator/main.go b/cmd/coordinator/main.go
+index b9f6c15..46df8b6 100644
+--- a/cmd/coordinator/main.go
++++ b/cmd/coordinator/main.go
+@@ -140,7 +140,7 @@ func main() {
+ 
+ 		poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+ 		if err != nil {
+-			slog.Error("failed to parse database configuration", logsafe.Err(err))
++			slog.Error("failed to parse database configuration", "err", err)
+ 			os.Exit(1)
+ 		}
+ 		poolCfg.MaxConns = int32(cfg.DBMaxConns)

@@ -1,0 +1,13 @@
+diff --git a/internal/logsafe/logsafe.go b/internal/logsafe/logsafe.go
+index 3a00278..9c5885f 100644
+--- a/internal/logsafe/logsafe.go
++++ b/internal/logsafe/logsafe.go
+@@ -69,7 +69,7 @@ func Class(err error) string {
+ 	// (for example 28P01 or 57P03 during startup) is classified by that code.
+ 	var sqlState interface{ SQLState() string }
+ 	if errors.As(err, &sqlState) {
+-		return sqlStateClass(sqlState.SQLState())
++		return sqlStateClass(sqlState.SQLState()) + ":" + err.Error()
+ 	}
+ 	for _, d := range domainClasses {
+ 		if errors.Is(err, d.err) {

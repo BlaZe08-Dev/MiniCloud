@@ -1,0 +1,13 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 2c7f270..f759797 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -96,7 +96,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
+ 
+ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
+ 	if isConnectionOrTimeoutError(err) {
+-		slog.Error("database outage or connection failure", logsafe.Err(err))
++		slog.Error("database outage or connection failure", "err", err)
+ 		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable"
+ 	}
+ 

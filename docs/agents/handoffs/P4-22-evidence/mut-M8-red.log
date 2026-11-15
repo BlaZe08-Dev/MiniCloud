@@ -1,0 +1,14 @@
+$ go test -count=1 -v -run ^TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail$ ./tests/faultinject/
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails
+    logleak_test.go:219: SECURITY LEAK: startup output contains "leakuser":
+        {"time":"2026-11-15T12:44:39.84699055+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+        {"time":"2026-11-15T12:44:39.847613663+05:30","level":"ERROR","msg":"failed to parse database configuration","err":"cannot parse `postgres://leakuser:xxxxx@db.leak.internal:18081/leakdb_test?sslmode=bogus`: failed to configure TLS (sslmode is invalid)"}
+--- FAIL: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail (3.88s)
+    --- PASS: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails (0.01s)
+    --- FAIL: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.901s
+FAIL
+rc=1

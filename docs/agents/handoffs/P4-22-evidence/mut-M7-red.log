@@ -1,0 +1,14 @@
+$ go test -count=1 -v -run ^TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail$ ./tests/faultinject/
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails
+    logleak_test.go:219: SECURITY LEAK: startup output contains "leakuser":
+        {"time":"2026-11-15T12:44:27.131635243+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+        {"time":"2026-11-15T12:44:27.133596061+05:30","level":"ERROR","msg":"failed to ping postgres database","err":"failed to connect to `user=leakuser database=leakdb_test`: 127.0.0.1:18081 (127.0.0.1): dial error: dial tcp 127.0.0.1:18081: connect: connection refused"}
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails
+--- FAIL: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail (3.76s)
+    --- FAIL: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails (0.01s)
+    --- PASS: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.770s
+FAIL
+rc=1

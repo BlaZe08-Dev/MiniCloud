@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestLogSafe_AssignmentPassFailed_LogsClassOnly$ ./internal/coordinator/
+=== RUN   TestLogSafe_AssignmentPassFailed_LogsClassOnly
+    logsafe_sites_test.go:112: "assignment pass failed" line does not carry the class label: {"time":"2026-11-15T12:45:28.278607314+05:30","level":"WARN","msg":"assignment pass failed","err":"failed to connect to `user=leakuser database=leakdb_test`: 10.9.8.7:6543 (db.leak.internal): dial error: dial tcp 10.9.8.7:6543: connect: connection refused"}
+--- FAIL: TestLogSafe_AssignmentPassFailed_LogsClassOnly (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.004s
+FAIL
+rc=1

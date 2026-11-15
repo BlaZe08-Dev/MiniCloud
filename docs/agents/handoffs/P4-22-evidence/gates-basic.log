@@ -1,0 +1,3 @@
+gofmt OK
+vet OK
+build OK

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/logsafe"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
 
@@ -72,7 +73,7 @@ func (l *AssignmentLoop) Round(ctx context.Context) int {
 		passes++
 		if err != nil {
 			if ctx.Err() == nil {
-				slog.Warn("assignment pass failed", "err", err)
+				slog.Warn("assignment pass failed", logsafe.Err(err))
 			}
 			break
 		}

@@ -1,0 +1,13 @@
+diff --git a/cmd/coordinator/main.go b/cmd/coordinator/main.go
+index b9f6c15..81fb2c1 100644
+--- a/cmd/coordinator/main.go
++++ b/cmd/coordinator/main.go
+@@ -161,7 +161,7 @@ func main() {
+ 		}
+ 
+ 		if err := pool.Ping(bootCtx); err != nil {
+-			slog.Error("failed to ping postgres database", logsafe.Err(err))
++			slog.Error("failed to ping postgres database", "err", err)
+ 			os.Exit(1)
+ 		}
+ 

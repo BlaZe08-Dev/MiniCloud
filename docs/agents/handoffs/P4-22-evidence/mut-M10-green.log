@@ -1,0 +1,28 @@
+$ go test -count=1 -v -run ^TestLogsafe_Class_ServerAndDomainErrors$ ./internal/logsafe/
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/pg_error_wrapped
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/admin_shutdown_57P01
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/hostile_sqlstate
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/lowercase_sqlstate
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/domain_wrapped
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/domain_lease_expired
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/invalid_transition
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/context_canceled
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/deadline
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/unknown_with_secrets
+=== RUN   TestLogsafe_Class_ServerAndDomainErrors/nil
+--- PASS: TestLogsafe_Class_ServerAndDomainErrors (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/pg_error_wrapped (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/admin_shutdown_57P01 (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/hostile_sqlstate (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/lowercase_sqlstate (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/domain_wrapped (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/domain_lease_expired (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/invalid_transition (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/context_canceled (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/deadline (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/unknown_with_secrets (0.00s)
+    --- PASS: TestLogsafe_Class_ServerAndDomainErrors/nil (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/logsafe	0.016s
+rc=0

@@ -1,0 +1,6 @@
+$ go test -count=1 -v -run ^TestLogSafe_AssignmentPassFailed_LogsClassOnly$ ./internal/coordinator/
+=== RUN   TestLogSafe_AssignmentPassFailed_LogsClassOnly
+--- PASS: TestLogSafe_AssignmentPassFailed_LogsClassOnly (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.004s
+rc=0

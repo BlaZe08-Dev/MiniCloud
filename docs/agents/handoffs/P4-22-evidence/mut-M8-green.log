@@ -1,0 +1,10 @@
+$ go test -count=1 -v -run ^TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail$ ./tests/faultinject/
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails
+=== RUN   TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails
+--- PASS: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail (5.40s)
+    --- PASS: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/ping_fails (0.05s)
+    --- PASS: TestFault_CoordinatorStartup_DBUnreachable_LogsNoDBDetail/parse_fails (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	5.418s
+rc=0
