@@ -1,3 +1,3 @@
 go test ./tests/docs
-ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.901s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.746s
 test-docs rc=0
