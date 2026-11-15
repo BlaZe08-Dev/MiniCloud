@@ -1,0 +1,105 @@
+=== RUN   TestAudit_RenewalGoroutinePanic
+    audit_v20_renewpanic_test.go:52: child exit: exit status 2; died of the injected panic: true; j1 result delivered before death: false; j1 started: true
+    audit_v20_renewpanic_test.go:56: AUDIT START j1
+    audit_v20_renewpanic_test.go:56: AUDIT START j2
+    audit_v20_renewpanic_test.go:56: panic: injected renewal-goroutine panic
+--- PASS: TestAudit_RenewalGoroutinePanic (0.03s)
+=== RUN   TestAudit_PanicInValidateReleasesSlot
+--- PASS: TestAudit_PanicInValidateReleasesSlot (0.01s)
+=== RUN   TestAudit_PanicDoesNotKillConcurrentAttempt
+--- PASS: TestAudit_PanicDoesNotKillConcurrentAttempt (0.21s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:168: slot released after 1m0.25s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.63s)
+=== RUN   TestAudit_RenewVerdictRacesCompletion
+=== RUN   TestAudit_RenewVerdictRacesCompletion/409
+    audit_v20_test.go:236: verdict 409, 100 iterations, outcomes map[results=1:100]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/403
+    audit_v20_test.go:236: verdict 403, 100 iterations, outcomes map[results=1:100]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/404
+    audit_v20_test.go:236: verdict 404, 100 iterations, outcomes map[results=1:100]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/cancel
+    audit_v20_test.go:236: verdict cancel, 100 iterations, outcomes map[results=1:100]
+--- PASS: TestAudit_RenewVerdictRacesCompletion (6.26s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/409 (1.55s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/403 (1.54s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/404 (1.57s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/cancel (1.60s)
+=== RUN   TestAudit_ShutdownRacesPoll
+=== RUN   TestAudit_ShutdownRacesPoll/before_response
+    audit_v20_test.go:276: Run: failed to register worker: Post "http://127.0.0.1:34655/v1/workers/register": context canceled
+=== RUN   TestAudit_ShutdownRacesPoll/after_response
+    audit_v20_test.go:276: Run: failed to register worker: Post "http://127.0.0.1:46141/v1/workers/register": context canceled
+--- FAIL: TestAudit_ShutdownRacesPoll (0.00s)
+    --- FAIL: TestAudit_ShutdownRacesPoll/before_response (0.00s)
+    --- FAIL: TestAudit_ShutdownRacesPoll/after_response (0.00s)
+=== RUN   TestAudit_HungHeartbeatDoesNotHangShutdown
+=== RUN   TestAudit_HungHeartbeatDoesNotHangShutdown/heartbeat_hangs
+    audit_v20_test.go:349: heartbeat_hangs: Run returned 196.700865ms after cancel
+panic: test timed out after 5m0s
+running tests:
+	TestAudit_HungHeartbeatDoesNotHangShutdown (4m53s)
+	TestAudit_HungHeartbeatDoesNotHangShutdown/heartbeat_hangs (4m53s)
+
+goroutine 10963 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/lib/go-1.22/src/testing/testing.go:2366 +0x265
+created by time.goFunc
+	/usr/lib/go-1.22/src/time/sleep.go:177 +0x45
+
+goroutine 1 [chan receive, 4 minutes]:
+testing.(*T).Run(0xc00013a4e0, {0x9dcc94, 0x2a}, 0xa03930)
+	/usr/lib/go-1.22/src/testing/testing.go:1750 +0x851
+testing.runTests.func1(0xc00013a4e0)
+	/usr/lib/go-1.22/src/testing/testing.go:2161 +0x86
+testing.tRunner(0xc00013a4e0, 0xc000119b10)
+	/usr/lib/go-1.22/src/testing/testing.go:1689 +0x21f
+testing.runTests(0xc0000120a8, {0xcf58e0, 0x3e, 0x3e}, {0xc000119bb8?, 0xc000119c00?, 0xcfa380?})
+	/usr/lib/go-1.22/src/testing/testing.go:2159 +0x8bf
+testing.(*M).Run(0xc00010ca00)
+	/usr/lib/go-1.22/src/testing/testing.go:2027 +0xf18
+main.main()
+	_testmain.go:171 +0x2be
+
+goroutine 10908 [chan receive, 4 minutes]:
+testing.(*T).Run(0xc0000a9ba0, {0x9cd213, 0xf}, 0xc0010dc930)
+	/usr/lib/go-1.22/src/testing/testing.go:1750 +0x851
+github.com/BlaZe08-Dev/Minicloud/internal/worker_test.TestAudit_HungHeartbeatDoesNotHangShutdown(0xc0000a9ba0)
+	/home/blazeee/mc-mut-claude/internal/worker/audit_v20_test.go:317 +0x86
+testing.tRunner(0xc0000a9ba0, 0xa03930)
+	/usr/lib/go-1.22/src/testing/testing.go:1689 +0x21f
+created by testing.(*T).Run in goroutine 1
+	/usr/lib/go-1.22/src/testing/testing.go:1742 +0x826
+
+goroutine 10962 [chan receive, 4 minutes]:
+github.com/BlaZe08-Dev/Minicloud/internal/worker_test.TestAudit_HungHeartbeatDoesNotHangShutdown.func1.1.1({0xa87650, 0xc0000a55e0}, 0xc0001319e0)
+	/home/blazeee/mc-mut-claude/internal/worker/audit_v20_test.go:335 +0x278
+net/http.HandlerFunc.ServeHTTP(0xc000072c80, {0xa87650, 0xc0000a55e0}, 0xc0001319e0)
+	/usr/lib/go-1.22/src/net/http/server.go:2191 +0x48
+net/http.serverHandler.ServeHTTP({0xa86458?}, {0xa87650, 0xc0000a55e0}, 0xc0001319e0)
+	/usr/lib/go-1.22/src/net/http/server.go:3162 +0x2a2
+net/http.(*conn).serve(0xc001b11cb0, {0xa87d98, 0xc0010c0060})
+	/usr/lib/go-1.22/src/net/http/server.go:2064 +0x13c5
+created by net/http.(*Server).Serve in goroutine 10910
+	/usr/lib/go-1.22/src/net/http/server.go:3310 +0x8ed
+
+goroutine 10909 [semacquire, 4 minutes]:
+sync.runtime_Semacquire(0xc002611ee8?)
+	/usr/lib/go-1.22/src/runtime/sema.go:62 +0x25
+sync.(*WaitGroup).Wait(0xc002611ee0)
+	/usr/lib/go-1.22/src/sync/waitgroup.go:116 +0xa5
+net/http/httptest.(*Server).Close(0xc002611ea0)
+	/usr/lib/go-1.22/src/net/http/httptest/server.go:251 +0x3d5
+testing.(*common).Cleanup.func1()
+	/usr/lib/go-1.22/src/testing/testing.go:1175 +0x17a
+testing.(*common).runCleanup(0xc0000a9d40, 0x0)
+	/usr/lib/go-1.22/src/testing/testing.go:1353 +0x262
+testing.tRunner.func2()
+	/usr/lib/go-1.22/src/testing/testing.go:1683 +0x51
+testing.tRunner(0xc0000a9d40, 0xc0010dc930)
+	/usr/lib/go-1.22/src/testing/testing.go:1695 +0x25e
+created by testing.(*T).Run in goroutine 10908
+	/usr/lib/go-1.22/src/testing/testing.go:1742 +0x826
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	300.066s
+FAIL
+rc=1

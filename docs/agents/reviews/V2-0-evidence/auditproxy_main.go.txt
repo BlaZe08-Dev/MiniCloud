@@ -1,0 +1,44 @@
+// auditproxy: logging reverse proxy for the V2-0 audit. Usage: auditproxy LISTEN TARGET_URL LOGFILE
+// Each line: start_unix_ms end_unix_ms METHOD PATH STATUS
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"sync"
+	"time"
+)
+
+type rec struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *rec) WriteHeader(c int) { r.status = c; r.ResponseWriter.WriteHeader(c) }
+
+func main() {
+	target, err := url.Parse(os.Args[2])
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create(os.Args[3])
+	if err != nil {
+		log.Fatal(err)
+	}
+	var mu sync.Mutex
+	p := httputil.NewSingleHostReverseProxy(target)
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &rec{ResponseWriter: w, status: 200}
+		p.ServeHTTP(rw, r)
+		mu.Lock()
+		fmt.Fprintf(f, "%d %d %s %s %d\n", start.UnixMilli(), time.Now().UnixMilli(), r.Method, r.URL.Path, rw.status)
+		f.Sync()
+		mu.Unlock()
+	})
+	log.Fatal(http.ListenAndServe(os.Args[1], h))
+}

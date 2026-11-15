@@ -1,0 +1,28 @@
+submitted 4 jobs at 1794775094525
+RUNNING attempts just before SIGTERM: 4
+worker SIGTERM -> exit: 3 ms, exit code 0
+attempt states right after worker exit: RUNNING=4
+attempt states 45 s later: LOST=4
+job states 45 s later: RETRYING=4
+== job states
+RETRYING|4
+== attempt states
+LOST|4
+== attempts per job (max)
+1
+== results rows / distinct jobs
+0|0
+== max concurrent attempts (attempts.started_at..finished_at, ends sorted before starts at equal time)
+4
+== wall time: first job created -> last attempt finished (s)
+34.51
+== attempt timeline (job, attempt_no, state, start, finish, relative to first job created)
+job_1_91c843dea7c8|1|LOST|0.10|34.47
+job_2_06a798484f9b|1|LOST|0.11|34.49
+job_3_75fdc05dc27e|1|LOST|0.12|34.50
+job_4_53999b95bfad|1|LOST|0.13|34.51
+== proxy: requests by kind
+      1 heartbeat 200
+      4 poll 200
+      1 poll 204
+      1 register 200

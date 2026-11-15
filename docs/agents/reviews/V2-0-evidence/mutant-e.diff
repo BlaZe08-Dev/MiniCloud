@@ -1,0 +1,11 @@
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -179,7 +179,7 @@
+ 	heartbeatTicker := time.NewTicker(a.cfg.HeartbeatInterval)
+ 	defer heartbeatTicker.Stop()
+ 	var heartbeatWG sync.WaitGroup
+-	defer heartbeatWG.Wait()
++	// MUTANT e: heartbeat WaitGroup not waited
+ 
+ 	heartbeatWG.Add(1)
+ 	go func() {
