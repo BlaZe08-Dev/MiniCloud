@@ -1,0 +1,4 @@
+1299c1299
+< 	return nil, maxPolls, fmt.Errorf("no assignment after the bound of %d polls %v apart (every poll returned 204)", maxPolls, every)
+---
+> 	return nil, maxPolls, nil
