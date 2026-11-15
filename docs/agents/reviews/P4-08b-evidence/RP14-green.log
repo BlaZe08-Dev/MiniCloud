@@ -1,0 +1,6 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_IntervalEqualToWindowAccepted$ ./internal/config/
+=== RUN   TestAudit_Probe_IntervalEqualToWindowAccepted
+--- PASS: TestAudit_Probe_IntervalEqualToWindowAccepted (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	0.003s
+EXIT=0

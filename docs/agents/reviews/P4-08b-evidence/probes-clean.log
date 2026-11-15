@@ -1,0 +1,43 @@
+=== RUN   TestAudit_Probe_PassExcludesJobAtLapseLimit
+--- PASS: TestAudit_Probe_PassExcludesJobAtLapseLimit (0.00s)
+=== RUN   TestAudit_Probe_LapseArmClosedBelowLimit
+--- PASS: TestAudit_Probe_LapseArmClosedBelowLimit (0.00s)
+=== RUN   TestAudit_Probe_OwnArmClosedAtExactExpiry
+--- PASS: TestAudit_Probe_OwnArmClosedAtExactExpiry (0.00s)
+=== RUN   TestAudit_Probe_UnhealthyRevokeCountsNoLapse
+--- PASS: TestAudit_Probe_UnhealthyRevokeCountsNoLapse (0.00s)
+=== RUN   TestAudit_Probe_AgeArmUsesNotBefore
+--- PASS: TestAudit_Probe_AgeArmUsesNotBefore (0.00s)
+=== RUN   TestAudit_Probe_ClaimRespectsCapacity
+--- PASS: TestAudit_Probe_ClaimRespectsCapacity (0.00s)
+=== RUN   TestAudit_Probe_EventCandidatesInIDOrder
+--- PASS: TestAudit_Probe_EventCandidatesInIDOrder (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.009s
+=== RUN   TestAudit_Probe_RoundRobinWithoutSettings
+2026/10/31 15:27:08 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:27:08 INFO job submitted and queued job_id=job_1_28de01a42796 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:27:08 INFO job dispatched to worker job_id=job_1_28de01a42796 attempt_id=att_1_64f213394040 attempt_no=1 worker_id=w_1 policy=round_robin_fallback fallback_reason=lapses
+    audit_probe_coordinator_test.go:36: round_robin without settings claimed under policy="round_robin_fallback" reason="lapses"
+--- FAIL: TestAudit_Probe_RoundRobinWithoutSettings (0.00s)
+=== RUN   TestAudit_Probe_SetDispatchPolicyRejectsFallbackName
+--- PASS: TestAudit_Probe_SetDispatchPolicyRejectsFallbackName (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.006s
+=== RUN   TestAudit_Probe_IntervalEqualToWindowAccepted
+--- PASS: TestAudit_Probe_IntervalEqualToWindowAccepted (0.00s)
+=== RUN   TestAudit_Probe_MalformedAssignmentValuesRejected
+=== RUN   TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES
+    audit_probe_config_test.go:32: MINICLOUD_ASSIGNMENT_MAX_LAPSES="three" accepted (the default was used silently)
+=== RUN   TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW
+    audit_probe_config_test.go:32: MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW="5" accepted (the default was used silently)
+=== RUN   TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT
+    audit_probe_config_test.go:32: MINICLOUD_ASSIGNMENT_BATCH_LIMIT="50x" accepted (the default was used silently)
+--- FAIL: TestAudit_Probe_MalformedAssignmentValuesRejected (0.00s)
+    --- FAIL: TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_MAX_LAPSES (0.00s)
+    --- FAIL: TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (0.00s)
+    --- FAIL: TestAudit_Probe_MalformedAssignmentValuesRejected/MINICLOUD_ASSIGNMENT_BATCH_LIMIT (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.008s
+FAIL
+EXIT=1

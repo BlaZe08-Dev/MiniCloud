@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Single-site mutation harness for the P4-08b audit.
+
+usage: mut.py ID FILE OLD NEW PKG TESTREGEX
+OLD must occur exactly once in FILE. Writes R<ID>.diff, R<ID>-red.log, R<ID>-green.log
+into the review evidence directory, restores FILE with git checkout, and prints a summary.
+"""
+import os, subprocess, sys
+
+REPO = "/home/blazeee/MiniCloud-claude"
+EV = os.path.join(REPO, "docs/agents/reviews/P4-08b-evidence")
+
+def run(cmd, log):
+    env = dict(os.environ)
+    env.pop("MINICLOUD_TEST_DATABASE_URL", None)
+    p = subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True)
+    with open(log, "w") as f:
+        f.write("$ " + " ".join(cmd) + "\n")
+        f.write(p.stdout + p.stderr)
+        f.write(f"EXIT={p.returncode}\n")
+    return p.returncode
+
+def main():
+    mid, rel, old, new, pkg, test = sys.argv[1:7]
+    path = os.path.join(REPO, rel)
+    src = open(path).read()
+    n = src.count(old)
+    if n != 1:
+        sys.exit(f"{mid}: anchor occurs {n} times, not applied")
+    open(path, "w").write(src.replace(old, new, 1))
+    d = subprocess.run(["git", "diff", "--", rel], cwd=REPO, capture_output=True, text=True).stdout
+    open(os.path.join(EV, f"R{mid}.diff"), "w").write(d)
+    cmd = ["go", "test", "-count=1", "-v", "-run", test] + pkg.split()
+    red = run(cmd, os.path.join(EV, f"R{mid}-red.log"))
+    subprocess.run(["git", "checkout", "--", rel], cwd=REPO, check=True)
+    st = subprocess.run(["git", "status", "--short", "--", rel], cwd=REPO, capture_output=True, text=True).stdout
+    if st.strip():
+        sys.exit(f"{mid}: restore failed: {st}")
+    green = run(cmd, os.path.join(EV, f"R{mid}-green.log"))
+    verdict = "KILLED" if red != 0 and green == 0 else ("SURVIVED" if red == 0 and green == 0 else "INVALID")
+    print(f"{mid} red_exit={red} green_exit={green} {verdict}")
+
+main()

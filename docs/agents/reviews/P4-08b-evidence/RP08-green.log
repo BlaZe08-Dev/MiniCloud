@@ -1,0 +1,6 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_OwnArmClosedAtExactExpiry$ ./internal/storage/
+=== RUN   TestAudit_Probe_OwnArmClosedAtExactExpiry
+--- PASS: TestAudit_Probe_OwnArmClosedAtExactExpiry (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+EXIT=0

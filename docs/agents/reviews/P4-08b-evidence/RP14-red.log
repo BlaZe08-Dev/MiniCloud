@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_IntervalEqualToWindowAccepted$ ./internal/config/
+=== RUN   TestAudit_Probe_IntervalEqualToWindowAccepted
+    audit_probe_config_test.go:16: INTERVAL equal to ACCEPT_WINDOW rejected: MINICLOUD_ASSIGNMENT_INTERVAL (5s) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (5s)
+--- FAIL: TestAudit_Probe_IntervalEqualToWindowAccepted (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.003s
+FAIL
+EXIT=1

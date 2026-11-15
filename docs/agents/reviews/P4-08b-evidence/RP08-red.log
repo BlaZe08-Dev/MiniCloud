@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_OwnArmClosedAtExactExpiry$ ./internal/storage/
+=== RUN   TestAudit_Probe_OwnArmClosedAtExactExpiry
+    audit_probe_storage_test.go:63: reservation claimed at its exact expiry: err=<nil>
+--- FAIL: TestAudit_Probe_OwnArmClosedAtExactExpiry (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL
+EXIT=1

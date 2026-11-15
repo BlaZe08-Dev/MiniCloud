@@ -1,0 +1,33 @@
+== probes on the unmutated tree (46ca30a)
+--- PASS: TestAudit_Probe_PassExcludesJobAtLapseLimit (0.00s)
+--- PASS: TestAudit_Probe_LapseArmClosedBelowLimit (0.00s)
+--- PASS: TestAudit_Probe_OwnArmClosedAtExactExpiry (0.00s)
+--- PASS: TestAudit_Probe_UnhealthyRevokeCountsNoLapse (0.00s)
+--- PASS: TestAudit_Probe_AgeArmUsesNotBefore (0.00s)
+--- PASS: TestAudit_Probe_ClaimRespectsCapacity (0.00s)
+--- PASS: TestAudit_Probe_EventCandidatesInIDOrder (0.00s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.009s
+--- FAIL: TestAudit_Probe_RoundRobinWithoutSettings (0.00s)
+--- PASS: TestAudit_Probe_SetDispatchPolicyRejectsFallbackName (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.006s
+--- PASS: TestAudit_Probe_IntervalEqualToWindowAccepted (0.00s)
+--- FAIL: TestAudit_Probe_MalformedAssignmentValuesRejected (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.008s
+FAIL
+EXIT=1
+== surviving mutations re-run against their probe
+P04 red_exit=1 green_exit=0 KILLED
+P05 red_exit=1 green_exit=0 KILLED
+P07 red_exit=1 green_exit=0 KILLED
+P08 red_exit=1 green_exit=0 KILLED
+P09 red_exit=1 green_exit=0 KILLED
+P10 red_exit=1 green_exit=0 KILLED
+P11 red_exit=1 green_exit=0 KILLED
+P14 red_exit=1 green_exit=0 KILLED
+P17 red_exit=1 green_exit=0 KILLED
+?? docs/agents/reviews/P4-08b-evidence/
+?? internal/config/audit_probe_config_test.go
+?? internal/coordinator/audit_probe_coordinator_test.go
+?? internal/storage/audit_probe_storage_test.go

@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_LapseArmClosedBelowLimit$ ./internal/storage/
+=== RUN   TestAudit_Probe_LapseArmClosedBelowLimit
+    audit_probe_storage_test.go:51: job at L-1 lapses was claimed by the lapse arm: err=<nil>
+--- FAIL: TestAudit_Probe_LapseArmClosedBelowLimit (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL
+EXIT=1

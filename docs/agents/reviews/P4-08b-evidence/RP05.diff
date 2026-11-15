@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..22ff0b5 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -175,7 +175,7 @@ func (r *InMemoryRepository) AssignQueuedJobs(ctx context.Context, p AssignParam
+ 				break
+ 			}
+ 			j := r.jobs[id]
+-			if j != nil && j.TaskType == ty && j.AssignedWorkerID == nil && r.isDispatchableLocked(j) && j.AssignmentLapses < p.MaxLapses {
++			if j != nil && j.TaskType == ty && j.AssignedWorkerID == nil && r.isDispatchableLocked(j) && j.AssignmentLapses <= p.MaxLapses {
+ 				candidates = append(candidates, j)
+ 			}
+ 		}

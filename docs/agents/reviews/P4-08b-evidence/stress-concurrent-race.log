@@ -1,0 +1,129 @@
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20
+--- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants (5.54s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1 (0.38s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2 (0.40s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3 (0.25s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4 (0.30s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5 (0.25s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6 (0.25s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7 (0.27s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8 (0.26s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9 (0.28s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10 (0.18s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11 (0.27s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12 (0.20s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13 (0.34s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14 (0.33s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15 (0.22s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16 (0.26s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18 (0.28s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19 (0.27s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20 (0.28s)
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20
+--- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants (5.65s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1 (0.28s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2 (0.49s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3 (0.42s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4 (0.30s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5 (0.31s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6 (0.28s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7 (0.27s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8 (0.36s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9 (0.19s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10 (0.22s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13 (0.26s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16 (0.23s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17 (0.29s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18 (0.21s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19 (0.35s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20 (0.23s)
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20
+--- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants (4.41s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2 (0.26s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3 (0.23s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4 (0.21s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5 (0.23s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6 (0.25s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7 (0.21s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8 (0.20s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10 (0.24s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11 (0.29s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12 (0.22s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13 (0.21s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14 (0.22s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15 (0.17s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16 (0.20s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17 (0.20s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18 (0.18s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19 (0.20s)
+    --- PASS: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20 (0.22s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	16.654s
+EXIT=0

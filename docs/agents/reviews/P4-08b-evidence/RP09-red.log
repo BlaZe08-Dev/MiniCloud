@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_UnhealthyRevokeCountsNoLapse$ ./internal/storage/
+=== RUN   TestAudit_Probe_UnhealthyRevokeCountsNoLapse
+    audit_probe_storage_test.go:88: revoke for an UNHEALTHY worker counted a lapse: lapses=1
+--- FAIL: TestAudit_Probe_UnhealthyRevokeCountsNoLapse (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.005s
+FAIL
+EXIT=1

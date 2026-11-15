@@ -1,0 +1,6 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_ClaimRespectsCapacity$ ./internal/storage/
+=== RUN   TestAudit_Probe_ClaimRespectsCapacity
+--- PASS: TestAudit_Probe_ClaimRespectsCapacity (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.004s
+EXIT=0
