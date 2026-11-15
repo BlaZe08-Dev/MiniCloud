@@ -1,0 +1,6 @@
+=== RUN   TestLeakScanPollHelper_DefaultPolicy
+    leakscan_poll_test.go:73: default policy: no assignment after the bound of 1 polls 250ms apart (every poll returned 204)
+--- FAIL: TestLeakScanPollHelper_DefaultPolicy (2.69s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.696s
+FAIL

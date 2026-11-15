@@ -1,0 +1,5 @@
+=== RUN   TestLeakScanPollHelper_DefaultPolicy
+    leakscan_poll_test.go:76: assignment arrived on poll 5 of at most 20
+--- PASS: TestLeakScanPollHelper_DefaultPolicy (2.84s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.849s

@@ -1,0 +1,1 @@
+leakScanPollMax = 20 -> 1 (one poll, no retry: the pre-fix behaviour)

@@ -1038,6 +1038,10 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 		"MINICLOUD_STORAGE_DRIVER=postgres",
 		"MINICLOUD_DATABASE_URL="+schemaURL,
 		"MINICLOUD_DB_QUERY_TIMEOUT=1s",
+		// The DEFAULT dispatch policy (round_robin) is what ships, so this test runs on it. An empty
+		// value means "use the default" (config.dispatchPolicyFromEnv) and stops an exported
+		// MINICLOUD_DISPATCH_POLICY from changing the policy under test.
+		"MINICLOUD_DISPATCH_POLICY=",
 	)
 	var coordLogs safeBuffer
 	coordCmd.Stdout = &coordLogs
@@ -1102,14 +1106,13 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 	respSub.Body.Close()
 
 	// Worker polls and receives attempt containing the real raw lease token
-	respPoll, err := client.Post(coordURL+"/v1/workers/leak-scan-worker/poll", "application/json", nil)
+	// Under the default policy the first poll returns 204 until an assignment pass reserves the job
+	// for this worker, so the poll is retried (bounded) until the assignment arrives.
+	respPoll, _, err := pollUntilAssignment(client, coordURL+"/v1/workers/leak-scan-worker/poll", leakScanPollMax, leakScanPollEvery)
 	if err != nil {
 		t.Fatalf("failed to poll for leak scan job: %v", err)
 	}
 	defer respPoll.Body.Close()
-	if respPoll.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 OK on worker poll, got %d", respPoll.StatusCode)
-	}
 	var pollResult struct {
 		Assignment struct {
 			AttemptID  string `json:"attempt_id"`
@@ -1259,4 +1262,39 @@ func TestSecurity_PartD_LeakScan(t *testing.T) {
 
 	_ = pool
 	_ = schemaName
+}
+
+// leakScanPollMax and leakScanPollEvery bound the worker poll in the leak scan: at most
+// leakScanPollMax polls, leakScanPollEvery apart (about 5s), against an assignment pass that runs
+// every 1s by default (MINICLOUD_ASSIGNMENT_INTERVAL).
+const (
+	leakScanPollMax   = 20
+	leakScanPollEvery = 250 * time.Millisecond
+)
+
+// pollUntilAssignment POSTs pollURL until it answers 200 OK (an assignment) and returns that open
+// response and the number of polls made. It stops at once on any status other than 204 and gives
+// up with an error naming the bound after maxPolls polls that all answered 204. The caller closes
+// the returned body.
+func pollUntilAssignment(client *http.Client, pollURL string, maxPolls int, every time.Duration) (*http.Response, int, error) {
+	for n := 1; n <= maxPolls; n++ {
+		resp, err := client.Post(pollURL, "application/json", nil)
+		if err != nil {
+			return nil, n, fmt.Errorf("poll %d of at most %d: %w", n, maxPolls, err)
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			return resp, n, nil
+		case http.StatusNoContent:
+			_ = resp.Body.Close()
+			if n < maxPolls {
+				time.Sleep(every)
+			}
+		default:
+			code := resp.StatusCode
+			_ = resp.Body.Close()
+			return nil, n, fmt.Errorf("poll %d of at most %d: unexpected status %d (want 200 or 204)", n, maxPolls, code)
+		}
+	}
+	return nil, maxPolls, fmt.Errorf("no assignment after the bound of %d polls %v apart (every poll returned 204)", maxPolls, every)
 }

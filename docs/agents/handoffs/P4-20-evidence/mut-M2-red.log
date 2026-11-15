@@ -1,0 +1,7 @@
+=== RUN   TestLeakScanPollHelper_DefaultPolicy
+    leakscan_poll_test.go:76: assignment arrived on poll 4 of at most 20
+    leakscan_poll_test.go:82: with nothing to assign: polls=3 err=<nil>; want 3 polls and an error naming the bound
+--- FAIL: TestLeakScanPollHelper_DefaultPolicy (2.76s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.766s
+FAIL
