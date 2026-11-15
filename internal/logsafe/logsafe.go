@@ -116,15 +116,16 @@ func Class(err error) string {
 	// Errors built with errors.New inside pgx and puddle (no exported sentinel this module can
 	// import without a new direct dependency). The text only selects a label; it is never logged.
 	msg := strings.ToLower(err.Error())
+	// "cannot parse" is first: a parse error names the bad setting, which can be sslmode (TLS).
 	switch {
+	case strings.Contains(msg, "cannot parse"):
+		return "invalid_database_config"
 	case strings.Contains(msg, "closed pool"):
 		return "closed_pool"
 	case strings.Contains(msg, "tls"):
 		return "tls"
 	case strings.Contains(msg, "timeout"):
 		return "timeout"
-	case strings.Contains(msg, "cannot parse"):
-		return "invalid_database_config"
 	case strings.Contains(msg, "failed to connect"), strings.Contains(msg, "conn closed"), strings.Contains(msg, "conn busy"):
 		return "connection_failed"
 	}
