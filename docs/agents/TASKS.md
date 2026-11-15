@@ -22,6 +22,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | active |
 | P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | active |
 | P4-16 | Fix SEC-062: older env helpers reject a set bad value at startup | Claude Code | to be assigned | agent/claude/P4-16 | complete, awaiting audit |
 | P4-14 | Fix backoff overflow (finding F-5c2-1) | Gemini | Claude Code | agent/gemini/P4-14 | active |
@@ -40,6 +41,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-20 | Fix the test-outage LeakScan poll for the round_robin default (bounded retry, default policy kept) | Claude Code | to be assigned | agent/claude/P4-20 | complete, awaiting audit |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+
+### P4-21 — Docs part 2 from the P4-18 audit
+- Goal: Fix docs drift identified in P4-18 audit: README (configuration table, env error handling, dispatch statement, make targets, SEC-012 timeout clamping), phase4-plan.md (C21 assignment pass vs lease sweeper), schema.md (migrations 000004 & 000005 merged), field-limits.md (chk_attempts_last_error_size and 000004/000005 constraints), roadmap.md & state-machine.md (default policy wording), architecture.md (Scheduler row and Slice 3d default policy), ADR-0003 & ADR-0011 (amendment line for default policy), and .env.example (commented-out coordinator variables).
+- Builder: Gemini. Auditor: to be assigned. Branch: `agent/gemini/P4-21`. Status: active.
+- Owned files: `README.md`, `docs/phase4-plan.md`, `docs/schema.md`, `docs/security/field-limits.md`, `docs/roadmap.md`, `docs/state-machine.md`, `docs/architecture.md`, `docs/adr/0003-pull-based-worker-protocol.md`, `docs/adr/0011-postgres-dispatch-and-recovery.md`, `.env.example`, `docs/agents/TASKS.md`, `reports/gemini/P4-21.md`.
+- Out of scope: Go code files, database schema or migrations, allowlist modifications, `docs/PROJECT_STATE.md`, `docs/adr/0017-assignment-round-robin.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/fault-injection-plan.md`.
 
 ### P4-15 — Register findings SEC-063..065 and correct P4-14 result delivery estimate
 - Goal: Register SEC-063 (submit flood / unauthenticated API), SEC-064 (backoff shift overflow F-5c2-1), and SEC-065 (mixed clocks ADR-0017 note 14) in `docs/security/findings.md`; correct retry count estimate arithmetic for result delivery in `docs/agents/handoffs/P4-14.md`.

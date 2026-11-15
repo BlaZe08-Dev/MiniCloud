@@ -1,7 +1,7 @@
 # MiniCloud Field Limits & Boundary Validation Specification
 
 ## Mission & Threat Context
-MiniCloud enforces strict defense-in-depth boundary validation across all entrypoints. Untrusted input is validated at the coordinator/API boundary using typed domain validations, and backed by PostgreSQL database-level `CHECK` constraints (migrations 000001, 000002, 000003). 
+MiniCloud enforces strict defense-in-depth boundary validation across all entrypoints. Untrusted input is validated at the coordinator/API boundary using typed domain validations, and backed by PostgreSQL database-level `CHECK` constraints (migrations 000001, 000002, 000003, 000004, 000005). 
 
 This document defines the normative limits across all entity types (Jobs, Workers, Attempts, Results), documenting the exact byte/character limits, regular expression character sets, default values, database constraint names, and HTTP error mappings.
 
@@ -17,6 +17,9 @@ This document defines the normative limits across all entity types (Jobs, Worker
 | **Job** | `max_attempts` | `int` / `INTEGER` | 1 | 20 | 3 | Integer in `[1, 20]` | `chk_jobs_max_attempts` | `400 INVALID_REQUEST` |
 | **Job** | `timeout_seconds` | `int` / `INTEGER` | 1 | 86,400 (24h) | 60 | Integer in `[1, 86400]` | `chk_jobs_timeout` | `400 INVALID_REQUEST` |
 | **Job** | `state` | `string` / `VARCHAR(32)` | N/A | 32 chars | `SUBMITTED` | Central FSM states | `chk_jobs_state` | `400 INVALID_STATE_TRANSITION` |
+| **Job** | `assigned_worker_id` | `string` / `TEXT` | 1 char | 128 chars | `NULL` | `^[a-zA-Z0-9_-]+$` | `chk_jobs_assignment_shape` | n/a (coordinator-written) |
+| **Job** | `assignment_lapses` | `int` / `INTEGER` | 0 | Unbounded | 0 | Integer >= 0 | `chk_jobs_assignment_lapses` | n/a (coordinator-written) |
+| **Job** | `assignment_fallback_reason` | `string` / `VARCHAR(16)` | N/A | 16 chars | `NULL` | `'lapses'`, `'age'` | `chk_jobs_fallback_reason` | n/a (coordinator-written) |
 | **Worker** | `id` | `string` / `TEXT` | 1 char | 128 chars | N/A (Required) | `^[a-zA-Z0-9_-]+$` | `workers_pkey` (PRIMARY KEY) | `400 INVALID_REQUEST` |
 | **Worker** | `total_slots` | `int` / `INTEGER` | 1 | 1,024 | N/A (Required) | Integer in `[1, 1024]` | `chk_workers_total_slots_range` | `400 INVALID_REQUEST` |
 | **Worker** | `version` | `string` / `VARCHAR(64)` | 0 chars | 64 chars | `""` (Empty allowed) | Printable ASCII / semver | `chk_workers_version_length` | `400 INVALID_REQUEST` |
@@ -27,7 +30,8 @@ This document defines the normative limits across all entity types (Jobs, Worker
 | **Attempt**| `attempt_no` | `int` / `INTEGER` | 1 | Monotonic | Derived: `MAX(attempt_no)+1` | Positive integer | `chk_attempts_attempt_no` | `400 INVALID_REQUEST` |
 | **Attempt**| `lease_token_hash`| `string` / `CHAR(64)`| 64 chars| 64 chars | N/A | SHA-256 hex digest | None | `403 FORBIDDEN` / `409 CONFLICT` |
 | **Attempt**| `output` | `string` / `TEXT` | 0 bytes | 65,536 bytes (64 KiB) | N/A | Structured JSON or text | `chk_attempts_output_size` | `400 OUTPUT_TOO_LARGE` |
-| **Attempt**| `error` | `string` / `TEXT` | 0 bytes | 10,240 bytes (10 KiB) | `""` | Opaque error message | `chk_attempts_error_size` | `400 INVALID_REQUEST` |
+| **Attempt**| `last_error` | `string` / `TEXT` | 0 bytes | 10,240 bytes (10 KiB) | `NULL` | Opaque error message | `chk_attempts_last_error_size` | `400 INVALID_REQUEST` |
+| **Attempt**| `error_class` | `string` / `VARCHAR(32)` | N/A | 32 chars | `NULL` | `'PERMANENT'`, `'TRANSIENT'`, `'UNKNOWN'`, `'LEASE_EXPIRED'` | `chk_attempts_error_class` | n/a (coordinator-written) |
 | **Result** | `job_id` | `string` / `TEXT` | 1 char | 128 chars | Foreign Key | `^[a-zA-Z0-9_-]+$` | `results_pkey` (PRIMARY KEY) | `409 JOB_ALREADY_TERMINAL` |
 
 ---
@@ -67,6 +71,11 @@ To ensure server-side diagnostics do not leak sensitive infrastructure internals
 | `23514` (check_violation) | `chk_workers_total_slots_range` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"total_slots must be between 1 and 1024"}}` |
 | `23514` (check_violation) | `chk_workers_version_length` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"version length must not exceed 64 characters"}}` |
 | `23514` (check_violation) | `chk_workers_supported_tasks_count`| `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"supported_tasks cannot exceed 16 tasks"}}` |
+| `23514` (check_violation) | `chk_attempts_last_error_size` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Generic fall-through, no custom message |
+| `23514` (check_violation) | `chk_attempts_error_class` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
+| `23514` (check_violation) | `chk_jobs_assignment_shape` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
+| `23514` (check_violation) | `chk_jobs_assignment_lapses` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
+| `23514` (check_violation) | `chk_jobs_fallback_reason` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
 | `22001` (string_data_right_truncation) | Any | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"field length exceeds maximum allowed characters"}}` |
 | `22003` (numeric_value_out_of_range) | Any | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"numeric value out of range"}}` |
 | Connection / I/O Timeout | Dial / DeadlineExceeded | Connection / Timeout Error | `503 SERVICE_UNAVAILABLE` | `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}` (Header: `Retry-After: 1`) |
