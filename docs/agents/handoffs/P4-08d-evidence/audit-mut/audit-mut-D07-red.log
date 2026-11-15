@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentRepeat_YieldsToPolls$ ./internal/coordinator/
+    assignment_loop_test.go:432: yield 1: the poll blocked during pass 1 did not get s.mu during the yield (INV-20)
+--- FAIL: TestCoordinator_AssignmentRepeat_YieldsToPolls (2.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	2.028s
+FAIL
+exit=1

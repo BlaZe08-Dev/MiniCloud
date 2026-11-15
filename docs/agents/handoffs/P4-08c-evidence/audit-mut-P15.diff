@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..40dc0d4 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -103,7 +103,7 @@ func (r *Repository) AssignmentPassStale(ctx context.Context, threshold time.Dur
+ 	var stale bool
+ 	err := r.pool.QueryRow(ctx, `
+ 		SELECT COALESCE(
+-			(SELECT last_completed_at < clock_timestamp() - make_interval(secs => $1::double precision)
++			(SELECT last_completed_at < clock_timestamp() - interval '1 hour' - make_interval(secs => $1::double precision)
+ 			 FROM assignment_pass_state WHERE singleton),
+ 			TRUE);`, threshold.Seconds()).Scan(&stale)
+ 	if err != nil {

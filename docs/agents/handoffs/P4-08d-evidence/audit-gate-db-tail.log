@@ -1,0 +1,3 @@
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/control_without_grace_reaps_and_rejects_the_late_commit (0.49s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.057s

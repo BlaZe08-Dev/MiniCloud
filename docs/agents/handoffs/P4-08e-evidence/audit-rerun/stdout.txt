@@ -1,0 +1,13 @@
+E08	job view presence: assigned_worker_id omitted when null (PostgreSQL run)	internal/domain/job.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E09	fallback_reason value: memory age arm reports lapses	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E10	fallback_reason value: memory lapse arm reports age	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E11	fallback_reason value: PostgreSQL age arm reports lapses	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E12	fallback_reason value: PostgreSQL lapse arm reports age	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E13	parity: PostgreSQL own claim clears the recorded reason	internal/storage/postgres/assignment.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E16	parity: PostgreSQL claim keeps the lapse count	internal/storage/postgres/assignment.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E17	parity: PostgreSQL GetJob reads no fallback reason	internal/storage/postgres/repository.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E18	parity: PostgreSQL GetJob reads no expiry	internal/storage/postgres/repository.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E20	parity: PostgreSQL expiry two windows after the pass	internal/storage/postgres/assignment.go	TestConformance_JobView_AssignmentFields	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E21	policy value: memory own claim reported as fallback	internal/storage/inmemory_assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/	FAIL	PASS	KILLED	+1/-1
+E22	policy value: PostgreSQL own claim reported as fallback	internal/storage/postgres/assignment.go	TestConformance_ClaimPolicy_PerArm	./internal/storage/postgres/	FAIL	PASS	KILLED	+1/-1
+E29	INV-17 loop: other-error backoff capped at 2 x MaxPollBackoff	internal/worker/client.go	TestPollTiming_RunSleepsWithinMaxBackoff	./internal/worker/	FAIL	PASS	KILLED	+1/-1

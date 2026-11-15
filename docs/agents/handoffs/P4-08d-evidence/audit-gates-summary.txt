@@ -1,0 +1,8 @@
+fmt rc 0 lines 0
+vet rc 0
+build rc 0
+test-docs rc 0
+unset rc 0 PASS 343 SKIP 84 FAIL 0 RACE 0
+sec rc 0 PASS 54 SKIP 0 FAIL 0
+db rc 0 PASS 149 SKIP 0 FAIL 0 RACE 0
+race rc 0 PASS 228 SKIP 0 FAIL 0 RACE 0

@@ -1,0 +1,13 @@
+diff --git a/internal/scheduler/round_robin_rule.go b/internal/scheduler/round_robin_rule.go
+index 4818926..5224821 100644
+--- a/internal/scheduler/round_robin_rule.go
++++ b/internal/scheduler/round_robin_rule.go
+@@ -19,7 +19,7 @@ func NextAfterCursor(cursor string, candidates []string) (string, bool) {
+ 			return id, true
+ 		}
+ 	}
+-	return sorted[0], true
++	return "", false
+ }
+ 
+ // CursorSet holds one round-robin cursor per task type (ADR-0017 Section 2.3, R1). A type

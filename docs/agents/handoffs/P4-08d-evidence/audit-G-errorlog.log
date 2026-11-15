@@ -1,0 +1,7 @@
+    audit_errorlog_test.go:64: AUDIT first ERROR message: "assignment pass heartbeat is stale: no assignment pass has completed within the threshold; remedy: set MINICLOUD_DISPATCH_POLICY=fifo_pull and restart the coordinator"
+    audit_errorlog_test.go:68: AUDIT rounds=6001 over 600 s stale: ERROR lines=11 (bound: at most 11 = one per started minute)
+    audit_errorlog_test.go:69: AUDIT healthy 10 s: ERROR lines=0; stale again 10 s later (inside the minute): ERROR lines=0
+    audit_errorlog_test.go:70: AUDIT ERROR attrs: [threshold=200ms]; all ERROR lines in the test: 11
+--- PASS: TestAudit_StaleErrorLog_RateAndContent (0.21s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.238s

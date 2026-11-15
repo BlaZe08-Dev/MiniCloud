@@ -1,0 +1,5 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentRepeat_YieldsToPolls$ ./internal/coordinator/
+--- PASS: TestCoordinator_AssignmentRepeat_YieldsToPolls (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.020s
+exit=0

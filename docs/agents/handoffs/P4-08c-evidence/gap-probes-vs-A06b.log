@@ -1,0 +1,8 @@
+--- PASS: TestAudit_Cursor_UpdatePathPersistsAcrossPasses (0.47s)
+--- PASS: TestAudit_Event_CursorBeforeAdvancesWithinPass (0.43s)
+--- PASS: TestAudit_Pass_ReservesOldestOfTypeFirst (0.42s)
+    audit_gap_probes_test.go:111: w_2 claim of a lapse-limit job whose reservation expired 1 s ago: no queued jobs available
+--- FAIL: TestAudit_Fallback_ExpiredUnrevokedReservationIsClaimable (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.765s
+FAIL

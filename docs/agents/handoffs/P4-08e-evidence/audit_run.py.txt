@@ -1,0 +1,47 @@
+"""Run each P4-08e audit mutant in a throwaway worktree: apply every edit (each old text exactly
+once), save the diff, run the tests (red), restore with git checkout, run again (green). One test
+process at a time, URL unset (no mutant here needs PostgreSQL).
+Usage: python3 -I audit_run.py <worktree> <evidence-dir> [ids...]"""
+import os, re, subprocess, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from audit_mutants import MUTANTS
+
+wt, ev = sys.argv[1], sys.argv[2]
+only = set(sys.argv[3:])
+env = {k: v for k, v in os.environ.items() if k != "MINICLOUD_TEST_DATABASE_URL"}
+
+def run(pkgs, rx, log):
+    cmd = ["go", "test", "-race", "-count=1", "-v", "-timeout", "600s", "-run", rx] + pkgs.split()
+    p = subprocess.run(cmd, cwd=wt, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    out = "\n".join(l for l in p.stdout.splitlines() if not l.startswith("{\"time\"") and "level=" not in l)
+    open(log, "w").write("$ %s\n%s\nexit=%d\n" % (" ".join(cmd), out, p.returncode))
+    c = lambda pat: len(re.findall(pat, p.stdout, re.M))
+    tag = "PASS %d SKIP %d FAIL %d" % (c(r"^--- PASS"), c(r"^--- SKIP"), c(r"^--- FAIL"))
+    if p.returncode == 0 and c(r"^--- FAIL") == 0 and c(r"^--- PASS") > 0:
+        return "PASS", tag
+    if c(r"^--- FAIL") > 0:
+        return "FAIL", tag
+    return "OTHER(exit=%d)" % p.returncode, tag
+
+rows = []
+for mid, what, edits, pkgs, rx, expect in MUTANTS:
+    if only and mid not in only:
+        continue
+    bad = False
+    for f, old, new in edits:
+        path = os.path.join(wt, f); src = open(path).read()
+        if src.count(old) != 1:
+            print(mid, "SITE COUNT", f, src.count(old)); bad = True; break
+        open(path, "w").write(src.replace(old, new))
+    if bad:
+        subprocess.run(["git", "checkout", "--", "."], cwd=wt); continue
+    files = sorted({f for f, _, _ in edits})
+    diff = subprocess.run(["git", "diff", "--"] + files, cwd=wt, stdout=subprocess.PIPE, text=True).stdout
+    open(os.path.join(ev, "%s.diff" % mid), "w").write(diff)
+    red, rtag = run(pkgs, rx, os.path.join(ev, "%s-red.log" % mid))
+    subprocess.run(["git", "checkout", "--"] + files, cwd=wt, check=True)
+    green, gtag = run(pkgs, rx, os.path.join(ev, "%s-green.log" % mid))
+    verdict = "KILLED" if red == "FAIL" and green == "PASS" else "SURVIVED" if red == "PASS" and green == "PASS" else "CHECK"
+    line = "\t".join([mid, what, pkgs, rx, "red:" + red + " (" + rtag + ")", "green:" + green + " (" + gtag + ")", verdict, "expected: " + expect])
+    print(line, flush=True); rows.append(line)
+open(os.path.join(ev, "audit-results.tsv"), "a").write("\n".join(rows) + "\n")

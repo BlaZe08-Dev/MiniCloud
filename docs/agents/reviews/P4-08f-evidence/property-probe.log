@@ -1,0 +1,4 @@
+env -u MINICLOUD_TEST_DATABASE_URL go test -count=1 -v -run '^TestProperty_AssignmentSubState_ModelConformance$' ./internal/coordinator/ (counting probe in ~/mc-mut-claude only)
+    assignment_test.go:384: PROBE map[claims:795 claims_with_refresh_INV3_unchecked:735 pass_lapsed:31 pass_lapsed_uncounted:0 pass_revoked:18 policy_round_robin_:779 policy_round_robin_fallback_age:16 polls:10041 polls_with_refresh:4156 state_CANCELLED:33853 state_CANCEL_REQUESTED:1540 state_QUEUED:51473 state_RUNNING:4227 state_SUCCEEDED:11779]
+--- PASS: TestProperty_AssignmentSubState_ModelConformance (1.30s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.304s

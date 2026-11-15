@@ -1,0 +1,8 @@
+$ go test -race -count=1 -v -timeout 300s -run '^TestConformance_JobView_AssignmentFields$' ./internal/storage/postgres/
+=== RUN   TestConformance_JobView_AssignmentFields
+    assignment_wire.go:180: reserved: assignment_expires_at = <nil> with assigned_worker_id w_1
+--- FAIL: TestConformance_JobView_AssignmentFields (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.435s
+FAIL
+exit=1

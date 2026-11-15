@@ -1,0 +1,45 @@
+package config
+
+// Auditor probe (P4-08c review, check J, A1 edge values). Not a committed test: copy to
+// internal/config/audit_config_edges_test.go to run, delete the copy afterwards. Uses the
+// package's own assignmentEnv helper. Each row is an exact boundary of ADR-0017 Section 5.5 or A1.
+
+import "testing"
+
+func TestAudit_AssignmentConfig_A1Edges(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		ok   bool
+	}{
+		{"defaults", nil, true},
+		{"interval equals window (A1 rule 1 boundary)", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "5s", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "30s"}, true},
+		{"interval 1ms above window", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "5001ms", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "60s"}, false},
+		{"L=1 fallback exactly 2I+W (A1 rule 2, must reject)", map[string]string{"MINICLOUD_ASSIGNMENT_MAX_LAPSES": "1", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "7s"}, false},
+		{"L=1 fallback 2I+W+1ms", map[string]string{"MINICLOUD_ASSIGNMENT_MAX_LAPSES": "1", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "7001ms"}, true},
+		{"L=3 fallback exactly lapse minimum 18s", map[string]string{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "18s"}, true},
+		{"L=3 fallback 1ms below lapse minimum", map[string]string{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "17999ms"}, false},
+		{"fallback 10m", map[string]string{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "10m"}, true},
+		{"fallback 10m+1ms", map[string]string{"MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "600001ms"}, false},
+		{"interval 100ms floor", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "100ms"}, true},
+		{"interval 99ms", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "99ms"}, false},
+		{"interval 10s window 10s L=1 fallback 30s (=2I+W)", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "10s", "MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "10s", "MINICLOUD_ASSIGNMENT_MAX_LAPSES": "1", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "30s"}, false},
+		{"interval 10s window 10s L=1 fallback 30001ms", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "10s", "MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "10s", "MINICLOUD_ASSIGNMENT_MAX_LAPSES": "1", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "30001ms"}, true},
+		{"min yield equals interval", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "100ms", "MINICLOUD_ASSIGNMENT_MIN_YIELD": "100ms"}, true},
+		{"min yield above interval", map[string]string{"MINICLOUD_ASSIGNMENT_INTERVAL": "100ms", "MINICLOUD_ASSIGNMENT_MIN_YIELD": "101ms"}, false},
+		{"window 4999ms", map[string]string{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "4999ms"}, false},
+		{"window 30s", map[string]string{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "30s", "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "93s"}, true},
+		{"policy ROUND_ROBIN upper case", map[string]string{"MINICLOUD_DISPATCH_POLICY": "ROUND_ROBIN"}, true},
+		{"policy unknown", map[string]string{"MINICLOUD_DISPATCH_POLICY": "random"}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assignmentEnv(t, c.env)
+			_, err := LoadCoordinatorConfig()
+			t.Logf("ok=%v err=%v", err == nil, err)
+			if (err == nil) != c.ok {
+				t.Errorf("accepted=%v, want %v (err=%v)", err == nil, c.ok, err)
+			}
+		})
+	}
+}

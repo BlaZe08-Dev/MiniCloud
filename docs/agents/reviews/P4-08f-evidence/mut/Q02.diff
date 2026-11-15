@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..ad71321 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -189,7 +189,7 @@ func assignRevoke(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *s
+ 		FROM jobs j
+ 		LEFT JOIN workers w ON w.id = j.assigned_worker_id
+ 		WHERE j.assigned_worker_id IS NOT NULL
+-		  AND (w.status IS DISTINCT FROM 'HEALTHY' OR j.assignment_expires_at <= clock_timestamp())
++		  AND (j.assignment_expires_at <= clock_timestamp())
+ 		ORDER BY j.created_at ASC, j.id ASC
+ 		LIMIT $1
+ 		FOR UPDATE OF j SKIP LOCKED;`, p.BatchLimit)

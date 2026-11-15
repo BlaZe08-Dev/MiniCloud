@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..19a9d52 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -587,7 +587,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 		// FallbackAge and the pass has been silent for FallbackAge.
+ 		var byLapses bool
+ 		err = tx.QueryRow(ctx, `
+-			SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at, (assignment_lapses >= $2)
++			SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at, (assignment_lapses > $2)
+ 			FROM jobs
+ 			WHERE task_type = ANY($1::text[])
+ 			  AND (state = 'QUEUED' OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp())))

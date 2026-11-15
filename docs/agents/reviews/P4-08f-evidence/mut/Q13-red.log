@@ -1,0 +1,48 @@
+go test -count=1 -p 1 -v -run '<18 P4-08f tests>/postgres' ./tests/faultinject/ ./tests/abuse/  (PostgreSQL URL set)
+--- PASS: TestFault_AssignedWorkerNeverPolls (0.41s)
+    --- PASS: TestFault_AssignedWorkerNeverPolls/postgres (0.41s)
+--- PASS: TestFault_AssignedWorkerDiesBeforePoll (0.42s)
+    --- PASS: TestFault_AssignedWorkerDiesBeforePoll/postgres (0.42s)
+--- PASS: TestFault_PollResponseLostAfterClaim (0.41s)
+    --- PASS: TestFault_PollResponseLostAfterClaim/postgres (0.41s)
+--- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll (2.75s)
+    --- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll/postgres (2.75s)
+    assignment_test.go:335: 20 concurrent rounds on postgres: claim won 12, cancel won 8
+--- PASS: TestFault_CancelRacesAccept (1.21s)
+    --- PASS: TestFault_CancelRacesAccept/postgres (1.20s)
+--- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit (0.51s)
+    --- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit/postgres (0.51s)
+--- PASS: TestFault_DatabaseOutage_DuringPass (0.42s)
+    --- PASS: TestFault_DatabaseOutage_DuringPass/postgres (0.42s)
+--- PASS: TestFault_PollRoundTripBeyondWindow (0.42s)
+    --- PASS: TestFault_PollRoundTripBeyondWindow/postgres (0.42s)
+--- PASS: TestFault_RestartThenPoll_NoAgeClaim (0.41s)
+    --- PASS: TestFault_RestartThenPoll_NoAgeClaim/postgres (0.41s)
+--- PASS: TestFault_OutageRecovery_NoAgeClaim (0.36s)
+    --- PASS: TestFault_OutageRecovery_NoAgeClaim/postgres (0.36s)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.84s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/postgres (0.84s)
+    assignment_test.go:647: interval 0: 3 claims and 0 204s among 3 polls, want 1 and 2
+--- FAIL: TestFault_PersistentPassFailure_AgeClaimRate (0.39s)
+    --- FAIL: TestFault_PersistentPassFailure_AgeClaimRate/postgres (0.39s)
+    assignment_test.go:699: poll inside the rate window = 200 {"assignment":{"job_id":"job_49_4130daedab22","attempt_id":"att_job_49_4130daedab22_1","attempt_no":1,"lease_token":"ClLekI_DwENb03Mk_A-LxWZprxFjEa5mVv5q8Jh1TGw","task_type":"echo","payload":{"message":"x"},"timeout_seconds":60,"lease_expires_at":"2026-11-14T04:20:37.614332+05:30","lease_duration_seconds":30,"policy":"round_robin_fallback","fallback_reason":"age"}}, want 204
+--- FAIL: TestFault_OutageRecovery_RateWindow (0.37s)
+    --- FAIL: TestFault_OutageRecovery_RateWindow/postgres (0.36s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	8.929s
+--- PASS: TestAbuse_Poll_ForeignAssignment_Returns204 (0.43s)
+    --- PASS: TestAbuse_Poll_ForeignAssignment_Returns204/postgres (0.43s)
+--- PASS: TestAbuse_Poll_UnhealthyWorker_Still503 (0.69s)
+    --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres (0.69s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/fifo_pull (0.35s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/round_robin (0.35s)
+    assignment_test.go:174: postgres: 300 polls per worker over 2.69181923s wrote last_poll_at map[w1:3 w2:3 w3:3] times
+--- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (2.97s)
+    --- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (2.97s)
+--- PASS: TestAbuse_ConstantPoller_NoLargerShare (1.19s)
+    --- PASS: TestAbuse_ConstantPoller_NoLargerShare/postgres (1.19s)
+--- PASS: TestAbuse_LargeTotalSlots_NoLargerShare (0.37s)
+    --- PASS: TestAbuse_LargeTotalSlots_NoLargerShare/postgres (0.37s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	5.658s
+FAIL

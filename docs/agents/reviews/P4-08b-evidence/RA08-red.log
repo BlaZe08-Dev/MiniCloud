@@ -1,0 +1,433 @@
+# trimmed by the auditor: original 21789 lines; kept lines matching ^(\$ |=== RUN|\s*--- (FAIL|PASS|SKIP)|FAIL|PASS|ok|panic|EXIT=) or containing '_test.go:'
+$ go test -count=1 -v -run . ./internal/storage/ ./internal/coordinator/
+=== RUN   TestProperty_BatchHeadNeverStarved
+--- PASS: TestProperty_BatchHeadNeverStarved (0.14s)
+=== RUN   TestProperty_SaturatedPass_NoAgeFallback
+--- PASS: TestProperty_SaturatedPass_NoAgeFallback (0.37s)
+=== RUN   TestConformance_Assign_CreatesNoAttempt
+--- PASS: TestConformance_Assign_CreatesNoAttempt (0.00s)
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/wrong_worker_gets_no_live_reservation
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/expired_reservation_with_arms_unmet_gives_204_to_its_own_worker
+=== RUN   TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/own_reservation_beats_an_older_job_on_the_fallback_age_arm
+--- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow (0.00s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/wrong_worker_gets_no_live_reservation (0.00s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/expired_reservation_with_arms_unmet_gives_204_to_its_own_worker (0.00s)
+    --- PASS: TestConformance_ClaimAssigned_OnlyAssignedWithinWindow/own_reservation_beats_an_older_job_on_the_fallback_age_arm (0.00s)
+=== RUN   TestConformance_AssignmentLapse_ConsumesNoAttempt
+--- PASS: TestConformance_AssignmentLapse_ConsumesNoAttempt (0.00s)
+=== RUN   TestConformance_AssignmentLapse_FallbackAfterLimit
+--- PASS: TestConformance_AssignmentLapse_FallbackAfterLimit (0.00s)
+=== RUN   TestConformance_CancelAssigned_NeverClaimed
+--- PASS: TestConformance_CancelAssigned_NeverClaimed (0.00s)
+=== RUN   TestConformance_Assign_OneReservationPerWorker
+--- PASS: TestConformance_Assign_OneReservationPerWorker (0.00s)
+=== RUN   TestConformance_Assign_SkipsWorkerWithRunningAttempt
+--- PASS: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.00s)
+=== RUN   TestConformance_Assign_SkipsStaleWorkers
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_poll
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/unhealthy
+=== RUN   TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved
+--- PASS: TestConformance_Assign_SkipsStaleWorkers (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_poll (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/stale_heartbeat (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/unhealthy (0.00s)
+    --- PASS: TestConformance_Assign_SkipsStaleWorkers/control:_fresh_worker_is_reserved (0.00s)
+=== RUN   TestConformance_FifoPull_IgnoresAssignmentColumns
+--- PASS: TestConformance_FifoPull_IgnoresAssignmentColumns (0.00s)
+=== RUN   TestConformance_AssignEvent_CapsCandidates
+--- PASS: TestConformance_AssignEvent_CapsCandidates (0.00s)
+=== RUN   TestConformance_ClaimAssigned_ConcurrentPollsOneWinner
+--- PASS: TestConformance_ClaimAssigned_ConcurrentPollsOneWinner (0.00s)
+=== RUN   TestInMemoryRepository_JobLifecycle
+--- PASS: TestInMemoryRepository_JobLifecycle (0.00s)
+=== RUN   TestInMemoryRepository_ConcurrentAccess
+--- PASS: TestInMemoryRepository_ConcurrentAccess (0.00s)
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/job_not_found
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/job_not_in_QUEUED_state
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_not_found
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_unhealthy
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_unsupported_task
+=== RUN   TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_no_capacity
+--- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/job_not_found (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/job_not_in_QUEUED_state (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_not_found (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_unhealthy (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_unsupported_task (0.00s)
+    --- PASS: TestInMemoryRepository_AtomicDispatchJob_Preconditions/worker_no_capacity (0.00s)
+=== RUN   TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt
+--- PASS: TestInMemoryRepository_ConcurrentDispatch_ExactlyOneAttempt (0.00s)
+=== RUN   TestInMemoryRepository_ConcurrentCommit_ExactlyOneAccepted
+--- PASS: TestInMemoryRepository_ConcurrentCommit_ExactlyOneAccepted (0.00s)
+=== RUN   TestInMemoryRepository_LeaseTokenHashVerification
+--- PASS: TestInMemoryRepository_LeaseTokenHashVerification (0.00s)
+=== RUN   TestInMemoryRepository_DynamicAvailableSlots
+--- PASS: TestInMemoryRepository_DynamicAvailableSlots (0.00s)
+=== RUN   TestInMemoryRepository_SubmitJob_And_CancelJob_Events
+--- PASS: TestInMemoryRepository_SubmitJob_And_CancelJob_Events (0.00s)
+=== RUN   TestInMemoryRepository_Conformance
+=== RUN   TestInMemoryRepository_Conformance/SubmitJob_SuccessAndInvariants
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotFound
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotQueued
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNotFound
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerUnhealthy
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/TaskUnsupported
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNoCapacity
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_JobNotQueued_Before_WorkerUnhealthyAndNoCapacity
+=== RUN   TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_WorkerUnhealthy_Before_TaskUnsupportedAndNoCapacity
+=== RUN   TestInMemoryRepository_Conformance/CommitAttempt_ValidationsAndOutcome
+=== RUN   TestInMemoryRepository_Conformance/CancelJob_QueuedAndRunning
+=== RUN   TestInMemoryRepository_Conformance/WorkerReapAndHeartbeatRecovery
+=== RUN   TestInMemoryRepository_Conformance/DispatchNextJob_PreconditionsAndFIFO
+--- PASS: TestInMemoryRepository_Conformance (0.06s)
+    --- PASS: TestInMemoryRepository_Conformance/SubmitJob_SuccessAndInvariants (0.00s)
+    --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotFound (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/JobNotQueued (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNotFound (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerUnhealthy (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/TaskUnsupported (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/WorkerNoCapacity (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_JobNotQueued_Before_WorkerUnhealthyAndNoCapacity (0.00s)
+        --- PASS: TestInMemoryRepository_Conformance/DispatchJob_PreconditionsAndPrecedence/Precedence_WorkerUnhealthy_Before_TaskUnsupportedAndNoCapacity (0.00s)
+    --- PASS: TestInMemoryRepository_Conformance/CommitAttempt_ValidationsAndOutcome (0.00s)
+    --- PASS: TestInMemoryRepository_Conformance/CancelJob_QueuedAndRunning (0.00s)
+    --- PASS: TestInMemoryRepository_Conformance/WorkerReapAndHeartbeatRecovery (0.05s)
+    --- PASS: TestInMemoryRepository_Conformance/DispatchNextJob_PreconditionsAndFIFO (0.01s)
+=== RUN   TestConformance_Dispatch_StampsLease
+=== RUN   TestConformance_Dispatch_StampsLease/DispatchJob
+=== RUN   TestConformance_Dispatch_StampsLease/DispatchNextJob
+--- PASS: TestConformance_Dispatch_StampsLease (0.00s)
+    --- PASS: TestConformance_Dispatch_StampsLease/DispatchJob (0.00s)
+    --- PASS: TestConformance_Dispatch_StampsLease/DispatchNextJob (0.00s)
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/extends_from_repository_now_and_records_no_event
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/accepted_after_the_lease_passed_while_unswept
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/cancel_requested_returns_flag_and_does_not_extend
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_token
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_worker
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_attempt
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_of_another_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/terminal_job
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_COMPLETED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_FAILED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_CANCELLED
+=== RUN   TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_TIMED_OUT
+--- PASS: TestConformance_RenewLease_AcceptUntilSwept (0.00s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/extends_from_repository_now_and_records_no_event (0.00s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/accepted_after_the_lease_passed_while_unswept (0.00s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/cancel_requested_returns_flag_and_does_not_extend (0.00s)
+    --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_token (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/wrong_worker (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_job (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/unknown_attempt (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_of_another_job (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/terminal_job (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_COMPLETED (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_FAILED (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_CANCELLED (0.00s)
+        --- PASS: TestConformance_RenewLease_AcceptUntilSwept/rejections_leave_lease_and_events_untouched/attempt_TIMED_OUT (0.00s)
+=== RUN   TestConformance_RenewLease_RejectedAfterLost
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt
+=== RUN   TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt
+--- PASS: TestConformance_RenewLease_RejectedAfterLost (0.00s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/after_sweep_job_retrying (0.00s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/superseded_lost_attempt (0.00s)
+    --- PASS: TestConformance_RenewLease_RejectedAfterLost/lost_attempt_forced_on_current_attempt (0.00s)
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/retry_when_attempts_remain
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/redispatch_once_not_before_reached_uses_attempt_number_2
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/fail_when_attempts_exhausted
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/lost_attempts_consume_max_attempts
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/cancel_requested_records_only_job_cancelled
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/CANCELLED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/SUCCEEDED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/FAILED
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/candidates_are_only_expired_running_attempts
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/limit_bounds_the_batch_oldest_lease_first
+=== RUN   TestConformance_SweepExpiredLeases_RetryOrFail/nil_backoff_is_rejected_and_nothing_changes
+--- PASS: TestConformance_SweepExpiredLeases_RetryOrFail (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/retry_when_attempts_remain (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/redispatch_once_not_before_reached_uses_attempt_number_2 (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/fail_when_attempts_exhausted (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/lost_attempts_consume_max_attempts (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/cancel_requested_records_only_job_cancelled (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job (0.00s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/CANCELLED (0.00s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/SUCCEEDED (0.00s)
+        --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/terminal_job_closes_attempt_without_touching_the_job/FAILED (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/candidates_are_only_expired_running_attempts (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/limit_bounds_the_batch_oldest_lease_first (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_RetryOrFail/nil_backoff_is_rejected_and_nothing_changes (0.00s)
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested
+=== RUN   TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job
+--- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_running (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_cancel_requested (0.00s)
+    --- PASS: TestConformance_SweepExpiredLeases_GraceInputSuppressesReaping/job_terminal_job (0.00s)
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/swept_attempt_is_lease_expired_with_one_bounded_diagnostic
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_is_evaluated_before_token_mismatch_and_supersession
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/terminal_job_beats_lost_attempt
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/non_lost_non_running_and_unknown_attempts_are_stale_without_diagnostic
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_attempt_of_another_job_is_not_disclosed_or_recorded
+=== RUN   TestConformance_CommitAttempt_ConflictEvaluationOrder/expired_but_unswept_attempt_still_commits
+--- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/swept_attempt_is_lease_expired_with_one_bounded_diagnostic (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_is_evaluated_before_token_mismatch_and_supersession (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/terminal_job_beats_lost_attempt (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/non_lost_non_running_and_unknown_attempts_are_stale_without_diagnostic (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/lost_attempt_of_another_job_is_not_disclosed_or_recorded (0.00s)
+    --- PASS: TestConformance_CommitAttempt_ConflictEvaluationOrder/expired_but_unswept_attempt_still_commits (0.00s)
+=== RUN   TestConformance_CancelJob_IdempotentCancelRequested
+--- PASS: TestConformance_CancelJob_IdempotentCancelRequested (0.00s)
+=== RUN   TestConformance_CancelJob_RetryingImmediatelyCancelled
+--- PASS: TestConformance_CancelJob_RetryingImmediatelyCancelled (0.00s)
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_TRANSIENT_goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_UNKNOWN_goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class__goes_to_RETRYING_with_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/permanent_fails_at_once_and_never_asks_for_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_bounds_retries_and_each_retry_asks_for_its_own_backoff
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_1_never_retries
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/lost_attempts_share_the_budget_with_reported_failures
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/a_retryable_failure_without_a_backoff_function_is_rejected_and_changes_nothing
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/worker_cannot_report_LEASE_EXPIRED_or_an_unknown_class
+=== RUN   TestConformance_CommitAttempt_FailureRetryOrFail/a_class_on_a_success_is_rejected
+--- PASS: TestConformance_CommitAttempt_FailureRetryOrFail (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_TRANSIENT_goes_to_RETRYING_with_backoff (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class_UNKNOWN_goes_to_RETRYING_with_backoff (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/retryable_class__goes_to_RETRYING_with_backoff (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/permanent_fails_at_once_and_never_asks_for_backoff (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_bounds_retries_and_each_retry_asks_for_its_own_backoff (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/max_attempts_1_never_retries (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/lost_attempts_share_the_budget_with_reported_failures (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/a_retryable_failure_without_a_backoff_function_is_rejected_and_changes_nothing (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/worker_cannot_report_LEASE_EXPIRED_or_an_unknown_class (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureRetryOrFail/a_class_on_a_success_is_rejected (0.00s)
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_TRANSIENT
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_UNKNOWN
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_PERMANENT
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/cancel_wins_on_the_last_attempt_too
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/a_success_on_CANCEL_REQUESTED_still_succeeds
+=== RUN   TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/LEASE_EXPIRED_is_still_rejected_while_cancel_requested
+--- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_TRANSIENT (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_UNKNOWN (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_PERMANENT (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/class_ (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/cancel_wins_on_the_last_attempt_too (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/a_success_on_CANCEL_REQUESTED_still_succeeds (0.00s)
+    --- PASS: TestConformance_CommitAttempt_FailureOnCancelRequestedYieldsCancelledJob/LEASE_EXPIRED_is_still_rejected_while_cancel_requested (0.00s)
+=== RUN   TestConformance_CommitAttempt_TerminalJob
+=== RUN   TestConformance_CommitAttempt_TerminalJob/cancelled_job_closes_attempt_cancelled
+=== RUN   TestConformance_CommitAttempt_TerminalJob/succeeded_job_closes_attempt_lost
+=== RUN   TestConformance_CommitAttempt_TerminalJob/failed_job_closes_attempt_lost
+=== RUN   TestConformance_CommitAttempt_TerminalJob/completed_attempt_never_overwritten
+=== RUN   TestConformance_CommitAttempt_TerminalJob/foreign_attempt_is_not_closed
+=== RUN   TestConformance_CommitAttempt_TerminalJob/unknown_attempt_records_nothing
+--- PASS: TestConformance_CommitAttempt_TerminalJob (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/cancelled_job_closes_attempt_cancelled (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/succeeded_job_closes_attempt_lost (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/failed_job_closes_attempt_lost (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/completed_attempt_never_overwritten (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/foreign_attempt_is_not_closed (0.00s)
+    --- PASS: TestConformance_CommitAttempt_TerminalJob/unknown_attempt_records_nothing (0.00s)
+=== RUN   TestInMemoryRepository_RetryBackoff
+--- PASS: TestInMemoryRepository_RetryBackoff (0.00s)
+=== RUN   TestInMemoryRepository_CancelRequestedAtSetOnce
+--- PASS: TestInMemoryRepository_CancelRequestedAtSetOnce (0.00s)
+=== RUN   TestProperty_StateMachine_ModelConformance
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_1
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_2
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_3
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_4
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_5
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_6
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_7
+=== RUN   TestProperty_StateMachine_ModelConformance/seed_8
+--- PASS: TestProperty_StateMachine_ModelConformance (0.06s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_1 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_2 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_3 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_4 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_5 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_6 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_7 (0.01s)
+    --- PASS: TestProperty_StateMachine_ModelConformance/seed_8 (0.01s)
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/COMPLETED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/FAILED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/CANCELLED
+=== RUN   TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/TIMED_OUT
+--- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt (0.00s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/COMPLETED (0.00s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/FAILED (0.00s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/CANCELLED (0.00s)
+    --- PASS: TestConformance_CommitAttempt_NonRunningAttempt_ReturnsStaleAttempt/TIMED_OUT (0.00s)
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/dispatch_stamps_repository_now_plus_default_30s
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/lease_duration_option_applies_and_ignores_non_positive
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/dispatch_job_path_stamps_lease_too
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/expiry_is_strictly_after_the_lease_instant
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/periodic_renewal_keeps_the_attempt_alive_until_renewals_stop
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/unswept_expired_attempt_still_renews_and_commits
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/swept_attempt_is_never_resurrected
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/backoff_not_before_is_repository_time_and_gates_redispatch
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/grace_is_evaluated_on_the_repository_clock
+=== RUN   TestInMemoryRepository_LeaseRenewalAndExpiry/cancel_requested_renewal_does_not_move_the_lease_so_the_sweeper_cancels
+--- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/dispatch_stamps_repository_now_plus_default_30s (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/lease_duration_option_applies_and_ignores_non_positive (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/dispatch_job_path_stamps_lease_too (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/expiry_is_strictly_after_the_lease_instant (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/periodic_renewal_keeps_the_attempt_alive_until_renewals_stop (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/unswept_expired_attempt_still_renews_and_commits (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/swept_attempt_is_never_resurrected (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/backoff_not_before_is_repository_time_and_gates_redispatch (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/grace_is_evaluated_on_the_repository_clock (0.00s)
+    --- PASS: TestInMemoryRepository_LeaseRenewalAndExpiry/cancel_requested_renewal_does_not_move_the_lease_so_the_sweeper_cancels (0.00s)
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/before_not_before_not_listed_not_dispatchable
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/after_not_before_listed_and_dispatchable_by_id
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/cancel_during_backoff_clears_the_gate
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/cancel_requested_at_is_stamped_once
+=== RUN   TestConformance_RetryingJob_DispatchAndCancelParity/queued_cancel_has_no_cancel_requested_at
+--- PASS: TestConformance_RetryingJob_DispatchAndCancelParity (0.00s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/before_not_before_not_listed_not_dispatchable (0.00s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/after_not_before_listed_and_dispatchable_by_id (0.00s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/cancel_during_backoff_clears_the_gate (0.00s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/cancel_requested_at_is_stamped_once (0.00s)
+    --- PASS: TestConformance_RetryingJob_DispatchAndCancelParity/queued_cancel_has_no_cancel_requested_at (0.00s)
+=== RUN   TestConformance_Now_IsRepositoryClock
+--- PASS: TestConformance_Now_IsRepositoryClock (0.00s)
+=== RUN   TestInMemoryRepository_Now_UsesInjectedClock
+--- PASS: TestInMemoryRepository_Now_UsesInjectedClock (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.655s
+=== RUN   TestCoordinator_AssignmentSweep_RevokesWithinOneInterval
+--- PASS: TestCoordinator_AssignmentSweep_RevokesWithinOneInterval (0.00s)
+=== RUN   TestPoll_RefreshSingleFlight
+--- PASS: TestPoll_RefreshSingleFlight (0.00s)
+=== RUN   TestPoll_AgeArm_AfterRestart_RefreshesFirst
+--- PASS: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.00s)
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+--- PASS: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+=== RUN   TestPoll_RateLimitedPoll_NoAgeClaim
+--- PASS: TestPoll_RateLimitedPoll_NoAgeClaim (0.00s)
+=== RUN   TestPoll_FirstPollAfterOutage_AttemptsAndCloses
+--- PASS: TestPoll_FirstPollAfterOutage_AttemptsAndCloses (0.00s)
+=== RUN   TestFault_AssignmentPassStalled_JobRunsWithinBound
+--- PASS: TestFault_AssignmentPassStalled_JobRunsWithinBound (0.00s)
+=== RUN   TestConformance_PollResponse_PolicyField
+=== RUN   TestConformance_PollResponse_PolicyField/fifo_pull
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_own_reservation
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_fallback_age
+=== RUN   TestConformance_PollResponse_PolicyField/round_robin_fallback_lapses
+--- PASS: TestConformance_PollResponse_PolicyField (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/fifo_pull (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_own_reservation (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_fallback_age (0.00s)
+    --- PASS: TestConformance_PollResponse_PolicyField/round_robin_fallback_lapses (0.00s)
+=== RUN   TestProperty_AssignmentSubState_ModelConformance
+--- PASS: TestProperty_AssignmentSubState_ModelConformance (0.51s)
+=== RUN   TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository
+--- PASS: TestSetDispatchPolicy_RoundRobinRequiresAssignmentRepository (0.00s)
+=== RUN   TestCoordinator_RetryBackoffWithJitter
+=== RUN   TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt
+=== RUN   TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range
+--- PASS: TestCoordinator_RetryBackoffWithJitter (0.00s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/deterministic_jitter_follows_ComputeBackoff_per_attempt (0.00s)
+    --- PASS: TestCoordinator_RetryBackoffWithJitter/default_random_source_stays_inside_the_jitter_range (0.00s)
+=== RUN   TestCoordinator_CommitResult_FailureClassification
+=== RUN   TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry
+=== RUN   TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries
+=== RUN   TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts
+=== RUN   TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing
+--- PASS: TestCoordinator_CommitResult_FailureClassification (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/PERMANENT_fails_without_retry (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/omitted_class_is_UNKNOWN_and_retries (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/budget_is_bounded_by_max_attempts (0.00s)
+    --- PASS: TestCoordinator_CommitResult_FailureClassification/rejected_classes_change_nothing (0.00s)
+=== RUN   TestCoordinator_CommitResult_CancelWinsOverRetry
+--- PASS: TestCoordinator_CommitResult_CancelWinsOverRetry (0.00s)
+=== RUN   TestCoordinator_DefaultMaxAttempts_Configurable
+--- PASS: TestCoordinator_DefaultMaxAttempts_Configurable (0.00s)
+=== RUN   TestCoordinator_TransientFailureThenSuccess
+--- PASS: TestCoordinator_TransientFailureThenSuccess (0.00s)
+=== RUN   TestService_WorkerLiveness_ReaperAndRecovery
+--- PASS: TestService_WorkerLiveness_ReaperAndRecovery (0.00s)
+=== RUN   TestService_UnhealthyWorker_CommitAccepted
+--- PASS: TestService_UnhealthyWorker_CommitAccepted (0.00s)
+=== RUN   TestService_WorkerMismatch_Rejected
+--- PASS: TestService_WorkerMismatch_Rejected (0.00s)
+=== RUN   TestService_ReaperHeartbeatRace
+--- PASS: TestService_ReaperHeartbeatRace (0.10s)
+=== RUN   TestService_Claim_JobNoLongerQueued_Dropped
+--- PASS: TestService_Claim_JobNoLongerQueued_Dropped (0.00s)
+=== RUN   TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased
+--- PASS: TestService_Claim_JobNotQueuedAndWorkerUnhealthy_DroppedAndAckedNeverReleased (0.00s)
+=== RUN   TestService_Claim_Redelivery_NoDuplicateAttempt
+--- PASS: TestService_Claim_Redelivery_NoDuplicateAttempt (0.00s)
+=== RUN   TestService_CommitResult_AckOnlyOnAccepted
+--- PASS: TestService_CommitResult_AckOnlyOnAccepted (0.00s)
+=== RUN   TestService_ClaimOutcome_TransientFailure_QueueReleased
+--- PASS: TestService_ClaimOutcome_TransientFailure_QueueReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased
+--- PASS: TestService_ClaimOutcome_JobNotFoundOrNotQueued_AckedNeverReleased (0.00s)
+=== RUN   TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released
+--- PASS: TestService_ClaimOutcome_WorkerLacksCapacityOrUnhealthy_Released (0.00s)
+=== RUN   TestService_PollWork_DispatchesDueRetryingJob
+--- PASS: TestService_PollWork_DispatchesDueRetryingJob (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock
+--- PASS: TestCoordinator_LeaseSweeper_StartupGraceInstantComesFromRepositoryClock (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness
+--- PASS: TestCoordinator_LeaseSweeper_PassesBackoffWithInjectedRandomness (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapExceedsThreshold_EntersGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_InterTickGapBelowThreshold_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error
+=== RUN   TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read
+--- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/sweep_returned_an_error (0.00s)
+    --- PASS: TestCoordinator_LeaseSweeper_FailedTick_EntersGrace/database_time_could_not_be_read (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick
+--- PASS: TestCoordinator_LeaseSweeper_PartialResultWithErrorIsFailedTick (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace
+--- PASS: TestCoordinator_LeaseSweeper_CandidateLockTimeout_EntersNoGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace
+--- PASS: TestCoordinator_LeaseSweeper_CooldownPreventsConsecutiveGrace (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt
+--- PASS: TestCoordinator_LeaseSweeper_FailureWhileWindowOpenDoesNotExtendIt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow
+--- PASS: TestCoordinator_LeaseSweeper_HealthyTicksAfterRecoveryNeverReopenWindow (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery
+--- PASS: TestCoordinator_LeaseSweeper_FailedFirstTickThenRecovery (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn
+--- PASS: TestCoordinator_LeaseSweeper_SkippedChangedLoggedAtWarn (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel
+--- PASS: TestCoordinator_LeaseSweeper_RunSurvivesFailedTicksAndStopsOnCancel (0.01s)
+=== RUN   TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt
+--- PASS: TestCoordinator_LeaseSweeper_ReclaimsAbandonedAttempt (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping
+--- PASS: TestCoordinator_LeaseSweeper_StartupGrace_SuppressesReaping (0.00s)
+=== RUN   TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery
+--- PASS: TestCoordinator_LeaseSweeper_OutageWindow_SuppressesReapingAfterRecovery (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.637s
+EXIT=0

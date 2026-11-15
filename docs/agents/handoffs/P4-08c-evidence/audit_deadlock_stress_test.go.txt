@@ -1,0 +1,306 @@
+package postgres_test
+
+// Auditor probe (P4-08c review, check C). Not a committed test: copy to
+// internal/storage/postgres/audit_deadlock_stress_test.go to run, delete the copy afterwards.
+//
+// Runs, for AUDIT_STRESS_SECONDS (default 60) on PostgreSQL, concurrently:
+// assignment passes (two loops, so try-lock skips happen), round_robin claims and commits by six
+// workers, fifo claims and commits by one worker, cancels of random recent jobs, forced lease
+// expiry plus sweeps, heartbeats plus poll writes for every worker, the reaper, and a submitter
+// that keeps the queue fed. It counts every operation and every SQLSTATE, fails on any 40P01,
+// on any unexpected error, and on any broken invariant at the end.
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math/rand"
+	"os"
+	"sort"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest"
+)
+
+func TestAudit_DeadlockStress_AllPaths(t *testing.T) {
+	secs := 60
+	if v, err := strconv.Atoi(os.Getenv("AUDIT_STRESS_SECONDS")); err == nil && v > 0 {
+		secs = v
+	}
+	ctx := context.Background()
+	h, pool, repo := newPostgresAssignmentHarnessWithRepo(t, postgres.WithSweepLockTimeout(2*time.Second))
+	rrWorkers := []string{"w_a", "w_b", "w_c", "w_d", "w_e", "w_f"}
+	fifoWorker := "w_z"
+	all := append(append([]string(nil), rrWorkers...), fifoWorker)
+	for _, id := range all {
+		storagetest.AssignAddWorker(t, h, id, 1, "echo", "sleep")
+		storagetest.AssignPoll(t, h, id)
+	}
+
+	var (
+		mu     sync.Mutex
+		ops    = map[string]int{}
+		codes  = map[string]int{}
+		unexp  []string
+		jobSeq int64
+		recent []string
+	)
+	count := func(op string) { mu.Lock(); ops[op]++; mu.Unlock() }
+	record := func(op string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		c := pgCode(err)
+		if c == "" {
+			c = "go:" + err.Error()
+		}
+		codes[op+" "+c]++
+	}
+	allowed := func(err error) bool {
+		for _, e := range []error{domain.ErrNoQueuedJobs, domain.ErrWorkerNoCapacity, domain.ErrJobAlreadyTerminal,
+			domain.ErrStaleAttempt, domain.ErrLeaseExpired, domain.ErrJobNotQueued, domain.ErrJobNotFound} {
+			if errors.Is(err, e) {
+				return true
+			}
+		}
+		return false
+	}
+	bad := func(op string, err error) {
+		record(op, err)
+		mu.Lock()
+		if len(unexp) < 50 {
+			unexp = append(unexp, fmt.Sprintf("%s: %v (pg %q)", op, err, pgCode(err)))
+		}
+		mu.Unlock()
+	}
+	backoff := func(int) time.Duration { return 5 * time.Millisecond }
+
+	deadline := time.Now().Add(time.Duration(secs) * time.Second)
+	running := func() bool { return time.Now().Before(deadline) }
+	var wg sync.WaitGroup
+	var deadlocks int64
+	check40P01 := func(err error) {
+		if pgCode(err) == "40P01" {
+			atomic.AddInt64(&deadlocks, 1)
+		}
+	}
+
+	// Submitter: keeps at most ~150 dispatchable jobs.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for running() {
+			var n int
+			_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE state IN ('QUEUED','RETRYING')`).Scan(&n)
+			if n > 150 {
+				time.Sleep(5 * time.Millisecond)
+				continue
+			}
+			seq := atomic.AddInt64(&jobSeq, 1)
+			id := fmt.Sprintf("job_%06d", seq)
+			ty := "echo"
+			if seq%2 == 0 {
+				ty = "sleep"
+			}
+			err := repo.SubmitJob(ctx, &domain.Job{ID: id, TaskType: ty, Payload: []byte("{}"), State: domain.StateQueued, MaxAttempts: 5, TimeoutSeconds: 30})
+			check40P01(err)
+			if err != nil {
+				bad("submit", err)
+				continue
+			}
+			if seq%7 == 0 {
+				_, _ = pool.Exec(ctx, `UPDATE jobs SET assignment_lapses = 3 WHERE id = $1 AND state = 'QUEUED'`, id)
+			}
+			count("submit")
+			mu.Lock()
+			recent = append(recent, id)
+			if len(recent) > 300 {
+				recent = recent[len(recent)-300:]
+			}
+			mu.Unlock()
+		}
+	}()
+	// Two pass loops.
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for running() {
+				res, err := repo.AssignQueuedJobs(ctx, storagetest.AssignTestParams())
+				check40P01(err)
+				if err != nil {
+					bad("pass", err)
+					continue
+				}
+				if res.Skipped {
+					count("pass_skipped")
+				} else {
+					count("pass")
+				}
+			}
+		}()
+	}
+	// Sweeper with forced lease expiry.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for running() {
+			_, err := pool.Exec(ctx, `UPDATE attempts SET lease_expires_at = clock_timestamp() - interval '1 second'
+				WHERE id IN (SELECT id FROM attempts WHERE state = 'RUNNING' ORDER BY random() LIMIT 1)`)
+			check40P01(err)
+			if err != nil {
+				bad("expire", err)
+			}
+			_, err = repo.SweepExpiredLeases(ctx, domain.SweepParams{Backoff: backoff})
+			check40P01(err)
+			if err != nil {
+				bad("sweep", err)
+				continue
+			}
+			count("sweep")
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	// Canceller.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		rnd := rand.New(rand.NewSource(11))
+		for running() {
+			mu.Lock()
+			var id string
+			if len(recent) > 0 {
+				id = recent[rnd.Intn(len(recent))]
+			}
+			mu.Unlock()
+			if id == "" {
+				time.Sleep(time.Millisecond)
+				continue
+			}
+			_, err := repo.CancelJob(ctx, id)
+			check40P01(err)
+			if err != nil && !allowed(err) {
+				bad("cancel", err)
+				continue
+			}
+			count("cancel")
+			time.Sleep(15 * time.Millisecond)
+		}
+	}()
+	// Heartbeats, poll writes, reaper.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for running() {
+			for _, id := range all {
+				err := repo.RecordHeartbeat(ctx, id, 0)
+				check40P01(err)
+				if err != nil {
+					bad("heartbeat", err)
+				} else {
+					count("heartbeat")
+				}
+				err = repo.RecordPoll(ctx, id)
+				check40P01(err)
+				if err != nil {
+					bad("recordpoll", err)
+				}
+			}
+			_, err := repo.ReapStaleWorkers(ctx, 10*time.Second)
+			check40P01(err)
+			if err != nil {
+				bad("reap", err)
+			}
+		}
+	}()
+	// Workers.
+	for wi, id := range all {
+		wg.Add(1)
+		go func(wi int, id string) {
+			defer wg.Done()
+			rnd := rand.New(rand.NewSource(int64(100 + wi)))
+			for running() {
+				var jobID string
+				var att *domain.Attempt
+				if id == fifoWorker {
+					j, a, err := repo.DispatchNextJob(ctx, id)
+					check40P01(err)
+					if err != nil {
+						if !allowed(err) {
+							bad("fifo", err)
+						}
+						continue
+					}
+					count("fifo_claim")
+					jobID, att = j.ID, a
+				} else {
+					c, err := repo.ClaimForPoll(ctx, id, storagetest.AssignTestClaimOpts(rnd.Intn(2) == 0))
+					check40P01(err)
+					if err != nil {
+						if !allowed(err) {
+							bad("claim", err)
+						}
+						continue
+					}
+					count("rr_claim_" + c.Policy)
+					jobID, att = c.Job.ID, c.Attempt
+				}
+				outcome := domain.AttemptOutcome{ExitCode: 0, Output: "ok"}
+				if rnd.Intn(3) == 0 {
+					outcome = domain.AttemptOutcome{ExitCode: 1, Error: "boom", ErrorClassification: domain.ClassTransient}
+				}
+				_, err := repo.CommitAttempt(ctx, jobID, att.ID, att.LeaseToken, id, outcome, backoff)
+				check40P01(err)
+				if err != nil && !allowed(err) {
+					bad("commit", err)
+					continue
+				}
+				count("commit")
+			}
+		}(wi, id)
+	}
+	wg.Wait()
+
+	keys := make([]string, 0, len(ops))
+	for k := range ops {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	total := 0
+	for _, k := range keys {
+		t.Logf("ops %-28s %d", k, ops[k])
+		total += ops[k]
+	}
+	t.Logf("ops TOTAL %d over %ds", total, secs)
+	for k, v := range codes {
+		t.Logf("unexpected-error code %s: %d", k, v)
+	}
+	t.Logf("SQLSTATE 40P01 count: %d", atomic.LoadInt64(&deadlocks))
+	for _, u := range unexp {
+		t.Errorf("unexpected: %s", u)
+	}
+	if atomic.LoadInt64(&deadlocks) != 0 {
+		t.Errorf("deadlocks detected: %d", deadlocks)
+	}
+
+	var doubleActive, doubleReserved, badShape, reservedNonWaiting int
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM (SELECT job_id FROM attempts WHERE state IN ('PENDING','RUNNING') GROUP BY job_id HAVING COUNT(*) > 1) x`).Scan(&doubleActive)
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM (SELECT assigned_worker_id FROM jobs WHERE assignment_expires_at > clock_timestamp() GROUP BY assigned_worker_id HAVING COUNT(*) > 1) x`).Scan(&doubleReserved)
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE (assigned_worker_id IS NULL) <> (assignment_expires_at IS NULL)`).Scan(&badShape)
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE assigned_worker_id IS NOT NULL AND state NOT IN ('QUEUED','RETRYING')`).Scan(&reservedNonWaiting)
+	var runningNoAttempt int
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs j WHERE j.state = 'RUNNING' AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.job_id = j.id AND a.state = 'RUNNING')`).Scan(&runningNoAttempt)
+	t.Logf("end state: doubleActive=%d doubleReserved=%d badShape=%d reservedNonWaiting=%d runningWithoutRunningAttempt=%d",
+		doubleActive, doubleReserved, badShape, reservedNonWaiting, runningNoAttempt)
+	if doubleActive+doubleReserved+badShape+reservedNonWaiting+runningNoAttempt != 0 {
+		t.Errorf("invariant broken at the end of the run")
+	}
+	if ops["pass"] == 0 || ops["commit"] == 0 || ops["cancel"] == 0 || ops["sweep"] == 0 {
+		t.Errorf("control: an operation never succeeded: %v", ops)
+	}
+}

@@ -1,0 +1,13 @@
+diff --git a/internal/scheduler/round_robin_rule.go b/internal/scheduler/round_robin_rule.go
+index 4818926..aa13a53 100644
+--- a/internal/scheduler/round_robin_rule.go
++++ b/internal/scheduler/round_robin_rule.go
+@@ -15,7 +15,7 @@ func NextAfterCursor(cursor string, candidates []string) (string, bool) {
+ 	copy(sorted, candidates)
+ 	sort.Strings(sorted)
+ 	for _, id := range sorted {
+-		if id > cursor {
++		if id >= cursor {
+ 			return id, true
+ 		}
+ 	}

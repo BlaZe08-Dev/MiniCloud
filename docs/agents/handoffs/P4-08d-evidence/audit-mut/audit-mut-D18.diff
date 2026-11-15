@@ -1,0 +1,13 @@
+diff --git a/cmd/coordinator/main.go b/cmd/coordinator/main.go
+index 66c1e3a..1da5674 100644
+--- a/cmd/coordinator/main.go
++++ b/cmd/coordinator/main.go
+@@ -94,7 +94,7 @@ func startBackground(ctx context.Context, svc *coordinator.Service, cfg *config.
+ 		defer wg.Done()
+ 		sweeper.Run(bgCtx)
+ 	}()
+-	if svc.DispatchPolicy() == domain.DispatchPolicyRoundRobin {
++	if svc.DispatchPolicy() == domain.DispatchPolicyRoundRobin || true {
+ 		wg.Add(1)
+ 		go func() {
+ 			defer wg.Done()

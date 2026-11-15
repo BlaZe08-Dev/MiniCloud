@@ -1,0 +1,36 @@
+#!/bin/bash
+# P4-08d audit probe E: the real coordinator binary (memory driver, no database, no docker).
+B=$1; PORT=18089
+run_exit() { # name, env...
+  local name=$1; shift
+  env -i PATH=/usr/bin:/bin HOME=$HOME MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:$PORT "$@" timeout 5 $B > /tmp/e_out.$$ 2>&1
+  local rc=$?
+  echo "== $name: exit=$rc lines=$(wc -l < /tmp/e_out.$$)"
+  cat /tmp/e_out.$$ | sed 's/^/   /'
+}
+run_exit "invalid policy (lottery)" MINICLOUD_DISPATCH_POLICY=lottery
+run_exit "invalid settings (MIN_YIELD 2s > INTERVAL 1s)" MINICLOUD_DISPATCH_POLICY=round_robin MINICLOUD_ASSIGNMENT_MIN_YIELD=2s
+run_exit "invalid settings (A1: INTERVAL 6s > ACCEPT_WINDOW 5s)" MINICLOUD_DISPATCH_POLICY=round_robin MINICLOUD_ASSIGNMENT_INTERVAL=6s MINICLOUD_ASSIGNMENT_FALLBACK_AGE=10m
+run_exit "malformed setting (MAX_LAPSES=three)" MINICLOUD_DISPATCH_POLICY=round_robin MINICLOUD_ASSIGNMENT_MAX_LAPSES=three
+
+live() { # name, env...
+  local name=$1; shift
+  env -i PATH=/usr/bin:/bin HOME=$HOME MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:$PORT "$@" $B > /tmp/e_live.$$ 2>&1 &
+  local pid=$!
+  for i in $(seq 1 50); do curl -s -o /dev/null http://127.0.0.1:$PORT/healthz && break; sleep 0.1; done
+  local U=http://127.0.0.1:$PORT
+  curl -s -o /dev/null -X POST $U/v1/workers/register -d '{"id":"w_a","version":"v1.0.0","total_slots":1,"supported_tasks":["echo"]}'
+  curl -s -o /dev/null -X POST $U/v1/workers/w_a/heartbeat -d '{"available_slots":1}'
+  local pc=$(curl -s -o /dev/null -w '%{http_code}' -X POST $U/v1/workers/w_a/poll -d '{}')
+  local job=$(curl -s -X POST $U/v1/jobs -d '{"task_type":"echo","payload":{"message":"hi"}}' | sed -E 's/.*"(job_)?id":"([^"]+)".*/\2/')
+  sleep 1.5
+  local view=$(curl -s $U/v1/jobs/$job | grep -oE '"assigned_worker_id":[^,]*')
+  kill -TERM $pid; wait $pid; local rc=$?
+  echo "== $name: first poll http=$pc; job $job after 1.5 s with no further poll: $view; exit after SIGTERM=$rc"
+  grep -c . /tmp/e_live.$$ | sed 's/^/   log lines: /'
+  grep 'dispatch policy configured' /tmp/e_live.$$ | sed 's/^/   /'
+  echo "   'dispatch policy configured' lines: $(grep -c 'dispatch policy configured' /tmp/e_live.$$)"
+}
+live "valid round_robin" MINICLOUD_DISPATCH_POLICY=round_robin
+live "default (policy unset)"
+rm -f /tmp/e_out.$$ /tmp/e_live.$$

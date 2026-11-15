@@ -1,0 +1,47 @@
+go test -count=1 -p 1 -v -run '<18 P4-08f tests>/postgres' ./tests/faultinject/ ./tests/abuse/  (PostgreSQL URL set)
+--- PASS: TestFault_AssignedWorkerNeverPolls (0.50s)
+    --- PASS: TestFault_AssignedWorkerNeverPolls/postgres (0.50s)
+    assignment_test.go:131: lapses 1, lapse events [true]: an UNHEALTHY revoke must count no lapse
+--- FAIL: TestFault_AssignedWorkerDiesBeforePoll (0.49s)
+    --- FAIL: TestFault_AssignedWorkerDiesBeforePoll/postgres (0.49s)
+--- PASS: TestFault_PollResponseLostAfterClaim (0.55s)
+    --- PASS: TestFault_PollResponseLostAfterClaim/postgres (0.55s)
+--- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll (2.85s)
+    --- PASS: TestFault_CoordinatorCrash_BetweenAssignAndPoll/postgres (2.85s)
+    assignment_test.go:335: 20 concurrent rounds on postgres: claim won 12, cancel won 8
+--- PASS: TestFault_CancelRacesAccept (1.20s)
+    --- PASS: TestFault_CancelRacesAccept/postgres (1.20s)
+--- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit (0.52s)
+    --- PASS: TestFault_AssignmentLapseLoop_BoundedByLimit/postgres (0.52s)
+--- PASS: TestFault_DatabaseOutage_DuringPass (0.54s)
+    --- PASS: TestFault_DatabaseOutage_DuringPass/postgres (0.54s)
+--- PASS: TestFault_PollRoundTripBeyondWindow (0.43s)
+    --- PASS: TestFault_PollRoundTripBeyondWindow/postgres (0.43s)
+--- PASS: TestFault_RestartThenPoll_NoAgeClaim (0.44s)
+    --- PASS: TestFault_RestartThenPoll_NoAgeClaim/postgres (0.44s)
+--- PASS: TestFault_OutageRecovery_NoAgeClaim (0.39s)
+    --- PASS: TestFault_OutageRecovery_NoAgeClaim/postgres (0.39s)
+--- PASS: TestFault_DeepBacklog_PollsNotStarved (0.87s)
+    --- PASS: TestFault_DeepBacklog_PollsNotStarved/postgres (0.87s)
+--- PASS: TestFault_PersistentPassFailure_AgeClaimRate (3.54s)
+    --- PASS: TestFault_PersistentPassFailure_AgeClaimRate/postgres (3.54s)
+--- PASS: TestFault_OutageRecovery_RateWindow (1.56s)
+    --- PASS: TestFault_OutageRecovery_RateWindow/postgres (1.56s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	13.912s
+--- PASS: TestAbuse_Poll_ForeignAssignment_Returns204 (0.45s)
+    --- PASS: TestAbuse_Poll_ForeignAssignment_Returns204/postgres (0.44s)
+--- PASS: TestAbuse_Poll_UnhealthyWorker_Still503 (0.70s)
+    --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres (0.70s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/fifo_pull (0.33s)
+        --- PASS: TestAbuse_Poll_UnhealthyWorker_Still503/postgres/round_robin (0.36s)
+    assignment_test.go:174: postgres: 300 polls per worker over 3.422491896s wrote last_poll_at map[w1:4 w2:4 w3:4] times
+--- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites (3.72s)
+    --- PASS: TestAbuse_Poll_Flood_ThrottlesFreshnessWrites/postgres (3.72s)
+--- PASS: TestAbuse_ConstantPoller_NoLargerShare (1.59s)
+    --- PASS: TestAbuse_ConstantPoller_NoLargerShare/postgres (1.58s)
+--- PASS: TestAbuse_LargeTotalSlots_NoLargerShare (0.41s)
+    --- PASS: TestAbuse_LargeTotalSlots_NoLargerShare/postgres (0.41s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	6.860s
+FAIL

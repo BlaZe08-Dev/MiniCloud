@@ -1,0 +1,18 @@
+$ AUDIT_STRESS_SECONDS=60 MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v -timeout 600s -run '^TestAudit_DeadlockStress_AllPaths$' ./internal/storage/postgres/   (probe copied in, then deleted)
+=== RUN   TestAudit_DeadlockStress_AllPaths
+    audit_deadlock_stress_test.go:276: ops cancel                       1639
+    audit_deadlock_stress_test.go:276: ops commit                       3484
+    audit_deadlock_stress_test.go:276: ops fifo_claim                   1070
+    audit_deadlock_stress_test.go:276: ops heartbeat                    2597
+    audit_deadlock_stress_test.go:276: ops pass                         647
+    audit_deadlock_stress_test.go:276: ops pass_skipped                 18767
+    audit_deadlock_stress_test.go:276: ops rr_claim_round_robin         1945
+    audit_deadlock_stress_test.go:276: ops rr_claim_round_robin_fallback 469
+    audit_deadlock_stress_test.go:276: ops submit                       3291
+    audit_deadlock_stress_test.go:276: ops sweep                        2807
+    audit_deadlock_stress_test.go:279: ops TOTAL 36716 over 60s
+    audit_deadlock_stress_test.go:283: SQLSTATE 40P01 count: 0
+    audit_deadlock_stress_test.go:298: end state: doubleActive=0 doubleReserved=0 badShape=0 reservedNonWaiting=0 runningWithoutRunningAttempt=0
+--- PASS: TestAudit_DeadlockStress_AllPaths (60.63s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	61.660s

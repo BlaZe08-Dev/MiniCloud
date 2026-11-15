@@ -1,0 +1,13 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 0a9e68a..a964f73 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -146,7 +146,7 @@ func (l *AssignmentLoop) checkStaleHeartbeat(ctx context.Context) {
+ 		return
+ 	}
+ 	now := clk.Now()
+-	if !l.lastStaleLog.IsZero() && now.Sub(l.lastStaleLog) < StaleHeartbeatLogEvery {
++	if false {
+ 		return
+ 	}
+ 	l.lastStaleLog = now

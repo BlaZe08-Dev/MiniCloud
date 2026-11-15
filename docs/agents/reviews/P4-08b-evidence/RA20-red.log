@@ -1,0 +1,11 @@
+$ go test -count=1 -v -run ^TestPoll_AgeArm_AfterOutage_RefreshesFirst$ ./internal/coordinator/
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+2026/10/31 15:24:45 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:24:45 INFO job submitted and queued job_id=job_1_a98ce6078e5a task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:24:45 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+    assignment_test.go:203: first poll after outage: no queued jobs available
+--- FAIL: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.005s
+FAIL
+EXIT=1

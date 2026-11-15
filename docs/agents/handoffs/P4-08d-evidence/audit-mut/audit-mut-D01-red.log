@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentSweep_GraceDoesNotCountLapse$ ./internal/coordinator/
+    assignment_loop_test.go:275: lapse counted inside the startup grace: assignment_lapses=1 (INV-9)
+--- FAIL: TestCoordinator_AssignmentSweep_GraceDoesNotCountLapse (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.019s
+FAIL
+exit=1

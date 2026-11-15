@@ -1,0 +1,37 @@
+package postgres_test
+
+// Auditor probe (P4-08c review, gate investigation). Not a committed test: copy to
+// internal/storage/postgres/audit_advisory_scope_test.go to run, delete the copy afterwards.
+//
+// The pass advisory key is scoped to the database, not to the schema: a pass in test schema A
+// skips while a connection in test schema B of the same database holds the key. So two test
+// processes on one test database (two concurrent make test-db runs, or any concurrent PostgreSQL
+// test that runs a pass) make each other's passes return Skipped.
+
+import (
+	"context"
+	"testing"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest"
+)
+
+func TestAudit_AdvisoryKey_IsDatabaseWideAcrossSchemas(t *testing.T) {
+	poolA, schemaA := setupTestPool(t)
+	poolB, schemaB := setupTestPool(t)
+	if schemaA == schemaB {
+		t.Fatalf("setup: same schema")
+	}
+	release := holdPassLock(t, poolB)
+	res, err := postgres.NewRepository(poolA).AssignQueuedJobs(context.Background(), storagetest.AssignTestParams())
+	t.Logf("schema A=%s, key held in schema B=%s: pass result %+v err=%v", schemaA, schemaB, res, err)
+	if err != nil || !res.Skipped {
+		t.Fatalf("expected the pass in schema A to skip while schema B holds the key")
+	}
+	release()
+	res, err = postgres.NewRepository(poolA).AssignQueuedJobs(context.Background(), storagetest.AssignTestParams())
+	t.Logf("after release: pass result %+v err=%v", res, err)
+	if err != nil || res.Skipped {
+		t.Fatalf("control: pass still skipped after release")
+	}
+}

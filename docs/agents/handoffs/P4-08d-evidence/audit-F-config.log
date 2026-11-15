@@ -1,0 +1,39 @@
+    audit_config_edges_test.go:77: AUDIT "fifo_pull + accept window 4s"                config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW must be between 5s and 30s (got 4s) svcErr=assignment settings: invalid request payload or parameters: assignment accept window must be between 5s and 30s (got 4s)
+    audit_config_edges_test.go:77: AUDIT "fifo_pull + A1 interval > window"            config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_INTERVAL (6s) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (5s) svcErr=assignment settings: invalid request payload or parameters: assignment interval (6s) must not exceed the accept window (5s)
+    audit_config_edges_test.go:77: AUDIT "fifo_pull + A1 fallback age = 2I+AW"         config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_FALLBACK_AGE (7s) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (7s) svcErr=assignment settings: invalid request payload or parameters: assignment fallback age (7s) must be greater than 2 x interval plus the accept window (7s)
+    audit_config_edges_test.go:77: AUDIT "policy empty string"                         config_ok=false service_ok=true loaded_into_service_ok=false agree=false cfgErr=MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got "") svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "policy leading space"                        config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got " round_robin") svcErr=dispatch policy: invalid request payload or parameters: dispatch policy " round_robin"
+    audit_config_edges_test.go:77: AUDIT "policy trailing space"                       config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got "round_robin ") svcErr=dispatch policy: invalid request payload or parameters: dispatch policy "round_robin "
+    audit_config_edges_test.go:77: AUDIT "policy Round_Robin"                          config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "max everything: L=10 AW=30s I=10s FA=10m"    config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "lapse min 400s exact (L=10 AW=30s I=10s)"    config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "lapse min 400s - 1ns"                        config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (6m40s) and at most 10m (got 6m39.999999999s) svcErr=assignment settings: invalid request payload or parameters: assignment fallback age must be at least max lapses x (accept window + interval) (6m40s) and at most 10m (got 6m39.999999999s)
+    audit_config_edges_test.go:77: AUDIT "I = AW = 5s, FA = 15s + 1ns, L=1"            config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "I = AW = 5s, FA = 15s, L=1"                  config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_FALLBACK_AGE (15s) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (15s) svcErr=assignment settings: invalid request payload or parameters: assignment fallback age (15s) must be greater than 2 x interval plus the accept window (15s)
+    audit_config_edges_test.go:77: AUDIT "I=100ms MY=100ms FA=lapse min 15.3s"         config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "I=100ms MY=100ms FA=15.3s - 1ns"             config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (15.3s) and at most 10m (got 15.299999999s) svcErr=assignment settings: invalid request payload or parameters: assignment fallback age must be at least max lapses x (accept window + interval) (15.3s) and at most 10m (got 15.299999999s)
+    audit_config_edges_test.go:77: AUDIT "negative interval"                           config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_INTERVAL must be between 100ms and 10s (got -1s) svcErr=assignment settings: invalid request payload or parameters: assignment interval must be between 100ms and 10s (got -1s)
+    audit_config_edges_test.go:77: AUDIT "zero min yield"                              config_ok=false service_ok=false loaded_into_service_ok=false agree=true cfgErr=MINICLOUD_ASSIGNMENT_MIN_YIELD must be between 1ms and 1s (got 0s) svcErr=assignment settings: invalid request payload or parameters: assignment min yield must be between 1ms and 1s (got 0s)
+    audit_config_edges_test.go:77: AUDIT "max lapses with plus sign +3"                config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+    audit_config_edges_test.go:77: AUDIT "batch limit 0500 (leading zero)"             config_ok=true service_ok=true loaded_into_service_ok=true agree=true cfgErr=<nil> svcErr=<nil>
+--- PASS: TestAudit_ConfigServiceEdges (0.01s)
+    --- PASS: TestAudit_ConfigServiceEdges/fifo_pull_+_accept_window_4s (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/fifo_pull_+_A1_interval_>_window (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/fifo_pull_+_A1_fallback_age_=_2I+AW (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/policy_empty_string (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/policy_leading_space (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/policy_trailing_space (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/policy_Round_Robin (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/max_everything:_L=10_AW=30s_I=10s_FA=10m (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/lapse_min_400s_exact_(L=10_AW=30s_I=10s) (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/lapse_min_400s_-_1ns (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/I_=_AW_=_5s,_FA_=_15s_+_1ns,_L=1 (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/I_=_AW_=_5s,_FA_=_15s,_L=1 (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/I=100ms_MY=100ms_FA=lapse_min_15.3s (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/I=100ms_MY=100ms_FA=15.3s_-_1ns (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/negative_interval (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/zero_min_yield (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/max_lapses_with_plus_sign_+3 (0.00s)
+    --- PASS: TestAudit_ConfigServiceEdges/batch_limit_0500_(leading_zero) (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	1.038s

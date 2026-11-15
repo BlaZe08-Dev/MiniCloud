@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..c6ba5e8 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -334,7 +334,7 @@ func assignReserve(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *
+ 			if err := tx.QueryRow(ctx, `
+ 				UPDATE jobs
+ 				SET assigned_worker_id = $2, assigned_at = c.n,
+-				    assignment_expires_at = c.n + make_interval(secs => $3::double precision)
++				    assignment_expires_at = c.n + 2 * make_interval(secs => $3::double precision)
+ 				FROM (SELECT clock_timestamp() AS n) c
+ 				WHERE jobs.id = $1
+ 				RETURNING jobs.assignment_expires_at;`, jobID, selected, p.AcceptWindow.Seconds()).Scan(&expires); err != nil {

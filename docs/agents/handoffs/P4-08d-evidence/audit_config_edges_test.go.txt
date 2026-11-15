@@ -1,0 +1,84 @@
+package main
+
+// P4-08d audit probe F. Copied to cmd/coordinator/audit_config_edges_test.go only to run, then
+// deleted. Edge combinations the builder's cross-test does not list: fifo_pull with invalid
+// settings, policy spellings, several rules at their edge at once, and the largest ranges.
+
+import (
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/config"
+)
+
+func TestAudit_ConfigServiceEdges(t *testing.T) {
+	type tc struct {
+		name, policy, aw, iv, ml, fa, bl, my string
+	}
+	cases := []tc{
+		{"fifo_pull + accept window 4s", "fifo_pull", "4s", "1s", "3", "30s", "50", "10ms"},
+		{"fifo_pull + A1 interval > window", "fifo_pull", "5s", "6s", "1", "10m", "50", "10ms"},
+		{"fifo_pull + A1 fallback age = 2I+AW", "fifo_pull", "5s", "1s", "1", "7s", "50", "10ms"},
+		{"policy empty string", "", "5s", "1s", "3", "30s", "50", "10ms"},
+		{"policy leading space", " round_robin", "5s", "1s", "3", "30s", "50", "10ms"},
+		{"policy trailing space", "round_robin ", "5s", "1s", "3", "30s", "50", "10ms"},
+		{"policy Round_Robin", "Round_Robin", "5s", "1s", "3", "30s", "50", "10ms"},
+		{"max everything: L=10 AW=30s I=10s FA=10m", "round_robin", "30s", "10s", "10", "10m", "500", "1s"},
+		{"lapse min 400s exact (L=10 AW=30s I=10s)", "round_robin", "30s", "10s", "10", "400s", "50", "10ms"},
+		{"lapse min 400s - 1ns", "round_robin", "30s", "10s", "10", "399.999999999s", "50", "10ms"},
+		{"I = AW = 5s, FA = 15s + 1ns, L=1", "round_robin", "5s", "5s", "1", "15.000000001s", "50", "10ms"},
+		{"I = AW = 5s, FA = 15s, L=1", "round_robin", "5s", "5s", "1", "15s", "50", "10ms"},
+		{"I=100ms MY=100ms FA=lapse min 15.3s", "round_robin", "5s", "100ms", "3", "15.3s", "50", "100ms"},
+		{"I=100ms MY=100ms FA=15.3s - 1ns", "round_robin", "5s", "100ms", "3", "15.299999999s", "50", "100ms"},
+		{"negative interval", "round_robin", "5s", "-1s", "3", "30s", "50", "10ms"},
+		{"zero min yield", "round_robin", "5s", "1s", "3", "30s", "50", "0s"},
+		{"max lapses with plus sign +3", "round_robin", "5s", "1s", "+3", "30s", "50", "10ms"},
+		{"batch limit 0500 (leading zero)", "round_robin", "5s", "1s", "3", "30s", "0500", "10ms"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("MINICLOUD_STORAGE_DRIVER", "memory")
+			t.Setenv("MINICLOUD_DISPATCH_POLICY", c.policy)
+			t.Setenv("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", c.aw)
+			t.Setenv("MINICLOUD_ASSIGNMENT_INTERVAL", c.iv)
+			t.Setenv("MINICLOUD_ASSIGNMENT_MAX_LAPSES", c.ml)
+			t.Setenv("MINICLOUD_ASSIGNMENT_FALLBACK_AGE", c.fa)
+			t.Setenv("MINICLOUD_ASSIGNMENT_BATCH_LIMIT", c.bl)
+			t.Setenv("MINICLOUD_ASSIGNMENT_MIN_YIELD", c.my)
+			loaded, cfgErr := config.LoadCoordinatorConfig()
+
+			pd := func(s string) time.Duration { d, _ := time.ParseDuration(s); return d }
+			pi := func(s string) int { n, _ := strconv.Atoi(s); return n }
+			manual := testConfig()
+			manual.DispatchPolicy = strings.ToLower(c.policy)
+			if c.policy == "" {
+				manual.DispatchPolicy = "fifo_pull" // getEnv default for an empty value
+			}
+			manual.AssignmentAcceptWindow = pd(c.aw)
+			manual.AssignmentInterval = pd(c.iv)
+			manual.AssignmentMaxLapses = pi(c.ml)
+			manual.AssignmentFallbackAge = pd(c.fa)
+			manual.AssignmentBatchLimit = pi(c.bl)
+			manual.AssignmentMinYield = pd(c.my)
+			svcErr := configureService(newTestService(manual, newMemoryRepository(manual)), manual)
+			// When config accepts, the binary feeds the loaded config: check that path too.
+			var loadedErr error
+			if cfgErr == nil {
+				lc := testConfig()
+				lc.DispatchPolicy = loaded.DispatchPolicy
+				lc.AssignmentAcceptWindow, lc.AssignmentInterval = loaded.AssignmentAcceptWindow, loaded.AssignmentInterval
+				lc.AssignmentMaxLapses, lc.AssignmentFallbackAge = loaded.AssignmentMaxLapses, loaded.AssignmentFallbackAge
+				lc.AssignmentBatchLimit, lc.AssignmentMinYield = loaded.AssignmentBatchLimit, loaded.AssignmentMinYield
+				loadedErr = configureService(newTestService(lc, newMemoryRepository(lc)), lc)
+			}
+			agree := (cfgErr == nil) == (svcErr == nil)
+			t.Logf("AUDIT %-45q config_ok=%v service_ok=%v loaded_into_service_ok=%v agree=%v cfgErr=%v svcErr=%v",
+				c.name, cfgErr == nil, svcErr == nil, cfgErr == nil && loadedErr == nil, agree, cfgErr, svcErr)
+			if cfgErr == nil && loadedErr != nil {
+				t.Errorf("config accepted, service rejected the loaded config: %v", loadedErr)
+			}
+		})
+	}
+}

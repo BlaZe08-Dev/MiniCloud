@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88e8f41..6855f01 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -260,7 +260,7 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string,
+ 			continue
+ 		}
+ 		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
+-			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobin, "", now)
++			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, "", now)
+ 		}
+ 	}
+ 

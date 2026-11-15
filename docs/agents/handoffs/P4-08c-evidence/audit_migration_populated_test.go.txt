@@ -1,0 +1,131 @@
+package postgres_test
+
+// Auditor probe (P4-08c review, check E). Not a committed test: copy to
+// internal/storage/postgres/audit_migration_populated_test.go to run, delete the copy afterwards.
+//
+// A schema at 000004 holds jobs in every state chk_jobs_state allows (SUBMITTED, QUEUED, RUNNING,
+// CANCEL_REQUESTED, CANCELLED, SUCCEEDED, FAILED, RETRYING with a past and a future not_before,
+// DEAD_LETTER) plus attempts for the running ones. 000005 is applied; every CHECK must be
+// validated, every row unassigned; then fifo DispatchNextJob over the migrated schema must hand out
+// exactly the dispatchable jobs in created_at, id order, skip the future RETRYING job, and stop.
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
+)
+
+func TestAudit_Migration000005_PopulatedAllStates_FifoUnchanged(t *testing.T) {
+	conn, schema := setupTestSchema(t)
+	ctx := context.Background()
+
+	m4, _ := migrationsUpTo(t, 4)
+	if n, err := m4.Migrate(ctx, conn); err != nil || n != 4 {
+		t.Fatalf("migrate to 000004: n=%d err=%v", n, err)
+	}
+	mustExec(t, conn, `INSERT INTO workers (id, version, total_slots, status, supported_tasks) VALUES ('w_old', 'v0', 4, 'HEALTHY', ARRAY['echo','sleep'])`)
+	mustExec(t, conn, `INSERT INTO workers (id, version, total_slots, status, supported_tasks) VALUES ('w_new', 'v0', 20, 'HEALTHY', ARRAY['echo','sleep'])`)
+	rows := []struct{ id, state, ty, notBefore string }{
+		{"j01_submitted", "SUBMITTED", "echo", ""},
+		{"j02_queued", "QUEUED", "echo", ""},
+		{"j03_running", "RUNNING", "echo", ""},
+		{"j04_cancel_req", "CANCEL_REQUESTED", "sleep", ""},
+		{"j05_cancelled", "CANCELLED", "echo", ""},
+		{"j06_succeeded", "SUCCEEDED", "echo", ""},
+		{"j07_failed", "FAILED", "sleep", ""},
+		{"j08_retry_ready", "RETRYING", "sleep", "-10 seconds"},
+		{"j09_retry_future", "RETRYING", "echo", "+1 hour"},
+		{"j10_dead", "DEAD_LETTER", "echo", ""},
+		{"j11_queued", "QUEUED", "sleep", ""},
+		{"j12_retry_nullnb", "RETRYING", "echo", ""},
+	}
+	for i, r := range rows {
+		mustExec(t, conn, `INSERT INTO jobs (id, task_type, payload, state, created_at, updated_at)
+			VALUES ($1, $2, '\x00', $3, clock_timestamp() - interval '1 hour' + make_interval(secs => $4), clock_timestamp())`,
+			r.id, r.ty, r.state, float64(i))
+		if r.notBefore != "" {
+			mustExec(t, conn, `UPDATE jobs SET not_before = clock_timestamp() + $2::interval WHERE id = $1`, r.id, r.notBefore)
+		}
+		if r.state == "RUNNING" || r.state == "CANCEL_REQUESTED" {
+			mustExec(t, conn, `INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+				VALUES ($1, $2, 1, 'w_old', repeat('a', 64), 'RUNNING', clock_timestamp() + interval '1 hour')`, "att_"+r.id, r.id)
+			mustExec(t, conn, `UPDATE jobs SET current_attempt_id = $2 WHERE id = $1`, r.id, "att_"+r.id)
+		}
+	}
+	var states int
+	if err := conn.QueryRow(ctx, `SELECT COUNT(DISTINCT state) FROM jobs`).Scan(&states); err != nil || states != 9 {
+		t.Fatalf("distinct states before migrating: %d (err=%v), want 9 (every chk_jobs_state value)", states, err)
+	}
+
+	m5, _ := migrationsUpTo(t, 5)
+	if n, err := m5.Migrate(ctx, conn); err != nil || n != 1 {
+		t.Fatalf("000004 -> 000005: n=%d err=%v", n, err)
+	}
+	for _, con := range []string{"chk_jobs_assignment_shape", "chk_jobs_assignment_lapses", "chk_jobs_fallback_reason"} {
+		var validated bool
+		if err := conn.QueryRow(ctx, `SELECT c.convalidated FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace
+			WHERE n.nspname = $1 AND c.conname = $2`, schema, con).Scan(&validated); err != nil || !validated {
+			t.Fatalf("%s validated=%v err=%v", con, validated, err)
+		}
+		t.Logf("%s convalidated=true", con)
+	}
+	var bad int
+	if err := conn.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE assigned_worker_id IS NOT NULL OR assigned_at IS NOT NULL
+		OR assignment_expires_at IS NOT NULL OR assignment_lapses <> 0 OR assignment_fallback_reason IS NOT NULL`).Scan(&bad); err != nil || bad != 0 {
+		t.Fatalf("%d rows not unassigned (err=%v)", bad, err)
+	}
+	// A second VALIDATE on the populated table is a no-op that must also succeed.
+	mustExec(t, conn, `ALTER TABLE jobs VALIDATE CONSTRAINT chk_jobs_assignment_shape`)
+	// REJECTED is not a state chk_jobs_state allows (ADR-0017 C7, Q8): pre-existing, unchanged by 000005.
+	if _, err := conn.Exec(ctx, `INSERT INTO jobs (id, task_type, payload, state) VALUES ('j_rej', 'echo', '\x00', 'REJECTED')`); pgCode(err) != "23514" {
+		t.Errorf("REJECTED insert: want 23514 (chk_jobs_state), got %v", err)
+	} else {
+		t.Logf("REJECTED insert rejected with 23514 (chk_jobs_state)")
+	}
+
+	cfg, err := pgxpool.ParseConfig(conn.Config().ConnString())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	repo := postgres.NewRepository(pool)
+
+	want := []string{"j02_queued", "j08_retry_ready", "j11_queued", "j12_retry_nullnb"}
+	var got []string
+	for i := 0; i < 10; i++ {
+		job, att, err := repo.DispatchNextJob(ctx, "w_new")
+		if errors.Is(err, domain.ErrNoQueuedJobs) {
+			break
+		}
+		if err != nil {
+			t.Fatalf("DispatchNextJob #%d: %v", i, err)
+		}
+		if att == nil || att.AttemptNo < 1 {
+			t.Fatalf("no attempt for %s", job.ID)
+		}
+		got = append(got, job.ID)
+	}
+	t.Logf("fifo dispatch order after 000005: %v", got)
+	if len(got) != len(want) {
+		t.Fatalf("fifo dispatched %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("fifo dispatched %v, want %v", got, want)
+		}
+	}
+	// Columns stay NULL and lapses 0 after fifo dispatch.
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE assigned_worker_id IS NOT NULL OR assignment_lapses <> 0`).Scan(&bad); err != nil || bad != 0 {
+		t.Fatalf("after fifo dispatch: %d rows with assignment state (err=%v)", bad, err)
+	}
+}

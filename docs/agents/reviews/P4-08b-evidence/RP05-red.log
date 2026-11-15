@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_PassExcludesJobAtLapseLimit$ ./internal/storage/
+=== RUN   TestAudit_Probe_PassExcludesJobAtLapseLimit
+    audit_probe_storage_test.go:32: job at the lapse limit was reserved to w_1
+--- FAIL: TestAudit_Probe_PassExcludesJobAtLapseLimit (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL
+EXIT=1

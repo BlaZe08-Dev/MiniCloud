@@ -1,0 +1,67 @@
+$ go test -count=1 -v -run ^TestAudit_P4_08b_ConcurrentAssignmentInvariants$ ./internal/storage/
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1
+    audit_p4_08b_stress_test.go:207: 543 invariant violations, first 10: [job_1: assignment on state RUNNING job_4: assignment on state RUNNING job_1000: assignment on state RUNNING job_4: assignment on state RUNNING job_1000: assignment on state RUNNING job_4: assignment on state RUNNING job_1000: assignment on state RUNNING job_4: assignment on state RUNNING job_1000: assignment on state RUNNING job_4: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2
+    audit_p4_08b_stress_test.go:207: 715 invariant violations, first 10: [job_0: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3
+    audit_p4_08b_stress_test.go:207: 563 invariant violations, first 10: [job_0: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_1: assignment on state RUNNING job_0: assignment on state SUCCEEDED job_1: assignment on state RUNNING job_2: assignment on state RUNNING job_0: assignment on state SUCCEEDED job_2: assignment on state RUNNING job_0: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4
+    audit_p4_08b_stress_test.go:207: 514 invariant violations, first 10: [job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1030: assignment on state RUNNING job_1010: assignment on state SUCCEEDED job_1030: assignment on state RUNNING]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5
+    audit_p4_08b_stress_test.go:207: 803 invariant violations, first 10: [job_1040: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED job_1020: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED job_1020: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED job_1020: assignment on state SUCCEEDED job_1040: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6
+    audit_p4_08b_stress_test.go:207: 165 invariant violations, first 10: [job_0: assignment on state RUNNING job_3: assignment on state RUNNING job_0: assignment on state SUCCEEDED job_3: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_3: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_3: assignment on state SUCCEEDED job_0: assignment on state SUCCEEDED job_3: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7
+    audit_p4_08b_stress_test.go:207: 866 invariant violations, first 10: [job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_10: assignment on state SUCCEEDED job_12: assignment on state RUNNING job_10: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8
+    audit_p4_08b_stress_test.go:207: 522 invariant violations, first 10: [job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9
+    audit_p4_08b_stress_test.go:207: 741 invariant violations, first 10: [job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state RUNNING job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10
+    audit_p4_08b_stress_test.go:207: 582 invariant violations, first 10: [job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_11: assignment on state SUCCEEDED job_12: assignment on state RUNNING]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11
+    audit_p4_08b_stress_test.go:207: 565 invariant violations, first 10: [job_1000: assignment on state RUNNING job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1030: assignment on state RUNNING job_1000: assignment on state SUCCEEDED job_1030: assignment on state RUNNING job_1000: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12
+    audit_p4_08b_stress_test.go:207: 651 invariant violations, first 10: [job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13
+    audit_p4_08b_stress_test.go:207: 416 invariant violations, first 10: [job_1020: assignment on state RUNNING job_1030: assignment on state SUCCEEDED job_1020: assignment on state RUNNING job_1030: assignment on state SUCCEEDED job_1020: assignment on state RUNNING job_1030: assignment on state SUCCEEDED job_1020: assignment on state RUNNING job_1030: assignment on state SUCCEEDED job_1020: assignment on state RUNNING job_1030: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14
+    audit_p4_08b_stress_test.go:207: 840 invariant violations, first 10: [job_17: assignment on state RUNNING job_2: assignment on state RUNNING job_17: assignment on state RUNNING job_2: assignment on state RUNNING job_17: assignment on state RUNNING job_2: assignment on state SUCCEEDED job_17: assignment on state SUCCEEDED job_2: assignment on state SUCCEEDED job_17: assignment on state SUCCEEDED job_2: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15
+    audit_p4_08b_stress_test.go:207: 707 invariant violations, first 10: [job_19: assignment on state RUNNING job_19: assignment on state RUNNING job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED job_1000: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16
+    audit_p4_08b_stress_test.go:207: 294 invariant violations, first 10: [job_8: assignment on state RUNNING job_8: assignment on state SUCCEEDED job_19: assignment on state CANCEL_REQUESTED job_8: assignment on state SUCCEEDED job_9: assignment on state RUNNING job_10: assignment on state RUNNING job_19: assignment on state CANCELLED job_8: assignment on state SUCCEEDED job_19: assignment on state CANCELLED job_8: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17
+    audit_p4_08b_stress_test.go:207: 253 invariant violations, first 10: [job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1020: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED job_1020: assignment on state SUCCEEDED job_1010: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18
+    audit_p4_08b_stress_test.go:207: 454 invariant violations, first 10: [job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_15: assignment on state SUCCEEDED job_17: assignment on state RUNNING job_15: assignment on state SUCCEEDED]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19
+    audit_p4_08b_stress_test.go:207: 766 invariant violations, first 10: [job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_4: assignment on state SUCCEEDED job_3: assignment on state RUNNING]
+=== RUN   TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20
+    audit_p4_08b_stress_test.go:207: 45 invariant violations, first 10: [job_5: assignment on state SUCCEEDED job_5: assignment on state SUCCEEDED job_5: assignment on state SUCCEEDED job_6: assignment on state CANCEL_REQUESTED job_7: assignment on state RUNNING job_9: assignment on state CANCEL_REQUESTED job_5: assignment on state SUCCEEDED job_6: assignment on state SUCCEEDED job_7: assignment on state SUCCEEDED job_9: assignment on state SUCCEEDED]
+--- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants (1.04s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_1 (0.07s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_2 (0.05s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_3 (0.03s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_4 (0.04s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_5 (0.08s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_6 (0.03s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_7 (0.07s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_8 (0.04s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_9 (0.06s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_10 (0.05s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_11 (0.05s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_12 (0.06s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_13 (0.08s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_14 (0.06s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_15 (0.03s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_16 (0.05s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_17 (0.07s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_18 (0.04s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_19 (0.05s)
+    --- FAIL: TestAudit_P4_08b_ConcurrentAssignmentInvariants/seed_20 (0.03s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.040s
+FAIL
+EXIT=1

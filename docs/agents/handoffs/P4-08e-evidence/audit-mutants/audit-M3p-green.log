@@ -1,0 +1,16 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestAuditProbe_RealClockPollSleeps$ ./internal/worker/
+=== RUN   TestAuditProbe_RealClockPollSleeps
+    audit_probe_realsleep_test.go:90: gap  1 (idle     )    201.5 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  2 (idle     )    201.8 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  3 (idle     )    201.8 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  4 (idle     )    202.1 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  5 (idle     )    202.0 ms  bound [200ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  6 (backoff  )    108.9 ms  bound [100ms, 350ms]
+    audit_probe_realsleep_test.go:90: gap  7 (backoff  )    395.7 ms  bound [200ms, 550ms]
+    audit_probe_realsleep_test.go:90: gap  8 (backoff  )    674.3 ms  bound [400ms, 950ms]
+    audit_probe_realsleep_test.go:90: gap  9 (backoff  )   1426.8 ms  bound [800ms, 1.75s]
+    audit_probe_realsleep_test.go:90: gap 10 (unhealthy)    202.0 ms  bound [200ms, 350ms]
+--- PASS: TestAuditProbe_RealClockPollSleeps (3.98s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	5.003s
+exit=0

@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 88ec08b..2fd8cbb 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -76,7 +76,7 @@ func (r *InMemoryRepository) eligibleWorkersLocked(taskType string, now time.Tim
+ 		}
+ 		ids = append(ids, id)
+ 	}
+-	sort.Strings(ids)
++	_ = sort.Strings
+ 	return ids
+ }
+ 

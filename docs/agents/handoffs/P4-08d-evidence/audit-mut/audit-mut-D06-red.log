@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestCoordinator_AssignmentRepeat_YieldsToPolls$ ./internal/coordinator/
+    assignment_loop_test.go:460: gap before pass 2 = 0s, want at least MIN_YIELD 10ms (INV-20)
+--- FAIL: TestCoordinator_AssignmentRepeat_YieldsToPolls (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.022s
+FAIL
+exit=1

@@ -1,0 +1,73 @@
+package coordinator
+
+// Auditor probe (P4-08c review, check J). Not a committed test: copy to
+// internal/coordinator/audit_settings_edges_test.go to run, delete the copy afterwards.
+// Same A1 boundaries as the config probe, at the service boundary (AssignmentSettings.Validate),
+// plus SetDispatchPolicy over a repository with only one of the two interfaces.
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+)
+
+func TestAudit_AssignmentSettings_A1Edges(t *testing.T) {
+	d := DefaultAssignmentSettings()
+	mod := func(f func(*AssignmentSettings)) AssignmentSettings { s := d; f(&s); return s }
+	cases := []struct {
+		name string
+		s    AssignmentSettings
+		ok   bool
+	}{
+		{"defaults", d, true},
+		{"interval == window", mod(func(s *AssignmentSettings) { s.Interval = 5 * time.Second }), true},
+		{"interval window+1ns", mod(func(s *AssignmentSettings) { s.Interval = 5*time.Second + 1; s.FallbackAge = time.Minute }), false},
+		{"L=1 FA == 2I+W", mod(func(s *AssignmentSettings) { s.MaxLapses = 1; s.FallbackAge = 7 * time.Second }), false},
+		{"L=1 FA == 2I+W+1ns", mod(func(s *AssignmentSettings) { s.MaxLapses = 1; s.FallbackAge = 7*time.Second + 1 }), true},
+		{"FA lapse minimum", mod(func(s *AssignmentSettings) { s.FallbackAge = 18 * time.Second }), true},
+		{"FA lapse minimum-1ns", mod(func(s *AssignmentSettings) { s.FallbackAge = 18*time.Second - 1 }), false},
+		{"FA 10m+1ns", mod(func(s *AssignmentSettings) { s.FallbackAge = 10*time.Minute + 1 }), false},
+		{"yield == interval", mod(func(s *AssignmentSettings) { s.Interval = 100 * time.Millisecond; s.MinYield = 100 * time.Millisecond }), true},
+		{"yield > interval", mod(func(s *AssignmentSettings) { s.Interval = 100 * time.Millisecond; s.MinYield = 100*time.Millisecond + 1 }), false},
+		{"zero value", AssignmentSettings{}, false},
+	}
+	for _, c := range cases {
+		err := c.s.Validate()
+		t.Logf("%-22s ok=%v err=%v", c.name, err == nil, err)
+		if (err == nil) != c.ok {
+			t.Errorf("%s: accepted=%v want %v", c.name, err == nil, c.ok)
+		}
+	}
+}
+
+// staleOnly implements the staleness interface but not AssignmentRepository.
+type auditStaleOnly struct{ *storage.InMemoryRepository }
+
+func (auditStaleOnly) AssignQueuedJobs() {} // shadows the promoted method with a different signature
+
+func TestAudit_SetDispatchPolicy_NeedsBothInterfaces(t *testing.T) {
+	mem := storage.NewInMemoryRepository()
+	var r storage.Repository = auditStaleOnly{mem}
+	if _, ok := r.(storage.AssignmentRepository); ok {
+		t.Fatalf("setup: wrapper still implements AssignmentRepository")
+	}
+	if _, ok := r.(storage.AssignmentPassStaleness); !ok {
+		t.Fatalf("setup: wrapper lost AssignmentPassStaleness")
+	}
+	svc := NewService(r, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	if err := svc.SetDispatchPolicy("round_robin"); err == nil {
+		t.Errorf("round_robin accepted over a repository without AssignmentRepository")
+	} else {
+		t.Logf("staleness-only repository refused: %v", err)
+	}
+	ok := NewService(mem, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), 10*time.Second)
+	if err := ok.SetDispatchPolicy("round_robin"); err != nil {
+		t.Errorf("control: in-memory repository refused: %v", err)
+	}
+	// The default policy of a new service is fifo_pull: a poll works without any assignment state.
+	_ = context.Background()
+}

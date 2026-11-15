@@ -1,0 +1,6 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestConformance_JobView_AssignmentFields$ ./internal/storage/
+=== RUN   TestConformance_JobView_AssignmentFields
+--- PASS: TestConformance_JobView_AssignmentFields (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	1.023s
+exit=0

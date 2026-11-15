@@ -1,0 +1,14 @@
+$ MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v -run '^TestAudit_(AdvisoryKey_IsDatabaseWideAcrossSchemas|Migration000005_PopulatedAllStates_FifoUnchanged)$' ./internal/storage/postgres/
+=== RUN   TestAudit_AdvisoryKey_IsDatabaseWideAcrossSchemas
+    audit_advisory_scope_test.go:27: schema A=test_repo_ba4a8a16, key held in schema B=test_repo_dd338ee8: pass result {Skipped:true Reserved:0 Revoked:0 Lapsed:0 CandidatesRead:map[]} err=<nil>
+    audit_advisory_scope_test.go:33: after release: pass result {Skipped:false Reserved:0 Revoked:0 Lapsed:0 CandidatesRead:map[]} err=<nil>
+--- PASS: TestAudit_AdvisoryKey_IsDatabaseWideAcrossSchemas (0.96s)
+=== RUN   TestAudit_Migration000005_PopulatedAllStates_FifoUnchanged
+    audit_migration_populated_test.go:75: chk_jobs_assignment_shape convalidated=true
+    audit_migration_populated_test.go:75: chk_jobs_assignment_lapses convalidated=true
+    audit_migration_populated_test.go:75: chk_jobs_fallback_reason convalidated=true
+    audit_migration_populated_test.go:88: REJECTED insert rejected with 23514 (chk_jobs_state)
+    audit_migration_populated_test.go:118: fifo dispatch order after 000005: [j02_queued j08_retry_ready j11_queued j12_retry_nullnb]
+--- PASS: TestAudit_Migration000005_PopulatedAllStates_FifoUnchanged (0.68s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	2.667s

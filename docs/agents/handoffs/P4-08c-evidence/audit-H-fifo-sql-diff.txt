@@ -1,0 +1,72 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index c6efaf9..9d7e2d1 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -132,7 +132,8 @@ func (r *Repository) CreateJob(ctx context.Context, job *domain.Job) error {
+ func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error) {
+ 	query := `
+ 		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, current_attempt_id, created_at, updated_at,
+-		       not_before, cancel_requested_at
++		       not_before, cancel_requested_at,
++		       assigned_worker_id, assigned_at, assignment_expires_at, assignment_lapses, assignment_fallback_reason
+ 		FROM jobs
+ 		WHERE id = $1;
+ 	`
+@@ -153,6 +154,11 @@ func (r *Repository) GetJob(ctx context.Context, id string) (*domain.Job, error)
+ 		&job.UpdatedAt,
+ 		&job.NotBefore,
+ 		&job.CancelRequestedAt,
++		&job.AssignedWorkerID,
++		&job.AssignedAt,
++		&job.AssignmentExpiresAt,
++		&job.AssignmentLapses,
++		&job.AssignmentFallbackReason,
+ 	)
+ 	if err != nil {
+ 		if errors.Is(err, pgx.ErrNoRows) {
+@@ -723,10 +729,12 @@ func (r *Repository) DispatchJob(ctx context.Context, jobID string, workerID str
+ 		return nil, mapPgError(err)
+ 	}
+ 
+-	// Step 9: Transition job to RUNNING (a RETRYING job leaves its backoff gate)
++	// Step 9: Transition job to RUNNING (a RETRYING job leaves its backoff gate). The reservation
++	// columns are cleared in the same statement (ADR-0017 Section 1.1; chk_jobs_assignment_shape).
+ 	updateJobQuery := `
+ 		UPDATE jobs
+-		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = CURRENT_TIMESTAMP
++		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = CURRENT_TIMESTAMP,
++		    assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL, assignment_lapses = 0
+ 		WHERE id = $1;
+ 	`
+ 	if _, err := tx.Exec(ctx, updateJobQuery, jobID, attemptID); err != nil {
+@@ -970,10 +978,13 @@ func (r *Repository) DispatchNextJob(ctx context.Context, workerID string) (*dom
+ 		return nil, nil, mapPgError(err)
+ 	}
+ 
+-	// Step 10: Transition job to RUNNING (a RETRYING job leaves its backoff gate)
++	// Step 10: Transition job to RUNNING (a RETRYING job leaves its backoff gate). fifo_pull ignores
++	// any reservation (ADR-0017 INV-12) and clears it in the same statement, with the lapse count,
++	// so a policy switch cannot leave a reservation on a RUNNING job (Section 5.2).
+ 	const updateJobQuery = `
+ 		UPDATE jobs
+-		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = clock_timestamp()
++		SET state = 'RUNNING', current_attempt_id = $2, not_before = NULL, updated_at = clock_timestamp(),
++		    assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL, assignment_lapses = 0
+ 		WHERE id = $1;
+ 	`
+ 	if _, err := tx.Exec(ctx, updateJobQuery, job.ID, attemptID); err != nil {
+@@ -1434,10 +1445,12 @@ func (r *Repository) CancelJob(ctx context.Context, jobID string) (*domain.Job,
+ 	}
+ 
+ 	// A first cancel of a RUNNING job stamps cancel_requested_at; an immediate cancel of a
+-	// QUEUED or RETRYING job clears the retry gate (not_before).
++	// QUEUED or RETRYING job clears the retry gate (not_before) and any reservation, in the same
++	// statement (ADR-0017 D10, Section 1.6). A RUNNING job has no reservation to clear.
+ 	updateJobQuery := `
+ 		UPDATE jobs
+-		SET state = $1, updated_at = CURRENT_TIMESTAMP, not_before = NULL
++		SET state = $1, updated_at = CURRENT_TIMESTAMP, not_before = NULL,
++		    assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL
+ 		WHERE id = $2
+ 		RETURNING updated_at;
+ 	`

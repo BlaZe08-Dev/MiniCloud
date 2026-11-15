@@ -1,0 +1,39 @@
+=== RUN   TestAuditProbe_BackoffOverflow
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=   5 min=1.500964398s max=2.999719394s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  62 min=1.50374703s max=2.99858271s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  63 min=1.500008133s max=2.99973409s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  64 min=0s max=0s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:41: poll loop (Run): failures=64 gives 0s, below the jitter floor 1.5s
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=  65 min=0s max=0s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:41: poll loop (Run): failures=65 gives 0s, below the jitter floor 1.5s
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures= 100 min=0s max=0s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:41: poll loop (Run): failures=100 gives 0s, below the jitter floor 1.5s
+    audit_probe_backoff_test.go:39: poll loop (Run)                                  failures=1000 min=0s max=0s (expected [1.5s, 3s))
+    audit_probe_backoff_test.go:41: poll loop (Run): failures=1000 gives 0s, below the jitter floor 1.5s
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=   5 min=5.001052411s max=9.999519196s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  62 min=5.014302636s max=9.98967155s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  63 min=5.0147894s max=9.996385731s (expected [5s, 10s))
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  64 min=0s max=0s (expected [5s, 10s))
+    audit_probe_backoff_test.go:41: renewLoop (base 1 s, cap = interval, 10 s here): failures=64 gives 0s, below the jitter floor 5s
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=  65 min=0s max=0s (expected [5s, 10s))
+    audit_probe_backoff_test.go:41: renewLoop (base 1 s, cap = interval, 10 s here): failures=65 gives 0s, below the jitter floor 5s
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures= 100 min=0s max=0s (expected [5s, 10s))
+    audit_probe_backoff_test.go:41: renewLoop (base 1 s, cap = interval, 10 s here): failures=100 gives 0s, below the jitter floor 5s
+    audit_probe_backoff_test.go:39: renewLoop (base 1 s, cap = interval, 10 s here)  failures=1000 min=0s max=0s (expected [5s, 10s))
+    audit_probe_backoff_test.go:41: renewLoop (base 1 s, cap = interval, 10 s here): failures=1000 gives 0s, below the jitter floor 5s
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=   5 min=1.600240614s max=3.199690109s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  62 min=1.600467167s max=3.199888517s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  63 min=1.601351468s max=3.197497211s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  64 min=0s max=0s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:41: deliverResult: failures=64 gives 0s, below the jitter floor 1.6s
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=  65 min=0s max=0s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:41: deliverResult: failures=65 gives 0s, below the jitter floor 1.6s
+    audit_probe_backoff_test.go:39: deliverResult                                    failures= 100 min=0s max=0s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:41: deliverResult: failures=100 gives 0s, below the jitter floor 1.6s
+    audit_probe_backoff_test.go:39: deliverResult                                    failures=1000 min=0s max=0s (expected [1.6s, 3.2s))
+    audit_probe_backoff_test.go:41: deliverResult: failures=1000 gives 0s, below the jitter floor 1.6s
+--- FAIL: TestAuditProbe_BackoffOverflow (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.028s
+FAIL
+exit=1

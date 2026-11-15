@@ -1,0 +1,13 @@
+$ MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v -timeout 600s -run '^TestAudit_Refresh200Pollers_' ./internal/storage/postgres/
+=== RUN   TestAudit_Refresh200Pollers_FailingPass
+    audit_refresh_200_pollers_test.go:145: round 1 (failing pass): refresh attempts=1 claims=1 ageClaims=1
+    audit_refresh_200_pollers_test.go:145: round 2 (failing pass): refresh attempts=1 claims=1 ageClaims=1
+    audit_refresh_200_pollers_test.go:145: round 3 (failing pass): refresh attempts=1 claims=1 ageClaims=1
+    audit_refresh_200_pollers_test.go:159: db: attempts=3 jobsWithTwoAttempts=0 (want attempts=3)
+--- PASS: TestAudit_Refresh200Pollers_FailingPass (11.44s)
+=== RUN   TestAudit_Refresh200Pollers_WorkingPass
+    audit_refresh_200_pollers_test.go:170: working pass: refresh attempts=1 claims=1 ageClaims=0
+    audit_refresh_200_pollers_test.go:177: db: attempts=1 jobsWithTwoAttempts=0 (want attempts=1)
+--- PASS: TestAudit_Refresh200Pollers_WorkingPass (3.58s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	16.055s

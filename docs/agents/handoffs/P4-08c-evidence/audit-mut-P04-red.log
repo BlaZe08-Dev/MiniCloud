@@ -1,0 +1,5 @@
+    assignment_test.go:430: pass with w_1 locked: err=ERROR: canceling statement due to lock timeout (SQLSTATE 55P03) (pg code "55P03")
+--- FAIL: TestPostgresRepository_Assign_SkipsWorkerLockedByClaim (0.80s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.820s
+FAIL

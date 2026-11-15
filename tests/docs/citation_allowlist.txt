@@ -25,3 +25,12 @@ test|TestAudit_Point4a_CommitTerminalJob_WrongAttemptID_And_WrongToken|Named onl
 test|TestAudit_Point4b_ConcurrentCancels|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4c_CommitRacingCancel|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
 test|TestAudit_Point4d_RepeatedTerminalJobCommits_DiagnosticEventCount|Named only in the P4-4a audit record; lives on agent/gemini/P4-4a-review, not on main (same precedent as the P4-00 probe entries)
+
+# Named only in the P4-T1 audit record; scratch files and test patterns on audit branch
+path|tests/integration/probe_unguarded_new_test.go|Scratch probe file named in P4-T1 review record
+path|internal/storage/postgres/probe_unguarded_url_test.go|Scratch probe file named in P4-T1 review record
+test|TestAuditGuardProbe_TableDriven|Scratch probe test named in P4-T1 review record
+test|TestNewUnguardedOutage|Scratch probe test named in P4-T1 review record
+test|TestNewUnguardedURLConsumer|Scratch probe test named in P4-T1 review record
+test|TestNonExistentTest|Missing test pattern named in P4-T1 review record
+test|TestPostgresWiring|Broad test pattern named in P4-T1 review record

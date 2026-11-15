@@ -1,0 +1,11 @@
+$ go test -count=1 -v -run ^TestPoll_AgeArm_AfterOutage_RefreshesFirst$ ./internal/coordinator/
+=== RUN   TestPoll_AgeArm_AfterOutage_RefreshesFirst
+2026/10/31 15:24:46 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:24:46 INFO job submitted and queued job_id=job_1_e58eb183c306 task_type=echo state=QUEUED max_attempts=3
+2026/10/31 15:24:46 WARN assignment pass refresh failed error="injected assignment pass failure"
+2026/10/31 15:24:46 INFO worker registered worker_id=w_1 version=v1.0.0 slots=1 supported_tasks=[echo]
+2026/10/31 15:24:46 INFO job dispatched to worker job_id=job_1_e58eb183c306 attempt_id=att_1_3b6eff2ebdc4 attempt_no=1 worker_id=w_1 policy=round_robin fallback_reason=""
+--- PASS: TestPoll_AgeArm_AfterOutage_RefreshesFirst (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.004s
+EXIT=0

@@ -1,0 +1,71 @@
+package coordinator_test
+
+// P4-08d audit probe G. Copied to internal/coordinator/audit_errorlog_test.go only to run, then
+// deleted. The stale heartbeat ERROR line: rate over ten minutes of 100 ms rounds (6,001 rounds),
+// across a stale -> healthy -> stale flip inside one minute, and the exact attribute set.
+
+import (
+	"context"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+)
+
+func TestAudit_StaleErrorLog_RateAndContent(t *testing.T) {
+	const msg = "assignment pass heartbeat is stale"
+	logs := captureLogs(t)
+	clk := newMockClock(loopT0)
+	repo := newLoopRepo(clk)
+	repo.failing = true
+	s := coordinator.DefaultAssignmentSettings()
+	s.Interval = 100 * time.Millisecond
+	s.MinYield = time.Millisecond
+	svc := loopService(t, repo, clk, s)
+	loop := svc.NewAssignmentLoop()
+	ctx := context.Background()
+	rounds := 0
+	for i := 0; i <= 6000; i++ { // 600 s at 100 ms
+		loop.Round(ctx)
+		rounds++
+		clk.Advance(100 * time.Millisecond)
+	}
+	stale10m := logs.count(slog.LevelError, msg)
+
+	// Flip: healthy for 10 s (heartbeat fresh), then stale again 20 s after the last line.
+	repo.mu.Lock()
+	repo.failing = false
+	repo.mu.Unlock()
+	for i := 0; i < 100; i++ {
+		loop.Round(ctx)
+		clk.Advance(100 * time.Millisecond)
+	}
+	healthy := logs.count(slog.LevelError, msg) - stale10m
+	repo.mu.Lock()
+	repo.failing = true
+	repo.mu.Unlock()
+	for i := 0; i < 100; i++ {
+		loop.Round(ctx)
+		clk.Advance(100 * time.Millisecond)
+	}
+	afterFlip := logs.count(slog.LevelError, msg) - stale10m - healthy
+
+	logs.mu.Lock()
+	var keys []string
+	errorLines := 0
+	for _, r := range logs.records {
+		if r.Level != slog.LevelError {
+			continue
+		}
+		errorLines++
+		if len(keys) == 0 {
+			r.Attrs(func(a slog.Attr) bool { keys = append(keys, a.Key+"="+a.Value.String()); return true })
+			t.Logf("AUDIT first ERROR message: %q", r.Message)
+		}
+	}
+	logs.mu.Unlock()
+	t.Logf("AUDIT rounds=%d over 600 s stale: ERROR lines=%d (bound: at most 11 = one per started minute)", rounds, stale10m)
+	t.Logf("AUDIT healthy 10 s: ERROR lines=%d; stale again 10 s later (inside the minute): ERROR lines=%d", healthy, afterFlip)
+	t.Logf("AUDIT ERROR attrs: %v; all ERROR lines in the test: %d", keys, errorLines)
+}

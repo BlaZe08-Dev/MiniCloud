@@ -1,0 +1,49 @@
+$ git diff --stat origin/main...74df64d -- "*.go" ":!*_test.go"
+ internal/coordinator/assignment.go              |   8 +-
+ internal/storage/storagetest/assignment_wire.go | 230 ++++++++++++++++++++++++
+ internal/worker/client.go                       |  33 +++-
+ 3 files changed, 261 insertions(+), 10 deletions(-)
+
+$ git diff -U0 4b45f0d 74df64d -- internal/coordinator/ | grep "^@@\|^[+-][^+-]"
+@@ -26,0 +27,6 @@ type AssignmentSettings struct {
++// MinAcceptWindow is the floor of MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (ADR-0017 Section 3.1 and
++// Section 5.5). It must exceed the worker's maximum poll backoff plus a round trip (INV-17);
++// TestPollTiming_AcceptWindowExceedsBackoff pins the relation against the worker constants.
++// internal/config keeps its own copy of the rule (implementation note 22).
++const MinAcceptWindow = 5 * time.Second
+@@ -43 +49 @@ func (a AssignmentSettings) Validate() error {
+-	if a.AcceptWindow < 5*time.Second || a.AcceptWindow > 30*time.Second {
++	if a.AcceptWindow < MinAcceptWindow || a.AcceptWindow > 30*time.Second {
+
+# production files that hold the coordinator assignment loop, the sweeper and the grace logic: changed lines in each
+internal/coordinator/assignment_loop.go: 0 changed lines
+internal/coordinator/sweeper.go: 0 changed lines
+internal/coordinator/grace.go: (no such file)
+internal/coordinator/service.go: 0 changed lines
+internal/storage/inmemory_assignment.go: 0 changed lines
+internal/storage/postgres/assignment.go: 0 changed lines
+internal/storage/assignment.go: 0 changed lines
+
+$ git diff -U0 4b45f0d 74df64d -- internal/worker/client.go | grep "^@@"
+@@ -57,0 +58,10 @@ const (
+@@ -117,0 +128,7 @@ func (a *Agent) SetClock(c Clock) {
+@@ -162,2 +178,0 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -176 +191 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -179 +194 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -182 +197 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -184 +199 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -187 +202 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -189 +204 @@ func (a *Agent) Run(ctx context.Context) error {
+@@ -196 +211 @@ func (a *Agent) Run(ctx context.Context) error {
+
+# every non-test Go file that mentions GracePendingUntil, SetGracePeriods or a Sweep function: changed lines (4b45f0d..74df64d)
+internal/domain/sweep.go: 0
+internal/storage/inmemory.go: 0
+internal/storage/postgres/leases.go: 0
+internal/storage/postgres/repository.go: 0
+internal/storage/assignment.go: 0
+internal/coordinator/assignment.go: 7
+internal/coordinator/sweeper.go: 0
+internal/coordinator/assignment_loop.go: 0
+cmd/coordinator/main.go: 0
+(internal/coordinator/assignment.go: the 7 lines are the MinAcceptWindow constant, its comment and the Validate operand shown above)

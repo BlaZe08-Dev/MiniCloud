@@ -1,0 +1,7 @@
+$ go test -race -count=1 -v -timeout 600s -run ^TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin$ ./cmd/coordinator/
+--- PASS: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin (1.01s)
+    --- PASS: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/round_robin (0.01s)
+    --- PASS: TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin/fifo_pull (1.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	2.032s
+exit=0

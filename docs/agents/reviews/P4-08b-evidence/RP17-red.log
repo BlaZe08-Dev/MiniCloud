@@ -1,0 +1,8 @@
+$ go test -count=1 -v -run ^TestAudit_Probe_SetDispatchPolicyRejectsFallbackName$ ./internal/coordinator/
+=== RUN   TestAudit_Probe_SetDispatchPolicyRejectsFallbackName
+    audit_probe_coordinator_test.go:46: SetDispatchPolicy accepted "round_robin_fallback"
+--- FAIL: TestAudit_Probe_SetDispatchPolicyRejectsFallbackName (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	0.003s
+FAIL
+EXIT=1
