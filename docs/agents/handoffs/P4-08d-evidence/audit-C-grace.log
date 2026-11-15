@@ -1,0 +1,7 @@
+    audit_grace_test.go:98: mode=control            cycles=20 assignment_lapses=3 uncounted_lapse_events=0 heartbeat_stale=false fallback_claim_by_other_worker=true
+    audit_grace_test.go:98: mode=never-ticked       cycles=20 assignment_lapses=0 uncounted_lapse_events=20 heartbeat_stale=false fallback_claim_by_other_worker=false
+    audit_grace_test.go:98: mode=fail-always        cycles=20 assignment_lapses=0 uncounted_lapse_events=20 heartbeat_stale=false fallback_claim_by_other_worker=false
+    audit_grace_test.go:98: mode=first-ok-then-fail cycles=20 assignment_lapses=0 uncounted_lapse_events=20 heartbeat_stale=false fallback_claim_by_other_worker=false
+--- PASS: TestAudit_Grace_NeverLifts (0.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.029s

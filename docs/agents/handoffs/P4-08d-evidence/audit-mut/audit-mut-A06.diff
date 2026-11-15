@@ -1,0 +1,20 @@
+diff --git a/cmd/coordinator/main.go b/cmd/coordinator/main.go
+index 66c1e3a..5afe253 100644
+--- a/cmd/coordinator/main.go
++++ b/cmd/coordinator/main.go
+@@ -57,12 +57,12 @@ func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) e
+ 		return err
+ 	}
+ 	settings := assignmentSettings(cfg)
+-	if err := svc.SetAssignmentSettings(settings); err != nil {
+-		return fmt.Errorf("assignment settings: %w", err)
+-	}
+ 	if err := svc.SetDispatchPolicy(cfg.DispatchPolicy); err != nil {
+ 		return fmt.Errorf("dispatch policy: %w", err)
+ 	}
++	if err := svc.SetAssignmentSettings(settings); err != nil {
++		return fmt.Errorf("assignment settings: %w", err)
++	}
+ 	slog.Info("dispatch policy configured",
+ 		"policy", svc.DispatchPolicy(),
+ 		"assignment_accept_window", settings.AcceptWindow.String(),

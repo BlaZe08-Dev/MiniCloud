@@ -1,0 +1,20 @@
+== invalid policy (lottery): exit=1 lines=2
+   {"time":"2026-11-01T11:10:10.353743696+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+   {"time":"2026-11-01T11:10:10.353889901+05:30","level":"ERROR","msg":"configuration validation failed","err":"MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got \"lottery\")"}
+== invalid settings (MIN_YIELD 2s > INTERVAL 1s): exit=1 lines=2
+   {"time":"2026-11-01T11:10:10.364053019+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+   {"time":"2026-11-01T11:10:10.364184316+05:30","level":"ERROR","msg":"configuration validation failed","err":"MINICLOUD_ASSIGNMENT_MIN_YIELD must be between 1ms and 1s (got 2s)"}
+== invalid settings (A1: INTERVAL 6s > ACCEPT_WINDOW 5s): exit=1 lines=2
+   {"time":"2026-11-01T11:10:10.374734609+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+   {"time":"2026-11-01T11:10:10.374877091+05:30","level":"ERROR","msg":"configuration validation failed","err":"MINICLOUD_ASSIGNMENT_INTERVAL (6s) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (5s)"}
+== malformed setting (MAX_LAPSES=three): exit=1 lines=2
+   {"time":"2026-11-01T11:10:10.385292855+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+   {"time":"2026-11-01T11:10:10.385430454+05:30","level":"ERROR","msg":"configuration validation failed","err":"MINICLOUD_ASSIGNMENT_MAX_LAPSES must be an integer (got \"three\")"}
+== valid round_robin: first poll http=204; job job_1_6ae81ed16afc after 1.5 s with no further poll: "assigned_worker_id":"w_a"; exit after SIGTERM=0
+   log lines: 8
+   {"time":"2026-11-01T11:10:10.395633414+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+   'dispatch policy configured' lines: 1
+== default (policy unset): first poll http=204; job job_1_7c8421e76e03 after 1.5 s with no further poll: "assigned_worker_id":null; exit after SIGTERM=0
+   log lines: 8
+   {"time":"2026-11-01T11:10:12.032687459+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+   'dispatch policy configured' lines: 1

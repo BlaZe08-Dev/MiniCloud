@@ -1,0 +1,107 @@
+"""P4-08d audit mutation harness. Usage:
+  python3 -I audit_mut.py <worktree> <out-dir> <builder-mutants.py-dir>
+Re-runs 8 builder mutants (their exact old/new text and named test) and 6 new audit mutants
+(A01-A06, whole packages). Optional trailing ids run only those mutants. Each mutant: exactly one occurrence of the old text, apply, save the
+diff, run (red), git checkout, run again (green). One test process at a time."""
+import os, re, subprocess, sys
+
+wt, out, bdir = sys.argv[1], sys.argv[2], sys.argv[3]
+only = set(sys.argv[4:])  # optional mutant ids
+sys.path.insert(0, bdir)
+from mutants import MUTANTS  # the builder's table (mut_mutants.py.txt copied as mutants.py)
+
+url = ""
+for line in open(os.path.join(wt, ".env")):
+    if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+        url = line.split("=", 1)[1].strip()
+
+RERUN = ["D01", "D04", "D06", "D07", "D11", "D18", "D21", "D24"]
+CO = "internal/coordinator/"
+NEW = [
+ ("A01", "loop timer: Run ticks every hour instead of every interval",
+  CO + "assignment_loop.go", "ticker := time.NewTicker(interval)", "ticker := time.NewTicker(interval + time.Hour)",
+  ["./internal/coordinator/", "./cmd/coordinator/"]),
+ ("A02", "yield wait: the real yield (sleepContext) does not wait",
+  CO + "assignment_loop.go", "t := time.NewTimer(d)", "t := time.NewTimer(0 * d)",
+  ["./internal/coordinator/", "./cmd/coordinator/"]),
+ ("A03", "ERROR rate window: 50 s instead of one minute",
+  CO + "assignment_loop.go", "const StaleHeartbeatLogEvery = time.Minute", "const StaleHeartbeatLogEvery = 50 * time.Second",
+  ["./internal/coordinator/", "./cmd/coordinator/"]),
+ ("A04", "submit coalescing: trigger buffer of 64 instead of 1",
+  CO + "service.go", "assignKick:         make(chan struct{}, 1),", "assignKick:         make(chan struct{}, 64),",
+  ["./internal/coordinator/", "./cmd/coordinator/"]),
+ ("A05", "grace flag: a failed sweep tick no longer marks the grace pending",
+  CO + "sweeper.go",
+  "\t\tw.state.failedSince = true\n\t\tw.svc.publishPassGrace(domain.SweepGraceState{}, false)\n\t\treturn err\n\t}\n\t// The assignment pass",
+  "\t\tw.state.failedSince = true\n\t\treturn err\n\t}\n\t// The assignment pass",
+  ["./internal/coordinator/", "./cmd/coordinator/"]),
+ ("A06", "startup order: SetDispatchPolicy before SetAssignmentSettings",
+  "cmd/coordinator/main.go",
+  "\tsettings := assignmentSettings(cfg)\n\tif err := svc.SetAssignmentSettings(settings); err != nil {\n\t\treturn fmt.Errorf(\"assignment settings: %w\", err)\n\t}\n\tif err := svc.SetDispatchPolicy(cfg.DispatchPolicy); err != nil {\n\t\treturn fmt.Errorf(\"dispatch policy: %w\", err)\n\t}\n",
+  "\tsettings := assignmentSettings(cfg)\n\tif err := svc.SetDispatchPolicy(cfg.DispatchPolicy); err != nil {\n\t\treturn fmt.Errorf(\"dispatch policy: %w\", err)\n\t}\n\tif err := svc.SetAssignmentSettings(settings); err != nil {\n\t\treturn fmt.Errorf(\"assignment settings: %w\", err)\n\t}\n",
+  ["./cmd/coordinator/"]),
+]
+
+def gotest(pkgs, pattern, log, with_url):
+    env = dict(os.environ)
+    env.pop("MINICLOUD_TEST_DATABASE_URL", None)
+    if with_url:
+        env["MINICLOUD_TEST_DATABASE_URL"] = url
+    cmd = ["go", "test", "-race", "-count=1", "-v", "-timeout", "600s", "-run", pattern] + pkgs
+    p = subprocess.run(cmd, cwd=wt, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    lines = [l for l in p.stdout.splitlines() if not l.startswith("{\"time\"") and "level=" not in l]
+    open(log, "w").write("$ %s%s\n%s\nexit=%d\n" % ("MINICLOUD_TEST_DATABASE_URL=<.env> " if with_url else "", " ".join(cmd), "\n".join(lines), p.returncode))
+    fails = sorted(set(re.findall(r"^--- FAIL: (\S+)", p.stdout, re.M)))
+    passes = len(re.findall(r"^--- PASS", p.stdout, re.M))
+    build = "build failed" in p.stdout or "[build failed]" in p.stdout
+    return p.returncode, fails, passes, build
+
+def mutate(mid, f, old, new):
+    path = os.path.join(wt, f)
+    src = open(path).read()
+    n = src.count(old)
+    if n != 1:
+        return "SITE COUNT %d" % n
+    open(path, "w").write(src.replace(old, new))
+    diff = subprocess.run(["git", "diff", "--", f], cwd=wt, stdout=subprocess.PIPE, text=True).stdout
+    open(os.path.join(out, "audit-mut-%s.diff" % mid), "w").write(diff)
+    return None
+
+def restore(f):
+    subprocess.run(["git", "checkout", "--", f], cwd=wt, check=True)
+
+rows = []
+table = {m[0]: m for m in MUTANTS}
+for mid in RERUN:
+    if only and mid not in only:
+        continue
+    _, what, f, old, new, pkg, test = table[mid]
+    err = mutate(mid, f, old, new)
+    if err:
+        rows.append("%s\t%s" % (mid, err)); continue
+    pg = "postgres" in pkg
+    rc, fails, _, build = gotest([pkg], "^%s$" % test, os.path.join(out, "audit-mut-%s-red.log" % mid), pg)
+    restore(f)
+    rc2, fails2, passes2, _ = gotest([pkg], "^%s$" % test, os.path.join(out, "audit-mut-%s-green.log" % mid), pg)
+    red = "BUILD-FAIL" if build else ("FAIL" if test in fails else "PASS")
+    green = "PASS" if rc2 == 0 and passes2 >= 1 else "FAIL"
+    v = "KILLED" if red == "FAIL" and green == "PASS" else ("SURVIVED" if red == "PASS" else "CHECK")
+    rows.append("\t".join([mid, what, test, pkg, red, green, v]))
+    print(rows[-1], flush=True)
+
+for mid, what, f, old, new, pkgs in NEW:
+    if only and mid not in only:
+        continue
+    err = mutate(mid, f, old, new)
+    if err:
+        rows.append("%s\t%s" % (mid, err)); print(rows[-1], flush=True); continue
+    rc, fails, passes, build = gotest(pkgs, ".", os.path.join(out, "audit-mut-%s-red.log" % mid), False)
+    restore(f)
+    rc2, fails2, passes2, _ = gotest(pkgs, ".", os.path.join(out, "audit-mut-%s-green.log" % mid), False)
+    red = "BUILD-FAIL" if build else ("FAIL(%s)" % ",".join(fails) if fails else "PASS(%d)" % passes)
+    green = "PASS(%d)" % passes2 if rc2 == 0 else "FAIL(%s)" % ",".join(fails2)
+    v = "KILLED" if fails and rc2 == 0 else ("SURVIVED" if rc == 0 else "CHECK")
+    rows.append("\t".join([mid, what, " ".join(pkgs), red, green, v]))
+    print(rows[-1], flush=True)
+
+open(os.path.join(out, "audit-mut-results.tsv"), "a").write("\n".join(rows) + "\n")

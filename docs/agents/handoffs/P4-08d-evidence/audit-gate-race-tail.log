@@ -1,0 +1,3 @@
+--- PASS: TestMigrateCLI_ResolveDatabaseURL_MissingURL (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.023s

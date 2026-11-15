@@ -1,0 +1,5 @@
+$ MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v -timeout 600s -run ^TestConformance_AssignPass_GraceRevokesWithoutCounting$ ./internal/storage/postgres/
+--- PASS: TestConformance_AssignPass_GraceRevokesWithoutCounting (0.56s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.582s
+exit=0

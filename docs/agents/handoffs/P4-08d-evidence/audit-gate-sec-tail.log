@@ -1,0 +1,3 @@
+    --- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/postgres (0.67s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	49.874s

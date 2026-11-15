@@ -1,0 +1,15 @@
+D01	INV-9 loop: memory pass ignores the grace input (every lapse counted)	TestCoordinator_AssignmentSweep_GraceDoesNotCountLapse	./internal/coordinator/	FAIL	PASS	KILLED
+D04	INV-9 PostgreSQL: pass ignores the grace input	TestConformance_AssignPass_GraceRevokesWithoutCounting	./internal/storage/postgres/	FAIL	PASS	KILLED
+D06	INV-20: no gap between repeated passes (yield of zero)	TestCoordinator_AssignmentRepeat_YieldsToPolls	./internal/coordinator/	FAIL	PASS	KILLED
+D07	INV-20: s.mu held across the yield	TestCoordinator_AssignmentRepeat_YieldsToPolls	./internal/coordinator/	FAIL	PASS	KILLED
+D11	A2: stale heartbeat ERROR log without its rate limit	TestCoordinator_AssignmentLoop_StaleHeartbeatErrorRateLimited	./internal/coordinator/	FAIL	PASS	KILLED
+D18	Binary starts the assignment loop under fifo_pull too	TestMain_BackgroundLoops_AssignmentLoopOnlyForRoundRobin	./cmd/coordinator/	FAIL	PASS	KILLED
+D21	Note 16: grace never pending (passes before the first sweeper tick count lapses)	TestCoordinator_AssignmentLoop_GracePendingUntilFirstSweep	./internal/coordinator/	FAIL	PASS	KILLED
+D24	Submit trigger removed	TestCoordinator_AssignmentLoop_SubmitTriggersPass	./internal/coordinator/	FAIL	PASS	KILLED
+A01	loop timer: Run ticks every hour instead of every interval	./internal/coordinator/ ./cmd/coordinator/	BUILD-FAIL	PASS(72)	CHECK
+A02	yield wait: the real yield (sleepContext) does not wait	./internal/coordinator/ ./cmd/coordinator/	PASS(72)	PASS(72)	SURVIVED
+A03	ERROR rate window: 50 s instead of one minute	./internal/coordinator/ ./cmd/coordinator/	PASS(72)	PASS(72)	SURVIVED
+A04	submit coalescing: trigger buffer of 64 instead of 1	./internal/coordinator/ ./cmd/coordinator/	PASS(72)	PASS(72)	SURVIVED
+A05	grace flag: a failed sweep tick no longer marks the grace pending	./internal/coordinator/ ./cmd/coordinator/	PASS(72)	PASS(72)	SURVIVED
+A06	startup order: SetDispatchPolicy before SetAssignmentSettings	./cmd/coordinator/	FAIL(TestMain_ConfigureService_FailsOnInvalidAssignmentSettings)	PASS(11)	KILLED
+A01	loop timer: Run ticks every hour instead of every interval	./internal/coordinator/ ./cmd/coordinator/	FAIL(TestCoordinator_AssignmentLoop_RevokesWithinOneInterval_EndToEnd)	PASS(72)	KILLED

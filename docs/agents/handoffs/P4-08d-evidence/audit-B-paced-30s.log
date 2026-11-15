@@ -1,0 +1,12 @@
+    audit_loop_race_test.go:306: AUDIT run=30s submitters=2 workers=8 submit_pause_ms=100
+    audit_loop_race_test.go:307: AUDIT iterations: submits=560 submit_errors=0 polls=1475 claims=558 commits=558 other_errors=0 sweeper_ticks=152 sweeper_errors=0
+    audit_loop_race_test.go:309: AUDIT passes: total=511 (17.0/s) skipped=0 failed=0 repeat_rule_true=0 reserved=560
+    audit_loop_race_test.go:311: AUDIT pass duration: p50=14.350749ms p99=38.994335ms max=335.68219ms
+    audit_loop_race_test.go:312: AUDIT poll latency: n=1475 p50=22.246143ms p90=56.643496ms p99=99.015149ms max=165.397494ms
+    audit_loop_race_test.go:313: AUDIT polls that waited behind >=2 complete passes: 0 of 1475 (max passes inside one poll: 1)
+    audit_loop_race_test.go:314: AUDIT logs: error=0 warn=0 stale_heartbeat_error=0 pass_failed_warn=0
+    audit_loop_race_test.go:315: AUDIT deadlocks: 40P01 in errors=0, pg_stat_database.deadlocks delta=0
+    audit_loop_race_test.go:316: AUDIT DB load (whole test database, 30s): xact_commit=9764 (325/s) xact_rollback=903 tup_inserted=4446 (148/s) tup_updated=3697 (123/s) tup_fetched=212237 (7075/s)
+--- PASS: TestAudit_LoopRace_FloodWithPolls (33.75s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	34.791s
