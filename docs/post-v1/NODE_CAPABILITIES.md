@@ -113,7 +113,7 @@ Use versioned capability documents. Unknown fields should be safely ignored only
 
 ## Slot semantics
 
-A slot represents a real concurrently supervised execution capacity, not merely a configured number. Do not advertise N slots while the agent serially executes one task. The V1 worker does exactly that today (`available_slots` equals `TotalSlots` while one task runs at a time; confirmed by code reading in PV-01); slice V2-0 fixes it first. Introduce concurrency only with explicit per-tool and per-node limits, resource accounting, cancellation behavior, and race tests.
+A slot represents a real concurrently supervised execution capacity, not merely a configured number. Do not advertise N slots while the agent serially executes one task. The V1.0.0 worker did exactly that (`available_slots` equalled `TotalSlots` while one task ran at a time; confirmed by code reading in PV-01). Slice V2-0 (ADR-0019) fixes it: the worker runs up to `TotalSlots` attempts concurrently and reports `TotalSlots` minus the running attempts. Introduce concurrency only with explicit per-tool and per-node limits, resource accounting, cancellation behavior, and race tests.
 
 ## Platform support
 

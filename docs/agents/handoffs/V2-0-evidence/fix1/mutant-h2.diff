@@ -1,0 +1,20 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..f099560 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -12,6 +12,7 @@ import (
+ 	"math/rand"
+ 	"net/http"
+ 	"net/url"
++	"runtime"
+ 	"sync"
+ 	"sync/atomic"
+ 	"time"
+@@ -251,6 +252,7 @@ func (a *Agent) heartbeatTick(ctx context.Context) {
+ 	defer func() {
+ 		if p := recover(); p != nil {
+ 			logAgentPanic("heartbeat", nil, p)
++			runtime.Goexit() // MUTANT h2: recovered, but the heartbeat loop stops
+ 		}
+ 	}()
+ 	if err := a.sendHeartbeat(ctx); err != nil {

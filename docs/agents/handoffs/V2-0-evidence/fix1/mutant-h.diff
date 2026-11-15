@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..e3d4f8a 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -249,7 +249,7 @@ func (a *Agent) Run(ctx context.Context) error {
+ // would end every running attempt.
+ func (a *Agent) heartbeatTick(ctx context.Context) {
+ 	defer func() {
+-		if p := recover(); p != nil {
++		if p := any(nil); p != nil { // MUTANT h: heartbeat recover removed
+ 			logAgentPanic("heartbeat", nil, p)
+ 		}
+ 	}()

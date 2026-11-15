@@ -1,0 +1,15 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..e3b3b3a 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -810,9 +810,7 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
+ 		// can no longer be enforced, so delivery is treated as expired now.
+ 		defer func() {
+ 			if p := recover(); p != nil {
+-				logAgentPanic("delivery_budget", asg, p)
+-				expired.Store(true)
+-				cancel()
++				logAgentPanic("delivery_budget", asg, p) // MUTANT g2: recovered, delivery not expired
+ 			}
+ 		}()
+ 		select {

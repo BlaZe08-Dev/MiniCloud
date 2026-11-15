@@ -1,0 +1,205 @@
+=== mutant none: 
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant none: 0 tests fail
+=== mutant a:  1 file changed, 1 insertion(+), 1 deletion(-)
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:415: waiting for poll loop to block on a full pool: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:462: waiting for an attempt to release its slot: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:485: waiting for the poll loop to block on a full pool: poll with 2 assignments outstanding and 2 slots
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:536: waiting for the attempt to start: poll with 1 assignments outstanding and 1 slots
+FAIL TestConcurrency_ShutdownDrainsWithoutLeaks :: concurrency_test.go:591: waiting for a full pool: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_ShutdownDrainIsBounded :: concurrency_test.go:622: waiting for the attempt to start: poll with 1 assignments outstanding and 1 slots
+FAIL TestConcurrency_ResultsNeverCrossBetweenAttempts :: concurrency_test.go:676: waiting for a full pool: poll with 2 assignments outstanding and 2 slots
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:794: waiting for the poll loop to wait for the only slot: poll with 1 assignments outstanding and 1 slots
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+FAIL TestConcurrency_DeliveryBudgetPanicExpiresDelivery :: concurrency_test.go:1049: timed out waiting for a full pool
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: concurrency_test.go:1106: waiting for a full pool: poll with 2 assignments outstanding and 2 slots
+=== mutant a: 10 tests fail
+=== mutant b:  1 file changed, 2 insertions(+)
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:422: waiting for poll loop to block again: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:464: heartbeat after 1 releases = 2, want 1
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:496: Run did not return after cancel
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:548: waiting for the slot release: running = -1 after a release, outside [0, 1]
+FAIL TestConcurrency_ShutdownDrainsWithoutLeaks :: concurrency_test.go:592: Run did not return after cancel
+FAIL TestConcurrency_ShutdownDrainIsBounded :: concurrency_test.go:661: timed out waiting for the abandoned attempt to finish
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+FAIL TestConcurrency_LostLeaseIsolatedToOneAttempt :: concurrency_test.go:730: running = 0, want 1 (j2)
+FAIL TestConcurrency_ReRegisterReportsLiveSlots :: concurrency_test.go:780: Run did not return after cancel
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:791: waiting for j2 to start: running = -1 after a release, outside [0, 1]
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+FAIL TestConcurrency_RenewalPanicTreatsLeaseAsLost :: concurrency_test.go:1003: running = 0 after j2 ended, want 1 (j1)
+FAIL TestConcurrency_DeliveryBudgetPanicExpiresDelivery :: concurrency_test.go:1053: running = 0 after j2 ended, want 1 (j1)
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: concurrency_test.go:1143: Run did not return after cancel
+=== mutant b: 12 tests fail
+=== mutant c:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:457: heartbeat with 1 running = 3, want 2
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+FAIL TestConcurrency_ReRegisterReportsLiveSlots :: concurrency_test.go:774: register bodies reported [3 3], want [3 1]
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:796: heartbeat while j1 runs = 1, want 0
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: concurrency_test.go:1123: heartbeats after the panic reported [2 2], want 0 free slots with both running
+=== mutant c: 4 tests fail
+=== mutant d:  1 file changed, 9 insertions(+), 3 deletions(-)
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:421: waiting for the next attempt to start: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:462: waiting for an attempt to release its slot: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:494: waiting for a result: poll with 2 assignments outstanding and 2 slots
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:548: waiting for the slot release: poll with 1 assignments outstanding and 1 slots
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+FAIL TestConcurrency_ResultsNeverCrossBetweenAttempts :: concurrency_test.go:690: waiting for j2's result: poll with 2 assignments outstanding and 2 slots
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:799: waiting for j1's result: poll with 1 assignments outstanding and 1 slots
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: concurrency_test.go:1141: waiting for a result: poll with 2 assignments outstanding and 2 slots
+=== mutant d: 7 tests fail
+=== mutant e:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+FAIL TestConcurrency_RunWaitsForHeartbeatGoroutine :: concurrency_test.go:975: Run returned while the heartbeat goroutine was still running (heartbeat WaitGroup not waited)
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant e: 1 tests fail
+=== mutant f:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+FAIL TestConcurrency_RenewalPanicTreatsLeaseAsLost :: panic: injected fault secret-payload tok-j2
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant f: 1 tests fail
+=== mutant f2:  1 file changed, 1 insertion(+), 3 deletions(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+FAIL TestConcurrency_RenewalPanicTreatsLeaseAsLost :: concurrency_test.go:1001: timed out waiting for j2's slot release after its renewal goroutine panicked
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant f2: 1 tests fail
+=== mutant g:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+FAIL TestConcurrency_DeliveryBudgetPanicExpiresDelivery :: panic: injected fault secret-payload tok-j2
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant g: 1 tests fail
+=== mutant g2:  1 file changed, 1 insertion(+), 3 deletions(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+FAIL TestConcurrency_DeliveryBudgetPanicExpiresDelivery :: concurrency_test.go:1051: timed out waiting for j2's slot release after its delivery-budget goroutine panicked
+PASS TestConcurrency_HeartbeatPanicIsRecovered
+=== mutant g2: 1 tests fail
+=== mutant h:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: panic: injected heartbeat fault secret-payload tok-j1
+=== mutant h: 1 tests fail
+=== mutant h2:  1 file changed, 2 insertions(+)
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+PASS TestConcurrency_RunWaitsForHeartbeatGoroutine
+PASS TestConcurrency_RenewalPanicTreatsLeaseAsLost
+PASS TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+FAIL TestConcurrency_HeartbeatPanicIsRecovered :: concurrency_test.go:1129: heartbeat loop stopped after the panic: 0 heartbeats since
+=== mutant h2: 1 tests fail
+client.go restored

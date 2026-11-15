@@ -1,0 +1,40 @@
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -280,21 +280,24 @@
+ // unwinding), so the lease expires and the coordinator retries the job. Only the IDs and the
+ // panic's type are logged, never its value, the lease token or the payload.
+ func (a *Agent) runAttempt(ctx context.Context, sem chan struct{}, attempts *sync.WaitGroup, asg *coordinator.WorkAssignment) {
++	var relOnce sync.Once
++	release := func() { relOnce.Do(func() { a.running.Add(-1); <-sem }) } // MUTANT d
+ 	defer func() {
+ 		if p := recover(); p != nil {
+ 			slog.Error("attempt panicked; no result reported, the lease will expire and the job be retried",
+ 				"job_id", asg.JobID, "attempt_id", asg.AttemptID, "panic_type", fmt.Sprintf("%T", p))
+ 		}
+-		a.running.Add(-1)
+-		<-sem
++		release()
+ 		if a.onAttemptDone != nil {
+ 			a.onAttemptDone()
+ 		}
+ 		attempts.Done()
+ 	}()
+-	a.ExecuteAndReport(ctx, asg)
++	a.ExecuteAndReport(context.WithValue(ctx, mutantEarlyKey{}, release), asg)
+ }
+ 
++type mutantEarlyKey struct{} // MUTANT d
++
+ // drain waits for the running attempts after shutdown (ADR-0019 Section 2.5). They were cancelled
+ // through ctx, the existing path. The wait is bounded by ResultDeliveryBudget on the agent clock;
+ // with nothing running no timer is created.
+@@ -759,6 +762,9 @@
+ 	}
+ 	// A failed outcome carries its class; a success carries none (ADR-0015).
+ 	errorClass := executor.Classify(err)
++	if f, ok := ctx.Value(mutantEarlyKey{}).(func()); ok { // MUTANT d: slot released before delivery
++		f()
++	}
+ 	// deliverResult drops the result without any request when the attempt was declared lost.
+ 	a.deliverResult(ctx, run, assignment, exitCode, output, errSummary, errorClass)
+ }

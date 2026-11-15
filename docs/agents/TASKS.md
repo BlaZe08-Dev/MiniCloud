@@ -23,8 +23,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
-| V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | Stage B built, awaiting audit (ADR-0019 Accepted) |
-| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1 |
+| V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
+| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
 | P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | merged in PR #51 (status corrected by PV-01) |
 | P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
@@ -56,13 +56,14 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V2-0 — Worker concurrency semantics (placeholder; full spec to be written by the orchestrator)
 - Goal: decide and document slot semantics (real concurrent execution with supervision, or advertise what is actually executed), ADR first, then implementation. The worker today runs one task at a time while registration and heartbeat report `available_slots` equal to `TotalSlots` (confirmed by code reading, `internal/worker/client.go` func `Run` and func `register`; spec section 2). Exit: advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible.
-- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/V2-0`. Status: Stage B built, awaiting audit. ADR-0019 (`docs/adr/0019-worker-concurrency-semantics.md`) approved by the orchestrator with answers Q1 to Q4 and set to Accepted at the end of Stage B.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/V2-0`. Status: audited, fix round 1 (audit `docs/agents/reviews/V2-0.md` on `agent/claude/V2-0-audit`, APPROVE WITH FIXES; findings A-1 to A-4 fixed on this branch). ADR-0019 (`docs/adr/0019-worker-concurrency-semantics.md`) approved by the orchestrator with answers Q1 to Q4 and set to Accepted at the end of Stage B.
 - Owned files (Stage B): `internal/worker/*`, `internal/config/config.go` (slots upper bound), docs (`README.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `docs/post-v1/CURRENT_BASELINE.md`, `docs/roadmap.md`, `docs/adr/0019-worker-concurrency-semantics.md`, `docs/adr/0017-assignment-round-robin.md` (Q5 note only), this board, `docs/agents/handoffs/V2-0.md`, `docs/agents/handoffs/V2-0-evidence/**`, `reports/claude/V2-0*.md`). A test under `tests/` only if it truly assumes a serial worker, with evidence first.
 - Out of scope: coordinator, storage, migrations, API routes, `go.mod`/`go.sum`, `tests/docs/citation_allowlist.txt`, running `make test-outage`.
 
 ### V2-0b — Round-robin uses every free slot (placeholder; full spec to be written by the orchestrator)
 - Goal: remove `domain.EffectiveWorkerSlots` so the ADR-0017 assignment pass reserves work up to `total_slots - running - reserved` per worker (ADR-0017 Section 2.4 and Q5, ADR-0019 Section 2.2 and Q1); amend ADR-0017; coordinator, storage (in-memory and PostgreSQL) and tests. Until it lands, parallelism under `round_robin` stays one job per worker.
 - Builder: Claude Code. Auditor: Opus (independent session). Status: planned, not started; after V2-0, before V2-1.
+- Also measure the `round_robin` assignment-pass overhead: in the V2-0 audit (O-1) 8 `sleep` jobs of 5 s on one worker took 46.60 s under `round_robin` against 40.41 s under serial `fifo_pull` with one slot (about 6 s slower, attributed to the assignment pass interval, inferred).
 
 ### V1.0.x maintenance candidates added by V2-0 (not started)
 - O1 (ADR-0019 Section 7, inferred, not tested): `coordinator.WorkAssignment.Payload` is a `json.RawMessage` that keeps the HTML-escaped bytes the coordinator sends, so a legal payload with many `<`, `>` or `&` characters may reach the worker longer than 64 KiB and be rejected by `executor.Registry.Execute` before decoding. Needs a reproduction test first (break before fix).
