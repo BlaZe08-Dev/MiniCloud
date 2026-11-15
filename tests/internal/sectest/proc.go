@@ -156,7 +156,10 @@ func (p *Proc) Alive() bool {
 	}
 }
 
-// CoordinatorEnv returns the environment of a PostgreSQL-backed coordinator on addr.
+// CoordinatorEnv returns the environment of a PostgreSQL-backed coordinator on addr. It states the
+// dispatch policy explicitly: the real-binary tests were written against fifo_pull (a poll claims
+// at once), and the coordinator default became round_robin in P4-17 (ADR-0017 Q1), under which the
+// first poll can return 204 until a pass reserves the job.
 func CoordinatorEnv(addr, dbURL string, lease, startupGrace time.Duration) []string {
 	return []string{
 		"MINICLOUD_HTTP_ADDR=" + addr,
@@ -170,6 +173,7 @@ func CoordinatorEnv(addr, dbURL string, lease, startupGrace time.Duration) []str
 		"MINICLOUD_OUTAGE_GRACE_WINDOW=" + lease.String(),
 		"MINICLOUD_SWEEPER_INTERVAL=500ms",
 		"MINICLOUD_DEFAULT_MAX_ATTEMPTS=5",
+		"MINICLOUD_DISPATCH_POLICY=fifo_pull",
 	}
 }
 

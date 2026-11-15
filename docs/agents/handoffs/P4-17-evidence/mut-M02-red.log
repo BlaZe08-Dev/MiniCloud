@@ -1,0 +1,46 @@
+=== RUN   TestLoadCoordinatorConfig_AssignmentDefaults
+--- PASS: TestLoadCoordinatorConfig_AssignmentDefaults (0.00s)
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/unset
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/set_but_empty
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_round_robin
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_fifo_pull
+    assignment_config_test.go:150: policy = &{127.0.0.1:8080 2s 10s 5s 3 1m0s info memory  20 2 5s 30s 5s 30s 30s round_robin 5s 1s 3 30s 50 10ms} err = <nil>, want "fifo_pull"
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_FIFO_PULL
+    assignment_config_test.go:150: policy = &{127.0.0.1:8080 2s 10s 5s 3 1m0s info memory  20 2 5s 30s 5s 30s 30s round_robin 5s 1s 3 30s 50 10ms} err = <nil>, want "fifo_pull"
+=== RUN   TestLoadCoordinatorConfig_DispatchPolicySelection/invalid_value_fails_startup
+--- FAIL: TestLoadCoordinatorConfig_DispatchPolicySelection (0.01s)
+    --- PASS: TestLoadCoordinatorConfig_DispatchPolicySelection/unset (0.00s)
+    --- PASS: TestLoadCoordinatorConfig_DispatchPolicySelection/set_but_empty (0.00s)
+    --- PASS: TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_round_robin (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_fifo_pull (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_DispatchPolicySelection/explicit_FIFO_PULL (0.00s)
+    --- PASS: TestLoadCoordinatorConfig_DispatchPolicySelection/invalid_value_fails_startup (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.030s
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd/unset
+2026/11/15 10:48:13 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+2026/11/15 10:48:13 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/11/15 10:48:13 INFO job submitted and queued job_id=job_1_dfe8654096c4 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd/empty
+2026/11/15 10:48:13 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+2026/11/15 10:48:13 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/11/15 10:48:13 INFO job submitted and queued job_id=job_2_a5eae6f9fc0b task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd/explicit_round_robin
+2026/11/15 10:48:13 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+2026/11/15 10:48:13 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[echo]
+2026/11/15 10:48:13 INFO job submitted and queued job_id=job_3_0fc7a8cb1559 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd/explicit_fifo_pull
+2026/11/15 10:48:13 INFO dispatch policy configured policy=round_robin assignment_accept_window=5s assignment_interval=100ms assignment_max_lapses=3 assignment_fallback_age=30s assignment_batch_limit=50 assignment_min_yield=10ms
+    main_test.go:554: effective policy = "round_robin", want "fifo_pull"
+=== RUN   TestMain_DispatchPolicyFromEnv_EndToEnd/invalid
+--- FAIL: TestMain_DispatchPolicyFromEnv_EndToEnd (0.02s)
+    --- PASS: TestMain_DispatchPolicyFromEnv_EndToEnd/unset (0.01s)
+    --- PASS: TestMain_DispatchPolicyFromEnv_EndToEnd/empty (0.01s)
+    --- PASS: TestMain_DispatchPolicyFromEnv_EndToEnd/explicit_round_robin (0.01s)
+    --- FAIL: TestMain_DispatchPolicyFromEnv_EndToEnd/explicit_fifo_pull (0.00s)
+    --- PASS: TestMain_DispatchPolicyFromEnv_EndToEnd/invalid (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	0.044s
+FAIL

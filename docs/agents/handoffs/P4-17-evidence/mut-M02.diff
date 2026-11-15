@@ -1,0 +1,13 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index b0de213..e55d26c 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -259,7 +259,7 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
+ // unset or empty (ADR-0017 Q1), otherwise the lower-cased value, which validateAssignment checks.
+ func dispatchPolicyFromEnv() string {
+ 	v := strings.ToLower(os.Getenv("MINICLOUD_DISPATCH_POLICY"))
+-	if v == "" {
++	if v == "" || v == "fifo_pull" {
+ 		return "round_robin"
+ 	}
+ 	return v
