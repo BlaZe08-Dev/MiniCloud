@@ -18,6 +18,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/logsafe"
 	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres"
@@ -139,7 +140,7 @@ func main() {
 
 		poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 		if err != nil {
-			slog.Error("failed to parse database configuration", "err", err)
+			slog.Error("failed to parse database configuration", logsafe.Err(err))
 			os.Exit(1)
 		}
 		poolCfg.MaxConns = int32(cfg.DBMaxConns)
@@ -155,12 +156,12 @@ func main() {
 
 		pool, err = pgxpool.NewWithConfig(bootCtx, poolCfg)
 		if err != nil {
-			slog.Error("failed to connect to postgres pool", "err", err)
+			slog.Error("failed to connect to postgres pool", logsafe.Err(err))
 			os.Exit(1)
 		}
 
 		if err := pool.Ping(bootCtx); err != nil {
-			slog.Error("failed to ping postgres database", "err", err)
+			slog.Error("failed to ping postgres database", logsafe.Err(err))
 			os.Exit(1)
 		}
 
@@ -174,7 +175,7 @@ func main() {
 
 		currentVer, err := postgres.CurrentSchemaVersion(bootCtx, pool)
 		if err != nil {
-			slog.Error("failed to query database schema version", "err", err)
+			slog.Error("failed to query database schema version", logsafe.Err(err))
 			os.Exit(1)
 		}
 		if currentVer < requiredVer {

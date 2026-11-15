@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/logsafe"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 )
 
@@ -242,7 +243,7 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
 	s.refreshInFlight = false
 	s.refreshLastFailed = err != nil
 	if err != nil {
-		slog.Warn("assignment pass refresh failed", "error", err)
+		slog.Warn("assignment pass refresh failed", logsafe.Err(err))
 	}
 	return err != nil
 }

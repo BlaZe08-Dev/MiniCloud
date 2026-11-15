@@ -1,0 +1,6 @@
+=== RUN   TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail
+--- PASS: TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail (4.95s)
+=== RUN   TestFault_CoordinatorLogLeakScanner_PositiveControl
+--- PASS: TestFault_CoordinatorLogLeakScanner_PositiveControl (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	4.972s

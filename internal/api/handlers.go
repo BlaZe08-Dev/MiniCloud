@@ -9,29 +9,14 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/logsafe"
 	"github.com/jackc/pgx/v5/pgconn"
 )
-
-var (
-	uriPasswordRegex   = regexp.MustCompile(`://([^:]+):([^@]+)@`)
-	paramPasswordRegex = regexp.MustCompile(`(?i)(password|passwd|pwd)\s*=\s*[^\s]+`)
-	connStringRegex    = regexp.MustCompile(`postgres(ql)?://[^\s'"]+`)
-	hostPortRegex      = regexp.MustCompile(`\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b|localhost(:\d+)?|\b(host|port)=[^\s]+`)
-)
-
-func sanitizeError(msg string) string {
-	msg = uriPasswordRegex.ReplaceAllString(msg, `://$1:***@`)
-	msg = paramPasswordRegex.ReplaceAllString(msg, `$1=***`)
-	msg = connStringRegex.ReplaceAllString(msg, `[REDACTED_CONN_STRING]`)
-	msg = hostPortRegex.ReplaceAllString(msg, `[REDACTED_HOST_PORT]`)
-	return msg
-}
 
 func isConnectionOrTimeoutError(err error) bool {
 	if err == nil {
@@ -111,7 +96,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 
 func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 	if isConnectionOrTimeoutError(err) {
-		slog.Error("database outage or connection failure", "err", sanitizeError(err.Error()))
+		slog.Error("database outage or connection failure", logsafe.Err(err))
 		return http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable"
 	}
 
@@ -155,7 +140,7 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 		if errors.As(err, &invErr) {
 			return http.StatusBadRequest, "INVALID_STATE_TRANSITION", invErr.Error()
 		}
-		slog.Error("internal server error", "err", sanitizeError(err.Error()))
+		slog.Error("internal server error", logsafe.Err(err))
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
 	}
 }
@@ -490,7 +475,7 @@ func (h *Handler) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleReadyz(w http.ResponseWriter, r *http.Request) {
 	if err := h.coord.Ping(r.Context()); err != nil {
-		slog.Error("readiness probe failed", "err", sanitizeError(err.Error()))
+		slog.Error("readiness probe failed", logsafe.Err(err))
 		writeError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable")
 		return
 	}
