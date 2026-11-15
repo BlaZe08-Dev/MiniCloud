@@ -283,13 +283,24 @@ type ccRig struct {
 
 func newCCRig(t *testing.T, total int, fake bool, asgs ...coordinator.WorkAssignment) *ccRig {
 	t.Helper()
+	return newCCRigWith(t, total, fake, time.Hour, nil, asgs...)
+}
+
+// newCCRigWith is newCCRig with a heartbeat interval and an optional handler in front of the fake
+// coordinator.
+func newCCRigWith(t *testing.T, total int, fake bool, hb time.Duration, wrap func(http.Handler) http.Handler, asgs ...coordinator.WorkAssignment) *ccRig {
+	t.Helper()
 	r := &ccRig{t: t, coord: newCCCoord(t, total, asgs...), probe: newProbe(),
 		slotWait: make(chan struct{}, 1), done: make(chan struct{}, 64), slotErrs: make(chan string, 64)}
-	r.ts = httptest.NewServer(r.coord)
+	var h http.Handler = r.coord
+	if wrap != nil {
+		h = wrap(h)
+	}
+	r.ts = httptest.NewServer(h)
 	t.Cleanup(r.ts.Close)
 	reg := executor.NewRegistry()
 	reg.Register(r.probe)
-	r.agent = worker.NewAgent(&config.WorkerConfig{WorkerID: "w-cc", CoordinatorURL: r.ts.URL, HeartbeatInterval: time.Hour, TotalSlots: total}, reg)
+	r.agent = worker.NewAgent(&config.WorkerConfig{WorkerID: "w-cc", CoordinatorURL: r.ts.URL, HeartbeatInterval: hb, TotalSlots: total}, reg)
 	if fake {
 		r.clk = workertest.NewFakeClock(time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC))
 		r.agent.SetClock(r.clk)
@@ -842,4 +853,294 @@ func TestLoadWorkerConfig_SlotsUpperBound(t *testing.T) {
 			}
 		})
 	}
+}
+
+// hookHandler records every log line as text and then calls hook with the line's message, on the
+// logging goroutine. The hook may block (to hold that goroutine) or panic (to inject a fault).
+type hookHandler struct {
+	inner slog.Handler
+	hook  func(msg string)
+}
+
+func (h *hookHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *hookHandler) WithAttrs(a []slog.Attr) slog.Handler {
+	return &hookHandler{inner: h.inner.WithAttrs(a), hook: h.hook}
+}
+func (h *hookHandler) WithGroup(g string) slog.Handler {
+	return &hookHandler{inner: h.inner.WithGroup(g), hook: h.hook}
+}
+func (h *hookHandler) Handle(ctx context.Context, rec slog.Record) error {
+	err := h.inner.Handle(ctx, rec)
+	h.hook(rec.Message)
+	return err
+}
+
+func hookLogs(t *testing.T, hook func(msg string)) *syncBuffer {
+	t.Helper()
+	buf := &syncBuffer{}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(&hookHandler{inner: slog.NewTextHandler(buf, nil), hook: hook}))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	return buf
+}
+
+// faultClock is the fake clock with injected faults (the agent's Clock seam): NewTimer panics when
+// newTimer says so for the requested duration, and the returned timer's C panics when timerC says
+// so. The predicates run concurrently and decide "once" themselves.
+type faultClock struct {
+	*workertest.FakeClock
+	newTimer func(time.Duration) bool
+	timerC   func(time.Duration) bool
+}
+
+const injectedPanic = "injected fault secret-payload tok-j2"
+
+func (c *faultClock) NewTimer(d time.Duration) worker.Timer {
+	if c.newTimer != nil && c.newTimer(d) {
+		panic(injectedPanic)
+	}
+	t := c.FakeClock.NewTimer(d)
+	if c.timerC != nil && c.timerC(d) {
+		return panicTimer{t}
+	}
+	return t
+}
+
+type panicTimer struct{ worker.Timer }
+
+func (panicTimer) C() <-chan time.Time { panic(injectedPanic) }
+
+// onceFor returns a predicate that is true the first time it sees d and false otherwise.
+func onceFor(d time.Duration) func(time.Duration) bool {
+	var fired atomic.Bool
+	return func(got time.Duration) bool { return got == d && fired.CompareAndSwap(false, true) }
+}
+
+// assertPanicLogged checks the recovered-panic line: goroutine name, IDs, type, never the value.
+func assertPanicLogged(t *testing.T, out, goroutine string, want ...string) {
+	t.Helper()
+	for _, w := range append([]string{"agent goroutine panicked", "goroutine=" + goroutine, "panic_type=string"}, want...) {
+		if !strings.Contains(out, w) {
+			t.Fatalf("log lacks %q:\n%s", w, out)
+		}
+	}
+	for _, secret := range []string{"secret-payload", "tok-j1", "tok-j2"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("log contains %q (panic value or lease token):\n%s", secret, out)
+		}
+	}
+}
+
+// TestConcurrency_RunWaitsForHeartbeatGoroutine: after cancel, Run does not return while the
+// heartbeat goroutine is still busy (ADR-0019 Section 2.5). The heartbeat goroutine is held inside
+// its "heartbeat failed" log call. The 300 ms negative window can only let a broken build pass on a
+// very slow machine, never fail a correct one.
+func TestConcurrency_RunWaitsForHeartbeatGoroutine(t *testing.T) {
+	hbFailed, shutting, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var o1, o2, o3 sync.Once
+	rel := func() { o3.Do(func() { close(release) }) }
+	t.Cleanup(rel)
+	hookLogs(t, func(msg string) {
+		switch msg {
+		case "heartbeat failed":
+			o1.Do(func() { close(hbFailed) })
+			<-release
+		case "worker agent shutting down":
+			o2.Do(func() { close(shutting) })
+		}
+	})
+	hbIn := make(chan struct{}, 1)
+	hang := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if strings.HasSuffix(req.URL.Path, "/heartbeat") {
+				select {
+				case hbIn <- struct{}{}:
+				default:
+				}
+				_, _ = io.Copy(io.Discard, req.Body)
+				<-req.Context().Done() // answered only by the worker's cancel
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	}
+	r := newCCRigWith(t, 1, false, 5*time.Millisecond, hang)
+	r.start()
+	ccWaitOn(r, hbIn, "a heartbeat in flight")
+	r.cancel()
+	ccWaitOn(r, hbFailed, "the heartbeat goroutine to log its failure")
+	ccWaitOn(r, shutting, "the poll loop to shut down")
+	select {
+	case <-r.runDone:
+		t.Fatal("Run returned while the heartbeat goroutine was still running (heartbeat WaitGroup not waited)")
+	case <-time.After(300 * time.Millisecond):
+	}
+	rel()
+	select {
+	case err := <-r.runDone:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	case <-time.After(ccWait):
+		t.Fatal("Run did not return after the heartbeat goroutine finished")
+	}
+}
+
+// TestConcurrency_RenewalPanicTreatsLeaseAsLost: a panic in j2's renewal goroutine (injected through
+// the Clock seam: NewTimer panics for j2's 2 s renewal interval; j1 renews every 10 s) is recovered.
+// j2 is treated as lost: its task is cancelled, no result is sent, and its slot comes back. j1 keeps
+// running, renewing and delivers; the slot count stays exact.
+func TestConcurrency_RenewalPanicTreatsLeaseAsLost(t *testing.T) {
+	logs := quietLogs(t)
+	r := newCCRig(t, 2, true, ccAsg("j1", "", 30), ccAsg("j2", "", 6))
+	r.agent.SetClock(&faultClock{FakeClock: r.clk, newTimer: onceFor(2 * time.Second)})
+	r.coord.markFinished() // j2 ends without a result
+	r.start()
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.done, "j2's slot release after its renewal goroutine panicked")
+	if got := worker.RunningForTest(r.agent); got != 1 {
+		t.Fatalf("running = %d after j2 ended, want 1 (j1)", got)
+	}
+	if !r.probe.wasCancelled("j2") || r.probe.wasCancelled("j1") {
+		t.Fatalf("cancelled j1=%v j2=%v, want only j2", r.probe.wasCancelled("j1"), r.probe.wasCancelled("j2"))
+	}
+	if !r.clk.BlockUntil(1, ccWait) {
+		t.Fatal("j1's renewal timer never armed")
+	}
+	r.clk.Advance(worker.DefaultRenewalInterval)
+	if got := ccWaitOn(r, r.coord.renews, "j1's renewal"); got != "j1" {
+		t.Fatalf("renewal for %s, want j1", got)
+	}
+	r.probe.release("j1")
+	if got := ccWaitOn(r, r.coord.resultCh, "j1's result"); got != "j1" {
+		t.Fatalf("result for %s, want j1", got)
+	}
+	ccWaitOn(r, r.done, "j1's slot release")
+	if got := worker.RunningForTest(r.agent); got != 0 {
+		t.Fatalf("running = %d, want 0", got)
+	}
+	r.stop()
+	if r.coord.resultCount("j1") != 1 || r.coord.resultCount("j2") != 0 {
+		t.Fatalf("results j1=%d j2=%d, want 1 and 0", r.coord.resultCount("j1"), r.coord.resultCount("j2"))
+	}
+	assertPanicLogged(t, logs.String(), "renewal", "job_id=j2", "attempt_id=att-j2")
+	r.coord.check()
+}
+
+// TestConcurrency_DeliveryBudgetPanicExpiresDelivery: a panic in j2's delivery-budget goroutine
+// (injected through the Clock seam: the budget timer's C panics) is recovered by expiring delivery
+// at once. j2's results fail with 500 and the fake clock is never advanced, so only that expiry can
+// end j2's delivery and free its slot. j1 keeps running and delivers; the slot count stays exact.
+func TestConcurrency_DeliveryBudgetPanicExpiresDelivery(t *testing.T) {
+	logs := quietLogs(t)
+	r := newCCRig(t, 2, true, ccAsg("j1", "", 30), ccAsg("j2", "", 30))
+	r.coord.total = 1 << 30 // j2's failed results may or may not reach the coordinator; slots are checked directly
+	r.coord.resultFn = func(job string) int {
+		if job == "j2" {
+			return http.StatusInternalServerError
+		}
+		return http.StatusOK
+	}
+	r.agent.SetClock(&faultClock{FakeClock: r.clk, timerC: onceFor(worker.ResultDeliveryBudget)})
+	r.start()
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.slotWait, "a full pool")
+	r.probe.release("j2")
+	ccWaitOn(r, r.done, "j2's slot release after its delivery-budget goroutine panicked")
+	if got := worker.RunningForTest(r.agent); got != 1 {
+		t.Fatalf("running = %d after j2 ended, want 1 (j1)", got)
+	}
+	if r.probe.wasCancelled("j1") {
+		t.Fatal("j1 was cancelled by j2's delivery-budget panic")
+	}
+	r.probe.release("j1")
+	for got := ""; got != "j1"; {
+		got = ccWaitOn(r, r.coord.resultCh, "j1's result")
+	}
+	ccWaitOn(r, r.done, "j1's slot release")
+	if got := worker.RunningForTest(r.agent); got != 0 {
+		t.Fatalf("running = %d, want 0", got)
+	}
+	r.stop()
+	if r.coord.resultCount("j1") != 1 {
+		t.Fatalf("j1 results = %d, want 1", r.coord.resultCount("j1"))
+	}
+	out := logs.String()
+	assertPanicLogged(t, out, "delivery_budget", "job_id=j2", "attempt_id=att-j2")
+	if !strings.Contains(out, "gave up delivering result after the delivery budget") {
+		t.Fatalf("j2's delivery did not end as expired:\n%s", out)
+	}
+	select {
+	case msg := <-r.slotErrs:
+		t.Fatal(msg)
+	default:
+	}
+	r.coord.check()
+}
+
+// TestConcurrency_HeartbeatPanicIsRecovered: a panic in the heartbeat goroutine (injected in its
+// re-registration log call after a heartbeat 404) is recovered; the heartbeat loop goes on, the two
+// running attempts are untouched, every later heartbeat reports 0 free slots, and both deliver.
+func TestConcurrency_HeartbeatPanicIsRecovered(t *testing.T) {
+	var armed atomic.Bool
+	panicked := make(chan struct{}, 1)
+	logs := hookLogs(t, func(msg string) {
+		switch msg {
+		case "worker not found on coordinator during heartbeat (404); re-registering":
+			if armed.CompareAndSwap(true, false) {
+				panic("injected heartbeat fault secret-payload tok-j1")
+			}
+		case "agent goroutine panicked; recovered":
+			select {
+			case panicked <- struct{}{}:
+			default:
+			}
+		}
+	})
+	r := newCCRigWith(t, 2, false, 5*time.Millisecond, nil, ccAsg("j1", "", 30), ccAsg("j2", "", 30))
+	r.start()
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.probe.started, "an attempt to start")
+	ccWaitOn(r, r.slotWait, "a full pool")
+	armed.Store(true)
+	r.coord.mu.Lock()
+	r.coord.hb404 = true
+	r.coord.mu.Unlock()
+	ccWaitOn(r, panicked, "the heartbeat panic to be recovered")
+	r.coord.mu.Lock()
+	n := len(r.coord.heartbeats)
+	r.coord.mu.Unlock()
+	deadline := time.Now().Add(ccWait)
+	for {
+		r.coord.mu.Lock()
+		later := append([]int(nil), r.coord.heartbeats[n:]...)
+		r.coord.mu.Unlock()
+		if len(later) >= 2 {
+			for _, v := range later {
+				if v != 0 {
+					t.Fatalf("heartbeats after the panic reported %v, want 0 free slots with both running", later)
+				}
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("heartbeat loop stopped after the panic: %d heartbeats since", len(later))
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if got := worker.RunningForTest(r.agent); got != 2 {
+		t.Fatalf("running = %d, want 2", got)
+	}
+	if r.probe.wasCancelled("j1") || r.probe.wasCancelled("j2") {
+		t.Fatal("an attempt was cancelled by the heartbeat panic")
+	}
+	r.probe.release("j1")
+	r.probe.release("j2")
+	ccWaitOn(r, r.coord.resultCh, "a result")
+	ccWaitOn(r, r.coord.resultCh, "a result")
+	r.stop()
+	assertPanicLogged(t, logs.String(), "heartbeat")
+	r.coord.check()
 }

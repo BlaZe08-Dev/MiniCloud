@@ -189,9 +189,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-heartbeatTicker.C:
-				if err := a.sendHeartbeat(ctx); err != nil {
-					slog.Warn("heartbeat failed", "worker_id", a.cfg.WorkerID, "err", err)
-				}
+				a.heartbeatTick(ctx)
 			}
 		}
 	}()
@@ -244,6 +242,32 @@ func (a *Agent) Run(ctx context.Context) error {
 		attempts.Add(1)
 		go a.runAttempt(ctx, sem, &attempts, assignment)
 	}
+}
+
+// heartbeatTick sends one heartbeat. A panic in it is recovered and logged, and the heartbeat loop
+// goes on with the next tick (ADR-0019 Section 2.3): a missed heartbeat is harmless, a dead process
+// would end every running attempt.
+func (a *Agent) heartbeatTick(ctx context.Context) {
+	defer func() {
+		if p := recover(); p != nil {
+			logAgentPanic("heartbeat", nil, p)
+		}
+	}()
+	if err := a.sendHeartbeat(ctx); err != nil {
+		slog.Warn("heartbeat failed", "worker_id", a.cfg.WorkerID, "err", err)
+	}
+}
+
+// logAgentPanic logs a recovered panic of an agent goroutine (not task code; ADR-0019 Section 2.3):
+// only the goroutine's name, the job and attempt IDs when it serves one attempt, and the panic's
+// type. Never the panic's value, the lease token or the payload.
+func logAgentPanic(goroutine string, asg *coordinator.WorkAssignment, p any) {
+	attrs := []any{"goroutine", goroutine}
+	if asg != nil {
+		attrs = append(attrs, "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+	}
+	attrs = append(attrs, "panic_type", fmt.Sprintf("%T", p))
+	slog.Error("agent goroutine panicked; recovered", attrs...)
 }
 
 // acquireSlot takes one slot token for the next poll. It returns false, holding nothing, when ctx
@@ -739,6 +763,16 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		// A panic in the renewal goroutine is recovered in the fail-safe direction (ADR-0019
+		// Section 2.3): with no renewals the lease cannot be trusted, so the attempt is treated as
+		// lost. The task is cancelled, the result dropped, and the slot freed by runAttempt as usual.
+		defer func() {
+			if p := recover(); p != nil {
+				logAgentPanic("renewal", assignment, p)
+				run.markLost()
+				cancelTask()
+			}
+		}()
 		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)
 	}()
 	defer func() {
@@ -772,6 +806,15 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
 	defer cancel()
 	var expired atomic.Bool
 	go func() {
+		// A panic here is recovered in the fail-safe direction (ADR-0019 Section 2.3): the budget
+		// can no longer be enforced, so delivery is treated as expired now.
+		defer func() {
+			if p := recover(); p != nil {
+				logAgentPanic("delivery_budget", asg, p)
+				expired.Store(true)
+				cancel()
+			}
+		}()
 		select {
 		case <-budget.C():
 			expired.Store(true)
