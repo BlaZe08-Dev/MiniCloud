@@ -50,6 +50,13 @@ type CoordinatorConfig struct {
 	AssignmentMinYield     time.Duration
 }
 
+// MaxWorkerSlots is the upper bound of MINICLOUD_WORKER_SLOTS (ADR-0019 Section 2.6). It equals
+// coordinator.MaxWorkerSlots (SEC-015), which rejects a larger total_slots at registration; the
+// worker checks it at startup so a typo fails with a message naming the variable. internal/config
+// keeps its own copy of the coordinator limit (ADR-0017 implementation note 22); a test in
+// internal/worker pins the two values equal.
+const MaxWorkerSlots = 1024
+
 // WorkerConfig defines startup configuration for the worker agent.
 type WorkerConfig struct {
 	WorkerID          string
@@ -287,6 +294,9 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
 	}
 	if cfg.TotalSlots <= 0 {
 		return nil, fmt.Errorf("MINICLOUD_WORKER_SLOTS must be positive, got %d", cfg.TotalSlots)
+	}
+	if cfg.TotalSlots > MaxWorkerSlots {
+		return nil, fmt.Errorf("MINICLOUD_WORKER_SLOTS must be at most %d, got %d", MaxWorkerSlots, cfg.TotalSlots)
 	}
 	if cfg.HeartbeatInterval <= 0 {
 		return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
