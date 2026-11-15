@@ -22,8 +22,9 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | active |
-| P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | active |
+| P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | complete, awaiting audit |
+| P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
+| P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | complete, merged in PR #43 |
 | P4-16 | Fix SEC-062: older env helpers reject a set bad value at startup | Claude Code | to be assigned | agent/claude/P4-16 | complete, awaiting audit |
 | P4-14 | Fix backoff overflow (finding F-5c2-1) | Gemini | Claude Code | agent/gemini/P4-14 | active |
 | P4-12 | Friendlier make test-security guard | Gemini | Claude Code | agent/gemini/P4-12 | active |
@@ -37,21 +38,21 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08e | ADR-0017 slice 5c, part 2: API fields (poll `policy` and `fallback_reason`, job view assignment fields) and worker timing (INV-17); fault and abuse suites move to P4-08f | Claude Code | to be assigned | agent/claude/P4-08e | fix round 1 pushed for re-audit |
 | P4-08f | ADR-0017 slice 5c, part 3: the fault, abuse and property suites, measurements, worker test tidy-ups | Claude Code | to be assigned | agent/claude/P4-08f | complete, awaiting audit |
 | P4-08g | Fix round for the P4-08f audit: tests that kill the surviving mutants, property test and rig tightening, Makefile `-p 1`, ADR-0017 corrections | Claude Code | to be assigned | agent/claude/P4-08g | complete, awaiting audit |
-| P4-17 | Flip the default dispatch policy to `round_robin` (ADR-0017 Q1) | Claude Code | to be assigned | agent/claude/P4-17 | complete, awaiting audit |
-| P4-20 | Fix the test-outage LeakScan poll for the round_robin default (bounded retry, default policy kept) | Claude Code | to be assigned | agent/claude/P4-20 | complete, awaiting audit |
-| P4-22 | SEC-066: stop raw database errors (host, port, user, database, SQL) reaching coordinator logs | Claude Code | to be assigned | agent/claude/P4-22 | complete, awaiting audit |
+| P4-17 | Flip the default dispatch policy to `round_robin` (ADR-0017 Q1) | Claude Code | to be assigned | agent/claude/P4-17 | complete, merged in PR #47 |
+| P4-20 | Fix the test-outage LeakScan poll for the round_robin default (bounded retry, default policy kept) | Claude Code | to be assigned | agent/claude/P4-20 | complete, merged in PR #48 |
+| P4-22 | SEC-066: stop raw database errors (host, port, user, database, SQL) reaching coordinator logs | Claude Code | to be assigned | agent/claude/P4-22 | complete, merged in PR #50 |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
 ### P4-21 — Docs part 2 from the P4-18 audit
 - Goal: Fix docs drift identified in P4-18 audit: README (configuration table, env error handling, dispatch statement, make targets, SEC-012 timeout clamping), phase4-plan.md (C21 assignment pass vs lease sweeper), schema.md (migrations 000004 & 000005 merged), field-limits.md (chk_attempts_last_error_size and 000004/000005 constraints), roadmap.md & state-machine.md (default policy wording), architecture.md (Scheduler row and Slice 3d default policy), ADR-0003 & ADR-0011 (amendment line for default policy), and .env.example (commented-out coordinator variables).
-- Builder: Gemini. Auditor: to be assigned. Branch: `agent/gemini/P4-21`. Status: active.
+- Builder: Gemini. Auditor: to be assigned. Branch: `agent/gemini/P4-21`. Status: complete, merged in PR #49.
 - Owned files: `README.md`, `docs/phase4-plan.md`, `docs/schema.md`, `docs/security/field-limits.md`, `docs/roadmap.md`, `docs/state-machine.md`, `docs/architecture.md`, `docs/adr/0003-pull-based-worker-protocol.md`, `docs/adr/0011-postgres-dispatch-and-recovery.md`, `.env.example`, `docs/agents/TASKS.md`, `reports/gemini/P4-21.md`.
 - Out of scope: Go code files, database schema or migrations, allowlist modifications, `docs/PROJECT_STATE.md`, `docs/adr/0017-assignment-round-robin.md`, `docs/security/findings.md`, `docs/security/test-plan.md`, `docs/fault-injection-plan.md`.
 
 ### P4-15 — Register findings SEC-063..065 and correct P4-14 result delivery estimate
 - Goal: Register SEC-063 (submit flood / unauthenticated API), SEC-064 (backoff shift overflow F-5c2-1), and SEC-065 (mixed clocks ADR-0017 note 14) in `docs/security/findings.md`; correct retry count estimate arithmetic for result delivery in `docs/agents/handoffs/P4-14.md`.
-- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-15`. Status: active.
+- Builder: Gemini. Auditor: Claude Code. Branch: `agent/gemini/P4-15`. Status: complete, merged in PR #43.
 - Owned files: `docs/security/findings.md`, `docs/agents/handoffs/P4-14.md`, `docs/agents/TASKS.md`, `reports/gemini/P4-15.md`.
 - Out of scope: Go code files, `docs/PROJECT_STATE.md`, `docs/adr/0017-assignment-round-robin.md`, database schema or migrations.
 
@@ -112,19 +113,19 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### P4-17 — default dispatch policy flips to round_robin
 - Goal: `MINICLOUD_DISPATCH_POLICY` unset or empty selects `round_robin`; `fifo_pull` stays selectable explicitly; an invalid value is still a startup error (ADR-0017 Q1). Tests, scripts and docs that assumed `fifo_pull` as the default state their policy or change their expectation.
-- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-17`. Status: complete, awaiting audit.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-17`. Status: complete, merged in PR #47.
 - Owned files: `internal/config/config.go`, `internal/config/assignment_config_test.go`, `cmd/coordinator/main_test.go`, `tests/internal/sectest/proc.go`, `scripts/demo.sh`, `docs/adr/0017-assignment-round-robin.md` (note 37 and the three default wordings only), `docs/agents/handoffs/P4-17.md`, `docs/agents/handoffs/P4-17-evidence/`, `reports/claude/P4-17.md`.
 - Out of scope: README, `docs/PROJECT_STATE.md`, `docs/security/` and every other doc that says `fifo_pull` is the default (listed in the handoff for the docs sync).
 
 ### P4-20 — LeakScan worker poll retries under the default policy
 - Goal: `TestSecurity_PartD_LeakScan` stays on the default policy and its worker poll retries a bounded number of times until the assignment arrives. No production code changes.
-- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-20`. Status: complete, awaiting audit.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-20`. Status: complete, merged in PR #48.
 - Owned files: `tests/integration/part_d_security_test.go`, `tests/integration/leakscan_poll_test.go`, `docs/agents/handoffs/P4-20.md`, `docs/agents/handoffs/P4-20-evidence/`, `reports/claude/P4-20.md`.
 - Out of scope: production code, `make test-outage` (the owner runs it), README, `docs/PROJECT_STATE.md`, `docs/security/`, the ADR.
 
 ### P4-22 — SEC-066: no raw database error text in coordinator logs
 - Goal: every coordinator log site that can print a storage, pool or network error logs only a fixed error class (`internal/logsafe`), never error text. Error values, HTTP statuses, grace counting and retry classification unchanged. Built on `agent/claude/P4-20` (owner decision; P4-20 not yet merged).
-- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-22`. Status: complete, awaiting audit.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-22`. Status: complete, merged in PR #50.
 - Owned files: `internal/logsafe/**`, `internal/coordinator/assignment_loop.go`, `internal/coordinator/assignment.go`, `internal/coordinator/sweeper.go` (log lines only), `internal/coordinator/logsafe_sites_test.go`, `internal/api/handlers.go` (log lines and the removed regex sanitizer only), `internal/api/logsafe_sites_test.go`, `cmd/coordinator/main.go` (startup log lines only), `tests/faultinject/logleak_test.go`, `tests/security-tests.list`, `docs/agents/handoffs/P4-22.md`, `docs/agents/handoffs/P4-22-evidence/`, `reports/claude/P4-22.md`, `docs/agents/TASKS.md` (this row).
 - Out of scope: `docs/security/` (SEC-066 is registered by P4-19), README, `docs/PROJECT_STATE.md`, the ADR, `make test-outage` (the owner runs it), `cmd/migrate` and worker log lines (open questions in the handoff).
 
