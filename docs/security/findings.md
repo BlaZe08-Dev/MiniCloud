@@ -606,7 +606,7 @@ FAIL
 ---
 
 ### SEC-066: Raw Database Errors in Coordinator Logs
-- **Severity**: Low (as classified for this register; the P4-22 handoff rated it "medium" before registration)
+- **Severity**: Low (orchestrator decision: the leak is host, port, user and database name only, no credential, and needs access to the logs). The P4-22 handoff rated it "medium"; that rating was not adopted.
 - **Status**: Fixed in P4-22 (PR #50). Evidence label: **executed** (red on the unfixed tree, `docs/agents/handoffs/P4-22-evidence/repro-red.log`).
 - **Affected Component**: Coordinator logging (`internal/coordinator/assignment_loop.go`, `internal/coordinator/assignment.go`, `internal/coordinator/sweeper.go`, `internal/api/handlers.go`, `cmd/coordinator/main.go`)
 - **Detail**: When the database was unreachable, the coordinator logged the full pgx v5 connect error (user, database, host, port and dial detail) at WARN from the lease sweeper ("lease sweeper tick failed"), the assignment pass ("assignment pass failed") and the poll-time pass refresh ("assignment pass refresh failed"), and at ERROR from the HTTP path ("database outage or connection failure", "readiness probe failed", "internal server error") and from startup. Anyone who can read coordinator logs (log shipping, shared terminals, CI artefacts) could learn the database host, port, user and name. The leak was not specific to `round_robin`: the sweeper runs under every policy and logged the same line; that `make test-outage` LeakScan passed before on `fifo_pull` is consistent with timing and is **inferred**, not verified.
