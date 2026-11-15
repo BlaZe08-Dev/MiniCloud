@@ -2,6 +2,7 @@
 
 ## Status
 Accepted (2026-10-20, Amended in Phase 3)
+Amended by ADR-0017: since P4-17 the default dispatch policy is round_robin; the fifo_pull mechanics described here remain the selectable fifo_pull policy.
 
 ## Context
 MiniCloud needs a mechanism for workers to receive job attempts from the coordinator. Two primary communication models exist:

@@ -4,6 +4,7 @@
 Accepted by Owner (2026-10-20)
 - **Accepted:** Option A Dispatch (`SELECT ... FOR UPDATE SKIP LOCKED`), Dynamic Capacity Derivation in SQL, Coordinator Restart Guarantees, SHA-256 Hashed Lease Tokens, Database-level Invariants, and **Candidate C (Honest FIFO Pull Baseline, policy name `"fifo_pull"`) for Phase 3 and Slices 3a–3e**.
 - **Post-Phase 4 Hard Gate:** Candidate A (pre-assignment with bounded accept window) is held as the leading design for the post-Phase 4 "Assignment-Based Round-Robin" slice required before V1 completion and V2 benchmarking. Candidate B (hold window) is **REJECTED**.
+Amended by ADR-0017: since P4-17 the default dispatch policy is round_robin; the fifo_pull mechanics described here remain the selectable fifo_pull policy.
 
 ## Context
 In Milestones 1 and 2, MiniCloud's coordinator orchestrated work in-memory. In Phase 3, state durability is established in PostgreSQL. To guarantee correctness in a distributed environment:

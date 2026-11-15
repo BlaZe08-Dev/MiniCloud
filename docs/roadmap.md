@@ -40,7 +40,7 @@ MiniCloud development is structured into three major releases. Each version buil
    - Enforce SQL invariants (partial unique active attempt index, monotonic attempt sequence, hashed lease tokens, dynamic capacity).
 4. **Slice 3d: PostgreSQL Dispatch Transport (`PostgresQueue`) & FIFO Pull Dispatch:**
    - Implement `internal/queue.Queue` using transactional `SELECT ... FOR UPDATE SKIP LOCKED`.
-   - Dispatch uses honest FIFO pull baseline (`fifo_pull`) where polling workers claim available work matching their capacity slots.
+   - Dispatch uses honest FIFO pull baseline (`fifo_pull`) where polling workers claim available work matching their capacity slots (since P4-17, the default dispatch policy is `round_robin`, with `fifo_pull` selectable).
    - Dispatch logs record real facts only: `job_id`, `attempt_id`, `worker_id`, `policy="fifo_pull"`, `reason="claimed by polling worker with capacity"`.
    - `internal/scheduler` is intentionally not used in the V1 dispatch loop during Phase 3 (temporary until post-Phase 4 assignment slice).
 5. **Slice 3e: Coordinator Restart Recovery & Multi-Process Tests:**
@@ -71,7 +71,7 @@ MiniCloud development is structured into three major releases. Each version buil
 ---
 
 ## 5. Post-Phase 4 Hard Gate: Assignment-Based Round-Robin Slice
-- **Context & Blueprint Deviation:** In V1 Phase 3, dispatch is FIFO pull (`fifo_pull`). Blueprint Section 6 requires scheduler-driven assignment with round-robin policy.
+- **Context & Blueprint Deviation:** In V1 Phase 3, dispatch was initially FIFO pull (`fifo_pull`). Blueprint Section 6 requires scheduler-driven assignment with round-robin policy; since Slice P4-17, the default dispatch policy is `round_robin` (assignment-based round-robin), with `fifo_pull` selectable.
 - **Hard Gate Rule:** V1 is not complete, and V2 benchmarking must not start, until scheduler-driven assignment with a deterministic round-robin policy exists.
 - **Staging Justification:** Assignment expiration, dead-worker reclamation, and automatic requeue share the exact lease/requeue machinery introduced in Phase 4. Building assignment after Phase 4 avoids duplicate or disposable recovery logic. Candidate A (pre-assignment with bounded accept window) is the leading design.
 

@@ -286,11 +286,13 @@ CREATE INDEX idx_job_events_type
 
 ---
 
-## 5. PROPOSED Phase 4 Migration Outline (`000004_leases_retries_cancellation.sql`)
+## 5. Phase 4 and Post-Phase 4 Migrations (`000004` and `000005`)
 
-*Status: PROPOSED (Design only; no SQL migration files created until Slice 4b)*
+*Status: Merged (Migration `000004` merged in Slice 4b; Migration `000005` merged in Slice 5b)*
 
-To support attempt leases, retry backoff scheduling, structured failure classification, and cooperative cancellation without downtime, Migration 000004 is planned with forward-only schema enhancements:
+### 5.1 Migration `000004_leases_retries_cancellation.sql`
+
+To support attempt leases, retry backoff scheduling, structured failure classification, and cooperative cancellation without downtime, Migration `000004_leases_retries_cancellation.sql` added forward-only schema enhancements:
 
 ```sql
 -- Step 1: Add lease_expires_at to attempts
@@ -340,6 +342,72 @@ CREATE INDEX idx_jobs_retrying_dispatch
 CREATE UNIQUE INDEX idx_job_events_unique_diagnostic_late_result 
     ON job_events (job_id, (details->>'attempt_id')) 
     WHERE event_type = 'DIAGNOSTIC_LATE_RESULT';
+```
+
+### 5.2 Migration `000005_assignment_round_robin.sql`
+
+To support assignment-based round-robin dispatch ([ADR-0017](adr/0017-assignment-round-robin.md)), Migration `000005_assignment_round_robin.sql` added forward-only schema enhancements:
+
+```sql
+-- Step 1: assignment columns on jobs
+ALTER TABLE jobs
+    ADD COLUMN assigned_worker_id          TEXT REFERENCES workers(id) ON DELETE SET NULL,
+    ADD COLUMN assigned_at                 TIMESTAMPTZ,
+    ADD COLUMN assignment_expires_at       TIMESTAMPTZ,
+    ADD COLUMN assignment_lapses           INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN assignment_fallback_reason  VARCHAR(16);
+
+-- Step 2: check constraints for assignment shape, lapses, and fallback reason
+ALTER TABLE jobs
+    ADD CONSTRAINT chk_jobs_assignment_shape CHECK (
+        (assigned_worker_id IS NULL AND assigned_at IS NULL AND assignment_expires_at IS NULL)
+        OR (assigned_worker_id IS NOT NULL AND assigned_at IS NOT NULL
+            AND assignment_expires_at IS NOT NULL
+            AND assignment_expires_at >= assigned_at
+            AND state IN ('QUEUED', 'RETRYING'))
+    ) NOT VALID;
+ALTER TABLE jobs VALIDATE CONSTRAINT chk_jobs_assignment_shape;
+
+ALTER TABLE jobs
+    ADD CONSTRAINT chk_jobs_assignment_lapses CHECK (assignment_lapses >= 0) NOT VALID;
+ALTER TABLE jobs VALIDATE CONSTRAINT chk_jobs_assignment_lapses;
+
+ALTER TABLE jobs
+    ADD CONSTRAINT chk_jobs_fallback_reason CHECK (
+        assignment_fallback_reason IS NULL OR assignment_fallback_reason IN ('lapses', 'age')
+    ) NOT VALID;
+ALTER TABLE jobs VALIDATE CONSTRAINT chk_jobs_fallback_reason;
+
+-- Step 3: worker poll freshness tracking
+ALTER TABLE workers
+    ADD COLUMN last_poll_at TIMESTAMPTZ;
+
+-- Step 4: per-task-type round-robin cursors
+CREATE TABLE assignment_cursor (
+    task_type      VARCHAR(64) PRIMARY KEY,
+    last_worker_id TEXT REFERENCES workers(id) ON DELETE SET NULL,
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Step 5: assignment pass heartbeat singleton
+CREATE TABLE assignment_pass_state (
+    singleton         BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+    last_completed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO assignment_pass_state (singleton) VALUES (TRUE);
+
+-- Step 6: indexes for dispatch by type, assigned worker claims, and assignment expiry
+CREATE INDEX idx_jobs_dispatch_by_type
+    ON jobs (task_type, created_at ASC, id ASC)
+    WHERE assigned_worker_id IS NULL AND state IN ('QUEUED', 'RETRYING');
+
+CREATE INDEX idx_jobs_assigned_worker
+    ON jobs (assigned_worker_id, created_at ASC, id ASC)
+    WHERE assigned_worker_id IS NOT NULL;
+
+CREATE INDEX idx_jobs_assignment_expiry
+    ON jobs (assignment_expires_at ASC)
+    WHERE assigned_worker_id IS NOT NULL;
 ```
 
 ### Canonical State Names & Schema Alignment

@@ -164,7 +164,7 @@ Phase 4 defines the complete audit event vocabulary stored in `job_events`:
 |---|---|---|---|
 | `JOB_SUBMITTED` | Client / API | Job accepted via `POST /v1/jobs`. | `{"task_type": "...", "max_attempts": 3}` |
 | `JOB_QUEUED` | Coordinator | Job placed into scheduling pool. | `{}` |
-| `JOB_DISPATCHED` | Worker / Poller | Job claimed via `repo.DispatchNextJob`. | `{"worker_id": "...", "attempt_no": 1, "policy": "fifo_pull"}` |
+| `JOB_DISPATCHED` | Worker / Poller | Job claimed via `repo.DispatchNextJob` or `repo.ClaimAssignedJob`. | `{"worker_id": "...", "attempt_no": 1, "policy": "round_robin"}` |
 | `LEASE_EXPIRED` | Sweeper | Coordinator swept expired attempt. | `{"attempt_id": "...", "worker_id": "...", "expired_at": "..."}` |
 | `JOB_RETRYING` | Coordinator | Retryable failure scheduled for backoff. | `{"attempt_no": 1, "not_before": "...", "backoff_seconds": 2.5}` |
 | `JOB_CANCEL_REQUESTED` | Client / API | Client requested cancellation for running job. | `{"requested_at": "..."}` |

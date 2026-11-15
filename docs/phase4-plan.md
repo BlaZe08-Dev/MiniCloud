@@ -298,7 +298,7 @@ In Phase 3, coordinator restarts and storage outages were made resilient, but a 
 - **Hard Gate Rule**: As established in [ADR 0011](adr/0011-postgres-dispatch-and-recovery.md) Section 2 and [docs/roadmap.md](roadmap.md), V1 is not complete until scheduler-driven assignment with a deterministic round-robin policy exists (Candidate A).
 - **Phase 4 Machinery Reused**:
   - The assignment slice introduces `assigned_worker_id` and `assignment_expires_at` on queued jobs.
-  - **Shared Lease Sweeper**: The Phase 4 lease sweeper machinery (`StartLeaseSweeper`) directly powers assignment expiration: if an assigned worker fails to accept a job within its bounded accept window (e.g. 5 seconds), the sweeper revokes the assignment (`assigned_worker_id = NULL`) and re-evaluates the round-robin scheduler.
+  - **Separate Assignment Pass (C21)**: The lease sweeper does not touch assignments; the assignment pass (`RunAssignmentPass`) revokes reservations when an assigned worker fails to accept a job within its bounded accept window (e.g. 5 seconds), clearing the reservation and re-evaluating the round-robin scheduler.
   - Building assignment after Phase 4 ensures zero throwaway or duplicate recovery logic.
 
 ---
