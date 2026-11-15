@@ -1,0 +1,13 @@
+diff --git a/internal/domain/job.go b/internal/domain/job.go
+index 943d382..f56deec 100644
+--- a/internal/domain/job.go
++++ b/internal/domain/job.go
+@@ -33,7 +33,7 @@ type Job struct {
+ 	// ones Section 5.1 lists; AssignedAt is internal and is not part of the job view.
+ 	AssignedWorkerID         *string    `json:"assigned_worker_id"`
+ 	AssignedAt               *time.Time `json:"-"`
+-	AssignmentExpiresAt      *time.Time `json:"assignment_expires_at"`
++	AssignmentExpiresAt      *time.Time `json:"assignment_expiry"`
+ 	AssignmentLapses         int        `json:"assignment_lapses"`
+ 	AssignmentFallbackReason *string    `json:"assignment_fallback_reason"`
+ }

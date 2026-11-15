@@ -1,0 +1,26 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index 3688e83..8c8320a 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -199,7 +199,7 @@ func validateAssignment(cfg *CoordinatorConfig) error {
+ 	if cfg.DispatchPolicy != "fifo_pull" && cfg.DispatchPolicy != "round_robin" {
+ 		return fmt.Errorf("MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got %q)", cfg.DispatchPolicy)
+ 	}
+-	if cfg.AssignmentAcceptWindow < 5*time.Second || cfg.AssignmentAcceptWindow > 30*time.Second {
++	if cfg.AssignmentAcceptWindow < 3*time.Second || cfg.AssignmentAcceptWindow > 30*time.Second {
+ 		return fmt.Errorf("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW must be between 5s and 30s (got %v)", cfg.AssignmentAcceptWindow)
+ 	}
+ 	if cfg.AssignmentInterval < 100*time.Millisecond || cfg.AssignmentInterval > 10*time.Second {
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index ab8fa7a..5ef2296 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -28,7 +28,7 @@ type AssignmentSettings struct {
+ // Section 5.5). It must exceed the worker's maximum poll backoff plus a round trip (INV-17);
+ // TestPollTiming_AcceptWindowExceedsBackoff pins the relation against the worker constants.
+ // internal/config keeps its own copy of the rule (implementation note 22).
+-const MinAcceptWindow = 5 * time.Second
++const MinAcceptWindow = 3 * time.Second
+ 
+ // DefaultAssignmentSettings returns the ADR-0017 Section 5.5 defaults.
+ func DefaultAssignmentSettings() AssignmentSettings {

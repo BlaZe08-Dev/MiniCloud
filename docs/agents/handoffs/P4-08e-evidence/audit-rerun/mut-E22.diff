@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index c2bffc7..1a8819e 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -566,7 +566,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 	var (
+ 		job      domain.Job
+ 		jobState string
+-		policy   = domain.DispatchPolicyRoundRobin
++		policy   = domain.DispatchPolicyRoundRobinFallback
+ 		reason   string
+ 	)
+ 	// Arm 1: own live reservation (Section 3.2 step 1).

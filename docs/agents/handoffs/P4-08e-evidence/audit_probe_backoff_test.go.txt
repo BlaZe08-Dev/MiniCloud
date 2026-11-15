@@ -1,0 +1,45 @@
+// Audit probe (P4-08e review, item 7, F-5c2-1). Copied into internal/worker/ of a throwaway
+// worktree as audit_probe_backoff_test.go and run alone. For each caller's parameters it draws
+// ComputeBackoffWithJitter 1,000 times per failure count and logs the min and max. It fails if any
+// draw is below half the capped value (the documented jitter floor), which is the property the
+// minimal fix must restore.
+package worker_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker"
+)
+
+func TestAuditProbe_BackoffOverflow(t *testing.T) {
+	callers := []struct {
+		name      string
+		base, max time.Duration
+	}{
+		{"poll loop (Run)", 200 * time.Millisecond, 3 * time.Second},
+		{"renewLoop (base 1 s, cap = interval, 10 s here)", time.Second, 10 * time.Second},
+		{"deliverResult", 200 * time.Millisecond, 5 * time.Second},
+	}
+	for _, c := range callers {
+		for _, n := range []int{5, 62, 63, 64, 65, 100, 1000} {
+			mult := 16
+			if n < 5 {
+				mult = 1 << (n - 1)
+			}
+			capd := c.base * time.Duration(mult)
+			if capd > c.max {
+				capd = c.max
+			}
+			lo, hi := time.Duration(1<<62), time.Duration(-1<<62)
+			for i := 0; i < 1000; i++ {
+				d := worker.ComputeBackoffWithJitter(n, c.base, c.max)
+				lo, hi = min(lo, d), max(hi, d)
+			}
+			t.Logf("%-48s failures=%4d min=%v max=%v (expected [%v, %v))", c.name, n, lo, hi, capd/2, capd)
+			if lo < capd/2 {
+				t.Errorf("%s: failures=%d gives %v, below the jitter floor %v", c.name, n, lo, capd/2)
+			}
+		}
+	}
+}

@@ -1,0 +1,10 @@
+gofmt: [0]
+vet rc=0
+build rc=0
+test-docs rc=0
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.381s
+unset rc=0 PASS 355 SKIP 86 FAIL 0 RACE 0
+security rc=0 PASS 54 SKIP 0 FAIL 0 RACE 0
+db rc=0 PASS 156 SKIP 0 FAIL 0 RACE 0
+race rc=0 PASS 276 SKIP 0 FAIL 0 RACE 0
