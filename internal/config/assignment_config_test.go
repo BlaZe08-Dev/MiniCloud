@@ -38,8 +38,8 @@ func TestLoadCoordinatorConfig_AssignmentDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("defaults rejected: %v", err)
 	}
-	if cfg.DispatchPolicy != "fifo_pull" {
-		t.Errorf("policy = %q, want fifo_pull", cfg.DispatchPolicy)
+	if cfg.DispatchPolicy != "round_robin" {
+		t.Errorf("policy = %q, want round_robin (ADR-0017 Q1: the default flipped in P4-17)", cfg.DispatchPolicy)
 	}
 	if cfg.AssignmentAcceptWindow != 5*time.Second || cfg.AssignmentInterval != time.Second ||
 		cfg.AssignmentMaxLapses != 3 || cfg.AssignmentFallbackAge != 30*time.Second ||
@@ -123,13 +123,49 @@ func TestLoadCoordinatorConfig_AssignmentCrossValidation(t *testing.T) {
 	})
 }
 
+// P4-17 (ADR-0017 Q1): unset and set-but-empty both select round_robin; fifo_pull is selected only
+// by setting it, in any letter case; an invalid value is a startup error (also covered by the
+// AssignmentRejections and AssignmentMalformedValuesRejected tables).
+func TestLoadCoordinatorConfig_DispatchPolicySelection(t *testing.T) {
+	cases := []struct {
+		name  string
+		env   map[string]string
+		empty bool // set the variable to the empty string instead of leaving it unset
+		want  string
+	}{
+		{"unset", nil, false, "round_robin"},
+		{"set but empty", nil, true, "round_robin"},
+		{"explicit round_robin", map[string]string{"MINICLOUD_DISPATCH_POLICY": "round_robin"}, false, "round_robin"},
+		{"explicit fifo_pull", map[string]string{"MINICLOUD_DISPATCH_POLICY": "fifo_pull"}, false, "fifo_pull"},
+		{"explicit FIFO_PULL", map[string]string{"MINICLOUD_DISPATCH_POLICY": "FIFO_PULL"}, false, "fifo_pull"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assignmentEnv(t, c.env)
+			if c.empty {
+				t.Setenv("MINICLOUD_DISPATCH_POLICY", "")
+			}
+			cfg, err := LoadCoordinatorConfig()
+			if err != nil || cfg.DispatchPolicy != c.want {
+				t.Fatalf("policy = %v err = %v, want %q", cfg, err, c.want)
+			}
+		})
+	}
+	t.Run("invalid value fails startup", func(t *testing.T) {
+		assignmentEnv(t, map[string]string{"MINICLOUD_DISPATCH_POLICY": "lottery"})
+		if _, err := LoadCoordinatorConfig(); err == nil {
+			t.Fatal("policy lottery accepted, want a startup error")
+		}
+	})
+}
+
 // ADR-0017 Section 5.5: startup fails on any rule violation. A value that does not parse is not in
 // range, so each new variable fails startup on a malformed value instead of falling back to its
 // default (F-5a-8). A set but empty value is malformed too.
 func TestLoadCoordinatorConfig_AssignmentMalformedValuesRejected(t *testing.T) {
 	cases := []struct{ key, val string }{
-		{"MINICLOUD_DISPATCH_POLICY", ""},
 		{"MINICLOUD_DISPATCH_POLICY", "round-robin"},
+		{"MINICLOUD_DISPATCH_POLICY", "fifo-pull"},
 		{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", "5"},
 		{"MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", ""},
 		{"MINICLOUD_ASSIGNMENT_INTERVAL", "1 second"},

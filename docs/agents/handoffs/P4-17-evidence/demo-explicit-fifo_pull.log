@@ -1,0 +1,122 @@
+>> Starting coordinator on 127.0.0.1:8080...
+{"time":"2026-11-15T10:46:17.216399839+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-15T10:46:17.21650895+05:30","level":"INFO","msg":"using in-memory storage driver"}
+{"time":"2026-11-15T10:46:17.216525033+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-15T10:46:17.216840607+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8080"}
+>> Coordinator is healthy.
+>> Starting Worker 1 (worker-alpha)...
+>> Starting Worker 2 (worker-beta)...
+{"time":"2026-11-15T10:46:17.22641656+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-beta"}
+{"time":"2026-11-15T10:46:17.226718866+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-beta","coordinator_url":"http://127.0.0.1:8080","slots":2}
+{"time":"2026-11-15T10:46:17.226650153+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-alpha"}
+{"time":"2026-11-15T10:46:17.227245426+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-alpha","coordinator_url":"http://127.0.0.1:8080","slots":2}
+{"time":"2026-11-15T10:46:17.228331418+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-beta","version":"v0.1.0","slots":2,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-15T10:46:17.228501099+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-alpha","version":"v0.1.0","slots":2,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-15T10:46:17.228784243+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-alpha"}
+{"time":"2026-11-15T10:46:17.22880642+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-beta"}
+>> Checking registered workers:
+Registered Workers (2 total):
+WORKER ID      STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-beta    HEALTHY   2/2               05:16:17         [echo sleep sha256_loop]
+worker-alpha   HEALTHY   2/2               05:16:17         [echo sleep sha256_loop]
+
+>> Submitting Job 1 (echo)...
+{"time":"2026-11-15T10:46:18.256824009+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_f5d953e1a897","task_type":"echo","state":"QUEUED","max_attempts":3}
+Job Submitted Successfully!
+  ID:           job_1_f5d953e1a897
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+>> Submitting Job 2 (sha256_loop)...
+{"time":"2026-11-15T10:46:18.287099873+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_e1ba32959149","task_type":"sha256_loop","state":"QUEUED","max_attempts":3}
+Job Submitted Successfully!
+  ID:           job_2_e1ba32959149
+  Task:         sha256_loop
+  State:        QUEUED
+  Max Attempts: 3
+>> Submitting Job 3 (sleep)...
+{"time":"2026-11-15T10:46:18.318950278+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_a92fb5abcc90","task_type":"sleep","state":"QUEUED","max_attempts":3}
+Job Submitted Successfully!
+  ID:           job_3_a92fb5abcc90
+  Task:         sleep
+  State:        QUEUED
+  Max Attempts: 3
+
+>> Waiting for jobs to execute across workers...
+{"time":"2026-11-15T10:46:18.435905399+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_f5d953e1a897","attempt_id":"att_1_87c1814654e5","attempt_no":1,"worker_id":"worker-beta","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-15T10:46:18.436537708+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_2_e1ba32959149","attempt_id":"att_2_6dee86aec596","attempt_no":1,"worker_id":"worker-alpha","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-15T10:46:18.43685197+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_f5d953e1a897","attempt_id":"att_1_87c1814654e5","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-15T10:46:18.437200575+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_e1ba32959149","attempt_id":"att_2_6dee86aec596","task_type":"sha256_loop","timeout_seconds":60}
+{"time":"2026-11-15T10:46:18.437626389+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_f5d953e1a897","attempt_id":"att_1_87c1814654e5","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-15T10:46:18.438165214+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_f5d953e1a897","attempt_id":"att_1_87c1814654e5","exit_code":0}
+{"time":"2026-11-15T10:46:18.439490738+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_3_a92fb5abcc90","attempt_id":"att_3_dcd9cb211e96","attempt_no":1,"worker_id":"worker-beta","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-15T10:46:18.439964588+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_a92fb5abcc90","attempt_id":"att_3_dcd9cb211e96","task_type":"sleep","timeout_seconds":60}
+{"time":"2026-11-15T10:46:18.443960682+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_e1ba32959149","attempt_id":"att_2_6dee86aec596","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-15T10:46:18.444460563+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_e1ba32959149","attempt_id":"att_2_6dee86aec596","exit_code":0}
+{"time":"2026-11-15T10:46:18.74164234+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_a92fb5abcc90","attempt_id":"att_3_dcd9cb211e96","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-15T10:46:18.742117701+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_a92fb5abcc90","attempt_id":"att_3_dcd9cb211e96","exit_code":0}
+
+>> Querying Job Details:
+Job Details:
+  ID:           job_1_f5d953e1a897
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_87c1814654e5
+  Created At:   2026-11-15T05:16:18Z
+  Updated At:   2026-11-15T05:16:18Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"Hello from MiniCloud Demo!"}}
+
+Job Details:
+  ID:           job_2_e1ba32959149
+  Task:         sha256_loop
+  State:        SUCCEEDED
+  Attempt ID:   att_2_6dee86aec596
+  Created At:   2026-11-15T05:16:18Z
+  Updated At:   2026-11-15T05:16:18Z
+  Result:
+    Exit Code:  0
+    Output:     {"hash":"1bf86ad08f2c7ac05a7e829d649e835f0a3020da63da190f38d660396a634534","iterations":5000}
+
+Job Details:
+  ID:           job_3_a92fb5abcc90
+  Task:         sleep
+  State:        SUCCEEDED
+  Attempt ID:   att_3_dcd9cb211e96
+  Created At:   2026-11-15T05:16:18Z
+  Updated At:   2026-11-15T05:16:18Z
+  Result:
+    Exit Code:  0
+    Output:     {"slept_ms":300}
+
+>> Querying Attempt History:
+Attempts for Job job_1_f5d953e1a897 (1 total):
+NO   ATTEMPT ID           WORKER        STATE       CLASS   EXIT   STARTED
+1    att_1_87c1814654e5   worker-beta   COMPLETED           0      05:16:18
+
+Attempts for Job job_2_e1ba32959149 (1 total):
+NO   ATTEMPT ID           WORKER         STATE       CLASS   EXIT   STARTED
+1    att_2_6dee86aec596   worker-alpha   COMPLETED           0      05:16:18
+
+Attempts for Job job_3_a92fb5abcc90 (1 total):
+NO   ATTEMPT ID           WORKER        STATE       CLASS   EXIT   STARTED
+1    att_3_dcd9cb211e96   worker-beta   COMPLETED           0      05:16:18
+
+>> Final Workers Status:
+Registered Workers (2 total):
+WORKER ID      STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-beta    HEALTHY   2/2               05:16:17         [echo sleep sha256_loop]
+worker-alpha   HEALTHY   2/2               05:16:17         [echo sleep sha256_loop]
+
+=== MiniCloud Local Core Demo Completed Successfully! ===
+>> Cleaning up demo processes...
+{"time":"2026-11-15T10:46:18.859341919+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-15T10:46:18.859706142+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+{"time":"2026-11-15T10:46:18.860027805+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-15T10:46:18.860027145+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+>> Demo cleanup completed.
+{"time":"2026-11-15T10:46:18.943534417+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"worker-beta"}
+{"time":"2026-11-15T10:46:18.943590706+05:30","level":"INFO","msg":"worker process exited cleanly"}
+{"time":"2026-11-15T10:46:19.048073919+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"worker-alpha"}
+{"time":"2026-11-15T10:46:19.048109717+05:30","level":"INFO","msg":"worker process exited cleanly"}

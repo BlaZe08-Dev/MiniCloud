@@ -5,6 +5,9 @@ PORT="8080"
 COORDINATOR_URL="http://127.0.0.1:${PORT}"
 export MINICLOUD_COORDINATOR_URL="${COORDINATOR_URL}"
 export MINICLOUD_HTTP_ADDR="127.0.0.1:${PORT}"
+# The dispatch policy is stated here, not left to the coordinator default (ADR-0017 Q1 made the
+# default round_robin). Override with MINICLOUD_DISPATCH_POLICY=fifo_pull to run the baseline.
+export MINICLOUD_DISPATCH_POLICY="${MINICLOUD_DISPATCH_POLICY:-round_robin}"
 
 echo ">> Starting coordinator on ${MINICLOUD_HTTP_ADDR}..."
 ./bin/coordinator &
