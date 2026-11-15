@@ -16,7 +16,7 @@ Each component has strictly defined responsibilities and explicit negative const
 
 | Component | Package / Path | Responsibilities | Must NOT Own |
 |---|---|---|---|
-| **CLI** | `cmd/mc` | Submit jobs, query status/attempts, list workers, request cancellation. Formats output for humans/scripts. | Scheduling logic or direct storage/DB access. |
+| **CLI** | `cmd/mc` | Submit jobs, query status/attempts, list workers (commands `submit`, `get`, `attempts`, `workers`; cancellation is an HTTP API call, `mc` has no cancel command). Formats output for humans/scripts. | Scheduling logic or direct storage/DB access. |
 | **Migrator CLI** | `cmd/migrate` | Forward-only database migration runner executing embedded SQL under transaction advisory lock (`pg_advisory_xact_lock`). | Arbitrary down migrations or runtime workload scheduling. |
 | **HTTP API** | `internal/api` | Request validation, payload size limits, HTTP contract mapping, response serialization, route handling. | Long-running task execution or background recovery loops. |
 | **Coordinator** | `internal/coordinator` | Orchestration, lifecycle transition coordination, dispatch management, lease verification, recovery scan. | Direct user workload execution. |
@@ -24,8 +24,8 @@ Each component has strictly defined responsibilities and explicit negative const
 | **Worker Agent** | `cmd/worker`, `internal/worker` | Independent OS process: registers, sends periodic heartbeats, auto-re-registers on 404 `WORKER_NOT_FOUND`, polls/claims work, invokes executor, reports result. | Global authoritative job state or direct database access. |
 | **Executor** | `internal/executor` | Executes approved allowlisted tasks (`echo`, `sleep`, `sha256_loop`), enforces execution timeouts and output caps. | Scheduling decisions or worker registration logic. |
 | **Storage** | `internal/storage` | Repository interface and concurrent-safe storage abstraction with atomic operations (`SubmitJob`, `DispatchJob`, `CommitAttempt`, `CancelJob`), SHA-256 hashed lease tokens, dynamic capacity derivation (in-memory for Slice 3a; PostgreSQL in Slice 3c), and forward-only schema migrations (`internal/storage/postgres`). | Transient queue delivery mechanics. |
-| **Queue / Transport** | `internal/queue` | Dispatch transport abstraction (in-memory channel/poll in Milestone 1; Redis Streams in Phase 5). | The only copy of accepted job state. |
-| **Observability** | `internal/observability` | Structured logging (`log/slog`) with correlated `job_id`, `attempt_id`, and metrics. | Business state authority or control plane decisions. |
+| **Queue / Transport** | `internal/queue` | Dispatch transport abstraction (in-memory channel/poll in Milestone 1; Redis Streams evaluation in V2-4). Not on the V1.0.0 production dispatch path; see section 6. | The only copy of accepted job state. |
+| **Observability** | no dedicated package (`internal/observability` does not exist) | Structured logging with `log/slog` inside each package; `internal/logsafe` maps storage and network errors to fixed error classes before they reach logs (SEC-066). Metrics are planned for V3-5. | Business state authority or control plane decisions. |
 
 ---
 
@@ -47,6 +47,7 @@ minicloud/
 │   ├── coordinator/        # Orchestrator coordinating storage, scheduling, queue, and attempt tracking
 │   ├── api/                # net/http server, routes, request validation, structured error responses
 │   ├── worker/             # Worker agent client loop: register, heartbeat, poll/claim, execute, report
+│   ├── logsafe/            # Fixed error classes for log lines (no raw database or network error text)
 │   └── config/             # Environment variable parsing and startup validation
 ├── tests/
 │   ├── architecture/       # Package boundary and dependency invariant tests
@@ -93,6 +94,8 @@ In contrast, schema migrations executed by `cmd/migrate` / `postgres.Migrator` c
 ---
 
 ## 4. End-to-End Data Flow
+
+Historical note (PV-01): the diagram below is the Phase 2 queue-driven flow. The queue steps (enqueue, claim, ack) no longer run in V1.0.0; section 6 describes the production path.
 
 ```mermaid
 sequenceDiagram
@@ -152,3 +155,16 @@ sequenceDiagram
 - **Stage D (Phase 4):** Leases, timeouts, and automatic retry/requeue failure recovery, followed by the hard-gated Assignment-Based Round-Robin slice.
 - **Stage E (Phase 6 / V2):** Redis Streams dispatch transport evaluation against PostgreSQL baseline (ADR-0006).
 - **Stage F (V3):** Docker executor isolation with CPU/memory/PID limits (ADR-0005) and multi-machine network deployment with mutual TLS.
+
+---
+
+## 6. Post-V1 Extension
+
+### Production dispatch path in V1.0.0 (confirmed by code reading, PV-01)
+- **`round_robin` (default since P4-17):** the coordinator assignment loop (`internal/coordinator/assignment*.go`) calls the repository assignment pass (`storage.AssignmentRepository`; PostgreSQL in `internal/storage/postgres/assignment.go`), which reserves jobs for workers with the pure ADR-0017 rule `scheduler.NextAfterCursor` / `scheduler.CursorSet`; workers claim their reservation on poll ([ADR 0017](adr/0017-assignment-round-robin.md)).
+- **`fifo_pull`:** a polling worker claims the next eligible job through `repo.DispatchNextJob` ([ADR 0011](adr/0011-postgres-dispatch-and-recovery.md)).
+- **Not on the production path:** `internal/scheduler.RoundRobinScheduler` is constructed in `cmd/coordinator/main.go` and injected into the service, but no production code calls `SelectWorker`. `internal/queue` is imported by no production package (see the [ADR 0008](adr/0008-dispatch-transport-queue-interface.md) implementation note).
+- **Worker concurrency:** the worker executes one assignment at a time while advertising `available_slots` equal to `TotalSlots`; slice V2-0 resolves this before any resource-aware scheduling.
+
+### Extension
+The post-V1 direction ([ADR 0018](adr/0018-ai-assisted-workflow-dispatch.md), design only) adds layers on top of this core without changing it: V2 node and capability model plus a resource-aware policy inside the assignment pass; V3 isolation, authentication and Node Agent evolution of the worker runtime; V4 workflows, workspaces, artifacts, CLI adapters, the Intelligence Dispatcher and interfaces. A node is a separate identity entity; hardware inventory, telemetry and installed tools live in separate tables; a worker is the execution agent and CLI tools are never workers (decision D3). Full design: [docs/post-v1/ARCHITECTURE.md](post-v1/ARCHITECTURE.md). Nothing in this section beyond the V1.0.0 production path is implemented.
