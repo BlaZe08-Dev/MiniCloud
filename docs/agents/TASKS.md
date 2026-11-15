@@ -22,8 +22,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, awaiting owner review |
-| V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | not started | planned; spec to be written by the orchestrator |
+| PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
+| V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | ADR proposed |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
 | P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | merged in PR #51 (status corrected by PV-01) |
 | P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
@@ -49,13 +49,13 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### PV-01 — Post-V1 documentation reconciliation and design freeze
 - Goal: apply sections 3 to 5 of the post-V1 integration spec (orchestrator proposal, 2026-11-15, owner decisions D1 to D3): add `docs/post-v1/` (13 files, corrected), ADR-0018 with the ADR-0004 amendment, the trust model (D2) and the device model (D3); amendment notes in ADR-0004 and ADR-0008; scoped AGENTS.md rule, context map, precedence list and three standing rules; README, PROJECT_STATE top section, roadmap V2/V3/V4 table, CHANGELOG reconciliation, architecture.md post-V1 section; CLAUDE.md and GEMINI.md navigation; this board (next migration 000006, stale rows closed against merged PRs).
-- Builder: Claude Code. Auditor: owner review (the AGENTS.md change needs the owner). Branch: `agent/claude/PV-01`. Status: complete, awaiting owner review.
+- Builder: Claude Code. Auditor: owner review (the AGENTS.md change needs the owner). Branch: `agent/claude/PV-01`. Status: complete, merged in PR #55.
 - Owned files: `docs/post-v1/**`, `docs/adr/0018-ai-assisted-workflow-dispatch.md`, `docs/adr/0004-version-boundaries-and-compatibility.md` (amendment note only), `docs/adr/0008-dispatch-transport-queue-interface.md` (note only), `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `README.md`, `docs/PROJECT_STATE.md` (top section and milestone line only), `docs/roadmap.md`, `docs/architecture.md`, `CHANGELOG.md`, `docs/agents/TASKS.md`, `docs/agents/handoffs/PV-01.md`, `reports/claude/PV-01.md`.
 - Out of scope: any `.go` file, migrations, `go.mod`/`go.sum`, API routes, tests, `tests/docs/citation_allowlist.txt` (unless `make test-docs` needs it), `docs/security/**`, historical handoffs and reviews, running docker or `make test-outage`. No implementation task is started.
 
 ### V2-0 — Worker concurrency semantics (placeholder; full spec to be written by the orchestrator)
 - Goal: decide and document slot semantics (real concurrent execution with supervision, or advertise what is actually executed), ADR first, then implementation. The worker today runs one task at a time while registration and heartbeat report `available_slots` equal to `TotalSlots` (confirmed by code reading, `internal/worker/client.go` func `Run` and func `register`; spec section 2). Exit: advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible.
-- Builder: Claude Code. Auditor: to be assigned. Status: planned, not started.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/V2-0`. Status: ADR proposed (Stage A, ADR-0019 `docs/adr/0019-worker-concurrency-semantics.md`); Stage B (implementation) waits for orchestrator approval.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000006 with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
