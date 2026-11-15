@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Post-V1 documentation reconciliation and design freeze (PV-01, docs only):** `docs/post-v1/` architecture pack (design only, nothing implemented), ADR-0018 (amends ADR-0004 with a new V4; trust model D2; device model D3), amendment note in ADR-0004, implementation note in ADR-0008, merged V2/V3/V4 roadmap, post-release section in `docs/PROJECT_STATE.md`, scoped post-V1 rule, standing rules and precedence list in `AGENTS.md`, task board reconciled (next migration `000006`). No Go source, migration, dependency, API route or test change.
+
+## [1.0.0] - 2026-11-15
+
+Tag `v1.0.0` on `main` at 166c719; V1 code baseline `d7a397c` (tag message). Reconciliation note (PV-01): until the tag this file kept every change under `[Unreleased]`, including the work tagged `v0.2.0` (2026-10-20, Phase 2) and `v0.3.0` (2026-10-26, Phase 3), which never received their own sections; the entries are not split retroactively. The block directly below lists PRs #28 to #54, which had not been recorded here; it is summarised from `docs/PROJECT_STATE.md` section 2 and `docs/agents/TASKS.md`, where the details are. The older entries follow unchanged.
+
+### Added
+- **V1 release and archive (PRs #52 to #54):** PROJECT_STATE update for the V1 gate (PRs #52, #53); archive of unmerged audit records and the review index `docs/agents/reviews/README.md` (P4-23, PR #54).
+- **V1 Security & Resilience Gate:** executed by the orchestrator on `main` at `d7a397c`; results in `docs/security/findings.md` ("V1 Security Gate results") and `docs/PROJECT_STATE.md` section 2.
+- **Docs part 1 and part 2 (P4-19, PR #51; P4-21, PR #49):** ADR-0017 status and test labels, findings register updates, test and fault plans, roadmap; README, schema, field limits, state machine, architecture, ADR-0003 and ADR-0011 amendment lines, `.env.example`.
+- **SEC-066 fix (P4-22, PR #50):** raw database errors no longer reach coordinator logs; new package `internal/logsafe`.
+- **LeakScan poll under the default policy (P4-20, PR #48):** test-only bounded poll retry.
+- **Default dispatch policy `round_robin` (P4-17, PR #47):** ADR-0017 Q1; `fifo_pull` stays selectable with `MINICLOUD_DISPATCH_POLICY=fifo_pull`.
+- **SEC-062 fix (P4-16, PR #46):** older environment helpers reject set-but-invalid values at startup.
+- **ADR-0017 assignment-based round-robin (P4-08a to P4-08g, PRs #33, #35, #38, #40, #41, #44, #45):** design; slice 5a (domain, pure policy, in-memory parity); slice 5b (migration `000005_assignment_round_robin.sql`, PostgreSQL assignment repository); slice 5c (coordinator loop, grace, binary wiring, API fields, worker timing, fault, abuse and property suites, fix round).
+- **Backoff overflow fix and findings (P4-14, PR #42; P4-15, PR #43):** `ComputeBackoffWithJitter` overflow fixed (SEC-064); SEC-063 to SEC-065 registered.
+- **Friendlier `make test-security` guard (P4-12, PR #39).**
+- **Follow-ups and stale statuses (P4-11, PR #37).**
+- **Worker hardening (P4-09, PR #34; P4-10, PR #36):** execution timeout clamping (SEC-012); poll response body limit and URL path escaping (SEC-060, SEC-061).
+- **CLI output sanitization (P4-07, PR #32):** SEC-048.
+- **Phase 4 docs passes (P4-05, PR #28; P4-06a, PR #30; P4-06b, PR #31):** report file rule, findings SEC-025 to SEC-058, review record imports.
+- **Phase 4 slice 4e (P4-4e, PR #29):** fault-injection suite (FS-01 to FS-10), adversarial abuse suite, `ClampText`, worker fallback report, request and background timeouts.
 - **Citation Checker Scoping for Frozen Review Records (P4-T2, PR #27, `main` at `1e20143`):**
   - Scoped the citation checker's Rule A markdown link check to live documents, allowing historical review records (`docs/agents/reviews/*.md`) to be preserved as immutable records per ADR-0012 and SEC-005.
   - Enabled byte-identical import of historical review records (such as P0-03 round 2 and round 3) without requiring modifications to frozen audit artifacts.
