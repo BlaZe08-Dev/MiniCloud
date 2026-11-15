@@ -344,7 +344,7 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 - `make test`: Runs standard unit and integration tests with package execution serialized (`go test -v -p 1 ./...`).
 - `make test-race`: Runs the test suite with the Go race detector enabled and package execution serialized (`go test -v -race -p 1 ./...`).
 - `make test-docs`: Verifies documentation citations, links, and rules via `tests/docs`.
-- `make test-security`: Runs the 72-test security and adversarial test suite (`tests/faultinject` and `tests/abuse`) using `-p 1` against a dedicated per-agent test database; `-p 1` is required because the assignment pass lock is database-wide.
+- `make test-security`: Runs the 75-test security and adversarial test suite (`tests/faultinject` and `tests/abuse`) using `-p 1` against a dedicated per-agent test database; `-p 1` is required because the assignment pass lock is database-wide.
 - `make test-db`: Runs the PostgreSQL-backed tests in `internal/storage/postgres` and `internal/coordinator`, plus one coordinator-restart integration test in `tests/integration`, using the `MINICLOUD_TEST_DATABASE_URL` value read from `.env`.
 - `make fmt`: Automatically formats Go source code using `gofmt -s -w .`.
 - `make vet`: Executes Go static code analysis (`go vet ./...`).
