@@ -1,8 +1,20 @@
 # MiniCloud Project State & Handoff
 
+## 0. Post-release state (2026-11-15)
+
+- **Release:** `v1.0.0` is tagged on `main` at 166c719 (2026-11-15). The tag message names the V1 code baseline `d7a397c` and the V1 gate results (outage 3/0, unset suite 401/91/0, security 75/0/0, db 163/0/0, race 401/91/0; executed by the orchestrator on `d7a397c`, recorded in section 2). Commits after `d7a397c` up to the tag (PRs #51 to #54) change docs, archived audit evidence and the citation allowlist only; no `.go`, `.sql`, `go.mod` or `go.sum` file (executed: `git diff --name-only d7a397c 166c719`).
+- **Current milestone:** post-V1 design freeze (Gate 0, task PV-01, docs only). It merges the owner's post-V1 architecture pack into the plan: [docs/post-v1/README.md](post-v1/README.md), [ADR-0018](adr/0018-ai-assisted-workflow-dispatch.md) (amends ADR-0004 with a new V4), and the merged V2/V3/V4 table in [docs/roadmap.md](roadmap.md). Nothing post-V1 is implemented.
+- **Next implementation task:** V2-0, worker concurrency semantics. The worker runs one task at a time but advertises `available_slots` equal to `TotalSlots` (confirmed by code reading; effect on dispatch and benchmarks not tested). Then V2-1, the node and capability model with migration `000006` (next free migration number).
+- **V1.0.x maintenance list** (candidates, not started): minors F-5a-14/16/17; PostgreSQL `GetWorker` not reading `last_poll_at`; the in-memory F05/F06 mutation gap; `logsafe` in `cmd/migrate`; repository cleanup. Also observed by PV-01: the worker registers with a hard-coded `"version": "v0.1.0"`. No behaviour change beyond the listed fixes.
+- **Unchanged:** SEC-004 (unauthenticated endpoints, localhost bind default) stays an accepted V1 risk until V3-2.
+
+Sections 1 to 8 below are the V1 record as of the tag. Section 1's milestone line was corrected by PV-01; the rest is unchanged.
+
+---
+
 ## 1. Current Phase & Milestone
 - **Current Branch:** `main`
-- **Current Milestone:** V1 is feature complete and the V1 Security & Resilience Gate is executed (results in `docs/security/findings.md`, section "V1 Security Gate results"). Merged through P4-19 (PR #51, `main` at `2111407`). Remaining before the `v1.0.0` tag (owner action): archive the unmerged audit reports (P4-23) and the final verification.
+- **Current Milestone:** V1 released as `v1.0.0` (tag on 166c719, 2026-11-15) after the V1 Security & Resilience Gate (results in `docs/security/findings.md`, section "V1 Security Gate results") and the P4-23 archive (PR #54). The post-V1 milestone is in section 0. (Corrected by PV-01; the line previously said the tag was pending.)
 - **Target Release:** MiniCloud V1 (Phases 0–4 + Assignment-Based Round-Robin Slice).
 
 ---
@@ -313,7 +325,7 @@ Detailed in [docs/phase4-plan.md](phase4-plan.md):
 6. **Make test-security Shared Database Guard (Completed in Slice P4-12)**: `make test-security` refuses execution early (exit 2) when run against the shared database (`minicloud_test`) or when `MINICLOUD_TEST_DATABASE_URL` is unset, requiring an own database ending in `_test`. Override with `ALLOW_SHARED_DB=1` to bypass the guard.
 7. **CLI Output Sanitization (F-4e-18, Completed in Slice P4-07)**: CLI `cmd/mc` sanitises ANSI control characters, escape sequences, and lone carriage returns from untrusted task outputs and error strings before printing (`cmd/mc/sanitize.go`).
 8. **Rate and Connection Limits (F-4e-17, Accepted Risk (V1))**: HTTP endpoints lack rate limiting and connection bounding (accepted risk under SEC-004 until V3).
-9. **Next (before `v1.0.0`)**: the assignment-based round-robin slice is complete and the V1 gate is executed. Remaining: archive the unmerged audit reports (P4-23), final verification, and the owner's tag. After the tag (v1.0.1 candidates): minors F-5a-14/16/17, PostgreSQL `GetWorker` not reading `last_poll_at`, the in-memory F05/F06 mutation gap, logsafe in `cmd/migrate`. V2 starts with resource-aware scheduling and the Redis Streams comparison.
+9. **Next (before `v1.0.0`; superseded by section 0 after the tag)**: the assignment-based round-robin slice is complete and the V1 gate is executed. Remaining: archive the unmerged audit reports (P4-23), final verification, and the owner's tag. After the tag (v1.0.1 candidates): minors F-5a-14/16/17, PostgreSQL `GetWorker` not reading `last_poll_at`, the in-memory F05/F06 mutation gap, logsafe in `cmd/migrate`. V2 starts with resource-aware scheduling and the Redis Streams comparison.
 
 ---
 

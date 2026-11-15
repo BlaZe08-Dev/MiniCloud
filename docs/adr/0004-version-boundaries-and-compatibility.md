@@ -57,3 +57,6 @@ We partition project development into three distinct major platform releases bui
 ## Alternatives Considered
 - *Strict Phase-by-Phase Delivery without Versions:* Rejected because having 9 flat phases lacked clear milestones for benchmark comparisons and stability guarantees.
 - *Introducing Redis and Docker in Phase 5 ahead of Scheduling:* Rejected by project owner; scheduler research on Linux Mint processes provides faster feedback than container orchestration overhead.
+
+## Amendment note (2026-11-15, ADR-0018)
+[ADR 0018](0018-ai-assisted-workflow-dispatch.md) amends section 1 (owner decision D1): V2 also takes the node capability inventory and capability-aware scheduling; V3 also takes node identity and authentication, Node Agent evolution of the worker runtime and remote nodes; a new **V4** holds the AI workflow layer and builds on V3; coordinator HA stays later and design-only. The text above is unchanged and section 2 applies to every version. V1 was released as `v1.0.0` on 2026-11-15. Merged sequence: [docs/roadmap.md](../roadmap.md).

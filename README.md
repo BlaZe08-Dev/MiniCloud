@@ -4,8 +4,8 @@ MiniCloud is a learning-oriented distributed job-execution platform written in G
 
 ## Status
 
-- **Development Stage:** Pre-production (active V1 implementation).
-- **Phase:** V1, Phase 4 in progress. The current slice and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
+- **Release:** V1.0.0 released (tag `v1.0.0`, 2026-11-15; code baseline `d7a397c`). Still a learning-oriented, pre-production system.
+- **Next:** post-V1 design freeze (PV-01), then V2 starting with worker concurrency semantics (V2-0). The post-V1 direction is design only and nothing in it is implemented: [docs/post-v1/README.md](docs/post-v1/README.md).
 - **Security Posture:** The HTTP API and worker endpoints currently lack authentication, authorization, and TLS (documented as accepted risk SEC-004 in [docs/security/findings.md](docs/security/findings.md)); network security is deferred to V3. The coordinator defaults to binding strictly on localhost (`127.0.0.1:8080`) and must not be exposed to untrusted networks.
 - **Living Status:** The authoritative implementation progress, active milestones, and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).
 
@@ -14,7 +14,7 @@ MiniCloud is a learning-oriented distributed job-execution platform written in G
 The following capabilities are implemented and verified in the codebase (`cmd/`, `internal/`):
 
 - **Coordinator Daemon (`cmd/coordinator`):** HTTP control plane managing job submissions, worker registrations, heartbeat tracking, and dispatching attempts. Supports in-memory and PostgreSQL storage backends.
-- **Worker Daemon (`cmd/worker`):** Autonomous agent executing allowlisted tasks (`echo`, `sleep`, `sha256_loop`) with bounded concurrency slots and periodic heartbeats.
+- **Worker Daemon (`cmd/worker`):** Autonomous agent executing allowlisted tasks (`echo`, `sleep`, `sha256_loop`) one at a time, with periodic heartbeats. It advertises `MINICLOUD_WORKER_SLOTS` slots (default 4) but does not yet execute them concurrently; V2-0 resolves this.
 - **Command-Line Interface (`cmd/mc`):** CLI tool for job submission, job status inspection, attempt history retrieval, and worker capacity monitoring.
 - **Database Migrations (`cmd/migrate`):** Forward-only embedded SQL migrator with PostgreSQL transaction advisory locking (`pg_advisory_xact_lock`) and schema checksum verification.
 - **Domain State Machine (`internal/domain`):** Central entity lifecycle validation enforcing valid transitions across job states (`SUBMITTED`, `QUEUED`, `RUNNING`, `CANCEL_REQUESTED`, `RETRYING`, `SUCCEEDED`, `FAILED`, `CANCELLED`, `REJECTED`) and attempt states (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `TIMED_OUT` (reserved, not written in V1), `CANCELLED`, `LOST`); the full transition matrix is specified in [docs/state-machine.md](docs/state-machine.md) (Section 3 and Section 4).
@@ -30,7 +30,7 @@ Per-slice implementation status is in [docs/PROJECT_STATE.md](docs/PROJECT_STATE
 MiniCloud consists of four core executables and an authoritative PostgreSQL database:
 
 - **Coordinator (`cmd/coordinator`):** Serves the HTTP API (`internal/api`), tracks worker registrations and heartbeats, validates transitions through the domain FSM (`internal/domain`), and orchestrates job dispatching.
-- **Worker (`cmd/worker`):** Polls the coordinator for work, runs allowlisted tasks inside bounded execution slots (`internal/executor`), sends periodic heartbeats, and reports task results.
+- **Worker (`cmd/worker`):** Polls the coordinator for work, runs allowlisted tasks one at a time with bounded runtime and output (`internal/executor`), sends periodic heartbeats, and reports task results.
 - **CLI (`cmd/mc`):** Client interface for submitting jobs and querying coordinator status over HTTP.
 - **Migrator (`cmd/migrate`):** Applies forward-only SQL migrations to PostgreSQL before the coordinator starts.
 - **PostgreSQL 16 (`deployments/docker-compose.yml`):** Durable source of truth for jobs, attempts, workers, execution results, and audit events.
@@ -248,7 +248,7 @@ All configuration is loaded from environment variables:
 | `MINICLOUD_DB_QUERY_TIMEOUT` | `5s` | Coordinator | `internal/config/config.go` | Boot timeout, and `statement_timeout`/`lock_timeout` for pool connections |
 | `MINICLOUD_COORDINATOR_URL` | `http://127.0.0.1:8080` | Worker, CLI (`mc`) | `internal/config/config.go`, `cmd/mc/main.go` | Base URL of the coordinator service |
 | `MINICLOUD_WORKER_ID` | `""` (auto-generated) | Worker | `internal/config/config.go`, `cmd/worker/main.go` | Identifier for the worker (defaults to `worker_<hostname>_<pid>`) |
-| `MINICLOUD_WORKER_SLOTS` | `4` | Worker | `internal/config/config.go` | Concurrency execution capacity of the worker |
+| `MINICLOUD_WORKER_SLOTS` | `4` | Worker | `internal/config/config.go` | Capacity the worker advertises (it currently executes one task at a time; see V2-0 in docs/roadmap.md) |
 | `MINICLOUD_TEST_DATABASE_URL` | `""` | Test Suites | `internal/storage/postgres/testhelper_test.go` | Isolated database URL for PostgreSQL integration tests (DB name must end in `_test`) |
 
 Malformed or unparseable numeric or duration values stop service startup with an error naming the variable; unset or empty values take their defaults. Coordinator validation requires `MINICLOUD_DEFAULT_MAX_ATTEMPTS` to be between 1 and 20, and grace values (`MINICLOUD_STARTUP_GRACE_PERIOD` and `MINICLOUD_OUTAGE_GRACE_WINDOW`) to be at least the lease duration (`MINICLOUD_LEASE_DURATION`).
@@ -362,16 +362,18 @@ The HTTP API is implemented in `internal/api` and fully specified in [docs/proto
 
 ## Roadmap
 
-MiniCloud development follows a three-version roadmap defined in [docs/roadmap.md](docs/roadmap.md):
+MiniCloud development follows the version roadmap in [docs/roadmap.md](docs/roadmap.md). V1 is released; V2 to V4 are planned:
 
-- **V1 (Phases 0–4):** Core execution with allowlisted tasks, transactional dispatch (`round_robin` default since P4-17; `fifo_pull` selectable), PostgreSQL durability, lease management, bounded retries, cancellation reaching running workers, and post-Phase 4 assignment-based round-robin scheduling.
+- **V1 (Phases 0–4, released as `v1.0.0`):** Core execution with allowlisted tasks, transactional dispatch (`round_robin` default since P4-17; `fifo_pull` selectable), PostgreSQL durability, lease management, bounded retries, cancellation reaching running workers, and post-Phase 4 assignment-based round-robin scheduling.
 - **V2 (Phase 6 & Transport Evaluation):** Resource-aware scheduling policies, comparative benchmark generator, fault injection harness, and Redis Streams dispatch evaluation against the PostgreSQL baseline (ADR-0006). PostgreSQL remains the durable source of truth.
 - **V3 (Docker Isolation & Multi-Machine):** Docker container task isolation behind the executor interface (ADR-0005), worker mutual TLS (mTLS), worker API token authentication, and multi-machine deployment hardening.
+- **V4 (post-V1, ADR-0018):** AI-assisted workflow planning and dispatch to local AI CLI tools through node-local adapters, with the deterministic scheduler deciding placement. V2 and V3 also gain node/capability and node identity slices. Design only: [docs/post-v1/README.md](docs/post-v1/README.md).
 
 ## Documentation Index
 
 - [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md): Living handoff, completed milestones, and current phase progress.
-- [docs/roadmap.md](docs/roadmap.md): Three-version release roadmap and exit criteria.
+- [docs/roadmap.md](docs/roadmap.md): Version roadmap (V1 released; V2, V3, V4) and exit criteria.
+- [docs/post-v1/README.md](docs/post-v1/README.md): Post-V1 architecture direction (design only).
 - [docs/architecture.md](docs/architecture.md): System components, data flows, and design invariants.
 - [docs/state-machine.md](docs/state-machine.md): Central state machine, attempt states, and transition matrix.
 - [docs/protocol.md](docs/protocol.md): HTTP API endpoints, request/response models, and error codes.

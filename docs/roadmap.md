@@ -1,7 +1,9 @@
-# MiniCloud Platform Roadmap: V1, V2, and V3
+# MiniCloud Platform Roadmap: V1 to V4
 
 ## 1. Overview
-MiniCloud development is structured into three major releases. Each version builds directly upon the previous release on the same codebase, ensuring continuous architectural compatibility and verifiable invariants.
+MiniCloud development is structured into major releases. Each version builds directly upon the previous release on the same codebase, ensuring continuous architectural compatibility and verifiable invariants.
+
+**V1 is released** as `v1.0.0` (tag on 166c719, 2026-11-15; code baseline `d7a397c`). Since PV-01 the plan has four versions: [ADR 0018](adr/0018-ai-assisted-workflow-dispatch.md) amends [ADR 0004](adr/0004-version-boundaries-and-compatibility.md) with a new V4 (AI workflow layer) and adds node/capability slices to V2 and node identity/Node Agent slices to V3 (owner decision D1). The merged V2/V3/V4 table is section 2a; the design behind it is in [docs/post-v1/ROADMAP.md](post-v1/ROADMAP.md) and [docs/post-v1/README.md](post-v1/README.md). Nothing after V1 is implemented.
 
 ---
 
@@ -16,11 +18,41 @@ MiniCloud development is structured into three major releases. Each version buil
 | **V1** | **Phase 4: Retry & Recovery** | Leases, bounded retries, stale-attempt rejection, automated fault injection suite. | Fault suite verifies invariants; expired leases revoked; no stale result wins; dead worker running jobs requeued. | **DONE** (slices 4a to 4e merged, 4e in PR #29; ADR-0014, ADR-0015, ADR-0016) |
 | **V1** | **Assignment-Based Round-Robin** | Scheduler-driven pre-assignment with bounded accept window (Candidate A), fulfilling Blueprint Section 6. | Round-robin assignment enforced; unaccepted assignments expire and requeue; audit decisions logged; hard gate for V1 release. | **DONE** (ADR-0017 slices 5a to 5c merged in PRs #35, #38, #40, #41, #44, #45; `round_robin` is the default policy since P4-17, PR #47; `fifo_pull` stays selectable) |
 | **V1** | **V1 Security & Resilience Gate** | Execute V1 fault injection, malformed input fuzzing, and API abuse test suites. | All V1 security test plan suites executed with results; zero unhandled panics or state corruption before tagging `v1.0.0`. | **DONE: executed**, results in [findings.md](security/findings.md) ("V1 Security Gate results"); the `v1.0.0` tag itself is not recorded here |
-| **V2** | **Phase 6: Scheduling Research** | Resource-aware scheduling policy, repeatable workload generator, comparative metrics. | Fair comparison with round-robin; p50/p95/p99 latency, queue wait, and throughput recorded. | Planned |
-| **V2** | **Transport Evaluation & Security Gate** | Evaluate Redis Streams dispatch against PostgreSQL pull baseline via `internal/queue`. | Benchmark report comparing throughput, recovery, and duplicate delivery; failure and duplicate tests executed; ADR records choice. | Planned |
-| **V3** | **Execution Isolation & Security Gate** | Docker container executor with CPU, memory, PID, and hard runtime limits. | Constrained task execution; container escape and resource limits tested; non-root isolation; no shell execution on host. | Planned |
-| **V3** | **Phase 7: Multi-Machine & Auth Gate** | Network deployment, worker authentication, mutual TLS, network fault testing. | Worker authentication and mTLS enforced before any multi-machine claim; network partitions and reconnects tested. | Planned |
-| **V3** | **Phase 8: Hardening & Release** | Prometheus metrics, operational docs, performance tuning, reproducible release. | Clean checkout setup succeeds from README; reproducible benchmark suite tagged. | Planned |
+| **V1** | **Release** | Tag `v1.0.0`. | V1 gate executed; P4-23 archive merged (PR #54). | **RELEASED** (2026-11-15, tag on 166c719, code baseline `d7a397c`) |
+
+The V2 and V3 rows that stood here (Phase 6 scheduling research; transport evaluation and security gate; execution isolation and security gate; Phase 7 multi-machine and auth gate; Phase 8 hardening and release) are replaced by section 2a. Their scope is kept: Phase 6 becomes V2-2 and V2-3, the transport evaluation becomes V2-4, execution isolation becomes V3-1, Phase 7 becomes V3-2 and V3-4, Phase 8 becomes V3-5.
+
+---
+
+## 2a. Merged V2/V3/V4 Roadmap (post-V1, planned)
+
+Slice names are proposals for the task board (`docs/agents/TASKS.md`). Status of every row after Gate 0: planned, not started.
+
+| Version | Slice | Scope | Exit criterion |
+|---|---|---|---|
+| V1.0.x | maintenance | the v1.0.1 list (minors F-5a-14/16/17, `GetWorker` not reading `last_poll_at`, in-memory F05/F06 mutation gap, `logsafe` in `cmd/migrate`, repo cleanup) | no behaviour change beyond the listed fixes |
+| Gate 0 | PV-01 | documentation reconciliation and design freeze | `make test-docs` rc 0; hierarchy and links verified; no code touched |
+| **V2** | V2-0 | **Worker concurrency truth.** Decide and document slot semantics: real concurrent execution with supervision, or advertise what is actually executed. ADR first. | advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible |
+| V2 | V2-1 | **Node and capability model (D3).** Additive forward-only migration `000006`+ with separate tables: `nodes` (identity only), `node_hardware` (versioned static inventory), `node_telemetry` (latest dynamic sample with `sampled_at`), and nullable `workers.node_id`. `node_tools` is designed in the V2-1 ADR but created in V4. Absent data means "unknown"; legacy workers (NULL node) stay eligible. Telemetry updates must not rewrite the hardware row. | stale telemetry is never treated as current; V1 workers register unchanged; hardware rows are not rewritten by telemetry |
+| V2 | V2-2 | Workload generator and benchmark harness (built-in tasks only, controlled hardware, no invented numbers) | repeatable runs, recorded environment |
+| V2 | V2-3 | **Resource-aware policy** plugged into the ADR-0017 assignment pass: hard constraints first, deterministic ranking, decision audit record. Compared with `round_robin` and `fifo_pull` on p50/p95/p99, queue wait, throughput, fairness. | placement reproducible from recorded inputs; resource limits never violated in tests |
+| V2 | V2-4 | Redis Streams versus the PostgreSQL baseline (ADR-0006) with broker-restart, network-drop and duplicate-delivery tests. PostgreSQL stays the source of truth. | benchmark report with real measurements; ADR recorded |
+| V2 | gate | V2 security and fault gate | per `docs/security/test-plan.md` |
+| **V3** | V3-1 | Docker executor with CPU, memory, PID and runtime limits (ADR-0005) | escape and limit tests |
+| V3 | V3-2 | **Authentication**: API clients, node enrollment and identity, authorization scopes, transport security (mTLS candidate), audit events. Closes SEC-004. | an unauthenticated device cannot enroll, submit, inspect or execute |
+| V3 | V3-3 | **Node Agent evolution**: extend the worker runtime (no second daemon), keep the V1 worker protocol compatible | old and new workers coexist |
+| V3 | V3-4 | Multi-machine networking and network fault tests. Remote execution stays disabled until V3-1 and V3-2 pass. | partitions and reconnects tested |
+| V3 | V3-5 | Prometheus metrics, operational docs, reproducible release from a clean checkout | clean-checkout setup from the README |
+| V3 | gate | V3 isolation and authentication gate | per ADR-0012 |
+| **V4 (new)** | V4-0 | Design freeze: resolve the open decisions that block V4-1, contracts, threat model, test plan | no open decision blocks V4-1 |
+| V4 | V4-1 | **Workflow model, workspaces and artifacts** (single machine), each runnable task mapped onto the existing job/attempt lifecycle | no shared-directory mutation; stale artifact never accepted |
+| V4 | V4-2 | **CLI adapter contract and one provider adapter**: single machine, restricted account (D2), read-only profile first, writes with approval, argument arrays, environment allowlist, process-tree cancellation, bounded logs | adapter contract tests, no credential leakage, no shell strings |
+| V4 | V4-3 | **Tool-aware placement**: create `node_tools` and add tool readiness and execution profile as hard constraints to the V2-3 policy | placement decisions explain themselves from recorded inputs |
+| V4 | V4-4 | **Intelligence Dispatcher**: provider-neutral planner, schema-validated DAG, plan preview and approval, replanning as a new immutable revision | untrusted planner output cannot bypass validation, auth, scheduler constraints or approval |
+| V4 | V4-5 | Interfaces: additive `/v1` workflow and node endpoints, `mc workflow` commands, Go SDK, simple chat UI, explicit external-agent ingress | all four interfaces share one backend and one authorization model |
+| V4 | V4-6 | Multi-device AI execution demo (requires V3 gates), artifact transfer with checksum verification, node-loss and stale-result tests | demo survives a node loss and rejects stale results |
+| V4 | gate | V4 security gate: prompt injection, malicious CLI output, workspace escape, replayed enrollment, partial side effects on retry | per [docs/post-v1/SECURITY.md](post-v1/SECURITY.md) |
+| Later | HA | Coordinator failover (Raft or database leases with fencing) only after need is shown and database HA is designed with it | split-brain tests |
 
 ---
 
@@ -87,16 +119,17 @@ As defined in [ADR 0012](adr/0012-security-and-adversarial-testing-workflow.md) 
 2. **Milestone V2 Dispatch Comparison Gate**:
    - The comparative evaluation between Redis Streams and the PostgreSQL baseline must include adversarial tests: broker restarts, transient network drops, and simulated duplicate message delivery under high queue contention.
    - Performance benchmarks must cite real measurements from controlled local hardware baselines without invented figures.
-3. **Milestone V3 Isolation and Authentication Gate**:
+3. **Milestone V3 Isolation and Authentication Gate** (post-V1 slices V3-1 and V3-2):
    - Container isolation testing (cgroup memory/CPU limits, container escape probes, read-only rootfs barriers) must pass before claiming multi-tenant or untrusted execution support.
    - Worker mutual TLS (mTLS) and API token authentication must be fully implemented and validated with negative test vectors before any multi-machine deployment claim is recognized.
 
 ---
 
-## 6. Scope & Version Gate Rules
+## 7. Scope & Version Gate Rules
 1. **Incremental Complexity:** Infrastructure is introduced only when its phase is active. No PostgreSQL in Phase 2; no Redis in V1; no Docker until V3.
 2. **Interface Decoupling:**
    - Scheduling policies implement `scheduler.Scheduler` without modifying job lifecycle logic.
-   - Dispatch transport implements `internal/queue.Queue` so PostgreSQL pull and Redis Streams remain interchangeable.
+   - Dispatch transport implements `internal/queue.Queue` so PostgreSQL pull and Redis Streams remain interchangeable. (Note, PV-01: in V1.0.0 no production package uses `internal/queue`; dispatch runs through the repository, ADR-0011 and ADR-0017. Whether the queue interface stays the seam is decided by V2-4; see the ADR-0008 implementation note.)
    - Task execution implements `executor.Task` with no in-process assumptions, allowing container execution in V3.
 3. **Compatibility Guarantee:** Additive-only changes within `/v1` API; forward-only database migrations.
+4. **Post-V1 additions (ADR-0018):** V4 adds the V4 security gate (section 2a). Remote execution stays disabled until V3-1 and V3-2 pass; AI CLI work on the host follows the trust model D2 in ADR-0018.
