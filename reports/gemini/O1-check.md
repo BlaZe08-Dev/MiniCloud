@@ -254,3 +254,33 @@ Any valid submitted payload between 10,925 bytes and 65,536 bytes containing suf
 - **Proposed Finding Wording**:
   - *Title*: Coordinator HTTP JSON encoder HTML-escapes raw payloads, expanding legal payloads beyond worker execution limit.
   - *Summary*: In `internal/api/handlers.go:writeJSON`, responses are encoded using `json.NewEncoder(w).Encode(data)` without `SetEscapeHTML(false)`. Go's encoder escapes `<`, `>`, `&`, and U+2028/U+2029 into 6-byte escape sequences. When a worker polls for work, `WorkAssignment.Payload` (`json.RawMessage`) expands up to 6x on the wire. A legal payload under the 64 KiB coordinator limit (as small as 10,925 bytes) expands past 65,536 bytes. The worker's `executor.Registry.Execute` checks raw byte length before decoding and permanently rejects the assignment with `ErrPayloadTooLarge` (`PERMANENT` error class), aborting valid jobs without retries.
+
+---
+
+## 8. Round 2: Severity Ruling, Finding Registration, and Fix Hand-off
+
+### Orchestrator Severity Ruling and Difference of View
+- **Orchestrator Ruling**: **Low** severity for SEC-067.
+- **Difference of View**: Gemini proposed **Medium** based on the operational outcome: valid, non-malicious user jobs under the documented 64 KiB payload limit are accepted at submission but permanently fail on Attempt 1 without retry. The orchestrator ruled **Low** because the defect is an encoding boundary bug affecting specific characters (`<`, `>`, `&`, U+2028, U+2029) on the wire, rather than an authentication/authorization bypass, remote code execution, or database data corruption. The ruling is recorded and accepted.
+
+### Security Finding Registered
+- Finding **SEC-067** registered in `docs/security/findings.md` with status `Open`.
+- Summary: HTML-escaped API responses inflate the poll payload so a valid job under 64 KiB fails PERMANENT on the worker.
+- Root Cause: `writeJSON` in `internal/api/handlers.go` without `SetEscapeHTML(false)` plus the raw-bytes size check in `executor.Registry.Execute` in `internal/executor/executor.go`.
+- Evidence: `reports/gemini/O1-check.md` and `docs/agents/reviews/O1-check-evidence/`.
+
+### Fix Hand-off (Task V1x-02)
+- Task **V1x-02** ("Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit") registered in `docs/agents/TASKS.md`.
+- **Builder**: Claude Code. **Auditor**: Gemini (read-only).
+- **Proposed Fix**: Option (a) — configure the response encoder in `internal/api/handlers.go:writeJSON` with `enc.SetEscapeHTML(false)`.
+- **Security Requirement**: The fix must keep or add `X-Content-Type-Options: nosniff` header to protect clients and prevent MIME-sniffing.
+- **Owned Files**: `internal/api/handlers.go`, `internal/api/*_test.go`, `docs/**`.
+- **Out of Scope**: `worker`, `executor`, `storage`, `migrations`.
+- **Acceptance Criteria**:
+  1. Regression test demonstrating poll response bytes equal the submitted payload for `<`, `>`, `&`, and U+2028/2029, with mutation proof (fails if fix reverted).
+  2. Header test verifying `X-Content-Type-Options: nosniff`.
+  3. Worker and executor packages remain completely unchanged.
+  4. An old worker still completes jobs successfully.
+  5. Baseline test and benchmark counts are not lower.
+  6. Auditor Gemini is read-only.
+
