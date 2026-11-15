@@ -39,7 +39,7 @@ type CoordinatorConfig struct {
 	// follows it, after a database outage (default 30s).
 	OutageGraceWindow time.Duration
 
-	// DispatchPolicy selects fifo_pull (default) or round_robin (ADR-0017 Section 5.2).
+	// DispatchPolicy selects round_robin (default, ADR-0017 Q1) or fifo_pull (ADR-0017 Section 5.2).
 	DispatchPolicy string
 	// Assignment settings (ADR-0017 Section 5.5). Validated in LoadCoordinatorConfig.
 	AssignmentAcceptWindow time.Duration
@@ -147,7 +147,7 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		StartupGracePeriod: plainDuration("MINICLOUD_STARTUP_GRACE_PERIOD", 30*time.Second),
 		OutageGraceWindow:  plainDuration("MINICLOUD_OUTAGE_GRACE_WINDOW", 30*time.Second),
 
-		DispatchPolicy:         strings.ToLower(getEnv("MINICLOUD_DISPATCH_POLICY", "fifo_pull")),
+		DispatchPolicy:         dispatchPolicyFromEnv(),
 		AssignmentAcceptWindow: strictDuration("MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW", 5*time.Second),
 		AssignmentInterval:     strictDuration("MINICLOUD_ASSIGNMENT_INTERVAL", 1*time.Second),
 		AssignmentMaxLapses:    strictInt("MINICLOUD_ASSIGNMENT_MAX_LAPSES", 3),
@@ -293,6 +293,16 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
 	}
 
 	return cfg, nil
+}
+
+// dispatchPolicyFromEnv returns the dispatch policy: round_robin when MINICLOUD_DISPATCH_POLICY is
+// unset or empty (ADR-0017 Q1), otherwise the lower-cased value, which validateAssignment checks.
+func dispatchPolicyFromEnv() string {
+	v := strings.ToLower(os.Getenv("MINICLOUD_DISPATCH_POLICY"))
+	if v == "" {
+		return "round_robin"
+	}
+	return v
 }
 
 func getEnv(key, defaultVal string) string {

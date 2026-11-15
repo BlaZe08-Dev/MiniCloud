@@ -1,0 +1,23 @@
+?   	github.com/BlaZe08-Dev/Minicloud/cmd/worker	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/coordinator	3.162s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/mc	1.183s
+ok  	github.com/BlaZe08-Dev/Minicloud/cmd/migrate	1.037s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	5.312s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.109s
+?   	github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest	[no test files]
+?   	github.com/BlaZe08-Dev/Minicloud/internal/worker/workertest	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	13.228s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	1.532s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/executor	1.263s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/queue	1.183s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/scheduler	2.306s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	6.677s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.530s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	11.952s
+?   	github.com/BlaZe08-Dev/Minicloud/tests/internal/sectest	[no test files]
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	22.829s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/architecture	1.047s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	26.374s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.552s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	8.800s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/review	1.074s

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -498,5 +499,103 @@ func TestMain_AssignmentSettings_ConfigAndServiceAgree(t *testing.T) {
 	// Each rule contributes at least one accepted and one rejected value.
 	if accepted < 15 || rejected < 15 {
 		t.Fatalf("accepted %d and rejected %d cases; the edge table lost its edges", accepted, rejected)
+	}
+}
+
+// P4-17 (ADR-0017 Q1), end to end from the environment: the policy the binary runs is the one
+// config.LoadCoordinatorConfig derives from MINICLOUD_DISPATCH_POLICY, through configureService and
+// startBackground. Unset or empty runs round_robin (the loop reserves a job with no poll); an
+// explicit fifo_pull runs no pass and a poll claims the job as fifo_pull; an invalid value fails
+// startup in the loader.
+func TestMain_DispatchPolicyFromEnv_EndToEnd(t *testing.T) {
+	load := func(t *testing.T, set bool, val string) (*config.CoordinatorConfig, error) {
+		t.Helper()
+		t.Setenv("MINICLOUD_STORAGE_DRIVER", "memory")
+		t.Setenv("MINICLOUD_ASSIGNMENT_INTERVAL", "100ms")
+		t.Setenv("MINICLOUD_DISPATCH_POLICY", "")
+		if !set {
+			os.Unsetenv("MINICLOUD_DISPATCH_POLICY")
+		} else {
+			t.Setenv("MINICLOUD_DISPATCH_POLICY", val)
+		}
+		return config.LoadCoordinatorConfig()
+	}
+	cases := []struct {
+		name     string
+		set      bool
+		val      string
+		want     string
+		wantFail bool
+	}{
+		{"unset", false, "", domain.DispatchPolicyRoundRobin, false},
+		{"empty", true, "", domain.DispatchPolicyRoundRobin, false},
+		{"explicit round_robin", true, "round_robin", domain.DispatchPolicyRoundRobin, false},
+		{"explicit fifo_pull", true, "fifo_pull", domain.DispatchPolicyFifoPull, false},
+		{"invalid", true, "lottery", "", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, err := load(t, c.set, c.val)
+			if c.wantFail {
+				if err == nil {
+					t.Fatal("invalid policy accepted at startup")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("LoadCoordinatorConfig: %v", err)
+			}
+			repo := newMemoryRepository(cfg)
+			svc := newTestService(cfg, repo)
+			if err := configureService(svc, cfg); err != nil {
+				t.Fatalf("configureService: %v", err)
+			}
+			if got := svc.DispatchPolicy(); got != c.want {
+				t.Fatalf("effective policy = %q, want %q", got, c.want)
+			}
+			ctx := context.Background()
+			if err := svc.RegisterWorker(ctx, &domain.Worker{ID: "w1", TotalSlots: 1, SupportedTasks: []string{"echo"}}); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.RecordPoll(ctx, "w1"); err != nil {
+				t.Fatal(err)
+			}
+			job, err := svc.SubmitJob(ctx, "echo", []byte(`{"message":"x"}`), 30, 3)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stop := startBackground(ctx, svc, cfg)
+			defer stop()
+			assigned := func() bool {
+				events, err := repo.ListEventsByJob(ctx, job.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, e := range events {
+					if e.EventType == domain.JobEventAssigned {
+						return true
+					}
+				}
+				return false
+			}
+			if c.want == domain.DispatchPolicyRoundRobin {
+				deadline := time.Now().Add(5 * time.Second)
+				for !assigned() {
+					if time.Now().After(deadline) {
+						t.Fatal("round_robin: the assignment loop never reserved the job")
+					}
+					time.Sleep(5 * time.Millisecond)
+				}
+				return
+			}
+			time.Sleep(5 * cfg.AssignmentInterval)
+			if assigned() {
+				t.Fatal("fifo_pull: an assignment pass ran")
+			}
+			got, err := svc.PollWork(ctx, "w1")
+			if err != nil || got == nil || got.JobID != job.ID || got.Policy != domain.DispatchPolicyFifoPull {
+				t.Fatalf("fifo_pull poll = %+v err %v, want the job claimed as fifo_pull", got, err)
+			}
+		})
 	}
 }

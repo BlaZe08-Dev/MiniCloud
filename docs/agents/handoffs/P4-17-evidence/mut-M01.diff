@@ -1,0 +1,13 @@
+diff --git a/internal/config/config.go b/internal/config/config.go
+index b0de213..75e3e82 100644
+--- a/internal/config/config.go
++++ b/internal/config/config.go
+@@ -260,7 +260,7 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
+ func dispatchPolicyFromEnv() string {
+ 	v := strings.ToLower(os.Getenv("MINICLOUD_DISPATCH_POLICY"))
+ 	if v == "" {
+-		return "round_robin"
++		return "fifo_pull"
+ 	}
+ 	return v
+ }

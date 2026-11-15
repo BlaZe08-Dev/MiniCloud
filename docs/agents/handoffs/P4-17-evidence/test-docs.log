@@ -1,0 +1,2 @@
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.280s
