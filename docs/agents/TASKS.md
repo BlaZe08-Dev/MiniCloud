@@ -23,6 +23,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | active |
+| P4-16 | Fix SEC-062: older env helpers reject a set bad value at startup | Claude Code | to be assigned | agent/claude/P4-16 | complete, awaiting audit |
 | P4-14 | Fix backoff overflow (finding F-5c2-1) | Gemini | Claude Code | agent/gemini/P4-14 | active |
 | P4-12 | Friendlier make test-security guard | Gemini | Claude Code | agent/gemini/P4-12 | active |
 | P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | merged in PR #37 |
@@ -87,6 +88,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Goal: every test ADR-0017 Section 6.4 plans for slice 5c, under `tests/faultinject` and `tests/abuse` so `make test-security` runs them; the 1,000-iteration sub-state property test; the Section 6 measurements (the P4-08d flood numbers are reused); the worker test tidy-ups from the P4-08d and P4-08e audits. No production code change.
 - Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-08f`. Status: complete, awaiting audit.
 - Owned files: `tests/faultinject/assignment_test.go`, `tests/abuse/assignment_test.go`, `tests/internal/sectest/rr.go`, `tests/internal/sectest/rig.go`, `tests/security-tests.list`, `internal/coordinator/assignment_test.go`, `internal/worker/export_test.go`, `internal/worker/client_test.go`, `internal/worker/poll_timing_test.go`, `docs/adr/0017-assignment-round-robin.md` (implementation notes 31 to 36 only), `docs/agents/handoffs/P4-08f.md`, `docs/agents/handoffs/P4-08f-evidence/**`, `reports/claude/P4-08f.md`, `docs/agents/TASKS.md`.
+
+### P4-16 — fix SEC-062 (older env helpers fall back silently)
+- Goal: `getIntEnv` and `getDurationEnv` (and two new positive variants) return an error naming the variable and the bad value for a set value that does not parse, overflows, or is non-positive where positive is required; unset or empty keeps the default. Defaults and variable names unchanged.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-16`. Status: complete, awaiting audit.
+- Owned files: `internal/config/config.go`, `internal/config/env_helpers_test.go`, `tests/integration/startup_env_test.go`, `docs/agents/handoffs/P4-16.md`, `docs/agents/handoffs/P4-16-evidence/**`, `reports/claude/P4-16.md`, `docs/agents/TASKS.md`.
+- Out of scope: `docs/security/**`, `PROJECT_STATE.md`, README, ADRs (SEC-062 is flipped in the docs sync), the `lookup*EnvStrict` helpers.
 
 ### P4-08g — fix round for the P4-08f audit
 - Goal: kill the P4-08f audit's surviving mutants (Q10, Q11, Q18) and the weak tests (property test INV-3 coverage, deep-backlog yield proof, FS-21 bound, `passUntilReserved`, flood lower bound, outage-recovery test); `-p 1` on the Makefile targets that run several database packages; ADR-0017 corrections (notes 31 to 36, Sections 6.2 and 6.4). No production code change.

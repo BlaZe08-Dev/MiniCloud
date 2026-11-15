@@ -1,0 +1,8 @@
+--- FAIL: TestGetIntEnv_Table (0.00s)
+    --- FAIL: TestGetIntEnv_Table/unparsable (0.00s)
+        env_helpers_test.go:50: value "8080a": want an error, got none (value 7)
+    --- FAIL: TestGetIntEnv_Table/overflow (0.00s)
+        env_helpers_test.go:50: value "99999999999999999999": want an error, got none (value 7)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.004s
+FAIL

@@ -1,0 +1,28 @@
+--- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue (0.00s)
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_HEARTBEAT_INTERVAL (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_HEARTBEAT_INTERVAL and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_WORKER_TIMEOUT (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_WORKER_TIMEOUT and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_REAPER_INTERVAL (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_REAPER_INTERVAL and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_MAX_JOB_RUNTIME (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_MAX_JOB_RUNTIME and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_DB_QUERY_TIMEOUT (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_DB_QUERY_TIMEOUT and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_LEASE_DURATION (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_LEASE_DURATION and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_SWEEPER_INTERVAL (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_SWEEPER_INTERVAL and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_STARTUP_GRACE_PERIOD (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_STARTUP_GRACE_PERIOD and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_OUTAGE_GRACE_WINDOW (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_OUTAGE_GRACE_WINDOW and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_DB_MAX_CONNS (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_DB_MAX_CONNS and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_DB_MIN_CONNS (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_DB_MIN_CONNS and "12x"
+    --- FAIL: TestLoadCoordinatorConfig_OldVariablesRejectBadValue/MINICLOUD_DEFAULT_MAX_ATTEMPTS (0.00s)
+        env_helpers_test.go:162: error = <nil>, want one naming MINICLOUD_DEFAULT_MAX_ATTEMPTS and "12x"
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.005s
+FAIL

@@ -1,0 +1,10 @@
+--- FAIL: TestStartup_BadEnvStopsProcess (11.73s)
+    --- FAIL: TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_HEARTBEAT_INTERVAL=5sec (10.01s)
+        startup_env_test.go:59: process kept running with MINICLOUD_HEARTBEAT_INTERVAL=5sec
+            {"time":"2026-11-14T23:05:54.982315402+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+            {"time":"2026-11-14T23:05:54.982470473+05:30","level":"INFO","msg":"using in-memory storage driver"}
+            {"time":"2026-11-14T23:05:54.982494846+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+            {"time":"2026-11-14T23:05:54.982782306+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:0"}
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/integration	11.735s
+FAIL

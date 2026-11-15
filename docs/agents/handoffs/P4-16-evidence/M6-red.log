@@ -1,0 +1,10 @@
+--- FAIL: TestLoadWorkerConfig_OldVariablesRejectBadValue (0.00s)
+    --- FAIL: TestLoadWorkerConfig_OldVariablesRejectBadValue/MINICLOUD_WORKER_SLOTS=12x (0.00s)
+        env_helpers_test.go:184: error = <nil>, want one naming MINICLOUD_WORKER_SLOTS and "12x"
+    --- FAIL: TestLoadWorkerConfig_OldVariablesRejectBadValue/MINICLOUD_WORKER_SLOTS=0 (0.00s)
+        env_helpers_test.go:184: error = <nil>, want one naming MINICLOUD_WORKER_SLOTS and "0"
+    --- FAIL: TestLoadWorkerConfig_OldVariablesRejectBadValue/MINICLOUD_WORKER_SLOTS=-1 (0.00s)
+        env_helpers_test.go:184: error = <nil>, want one naming MINICLOUD_WORKER_SLOTS and "-1"
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/config	0.003s
+FAIL
