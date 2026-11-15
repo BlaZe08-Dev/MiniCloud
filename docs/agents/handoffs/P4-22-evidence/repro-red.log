@@ -1,0 +1,13 @@
+=== RUN   TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail
+    logleak_test.go:153: SECURITY LEAK IN COORDINATOR LOGS: [dial_host_port (127.0.0.1:42411) dial_port_colon (:42411) db_user_kv (user=postgres) db_name (minicloud_claude_test) db_name_kv (database=minicloud_claude_test) failed_to_connect (failed to connect to)]
+        first offending lines:
+        {"time":"2026-11-15T12:34:47.357345835+05:30","level":"ERROR","msg":"database outage or connection failure","err":"failed to connect to `user=postgres database=minicloud_claude_test`: [REDACTED_HOST_PORT] ([REDACTED_HOST_PORT]): failed to receive message: read tcp [REDACTED_HOST_PORT]->[REDACTED_HOST_PORT]: read: connection reset by peer"}
+        {"time":"2026-11-15T12:34:47.683910607+05:30","level":"WARN","msg":"lease sweeper tick failed","err":"failed to connect to `user=postgres database=minicloud_claude_test`: 127.0.0.1:42411 (127.0.0.1): failed to receive message: read tcp 127.0.0.1:37568->127.0.0.1:42411: read: connection reset by peer"}
+        {"time":"2026-11-15T12:34:48.184752405+05:30","level":"WARN","msg":"lease sweeper tick failed","err":"failed to connect to `user=postgres database=minicloud_claude_test`: 127.0.0.1:42411 (127.0.0.1): failed to receive message: read tcp 127.0.0.1:37702->127.0.0.1:42411: read: connection reset by peer"}
+        {"time":"2026-11-15T12:34:48.185057737+05:30","level":"WARN","msg":"assignment pass failed","err":"failed to connect to `user=postgres database=minicloud_claude_test`: 127.0.0.1:42411 (127.0.0.1): failed to receive message: unexpected EOF"}
+--- FAIL: TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail (4.88s)
+=== RUN   TestFault_CoordinatorLogLeakScanner_PositiveControl
+--- PASS: TestFault_CoordinatorLogLeakScanner_PositiveControl (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	4.888s
+FAIL
