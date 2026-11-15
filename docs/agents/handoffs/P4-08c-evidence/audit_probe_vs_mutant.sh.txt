@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Runs the auditor's gap probes against one surviving mutant in ~/mc-mut-claude, then restores.
+# Usage: probe_vs_mutant.sh <mutant id|none>
+set -u
+ID=$1
+W=$HOME/mc-mut-claude
+S=/tmp/claude-1000/-home-blazeee-MiniCloud-claude/fb90d277-0d16-4524-8666-7b6eadd935bb/scratchpad/mut
+EV=$HOME/MiniCloud-claude/docs/agents/handoffs/P4-08c-evidence
+cd "$W" || exit 9
+[ -z "$(git status --porcelain)" ] || { echo "dirty" >&2; exit 9; }
+if [ "$ID" != none ]; then python3 $S/new_mutants.py "$ID" "$W" >/dev/null || exit 9; fi
+cp $EV/audit_gap_probes_test.go.txt internal/storage/postgres/audit_gap_probes_test.go
+URL=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-)
+MINICLOUD_TEST_DATABASE_URL="$URL" go test -race -count=1 -v -timeout 300s -run '^TestAudit_' ./internal/storage/postgres/ 2>&1 | grep -v '^{' > $S/out/gap-probes-vs-$ID.log
+rm -f internal/storage/postgres/audit_gap_probes_test.go
+git checkout -- .
+[ -z "$(git status --porcelain)" ] || { echo "restore failed" >&2; exit 9; }
+echo "probes vs $ID: $(grep -E '^--- (PASS|FAIL)' $S/out/gap-probes-vs-$ID.log | awk '{print $2 $3}' | tr '\n' ' ')"

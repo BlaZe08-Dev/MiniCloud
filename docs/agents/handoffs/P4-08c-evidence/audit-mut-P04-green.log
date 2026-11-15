@@ -1,0 +1,3 @@
+--- PASS: TestPostgresRepository_Assign_SkipsWorkerLockedByClaim (0.81s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.838s

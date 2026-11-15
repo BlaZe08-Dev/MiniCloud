@@ -1,0 +1,5 @@
+    assignment_test.go:726: pass with the advisory key held: res={Skipped:false Reserved:0 Revoked:0 Lapsed:0 CandidatesRead:map[]} err=timeout: context deadline exceeded, want Skipped within 1s
+--- FAIL: TestPostgresRepository_AssignmentPass_SecondPassSkips (1.49s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.515s
+FAIL

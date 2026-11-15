@@ -1,0 +1,3 @@
+--- PASS: TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner (0.88s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.901s

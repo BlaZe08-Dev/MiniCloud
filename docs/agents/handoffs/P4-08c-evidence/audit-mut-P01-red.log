@@ -1,0 +1,6 @@
+    assignment.go:532: poll by w_h: unexpected error invalid job state transition from RUNNING to RUNNING
+    assignment.go:539: wins=1 losses=14, want 1 and 15
+--- FAIL: TestPostgresRepository_ClaimAssigned_ConcurrentPollsOneWinner (0.87s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.896s
+FAIL

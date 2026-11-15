@@ -1,0 +1,68 @@
+$ bash claims.sh   (auditor claim checks at 8a2ce99; script below)
+C01 Run*Conformance funcs => 19
+C02 storagetest.Run calls mem => 19
+C03 storagetest.Run calls pg => 19
+C04 skip file tracked => 0
+C05 b67db2a deletes skip file => 1
+C06 advisory key => AssignmentPassLockID int64 = 0x4d43417373676e
+C07 heartbeat clock_timestamp => 1
+C08 heartbeat now() => 0
+C09 s.clock.Now in coord assignment.go => 1
+C10 AssignmentPassStale(ctx, 2*interval) => 1
+C11 ADD CONSTRAINT in 000005 => 3
+C12 CREATE INDEX in 000005 => 3
+C13 clearing updates in repository.go => 3
+C14 mut-P diffs => 29
+C15 mut-P red => 29
+C16 mut-P green => 29
+C17 mut-F diffs/red/green => 3 3 3
+C18 red logs without --- FAIL => docs/agents/handoffs/P4-08c-evidence/mut-P07-red.log 
+C19 green logs without --- PASS => 
+C20 green logs with --- FAIL => 
+C21 largest evidence file (pre-audit) => 11843	docs/agents/handoffs/P4-08c-evidence/mutation-index.md
+C22 largest mut-F file => 847	docs/agents/handoffs/P4-08c-evidence/mut-F01.diff
+C23 F01 red text => heartbeat is 262µs after the pre-pass time
+C24 allowlist diff vs origin/main lines => 0
+C25 top-level tests in postgres pkg => 81
+C26 sweep lock timeout default => internal/storage/postgres/repository.go:64:			r.sweepLockTimeout = d internal/storage/postgres/repository.go:74:		sweepLockTimeout: DefaultSweepLockTimeout, 
+C27 CommitAttempt not_before base => internal/storage/postgres/repository.go:91:	if err := r.pool.QueryRow(ctx, `SELECT clock_timestamp();`).Scan(&now); err != nil { internal/storage/postgres/repository.go:1205:	if err := tx.QueryRow(ctx, `SELECT clock_timestamp();`).Scan(&now); err != nil { 
+C28 leases.go changed vs main => 0
+C29 SubmitJob created_at from process clock => 232:		CreatedAt:      now, 
+C30 mutation index rows P/F => 29 3
+C31 index KILLED/SURVIVED rows => 31 1
+
+--- script ---
+cd ~/MiniCloud-claude
+E=docs/agents/handoffs/P4-08c-evidence
+c() { printf '%s => ' "$1"; shift; eval "$@"; }
+c "C01 Run*Conformance funcs" "grep -c '^func Run.*Conformance' internal/storage/storagetest/assignment.go"
+c "C02 storagetest.Run calls mem" "grep -c 'storagetest.Run' internal/storage/inmemory_assignment_test.go"
+c "C03 storagetest.Run calls pg" "grep -c 'storagetest.Run' internal/storage/postgres/assignment_test.go"
+c "C04 skip file tracked" "git ls-files internal/storage/postgres/assignment_5a_skips_test.go | wc -l"
+c "C05 b67db2a deletes skip file" "git show --stat --format=%h b67db2a | grep -c 'assignment_5a_skips_test.go'"
+c "C06 advisory key" "grep -o 'AssignmentPassLockID int64 = 0x[0-9a-f]*' internal/storage/postgres/assignment.go"
+c "C07 heartbeat clock_timestamp" "grep -c 'last_completed_at) VALUES (TRUE, clock_timestamp())' internal/storage/postgres/assignment.go"
+c "C08 heartbeat now()" "grep -c 'last_completed_at) VALUES (TRUE, now())' internal/storage/postgres/assignment.go"
+c "C09 s.clock.Now in coord assignment.go" "grep -c 's.clock.Now()' internal/coordinator/assignment.go"
+c "C10 AssignmentPassStale(ctx, 2*interval)" "grep -c 'AssignmentPassStale(ctx, 2\*interval)' internal/coordinator/assignment.go"
+c "C11 ADD CONSTRAINT in 000005" "grep -c 'ADD CONSTRAINT' internal/storage/postgres/migrations/000005_assignment_round_robin.sql"
+c "C12 CREATE INDEX in 000005" "grep -c 'CREATE INDEX' internal/storage/postgres/migrations/000005_assignment_round_robin.sql"
+c "C13 clearing updates in repository.go" "grep -c 'assigned_worker_id = NULL, assigned_at = NULL, assignment_expires_at = NULL' internal/storage/postgres/repository.go"
+c "C14 mut-P diffs" "ls $E/mut-P*.diff | wc -l"
+c "C15 mut-P red" "ls $E/mut-P*-red.log | wc -l"
+c "C16 mut-P green" "ls $E/mut-P*-green.log | wc -l"
+c "C17 mut-F diffs/red/green" "echo \$(ls $E/mut-F*.diff | wc -l) \$(ls $E/mut-F*-red.log | wc -l) \$(ls $E/mut-F*-green.log | wc -l)"
+c "C18 red logs without --- FAIL" "grep -L -- '--- FAIL' $E/mut-*-red.log | tr '\n' ' '; echo"
+c "C19 green logs without --- PASS" "grep -L -- '--- PASS' $E/mut-*-green.log | tr '\n' ' '; echo"
+c "C20 green logs with --- FAIL" "grep -l -- '--- FAIL' $E/mut-*-green.log | tr '\n' ' '; echo"
+c "C21 largest evidence file (pre-audit)" "git ls-files $E | xargs du -b | sort -n | tail -1"
+c "C22 largest mut-F file" "du -b $E/mut-F* | sort -n | tail -1"
+c "C23 F01 red text" "grep -o 'heartbeat is [^ ]* after the pre-pass time' $E/mut-F01-red.log"
+c "C24 allowlist diff vs origin/main lines" "git diff origin/main -- tests/docs/citation_allowlist.txt | wc -l"
+c "C25 top-level tests in postgres pkg" "env -u MINICLOUD_TEST_DATABASE_URL go test -list '.*' ./internal/storage/postgres/ | grep -c '^Test'"
+c "C26 sweep lock timeout default" "grep -n 'sweepLockTimeout *[:=]\|defaultSweepLockTimeout' internal/storage/postgres/*.go | grep -v _test | head -3 | tr '\n' ' '; echo"
+c "C27 CommitAttempt not_before base" "grep -n 'SELECT clock_timestamp();' internal/storage/postgres/repository.go internal/storage/postgres/leases.go | tr '\n' ' '; echo"
+c "C28 leases.go changed vs main" "git diff origin/main...HEAD --stat -- internal/storage/postgres/leases.go | wc -l"
+c "C29 SubmitJob created_at from process clock" "grep -n 'CreatedAt: *now' internal/coordinator/service.go | head -2 | tr '\n' ' '; echo"
+c "C30 mutation index rows P/F" "echo \$(grep -c '^| P[0-9]' $E/mutation-index.md) \$(grep -c '^| F[0-9]' $E/mutation-index.md)"
+c "C31 index KILLED/SURVIVED rows" "echo \$(grep -c '| KILLED |' $E/mutation-index.md) \$(grep -c '| SURVIVED |' $E/mutation-index.md)"

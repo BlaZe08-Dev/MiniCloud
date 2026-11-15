@@ -1,0 +1,14 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..2eb4f6d 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -142,6 +142,9 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
+ 		return storage.AssignResult{}, mapPgError(err)
+ 	}
+ 
++	if _, err := tx.Exec(ctx, `SELECT id FROM workers ORDER BY id FOR UPDATE;`); err != nil {
++		return storage.AssignResult{}, mapPgError(err)
++	}
+ 	res := storage.AssignResult{CandidatesRead: make(map[string]int)}
+ 	if err := assignRevoke(ctx, tx, p.BatchLimit, &res); err != nil {
+ 		return storage.AssignResult{}, err

@@ -1,0 +1,3 @@
+--- PASS: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.45s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.479s

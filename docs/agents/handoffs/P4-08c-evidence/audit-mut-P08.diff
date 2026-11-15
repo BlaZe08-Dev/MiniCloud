@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..2306e99 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -130,7 +130,7 @@ func (r *Repository) AssignQueuedJobs(ctx context.Context, p storage.AssignParam
+ 
+ 	// N3: the first statement. It never blocks; false means another pass holds the lock.
+ 	var locked bool
+-	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock($1);`, AssignmentPassLockID).Scan(&locked); err != nil {
++	if err := tx.QueryRow(ctx, `SELECT true FROM pg_advisory_xact_lock($1);`, AssignmentPassLockID).Scan(&locked); err != nil {
+ 		return storage.AssignResult{}, mapPgError(err)
+ 	}
+ 	if !locked {

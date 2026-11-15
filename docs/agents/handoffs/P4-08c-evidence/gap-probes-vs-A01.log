@@ -1,0 +1,8 @@
+    audit_gap_probes_test.go:46: pass 2 left the stored cursor at "w_a", want "w_b"
+--- FAIL: TestAudit_Cursor_UpdatePathPersistsAcrossPasses (0.46s)
+--- PASS: TestAudit_Event_CursorBeforeAdvancesWithinPass (0.43s)
+--- PASS: TestAudit_Pass_ReservesOldestOfTypeFirst (0.42s)
+--- PASS: TestAudit_Fallback_ExpiredUnrevokedReservationIsClaimable (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.762s
+FAIL

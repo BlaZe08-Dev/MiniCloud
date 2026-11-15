@@ -1,0 +1,80 @@
+# P4-08c audit: gate outputs (auditor, 2026-10-31, tree at 8a2ce99)
+
+## predictions (written before any gate)
+Predictions recorded 2026-10-31 before any gate run (auditor):
+unset suite (go test -v -race -count=1 ./..., URL unset): PASS 322 SKIP 78 FAIL 0
+make test-security: PASS 54 SKIP 0 FAIL 0
+make test-db: PASS 131 SKIP 0 FAIL 0
+race on ./internal/coordinator ./internal/storage/... (URL unset): clean, no DATA RACE
+Saturday 31 October 2026 04:24:02 PM UTC
+
+## static
+GOFMT_OK
+VET_OK
+BUILD_OK
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	(cached)
+test-docs rc=0
+
+## unset suite: env -u MINICLOUD_TEST_DATABASE_URL go test -v -race -count=1 ./...
+rc=0
+PASS 322 SKIP 78 FAIL 0
+DATA RACE lines: 0
+
+[exited with code 1]
+
+## make test-security
+rc=0
+PASS 54 SKIP 0 FAIL 0
+    --- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/memory (0.00s)
+    --- PASS: TestAbuse_WorkerVersion_InvalidUTF8_StoredAsReplacement/postgres (1.01s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	42.189s
+
+[exited with code 0]
+
+## make test-db, run 1 (another process was using minicloud_claude_test; see review F-R1)
+rc=2
+PASS 126 SKIP 0 FAIL 4
+0
+--- FAIL: TestConformance_AssignPass_UnhealthyRevokeCountsNoLapse (0.42s)
+--- FAIL: TestConformance_AssignEvent_CandidatesInIDOrder (1.36s)
+--- FAIL: TestConformance_AssignPass_SkipsWhenPassLockHeld (0.85s)
+--- FAIL: TestPostgresRepository_CancelAssigned_ClearsAssignment (4.53s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	115.808s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	4.657s
+FAIL
+
+[exited with code 0]
+
+### run 1 failure messages
+    assignment.go:616: control: job was not reserved
+    assignment.go:674: 0 JOB_ASSIGNED events for job_1, want 1
+    assignment.go:735: control: pass after release: res={Skipped:true Reserved:0 Revoked:0 Lapsed:0 CandidatesRead:map[]}
+    assignment_test.go:279: control: job_1 reserved to "", want "w_1"
+    assignment_test.go:812: delete rejected: ERROR: new row for relation "jobs" violates check constraint "chk_jobs_assignment_shape" (SQLSTATE 23514) (code 23514)
+
+### external process observed after run 1 (ps, parent chain to a desktop terminal)
+416410  started Sat Oct 31 21:59:36 2026  make test-db  (cwd /home/blazeee/MiniCloud-claude, parent bash 406319 started 21:52:26, xfce4-terminal)
+
+## make test-db, run 2 (isolated; process watch showed only this run)
+rc=0
+22:03:53
+PASS 131 SKIP 0 FAIL 0
+0
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	100.765s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	4.463s
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	2.153s
+
+[exited with code 0]
+
+## race: MINICLOUD_TEST_DATABASE_URL=<.env> go test -race -count=1 -v ./internal/coordinator ./internal/storage/...
+rc=0
+PASS 179 SKIP 0 FAIL 0
+DATA RACE lines: 0
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	7.927s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	8.087s
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	117.789s
+
+[exited with code 0]

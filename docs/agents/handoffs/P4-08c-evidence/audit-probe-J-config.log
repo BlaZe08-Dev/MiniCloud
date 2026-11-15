@@ -1,0 +1,80 @@
+$ env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 -v -run '^TestAudit_' ./internal/config/ ./internal/coordinator/
+=== RUN   TestAudit_AssignmentConfig_A1Edges
+=== RUN   TestAudit_AssignmentConfig_A1Edges/defaults
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_equals_window_(A1_rule_1_boundary)
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_1ms_above_window
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_INTERVAL (5.001s) must not exceed MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (5s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/L=1_fallback_exactly_2I+W_(A1_rule_2,_must_reject)
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_FALLBACK_AGE (7s) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (7s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/L=1_fallback_2I+W+1ms
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/L=3_fallback_exactly_lapse_minimum_18s
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/L=3_fallback_1ms_below_lapse_minimum
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (18s) and at most 10m (got 17.999s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/fallback_10m
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/fallback_10m+1ms
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_FALLBACK_AGE must be at least MAX_LAPSES x (ACCEPT_WINDOW + INTERVAL) (18s) and at most 10m (got 10m0.001s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_100ms_floor
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_99ms
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_INTERVAL must be between 100ms and 10s (got 99ms)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_10s_window_10s_L=1_fallback_30s_(=2I+W)
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_FALLBACK_AGE (30s) must be greater than 2 x MINICLOUD_ASSIGNMENT_INTERVAL plus MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW (30s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/interval_10s_window_10s_L=1_fallback_30001ms
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/min_yield_equals_interval
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/min_yield_above_interval
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_MIN_YIELD (101ms) must not exceed MINICLOUD_ASSIGNMENT_INTERVAL (100ms)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/window_4999ms
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW must be between 5s and 30s (got 4.999s)
+=== RUN   TestAudit_AssignmentConfig_A1Edges/window_30s
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/policy_ROUND_ROBIN_upper_case
+    audit_config_edges_test.go:39: ok=true err=<nil>
+=== RUN   TestAudit_AssignmentConfig_A1Edges/policy_unknown
+    audit_config_edges_test.go:39: ok=false err=MINICLOUD_DISPATCH_POLICY must be 'fifo_pull' or 'round_robin' (got "random")
+--- PASS: TestAudit_AssignmentConfig_A1Edges (0.01s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/defaults (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_equals_window_(A1_rule_1_boundary) (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_1ms_above_window (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/L=1_fallback_exactly_2I+W_(A1_rule_2,_must_reject) (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/L=1_fallback_2I+W+1ms (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/L=3_fallback_exactly_lapse_minimum_18s (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/L=3_fallback_1ms_below_lapse_minimum (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/fallback_10m (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/fallback_10m+1ms (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_100ms_floor (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_99ms (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_10s_window_10s_L=1_fallback_30s_(=2I+W) (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/interval_10s_window_10s_L=1_fallback_30001ms (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/min_yield_equals_interval (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/min_yield_above_interval (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/window_4999ms (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/window_30s (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/policy_ROUND_ROBIN_upper_case (0.00s)
+    --- PASS: TestAudit_AssignmentConfig_A1Edges/policy_unknown (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/config	1.032s
+=== RUN   TestAudit_AssignmentSettings_A1Edges
+    audit_settings_edges_test.go:40: defaults               ok=true err=<nil>
+    audit_settings_edges_test.go:40: interval == window     ok=true err=<nil>
+    audit_settings_edges_test.go:40: interval window+1ns    ok=false err=invalid request payload or parameters: assignment interval (5.000000001s) must not exceed the accept window (5s)
+    audit_settings_edges_test.go:40: L=1 FA == 2I+W         ok=false err=invalid request payload or parameters: assignment fallback age (7s) must be greater than 2 x interval plus the accept window (7s)
+    audit_settings_edges_test.go:40: L=1 FA == 2I+W+1ns     ok=true err=<nil>
+    audit_settings_edges_test.go:40: FA lapse minimum       ok=true err=<nil>
+    audit_settings_edges_test.go:40: FA lapse minimum-1ns   ok=false err=invalid request payload or parameters: assignment fallback age must be at least max lapses x (accept window + interval) (18s) and at most 10m (got 17.999999999s)
+    audit_settings_edges_test.go:40: FA 10m+1ns             ok=false err=invalid request payload or parameters: assignment fallback age must be at least max lapses x (accept window + interval) (18s) and at most 10m (got 10m0.000000001s)
+    audit_settings_edges_test.go:40: yield == interval      ok=true err=<nil>
+    audit_settings_edges_test.go:40: yield > interval       ok=false err=invalid request payload or parameters: assignment min yield (100.000001ms) must not exceed the interval (100ms)
+    audit_settings_edges_test.go:40: zero value             ok=false err=invalid request payload or parameters: assignment accept window must be between 5s and 30s (got 0s)
+--- PASS: TestAudit_AssignmentSettings_A1Edges (0.00s)
+=== RUN   TestAudit_SetDispatchPolicy_NeedsBothInterfaces
+    audit_settings_edges_test.go:65: staleness-only repository refused: invalid request payload or parameters: dispatch policy round_robin needs an assignment-capable repository
+--- PASS: TestAudit_SetDispatchPolicy_NeedsBothInterfaces (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/coordinator	1.023s

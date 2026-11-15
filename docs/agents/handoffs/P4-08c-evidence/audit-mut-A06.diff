@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index 538d8ba..0bdc41a 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -566,7 +566,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 		SELECT id, task_type, payload, state, max_attempts, timeout_seconds, created_at, updated_at
+ 		FROM jobs
+ 		WHERE assigned_worker_id = $1
+-		  AND assignment_expires_at > clock_timestamp()
++		  AND assignment_expires_at > clock_timestamp() - interval '2 seconds'
+ 		  AND task_type = ANY($2::text[])
+ 		  AND (state = 'QUEUED' OR (state = 'RETRYING' AND (not_before IS NULL OR not_before <= clock_timestamp())))
+ 		ORDER BY created_at ASC, id ASC

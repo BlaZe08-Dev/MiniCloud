@@ -1,0 +1,3 @@
+--- PASS: TestMigrator_Migration000005_FreshSchema (0.37s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	1.388s

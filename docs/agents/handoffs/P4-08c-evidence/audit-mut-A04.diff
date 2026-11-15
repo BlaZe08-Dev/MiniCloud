@@ -1,0 +1,12 @@
+diff --git a/internal/storage/postgres/migrations/000005_assignment_round_robin.sql b/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
+index 195d15d..da9588e 100644
+--- a/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
++++ b/internal/storage/postgres/migrations/000005_assignment_round_robin.sql
+@@ -24,7 +24,6 @@ ALTER TABLE jobs
+         (assigned_worker_id IS NULL AND assigned_at IS NULL AND assignment_expires_at IS NULL)
+         OR (assigned_worker_id IS NOT NULL AND assigned_at IS NOT NULL
+             AND assignment_expires_at IS NOT NULL
+-            AND assignment_expires_at >= assigned_at
+             AND state IN ('QUEUED', 'RETRYING'))
+     ) NOT VALID;
+ ALTER TABLE jobs VALIDATE CONSTRAINT chk_jobs_assignment_shape;

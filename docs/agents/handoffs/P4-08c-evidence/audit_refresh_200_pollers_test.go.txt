@@ -1,0 +1,181 @@
+package postgres_test
+
+// Auditor probe (P4-08c review, check G). Not a committed test: copy to
+// internal/storage/postgres/audit_refresh_200_pollers_test.go to run, delete the copy afterwards.
+//
+// 200 workers poll the round_robin coordinator over PostgreSQL concurrently.
+//  - G1 failing pass: heartbeat stale past the fallback age, 50 aged jobs, every pass fails. Per
+//    round (process clock frozen) exactly one refresh attempt runs (single flight + rate limit),
+//    and at most one poll claims, by the age arm (INV-14, INV-24). After advancing the process
+//    clock by one interval, the next round again has exactly one attempt and at most one claim.
+//  - G2 working pass: heartbeat stale, 50 aged jobs, pass works. One round of 200 concurrent polls
+//    runs exactly one refresh attempt (INV-19: later polls see a fresh heartbeat), and no claim is
+//    an age claim.
+// In both: one attempt row per claimed job, attempts == 200 responses, every lease token distinct.
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+)
+
+type auditCountingRepo struct {
+	*pgPassFaultRepo
+	attempts int64
+}
+
+func (c *auditCountingRepo) AssignQueuedJobs(ctx context.Context, p storage.AssignParams) (storage.AssignResult, error) {
+	atomic.AddInt64(&c.attempts, 1)
+	return c.pgPassFaultRepo.AssignQueuedJobs(ctx, p)
+}
+
+type auditPollOutcome struct {
+	worker string
+	got    *coordinator.WorkAssignment
+	err    error
+}
+
+func auditPollRound(t *testing.T, svc *coordinator.Service, workers []string) []auditPollOutcome {
+	t.Helper()
+	out := make([]auditPollOutcome, len(workers))
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i, w := range workers {
+		wg.Add(1)
+		go func(i int, w string) {
+			defer wg.Done()
+			<-start
+			got, err := svc.PollWork(context.Background(), w)
+			out[i] = auditPollOutcome{worker: w, got: got, err: err}
+		}(i, w)
+	}
+	close(start)
+	wg.Wait()
+	return out
+}
+
+func auditSetup(t *testing.T, failing bool) (*pgRRFixture, *auditCountingRepo, *coordinator.Service, []string) {
+	f := newPGRRFixture(t)
+	cr := &auditCountingRepo{pgPassFaultRepo: f.repo}
+	mk := func() *coordinator.Service {
+		svc := coordinator.NewService(cr, scheduler.NewRoundRobinScheduler(), executor.NewRegistry(), pgRRTimeout)
+		svc.SetClock(f.clk)
+		if err := svc.SetDispatchPolicy(domain.DispatchPolicyRoundRobin); err != nil {
+			t.Fatalf("SetDispatchPolicy: %v", err)
+		}
+		if err := svc.SetAssignmentSettings(coordinator.DefaultAssignmentSettings()); err != nil {
+			t.Fatalf("SetAssignmentSettings: %v", err)
+		}
+		return svc
+	}
+	svc := mk()
+	var workers []string
+	for i := 0; i < 200; i++ {
+		workers = append(workers, fmt.Sprintf("w_%03d", i))
+	}
+	for i := 0; i < 50; i++ {
+		pgRRSubmit(t, svc)
+	}
+	for _, w := range workers {
+		pgRRHeartbeat(t, svc, w)
+	}
+	f.advance(t, pgRRFallbackAge+5*time.Second)
+	for _, w := range workers {
+		pgRRHeartbeat(t, svc, w) // fresh heartbeat after the shift
+	}
+	svc = mk() // a restart: refresh state zero
+	f.repo.setFailing(failing)
+	atomic.StoreInt64(&cr.attempts, 0)
+	return f, cr, svc, workers
+}
+
+func auditTally(t *testing.T, outs []auditPollOutcome) (claims, age int, tokens map[string]bool) {
+	t.Helper()
+	tokens = map[string]bool{}
+	for _, o := range outs {
+		if o.err != nil {
+			if !errors.Is(o.err, domain.ErrNoQueuedJobs) && !errors.Is(o.err, domain.ErrNoWorkersAvailable) {
+				t.Errorf("poll %s: unexpected error %v", o.worker, o.err)
+			}
+			continue
+		}
+		claims++
+		if o.got.FallbackReason == domain.FallbackReasonAge {
+			age++
+		}
+		if tokens[o.got.LeaseToken] {
+			t.Errorf("duplicate lease token for %s", o.worker)
+		}
+		tokens[o.got.LeaseToken] = true
+	}
+	return
+}
+
+func auditCheckDB(t *testing.T, f *pgRRFixture, wantAttempts int) {
+	t.Helper()
+	ctx := context.Background()
+	var attempts, dup int
+	_ = f.pool.QueryRow(ctx, `SELECT COUNT(*) FROM attempts`).Scan(&attempts)
+	_ = f.pool.QueryRow(ctx, `SELECT COUNT(*) FROM (SELECT job_id FROM attempts GROUP BY job_id HAVING COUNT(*) > 1) x`).Scan(&dup)
+	t.Logf("db: attempts=%d jobsWithTwoAttempts=%d (want attempts=%d)", attempts, dup, wantAttempts)
+	if attempts != wantAttempts || dup != 0 {
+		t.Errorf("attempt rows %d (want %d), jobs with >1 attempt %d", attempts, wantAttempts, dup)
+	}
+}
+
+func TestAudit_Refresh200Pollers_FailingPass(t *testing.T) {
+	f, cr, svc, workers := auditSetup(t, true)
+	totalClaims := 0
+	for round := 1; round <= 3; round++ {
+		before := atomic.LoadInt64(&cr.attempts)
+		outs := auditPollRound(t, svc, workers)
+		n := atomic.LoadInt64(&cr.attempts) - before
+		claims, age, _ := auditTally(t, outs)
+		totalClaims += claims
+		t.Logf("round %d (failing pass): refresh attempts=%d claims=%d ageClaims=%d", round, n, claims, age)
+		if n != 1 {
+			t.Errorf("round %d: %d refresh attempts, want exactly 1", round, n)
+		}
+		if claims > 1 || claims != age {
+			t.Errorf("round %d: %d claims (%d by age), want at most one, by age", round, claims, age)
+		}
+		f.clk.mu.Lock()
+		f.clk.now = f.clk.now.Add(pgRRInterval)
+		f.clk.mu.Unlock()
+		for _, w := range workers {
+			pgRRHeartbeat(t, svc, w)
+		}
+	}
+	auditCheckDB(t, f, totalClaims)
+	if totalClaims == 0 {
+		t.Errorf("control: no age claim in three rounds with a failing pass")
+	}
+}
+
+func TestAudit_Refresh200Pollers_WorkingPass(t *testing.T) {
+	f, cr, svc, workers := auditSetup(t, false)
+	outs := auditPollRound(t, svc, workers)
+	n := atomic.LoadInt64(&cr.attempts)
+	claims, age, _ := auditTally(t, outs)
+	t.Logf("working pass: refresh attempts=%d claims=%d ageClaims=%d", n, claims, age)
+	if n != 1 {
+		t.Errorf("%d refresh attempts, want exactly 1", n)
+	}
+	if age != 0 {
+		t.Errorf("%d age claims after a successful refresh, want 0 (INV-19)", age)
+	}
+	auditCheckDB(t, f, claims)
+	if claims == 0 {
+		t.Errorf("control: no claim after a successful refresh with 50 jobs and 200 polling workers")
+	}
+}

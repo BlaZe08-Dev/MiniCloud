@@ -1,0 +1,5 @@
+    assignment.go:444: fifo DispatchNextJob by w_2 failed on a job reserved to w_1: no queued jobs available
+--- FAIL: TestConformance_FifoPull_IgnoresAssignmentColumns (0.39s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.406s
+FAIL

@@ -1,0 +1,5 @@
+    assignment_coordinator_test.go:147: PollWork after restart: no queued jobs available
+--- FAIL: TestPoll_AgeArm_AfterRestart_RefreshesFirst (0.42s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.438s
+FAIL
