@@ -25,6 +25,10 @@ Roadmap (strict boundaries; see `docs/roadmap.md` and ADR-0004):
 - **V3 (Docker + Phases 7–8)**: Docker task isolation behind the executor interface
   (ADR-0005), multi-machine, worker auth/TLS, hardening. Never run untrusted task
   payloads directly on the host, at any stage, including tests.
+- **V4 (post-V1, ADR-0018)**: AI workflow layer (workflows, workspaces, artifacts, CLI
+  adapters, Intelligence Dispatcher, interfaces); design only until each slice is
+  approved. V2 and V3 also gain node/capability and node identity/Node Agent slices.
+  Sequence: `docs/roadmap.md` and `docs/post-v1/ROADMAP.md`.
 
 Build incrementally on the same codebase. Do not restart, overwrite or regenerate
 working code. Major changes are designed and reviewed before they are built.
@@ -57,12 +61,18 @@ working code. Major changes are designed and reviewed before they are built.
   (ADR-0010); tests protect architectural invariants.
 - No new dependency without explicit owner approval and an ADR (pgx was approved in
   ADR-0009; Redis client is a V2 decision).
-- No Kubernetes, consensus/Raft/Paxos, AI scheduling, web UI/dashboards or
-  multi-tenancy without demonstrated need.
+- Kubernetes and multi-tenancy stay prohibited. Consensus/Raft/Paxos stays deferred
+  (ADR-0018, pack Gate 9 / roadmap "Later": needs demonstrated need). AI scheduling: LLM
+  output is advisory planning only, the deterministic scheduler decides, and
+  implementation needs an owner-approved task and ADR. Web UI: a simple workflow/chat
+  client only, never an IDE.
 - Before a V2/V3 feature, write up the problem, components and compatibility impact,
   and justify the change with concrete data.
 - Inspect before modifying: check what already exists, verify which items are already
   satisfied, and explain the delta.
+- Post-V1 standing rules (ADR-0018): never execute LLM-generated shell strings (run a
+  registered executable with an argument array); provider credentials never leave
+  their node; one mutable workspace per attempt.
 - Prefer table-driven tests, run with the race detector, return explicit errors.
 
 ## 2. Security instructions
@@ -124,13 +134,30 @@ Evidence labels, used in every report and in `docs/security/findings.md`:
 | HTTP protocol, payload limits, status codes | `docs/protocol.md` |
 | Database schema and locking | `docs/schema.md` (lock order: jobs, workers, attempts, results, job_events) |
 | Local Postgres, test guardrails | `docs/testing-postgres.md`, section 9 below |
-| Decisions | `docs/adr/` (0001–0016; 0014 leases, 0015 retries, 0016 cancellation) |
+| Decisions | `docs/adr/` (0001–0018; 0014 leases, 0015 retries, 0016 cancellation, 0017 round-robin, 0018 post-V1 direction) |
+| Post-V1 direction (design only, V2/V3/V4) | `docs/post-v1/README.md`, ADR-0018 |
 | Phase 4 plan and slices | `docs/phase4-plan.md` |
 | Security | `docs/security/` (threat model, findings register, field limits, test plan, testing workflow), ADR-0012 |
 | Task board and ownership | `docs/agents/TASKS.md` |
 
 The design docs above are the spec. Code that disagrees with them is a finding, not a
 licence to change the docs silently.
+
+### Source-of-truth precedence
+
+`docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md` always applies in full (see the top of
+this file). Otherwise, highest first:
+
+1. `AGENTS.md`
+2. Released V1 source code and contracts
+3. Accepted ADRs
+4. `docs/post-v1/`
+5. `docs/roadmap.md` and `docs/PROJECT_STATE.md`
+6. Historical handoffs and old planning documents
+7. `CLAUDE.md` and `GEMINI.md`
+
+If two documents contradict each other, report the conflict and propose the smallest
+correction. Do not silently choose one.
 
 ## 5. Environment
 
