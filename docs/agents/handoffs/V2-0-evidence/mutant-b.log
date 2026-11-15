@@ -1,0 +1,49 @@
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+    concurrency_test.go:411: waiting for poll loop to block again: poll with 3 assignments outstanding and 3 slots
+--- FAIL: TestConcurrency_MaxInFlightNeverExceedsSlots (0.03s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+    concurrency_test.go:453: heartbeat after 1 releases = 2, want 1
+--- FAIL: TestConcurrency_HeartbeatTracksRunningAttempts (0.42s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+    concurrency_test.go:485: Run did not return after cancel
+--- FAIL: TestConcurrency_FullWorkerDoesNotPoll (10.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+    concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+--- FAIL: TestConcurrency_SlotReleasedOnEveryExit (0.05s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/success (0.01s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.00s)
+    --- FAIL: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.00s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+    concurrency_test.go:581: Run did not return after cancel
+--- FAIL: TestConcurrency_ShutdownDrainsWithoutLeaks (10.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+    concurrency_test.go:650: timed out waiting for the abandoned attempt to finish
+--- FAIL: TestConcurrency_ShutdownDrainIsBounded (10.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.35s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+    concurrency_test.go:719: running = 0, want 1 (j2)
+--- FAIL: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.01s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+    concurrency_test.go:769: Run did not return after cancel
+--- FAIL: TestConcurrency_ReRegisterReportsLiveSlots (10.02s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+    concurrency_test.go:780: waiting for j2 to start: running = -1 after a release, outside [0, 1]
+--- FAIL: TestConcurrency_SingleSlotIsSerial (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	40.960s
+FAIL

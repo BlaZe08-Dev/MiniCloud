@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 48402cb..2f8af0c 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -133,7 +133,7 @@ type Agent struct {
+ // value register and heartbeat report. The clamp keeps the wire value inside [0, TotalSlots]
+ // even if the invariant on running were ever broken; tests assert the invariant on running itself.
+ func (a *Agent) availableSlots() int {
+-	return min(max(a.cfg.TotalSlots-int(a.running.Load()), 0), a.cfg.TotalSlots)
++	return a.cfg.TotalSlots // MUTANT c: static TotalSlots
+ }
+ 
+ // SetClock replaces the timer source (tests only; call before running work).

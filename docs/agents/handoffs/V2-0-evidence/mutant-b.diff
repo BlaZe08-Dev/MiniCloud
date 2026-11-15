@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 48402cb..03f9272 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -287,6 +287,8 @@ func (a *Agent) runAttempt(ctx context.Context, sem chan struct{}, attempts *syn
+ 		}
+ 		a.running.Add(-1)
+ 		<-sem
++		a.running.Add(-1) // MUTANT b: second release
++		<-sem
+ 		if a.onAttemptDone != nil {
+ 			a.onAttemptDone()
+ 		}

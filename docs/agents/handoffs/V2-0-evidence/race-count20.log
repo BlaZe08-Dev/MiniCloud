@@ -1,0 +1,962 @@
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.02s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.20s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.02s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.15s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.24s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.20s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.22s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.16s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.03s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.02s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.18s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.13s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.06s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.00s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.01s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.16s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.17s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.15s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.20s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.04s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.22s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.03s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.15s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.20s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.03s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.02s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.22s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.17s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.18s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.03s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.24s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.13s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.19s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.13s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.04s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.24s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.63s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.03s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.16s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.00s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.01s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.17s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.17s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.15s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.03s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.22s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.64s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.20s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.11s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.04s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.03s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.18s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.10s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.03s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.04s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.20s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+--- PASS: TestConcurrency_HeartbeatTracksRunningAttempts (0.62s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.01s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.01s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.03s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+--- PASS: TestConcurrency_ReRegisterReportsLiveSlots (0.21s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+--- PASS: TestConcurrency_SingleSlotIsSerial (0.04s)
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/4
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1024
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/1025
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/100000
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/0
+=== RUN   TestLoadWorkerConfig_SlotsUpperBound/-1
+--- PASS: TestLoadWorkerConfig_SlotsUpperBound (0.01s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/4 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1024 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/1025 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/100000 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/0 (0.00s)
+    --- PASS: TestLoadWorkerConfig_SlotsUpperBound/-1 (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	27.759s
