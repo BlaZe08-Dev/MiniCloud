@@ -1,0 +1,13 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 2c7f270..eb76d6f 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -475,7 +475,7 @@ func (h *Handler) HandleHealthz(w http.ResponseWriter, r *http.Request) {
+ 
+ func (h *Handler) HandleReadyz(w http.ResponseWriter, r *http.Request) {
+ 	if err := h.coord.Ping(r.Context()); err != nil {
+-		slog.Error("readiness probe failed", logsafe.Err(err))
++		slog.Error("readiness probe failed", "err", err)
+ 		writeError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "service temporarily unavailable")
+ 		return
+ 	}

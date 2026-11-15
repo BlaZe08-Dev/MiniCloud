@@ -1,0 +1,20 @@
+diff --git a/internal/coordinator/assignment_loop.go b/internal/coordinator/assignment_loop.go
+index 917b5bf..9b25af4 100644
+--- a/internal/coordinator/assignment_loop.go
++++ b/internal/coordinator/assignment_loop.go
+@@ -73,7 +73,7 @@ func (l *AssignmentLoop) Round(ctx context.Context) int {
+ 		passes++
+ 		if err != nil {
+ 			if ctx.Err() == nil {
+-				slog.Warn("assignment pass failed", logsafe.Err(err))
++				slog.Warn("assignment pass failed", "err", err)
+ 			}
+ 			break
+ 		}
+@@ -167,3 +167,6 @@ func sleepContext(ctx context.Context, d time.Duration) error {
+ 		return nil
+ 	}
+ }
++
++// mutation: keep the import used
++var _ = logsafe.Err

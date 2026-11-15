@@ -1,0 +1,13 @@
+diff --git a/internal/logsafe/logsafe.go b/internal/logsafe/logsafe.go
+index 3a00278..42c1342 100644
+--- a/internal/logsafe/logsafe.go
++++ b/internal/logsafe/logsafe.go
+@@ -129,7 +129,7 @@ func Class(err error) string {
+ 	case strings.Contains(msg, "failed to connect"), strings.Contains(msg, "conn closed"), strings.Contains(msg, "conn busy"):
+ 		return "connection_failed"
+ 	}
+-	return ClassUnclassified
++	return err.Error()
+ }
+ 
+ func isTLS(err error) bool {

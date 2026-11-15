@@ -1,0 +1,12 @@
+diff --git a/internal/logsafe/logsafe.go b/internal/logsafe/logsafe.go
+index 3a00278..ba45af2 100644
+--- a/internal/logsafe/logsafe.go
++++ b/internal/logsafe/logsafe.go
+@@ -147,6 +147,7 @@ func isTLS(err error) bool {
+ // sqlStateClass returns "sqlstate_<code>" when code is a well-formed SQLSTATE (five digits or
+ // upper-case letters) and "sqlstate_invalid" otherwise, so a hostile code cannot inject text.
+ func sqlStateClass(code string) string {
++	return "sqlstate_" + code
+ 	if len(code) != 5 {
+ 		return "sqlstate_invalid"
+ 	}

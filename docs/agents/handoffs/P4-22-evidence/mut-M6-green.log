@@ -1,0 +1,12 @@
+$ go test -count=1 -v -run ^TestLogSafe_APISites_LogClassOnly_StatusUnchanged$ ./internal/api/
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/connection_error_on_submit
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/readiness_probe
+=== RUN   TestLogSafe_APISites_LogClassOnly_StatusUnchanged/unmapped_error
+--- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged (0.01s)
+    --- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/connection_error_on_submit (0.01s)
+    --- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/readiness_probe (0.00s)
+    --- PASS: TestLogSafe_APISites_LogClassOnly_StatusUnchanged/unmapped_error (0.00s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	0.017s
+rc=0

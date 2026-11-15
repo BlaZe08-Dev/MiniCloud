@@ -1,0 +1,10 @@
+$ go test -count=1 -v -run ^TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail$ ./tests/faultinject/
+=== RUN   TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:45:38.987384337+05:30","level":"WARN","msg":"assignment pass failed","err":"connection_reset"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:45:38.485919736+05:30","level":"WARN","msg":"lease sweeper tick failed","err":"connection_reset"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:45:38.099990259+05:30","level":"ERROR","msg":"database outage or connection failure","err":"connection_reset"}
+    logleak_test.go:158: logged: {"time":"2026-11-15T12:45:38.095913522+05:30","level":"ERROR","msg":"readiness probe failed","err":"connection_closed"}
+--- PASS: TestFault_DBOutage_RoundRobin_CoordinatorLogsNoDBDetail (3.34s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/faultinject	3.357s
+rc=0

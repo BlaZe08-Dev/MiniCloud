@@ -1,0 +1,13 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 2c7f270..02d89a4 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -140,7 +140,7 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
+ 		if errors.As(err, &invErr) {
+ 			return http.StatusBadRequest, "INVALID_STATE_TRANSITION", invErr.Error()
+ 		}
+-		slog.Error("internal server error", logsafe.Err(err))
++		slog.Error("internal server error", "err", err)
+ 		return http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error"
+ 	}
+ }

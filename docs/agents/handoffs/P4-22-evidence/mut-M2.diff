@@ -1,0 +1,16 @@
+diff --git a/internal/coordinator/assignment.go b/internal/coordinator/assignment.go
+index a6e1d61..d49d84c 100644
+--- a/internal/coordinator/assignment.go
++++ b/internal/coordinator/assignment.go
+@@ -243,7 +243,10 @@ func (s *Service) refreshIfStaleLocked(ctx context.Context, ar storage.Assignmen
+ 	s.refreshInFlight = false
+ 	s.refreshLastFailed = err != nil
+ 	if err != nil {
+-		slog.Warn("assignment pass refresh failed", logsafe.Err(err))
++		slog.Warn("assignment pass refresh failed", "error", err)
+ 	}
+ 	return err != nil
+ }
++
++// mutation: keep the import used
++var _ = logsafe.Err
