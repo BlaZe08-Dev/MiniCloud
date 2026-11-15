@@ -34,7 +34,9 @@ The precise auth design is an open decision. Do not assume the V1 unauthenticate
 
 ## Trust model for AI CLI tasks (owner decision D2)
 
-AI CLI tasks may run on the host only for the owner's own projects, under a dedicated restricted OS account, inside a per-task workspace, read-only profile first; file changes need approval. Any other user's or untrusted workload waits for Docker isolation (V3-1). This does not relax `AGENTS.md` invariant 7 or hard rule 3: AI CLI work arrives in V4-2, after the V3-1 isolation gate, as a registered execution kind with a typed spec, and only the owner's own projects count as trusted.
+Exception, owner decision D2 (ADR-0018): from V4-2, after the V3-1 isolation gate, a registered AI CLI execution kind may run on the host for the owner's own projects only, under a dedicated restricted OS account, in a per-task workspace, read-only profile first, file changes needing approval; any other user's or untrusted workload still requires Docker isolation.
+
+The owner approved this as an explicit exception, recorded in `AGENTS.md` invariant 7 and hard rule 3 in the same words.
 
 ## Standing rules (also in `AGENTS.md`)
 

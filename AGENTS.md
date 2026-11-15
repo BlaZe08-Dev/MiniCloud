@@ -47,7 +47,7 @@ working code. Major changes are designed and reviewed before they are built.
 6. Lease expiry means the coordinator no longer trusts the worker, not proof that the
    worker has stopped.
 7. Only allowlisted tasks run until V3 Docker isolation; never execute arbitrary shell
-   commands on the host.
+   commands on the host. Exception, owner decision D2 (ADR-0018): from V4-2, after the V3-1 isolation gate, a registered AI CLI execution kind may run on the host for the owner's own projects only, under a dedicated restricted OS account, in a per-task workspace, read-only profile first, file changes needing approval; any other user's or untrusted workload still requires Docker isolation.
 
 ### Engineering rules
 - Design for extension, but do not implement future-version features early. Version
@@ -106,7 +106,7 @@ Evidence labels, used in every report and in `docs/security/findings.md`:
    `docs/agents/TASKS.md`. Need another file? Stop and ask in your handoff.
 2. Never edit `main`, never merge, never force-push, never rewrite shared history,
    never delete another agent's branch.
-3. Never run untrusted task payloads directly on the host.
+3. Never run untrusted task payloads directly on the host. Exception, owner decision D2 (ADR-0018): from V4-2, after the V3-1 isolation gate, a registered AI CLI execution kind may run on the host for the owner's own projects only, under a dedicated restricted OS account, in a per-task workspace, read-only profile first, file changes needing approval; any other user's or untrusted workload still requires Docker isolation.
 4. Postgres is the source of truth. Redis, if used, is dispatch only.
 5. Never claim a test, benchmark or load result you did not run. Redirect output to a
    file and paste it verbatim; never retype or summarize command output.

@@ -34,9 +34,9 @@ Examples of local tools include Claude Code CLI, OpenAI Codex CLI, and Gemini CL
 
 ## Trust model for AI CLI tasks (owner decision D2)
 
-AI CLI tasks may run on the host only for the owner's own projects, under a dedicated restricted OS account, inside a per-task workspace, read-only profile first; file changes need approval. Any other user's or untrusted workload waits for Docker isolation (V3-1, ADR-0005).
+Exception, owner decision D2 (ADR-0018): from V4-2, after the V3-1 isolation gate, a registered AI CLI execution kind may run on the host for the owner's own projects only, under a dedicated restricted OS account, in a per-task workspace, read-only profile first, file changes needing approval; any other user's or untrusted workload still requires Docker isolation.
 
-Relation to the existing rules (no rule is relaxed): `AGENTS.md` invariant 7 ("only allowlisted tasks run until V3 Docker isolation") and hard rule 3 ("never run untrusted task payloads directly on the host") stay in force. AI CLI execution arrives in V4-2, after the V3-1 isolation gate; it is a registered execution kind with a typed spec, not a free task name; and D2 limits host execution to the owner's own projects, which the owner treats as trusted. The prompt and the CLI's output remain untrusted data. An AI CLI may itself run commands inside its workspace; the read-only profile, the restricted account and the workspace boundary bound what it can reach, and the CLI's own permission flags are an additional layer, not the boundary.
+Relation to the existing rules: the owner approved this as an explicit exception, recorded in `AGENTS.md` invariant 7 and hard rule 3 in the same words; the rest of both rules is unchanged. Docker isolation is ADR-0005. The prompt and the CLI's output remain untrusted data. An AI CLI may itself run commands inside its workspace; the read-only profile, the restricted account and the workspace boundary bound what it can reach, and the CLI's own permission flags are an additional layer, not the boundary.
 
 ## Device model (owner decision D3)
 
