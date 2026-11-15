@@ -1,9 +1,9 @@
 # ADR 0017: Assignment-Based Round-Robin Dispatch (Candidate A), Design
 
 ## Status
-Accepted for implementation (orchestrator, revision 3 plus A1 and A2). Slice 5a (domain, pure policy and in-memory parity, no database) is the first implementation slice; the amendments are recorded in Section 9.
+Accepted and implemented (orchestrator, revision 3 plus A1 and A2). Slices 5a, 5b and 5c are merged; the amendments are recorded in Section 9.
 
-Implementation status: slice 5a is merged (PR #35). Slice 5b (migration `000005` and the PostgreSQL assignment repository) is built on branch `agent/claude/P4-08c` and pushed for audit; see [the P4-08c handoff](../agents/handoffs/P4-08c.md). Slice 5c is not started. This note changes no decision in this ADR.
+Implementation status: slice 5a (domain, pure policy and in-memory parity, no database) is merged (P4-08b, PR #35). Slice 5b (migration `000005` and the PostgreSQL assignment repository) is merged (P4-08c, PR #38); see [the P4-08c handoff](../agents/handoffs/P4-08c.md). Slice 5c is merged in four parts: 5c-1, the coordinator loop, grace and binary wiring (P4-08d, PR #40); 5c-2, the API fields and worker timing (P4-08e, PR #41); 5c-3, the fault, abuse and property suites (P4-08f, PR #44); and 5c-3.x, the fix round for the P4-08f audit (P4-08g, PR #45). Since P4-17 (PR #47) `round_robin` is the default dispatch policy (note 37) and `fifo_pull` stays selectable with `MINICLOUD_DISPATCH_POLICY=fifo_pull`. This note changes no decision in this ADR.
 
 - Formalises **Candidate A** (pre-assignment with a bounded accept window), the leading design named in [ADR 0011](0011-postgres-dispatch-and-recovery.md) Section 2 and in [docs/phase4-plan.md](../phase4-plan.md) Section 3. It is the post-Phase 4 hard gate for V1 completion.
 - Depends on the Phase 4 machinery: attempt leases and the sweeper ([ADR 0014](0014-lease-model-and-expiry.md)), retries ([ADR 0015](0015-retry-policy-and-failure-classification.md)), and cancellation ([ADR 0016](0016-cancellation-semantics.md)). Migration `000004_leases_retries_cancellation.sql` is already in the tree; this design adds migration `000005`.
