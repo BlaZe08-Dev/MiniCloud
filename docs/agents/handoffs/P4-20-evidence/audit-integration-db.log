@@ -1,0 +1,262 @@
+=== RUN   TestContainerControlAllowed
+=== RUN   TestContainerControlAllowed/nothing_set
+=== RUN   TestContainerControlAllowed/only_opt-in
+=== RUN   TestContainerControlAllowed/only_confirmation
+=== RUN   TestContainerControlAllowed/opt-in_not_exactly_1
+=== RUN   TestContainerControlAllowed/wrong_container_name
+=== RUN   TestContainerControlAllowed/empty_container_name
+=== RUN   TestContainerControlAllowed/both_set
+--- PASS: TestContainerControlAllowed (0.00s)
+    --- PASS: TestContainerControlAllowed/nothing_set (0.00s)
+    --- PASS: TestContainerControlAllowed/only_opt-in (0.00s)
+    --- PASS: TestContainerControlAllowed/only_confirmation (0.00s)
+    --- PASS: TestContainerControlAllowed/opt-in_not_exactly_1 (0.00s)
+    --- PASS: TestContainerControlAllowed/wrong_container_name (0.00s)
+    --- PASS: TestContainerControlAllowed/empty_container_name (0.00s)
+    --- PASS: TestContainerControlAllowed/both_set (0.00s)
+=== RUN   TestContainerControlAllowed_RealEnvironment
+--- PASS: TestContainerControlAllowed_RealEnvironment (0.00s)
+=== RUN   TestEveryContainerRestartingTestCallsTheGuard
+--- PASS: TestEveryContainerRestartingTestCallsTheGuard (0.08s)
+=== RUN   TestWorker_CoordinatorRestart_AutoReRegistrationAndCompletion
+2026/11/15 11:41:10 INFO worker registered worker_id=surviving-worker-1 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:10 INFO job submitted and queued job_id=job_1_6fde106cfe15 task_type=sleep state=QUEUED max_attempts=3
+2026/11/15 11:41:10 INFO job dispatched to worker job_id=job_1_6fde106cfe15 attempt_id=att_1_513679534ced attempt_no=1 worker_id=surviving-worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:11 INFO worker registered worker_id=surviving-worker-1 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:11 INFO job submitted and queued job_id=job_2_f5e0d73e906a task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:11 INFO job dispatched to worker job_id=job_2_f5e0d73e906a attempt_id=att_1_729522cfae77 attempt_no=1 worker_id=surviving-worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:11 INFO job result committed job_id=job_2_f5e0d73e906a attempt_id=att_1_729522cfae77 final_state=SUCCEEDED exit_code=0 error_class=""
+--- PASS: TestWorker_CoordinatorRestart_AutoReRegistrationAndCompletion (2.03s)
+=== RUN   TestLeakScanPollHelper_DefaultPolicy
+    leakscan_poll_test.go:76: assignment arrived on poll 5 of at most 20
+--- PASS: TestLeakScanPollHelper_DefaultPolicy (2.85s)
+=== RUN   TestLocalCore_MultiProcessIntegration
+2026/11/15 11:41:15 INFO worker registered worker_id=worker-integration-1 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:15 INFO worker registered worker_id=worker-integration-2 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:15 INFO job submitted and queued job_id=job_3_e10053650bdb task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:15 INFO job submitted and queued job_id=job_4_d63e4c612c82 task_type=sleep state=QUEUED max_attempts=3
+2026/11/15 11:41:15 INFO job submitted and queued job_id=job_5_9f0688f3d1cc task_type=sha256_loop state=QUEUED max_attempts=3
+2026/11/15 11:41:15 INFO job submitted and queued job_id=job_6_de0c768690d1 task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:15 INFO job dispatched to worker job_id=job_3_e10053650bdb attempt_id=att_1_d8625d8abcc5 attempt_no=1 worker_id=worker-integration-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:15 INFO job result committed job_id=job_3_e10053650bdb attempt_id=att_1_d8625d8abcc5 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:15 INFO job dispatched to worker job_id=job_4_d63e4c612c82 attempt_id=att_2_f94378070eaf attempt_no=1 worker_id=worker-integration-2 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:15 INFO job dispatched to worker job_id=job_5_9f0688f3d1cc attempt_id=att_3_64f193f14c21 attempt_no=1 worker_id=worker-integration-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:15 INFO job result committed job_id=job_5_9f0688f3d1cc attempt_id=att_3_64f193f14c21 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:15 INFO job dispatched to worker job_id=job_6_de0c768690d1 attempt_id=att_4_7366cf961e86 attempt_no=1 worker_id=worker-integration-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:15 INFO job result committed job_id=job_6_de0c768690d1 attempt_id=att_4_7366cf961e86 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:15 INFO job result committed job_id=job_4_d63e4c612c82 attempt_id=att_2_f94378070eaf final_state=SUCCEEDED exit_code=0 error_class=""
+    local_core_test.go:202: multi-process integration test verified across workers: map[worker-integration-1:true worker-integration-2:true]
+--- PASS: TestLocalCore_MultiProcessIntegration (0.96s)
+=== RUN   TestThreeWorkerBatch_Integration
+2026/11/15 11:41:16 INFO worker registered worker_id=worker-batch-1 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:16 INFO worker registered worker_id=worker-batch-3 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:16 INFO worker registered worker_id=worker-batch-2 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_7_a94e1803066f task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_8_69379d92c430 task_type=sleep state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_9_834db1dc883c task_type=sha256_loop state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_10_99fd3a127e87 task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_11_7a0d3b390466 task_type=sleep state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job submitted and queued job_id=job_12_1369a9e6152f task_type=sha256_loop state=QUEUED max_attempts=3
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_7_a94e1803066f attempt_id=att_1_1a78bedfcf2a attempt_no=1 worker_id=worker-batch-3 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_8_69379d92c430 attempt_id=att_2_103e68f1b76f attempt_no=1 worker_id=worker-batch-2 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_9_834db1dc883c attempt_id=att_3_b905650904b7 attempt_no=1 worker_id=worker-batch-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job result committed job_id=job_9_834db1dc883c attempt_id=att_3_b905650904b7 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:16 INFO job result committed job_id=job_7_a94e1803066f attempt_id=att_1_1a78bedfcf2a final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_10_99fd3a127e87 attempt_id=att_4_3c6780d536c2 attempt_no=1 worker_id=worker-batch-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_11_7a0d3b390466 attempt_id=att_5_ff6763f92646 attempt_no=1 worker_id=worker-batch-3 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job result committed job_id=job_10_99fd3a127e87 attempt_id=att_4_3c6780d536c2 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:16 INFO job dispatched to worker job_id=job_12_1369a9e6152f attempt_id=att_6_c56e44073858 attempt_no=1 worker_id=worker-batch-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:16 INFO job result committed job_id=job_12_1369a9e6152f attempt_id=att_6_c56e44073858 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:16 INFO job result committed job_id=job_8_69379d92c430 attempt_id=att_2_103e68f1b76f final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:16 INFO job result committed job_id=job_11_7a0d3b390466 attempt_id=att_5_ff6763f92646 final_state=SUCCEEDED exit_code=0 error_class=""
+    multi_worker_batch_test.go:204: batch execution across 3 workers verified successfully: map[worker-batch-1:3 worker-batch-2:1 worker-batch-3:2]
+--- PASS: TestThreeWorkerBatch_Integration (1.19s)
+=== RUN   TestSecurity_PartD_PoolExhaustion
+    part_d_security_test.go:192: Baseline unlocked batches max latencies: [473.717938ms 641.698948ms 849.067676ms] (median: 641.698948ms)
+    part_d_security_test.go:269: Pool exhaustion batch completed: 500 requests across 10 conns in 1.340597995s
+    part_d_security_test.go:314: Observed status distribution: map[200:167 201:167 404:166], max latency: 1.320770532s
+    part_d_security_test.go:320: Primary proof: maximum lock-waiting connections observed: 10 (threshold >= 8)
+    part_d_security_test.go:328: Secondary proof: baseline median=641.698948ms, locked max=1.320770532s, margin=679.071584ms (required >= 200ms)
+    part_d_security_test.go:350: System recovered cleanly: /readyz returned 200 OK in 782.4µs
+--- PASS: TestSecurity_PartD_PoolExhaustion (5.73s)
+=== RUN   TestSecurity_PartD_SlowQuery_ContextDeadline
+--- PASS: TestSecurity_PartD_SlowQuery_ContextDeadline (2.58s)
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd
+    part_d_security_test.go:578: Catalog baseline: tables=[assignment_cursor assignment_pass_state attempts job_events jobs results schema_migrations worker_capacity workers], columns=69
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Payload_boolean_tautology
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Payload_drop_table_attempt
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Payload_delete_workers_attempt
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Payload_update_attempt_state
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Payload_pg_sleep_injection
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_0
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_1
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_2
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_3
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_4
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_0
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_1
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_2
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_3
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_4
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_5
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Version_0
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Version_1
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/Version_2
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_0
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_1
+=== RUN   TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_2
+=== NAME  TestSecurity_PartD_SQLInjection_EndToEnd
+    part_d_security_test.go:787: PASS: Schema completely unmodified after all SQL injection attacks
+--- PASS: TestSecurity_PartD_SQLInjection_EndToEnd (1.91s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Payload_boolean_tautology (0.02s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Payload_drop_table_attempt (0.03s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Payload_delete_workers_attempt (0.02s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Payload_update_attempt_state (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Payload_pg_sleep_injection (0.02s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_0 (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_1 (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_2 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_3 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/TaskType_4 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_0 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_1 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_2 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_3 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_4 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/WorkerID_5 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Version_0 (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Version_1 (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/Version_2 (0.01s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_0 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_1 (0.00s)
+    --- PASS: TestSecurity_PartD_SQLInjection_EndToEnd/SupportedTasks_2 (0.00s)
+=== RUN   TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit
+=== RUN   TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/startup_grace_protects_the_surviving_worker
+2026/11/15 11:41:27 INFO worker registered worker_id=survivor version=v slots=1 supported_tasks=[echo]
+2026/11/15 11:41:27 INFO job submitted and queued job_id=job_13_b9c28710f269 task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:27 INFO job dispatched to worker job_id=job_13_b9c28710f269 attempt_id=att_job_13_b9c28710f269_1 attempt_no=1 worker_id=survivor policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 WARN lease sweeper opened an outage grace window: reaping suppressed until=2026-11-15T06:11:57.805Z window=30s
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO lease sweeper: expired attempts held back by grace suppressed=1
+2026/11/15 11:41:27 INFO job result committed job_id=job_13_b9c28710f269 attempt_id=att_job_13_b9c28710f269_1 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:27 WARN lease sweeper: candidates changed state outside every sweep rule skipped_changed=1 candidates=1
+=== RUN   TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/control_without_grace_reaps_and_rejects_the_late_commit
+2026/11/15 11:41:28 INFO worker registered worker_id=survivor version=v slots=1 supported_tasks=[echo]
+2026/11/15 11:41:28 INFO job submitted and queued job_id=job_14_04489b0d57e9 task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:41:28 INFO job dispatched to worker job_id=job_14_04489b0d57e9 attempt_id=att_job_14_04489b0d57e9_1 attempt_no=1 worker_id=survivor policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:28 INFO lease sweeper closed an expired attempt job_id=job_14_04489b0d57e9 attempt_id=att_job_14_04489b0d57e9_1 attempt_state=LOST job_state=RETRYING
+2026/11/15 11:41:28 WARN lease sweeper opened an outage grace window: reaping suppressed until=2026-11-15T06:11:58.495Z window=30s
+--- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit (1.59s)
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/startup_grace_protects_the_surviving_worker (0.97s)
+    --- PASS: TestPostgresWiring_CoordinatorRestartGrace_SurvivingCommit/control_without_grace_reaps_and_rejects_the_late_commit (0.62s)
+=== RUN   TestPostgresWiring_CoordinatorRestartRecovery
+--- PASS: TestPostgresWiring_CoordinatorRestartRecovery (4.25s)
+=== RUN   TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart
+--- PASS: TestPostgresWiring_BurstConcurrentJobs_WithMidRunCoordinatorRestart (20.50s)
+=== RUN   TestStartup_BadEnvStopsProcess
+=== RUN   TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_HEARTBEAT_INTERVAL=5sec
+=== RUN   TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_DB_MAX_CONNS=20a
+=== RUN   TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_LEASE_DURATION=0s
+=== RUN   TestStartup_BadEnvStopsProcess/worker/MINICLOUD_WORKER_SLOTS=four
+=== RUN   TestStartup_BadEnvStopsProcess/worker/MINICLOUD_HEARTBEAT_INTERVAL=-2s
+--- PASS: TestStartup_BadEnvStopsProcess (5.00s)
+    --- PASS: TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_HEARTBEAT_INTERVAL=5sec (0.01s)
+    --- PASS: TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_DB_MAX_CONNS=20a (0.01s)
+    --- PASS: TestStartup_BadEnvStopsProcess/coordinator/MINICLOUD_LEASE_DURATION=0s (0.01s)
+    --- PASS: TestStartup_BadEnvStopsProcess/worker/MINICLOUD_WORKER_SLOTS=four (0.01s)
+    --- PASS: TestStartup_BadEnvStopsProcess/worker/MINICLOUD_HEARTBEAT_INTERVAL=-2s (0.01s)
+=== RUN   TestWorkerLeaseE2E_RenewalsKeepLongJobAlivePastOneLease
+2026/11/15 11:41:58 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[hold]
+2026/11/15 11:41:58 INFO job submitted and queued job_id=job_15_d3c83e354daa task_type=hold state=QUEUED max_attempts=3
+2026/11/15 11:41:58 INFO job dispatched to worker job_id=job_15_d3c83e354daa attempt_id=att_1_88d64894d021 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:58 INFO executing job assignment job_id=job_15_d3c83e354daa attempt_id=att_1_88d64894d021 task_type=hold timeout_seconds=3600
+2026/11/15 11:41:58 INFO job result committed job_id=job_15_d3c83e354daa attempt_id=att_1_88d64894d021 final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:41:58 INFO result successfully committed job_id=job_15_d3c83e354daa attempt_id=att_1_88d64894d021 exit_code=0
+--- PASS: TestWorkerLeaseE2E_RenewalsKeepLongJobAlivePastOneLease (0.03s)
+=== RUN   TestWorkerLeaseE2E_WorkerWhoseRenewalsStopIsDeclaredLostAndAborts
+2026/11/15 11:41:58 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[hold]
+2026/11/15 11:41:58 INFO job submitted and queued job_id=job_16_d49c2774a2f5 task_type=hold state=QUEUED max_attempts=3
+2026/11/15 11:41:58 INFO job dispatched to worker job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:58 INFO executing job assignment job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 task_type=hold timeout_seconds=3600
+2026/11/15 11:41:58 WARN lease renewal failed, will retry job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 status=503
+2026/11/15 11:41:58 WARN lease renewal failed, will retry job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 status=503
+2026/11/15 11:41:58 WARN lease renewal failed, will retry job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 status=503
+2026/11/15 11:41:58 WARN lease renewal failed, will retry job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 status=503
+2026/11/15 11:41:58 WARN lease renewal failed, will retry job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 status=503
+2026/11/15 11:41:58 INFO lease sweeper closed an expired attempt job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 attempt_state=LOST job_state=RETRYING
+2026/11/15 11:41:58 WARN lease renewal rejected job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6 reporting_worker=w1 reason="attempt lease expired and was marked lost"
+2026/11/15 11:41:58 WARN coordinator declared the attempt lost; aborting task and suppressing the result job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6
+2026/11/15 11:41:58 WARN lease lost while delivering; dropping the result job_id=job_16_d49c2774a2f5 attempt_id=att_1_eba2593e74e6
+--- PASS: TestWorkerLeaseE2E_WorkerWhoseRenewalsStopIsDeclaredLostAndAborts (0.03s)
+=== RUN   TestWorkerLeaseE2E_CancelDeliveredThroughRenewalStopsTask
+2026/11/15 11:41:58 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[hold]
+2026/11/15 11:41:58 INFO job submitted and queued job_id=job_17_f3a7bff9aa19 task_type=hold state=QUEUED max_attempts=3
+2026/11/15 11:41:58 INFO job dispatched to worker job_id=job_17_f3a7bff9aa19 attempt_id=att_1_b6f2193d82b7 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:58 INFO executing job assignment job_id=job_17_f3a7bff9aa19 attempt_id=att_1_b6f2193d82b7 task_type=hold timeout_seconds=3600
+2026/11/15 11:41:58 INFO job cancellation requested job_id=job_17_f3a7bff9aa19 state=CANCEL_REQUESTED
+2026/11/15 11:41:58 INFO cancellation requested by coordinator; cancelling task job_id=job_17_f3a7bff9aa19 attempt_id=att_1_b6f2193d82b7
+2026/11/15 11:41:58 INFO job result committed job_id=job_17_f3a7bff9aa19 attempt_id=att_1_b6f2193d82b7 final_state=CANCELLED exit_code=1 error_class=UNKNOWN
+2026/11/15 11:41:58 INFO result successfully committed job_id=job_17_f3a7bff9aa19 attempt_id=att_1_b6f2193d82b7 exit_code=1
+--- PASS: TestWorkerLeaseE2E_CancelDeliveredThroughRenewalStopsTask (0.01s)
+=== RUN   TestWorkerLeaseE2E_DeliveryBudgetExhaustedThenLeaseExpiryReclaimsJob
+2026/11/15 11:41:58 INFO worker registered worker_id=w1 version="" slots=1 supported_tasks=[hold]
+2026/11/15 11:41:58 INFO job submitted and queued job_id=job_18_99df0bff6d3e task_type=hold state=QUEUED max_attempts=3
+2026/11/15 11:41:58 INFO job dispatched to worker job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:41:58 INFO executing job assignment job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 task_type=hold timeout_seconds=3600
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=1
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=2
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=3
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=4
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=5
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=6
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=7
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=8
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=9
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=10
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=11
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=12
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=13
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=14
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=15
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=16
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=17
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=18
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=19
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=20
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=21
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=22
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=23
+2026/11/15 11:41:58 WARN transient error reporting result to coordinator, retrying job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 status=503 err="report failed with status 503" attempt=24
+2026/11/15 11:41:58 ERROR gave up delivering result after the delivery budget; the lease will expire and the job be reclaimed job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 budget=1m0s status=503 err="report failed with status 503"
+2026/11/15 11:41:58 WARN lease renewal transport error job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 err="Post \"http://127.0.0.1:34129/v1/jobs/job_18_99df0bff6d3e/attempts/att_1_168332239230/renew\": context canceled"
+2026/11/15 11:41:58 INFO lease sweeper closed an expired attempt job_id=job_18_99df0bff6d3e attempt_id=att_1_168332239230 attempt_state=LOST job_state=RETRYING
+--- PASS: TestWorkerLeaseE2E_DeliveryBudgetExhaustedThenLeaseExpiryReclaimsJob (0.10s)
+=== RUN   TestWorkerLiveness_DeadWorkerReapedAndWorkContinues
+2026/11/15 11:42:00 INFO worker registered worker_id=worker-liveness-2 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:42:00 INFO worker registered worker_id=worker-liveness-1 version=v0.1.0 slots=2 supported_tasks="[echo sleep sha256_loop]"
+2026/11/15 11:42:01 WARN reaped inactive workers due to heartbeat timeout count=1 worker_ids=[worker-liveness-1] timeout=1s
+2026/11/15 11:42:01 INFO job submitted and queued job_id=job_19_e6f35a59fb7a task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:42:01 INFO job submitted and queued job_id=job_20_9a8184b621ba task_type=echo state=QUEUED max_attempts=3
+2026/11/15 11:42:01 INFO job dispatched to worker job_id=job_19_e6f35a59fb7a attempt_id=att_1_f16079f265cd attempt_no=1 worker_id=worker-liveness-2 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:42:01 INFO job result committed job_id=job_19_e6f35a59fb7a attempt_id=att_1_f16079f265cd final_state=SUCCEEDED exit_code=0 error_class=""
+2026/11/15 11:42:01 INFO job dispatched to worker job_id=job_20_9a8184b621ba attempt_id=att_2_ca2e8cbc0711 attempt_no=1 worker_id=worker-liveness-2 policy=fifo_pull reason="claimed by polling worker with capacity"
+2026/11/15 11:42:01 INFO job result committed job_id=job_20_9a8184b621ba attempt_id=att_2_ca2e8cbc0711 final_state=SUCCEEDED exit_code=0 error_class=""
+--- PASS: TestWorkerLiveness_DeadWorkerReapedAndWorkContinues (3.17s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/integration	53.190s

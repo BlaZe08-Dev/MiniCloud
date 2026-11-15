@@ -37,6 +37,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | P4-08f | ADR-0017 slice 5c, part 3: the fault, abuse and property suites, measurements, worker test tidy-ups | Claude Code | to be assigned | agent/claude/P4-08f | complete, awaiting audit |
 | P4-08g | Fix round for the P4-08f audit: tests that kill the surviving mutants, property test and rig tightening, Makefile `-p 1`, ADR-0017 corrections | Claude Code | to be assigned | agent/claude/P4-08g | complete, awaiting audit |
 | P4-17 | Flip the default dispatch policy to `round_robin` (ADR-0017 Q1) | Claude Code | to be assigned | agent/claude/P4-17 | complete, awaiting audit |
+| P4-20 | Fix the test-outage LeakScan poll for the round_robin default (bounded retry, default policy kept) | Claude Code | to be assigned | agent/claude/P4-20 | complete, awaiting audit |
 | P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
 | P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
 
@@ -106,6 +107,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-17`. Status: complete, awaiting audit.
 - Owned files: `internal/config/config.go`, `internal/config/assignment_config_test.go`, `cmd/coordinator/main_test.go`, `tests/internal/sectest/proc.go`, `scripts/demo.sh`, `docs/adr/0017-assignment-round-robin.md` (note 37 and the three default wordings only), `docs/agents/handoffs/P4-17.md`, `docs/agents/handoffs/P4-17-evidence/`, `reports/claude/P4-17.md`.
 - Out of scope: README, `docs/PROJECT_STATE.md`, `docs/security/` and every other doc that says `fifo_pull` is the default (listed in the handoff for the docs sync).
+
+### P4-20 — LeakScan worker poll retries under the default policy
+- Goal: `TestSecurity_PartD_LeakScan` stays on the default policy and its worker poll retries a bounded number of times until the assignment arrives. No production code changes.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/P4-20`. Status: complete, awaiting audit.
+- Owned files: `tests/integration/part_d_security_test.go`, `tests/integration/leakscan_poll_test.go`, `docs/agents/handoffs/P4-20.md`, `docs/agents/handoffs/P4-20-evidence/`, `reports/claude/P4-20.md`.
+- Out of scope: production code, `make test-outage` (the owner runs it), README, `docs/PROJECT_STATE.md`, `docs/security/`, the ADR.
 
 ### P4-08c — ADR-0017 slice 5b (migration 000005 and the PostgreSQL assignment repository)
 - Goal: ADR-0017 Section 7 slice 5b: migration `000005_assignment_round_robin.sql`, the PostgreSQL implementation of `storage.AssignmentRepository` (advisory try-lock, revoke, per-type reserve with the worker row lock and re-check, claim with own arm then fallback arms, cancel and dispatch clearing, pass heartbeat on the database clock), the 5a assignment cases moved into the shared `storagetest` runner, and the PostgreSQL-only invariant tests (INV-1, INV-2b, INV-5, INV-10b, INV-13, INV-14, INV-19, INV-22, INV-24).
