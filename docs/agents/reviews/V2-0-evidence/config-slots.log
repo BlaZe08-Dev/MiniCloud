@@ -1,0 +1,18 @@
+MINICLOUD_WORKER_SLOTS=[0]                      rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be positive (got \
+MINICLOUD_WORKER_SLOTS=[-1]                     rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be positive (got \
+MINICLOUD_WORKER_SLOTS=[1]                      rc=1 slots_logged="slots":1 | "msg":"worker agent terminated with error","err":"failed to register worker
+MINICLOUD_WORKER_SLOTS=[1024]                   rc=1 slots_logged="slots":1024 | "msg":"worker agent terminated with error","err":"failed to register worker
+MINICLOUD_WORKER_SLOTS=[1025]                   rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be at most 1024, got 1025
+MINICLOUD_WORKER_SLOTS=[99999999999999999999]   rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \
+MINICLOUD_WORKER_SLOTS=[4 ]                     rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \
+MINICLOUD_WORKER_SLOTS=[abc]                    rc=1 slots_logged= | "msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \
+MINICLOUD_WORKER_SLOTS=[]                       rc=1 slots_logged="slots":4 | "msg":"worker agent terminated with error","err":"failed to register worker
+MINICLOUD_WORKER_SLOTS=[UNSET]                  rc=1 slots_logged="slots":4 | "msg":"worker agent terminated with error","err":"failed to register worker
+
+## full validation lines
+[0] {"time":"2026-11-16T01:59:27.035928387+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be positive (got \"0\")"}
+[-1] {"time":"2026-11-16T01:59:27.041373589+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be positive (got \"-1\")"}
+[1025] {"time":"2026-11-16T01:59:27.050060341+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be at most 1024, got 1025"}
+[99999999999999999999] {"time":"2026-11-16T01:59:27.058944712+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \"99999999999999999999\")"}
+[4 ] {"time":"2026-11-16T01:59:27.069484497+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \"4 \")"}
+[abc] {"time":"2026-11-16T01:59:27.075761219+05:30","level":"ERROR","msg":"worker configuration validation failed","err":"MINICLOUD_WORKER_SLOTS must be an integer (got \"abc\")"}

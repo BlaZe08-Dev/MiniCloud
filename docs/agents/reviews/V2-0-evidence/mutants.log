@@ -1,0 +1,134 @@
+=== mutant none: 
+PASS TestAudit_RenewalGoroutinePanic
+PASS TestAudit_PanicInValidateReleasesSlot
+PASS TestAudit_PanicDoesNotKillConcurrentAttempt
+PASS TestAudit_DeliveryFailingHoldsSlotUntilBudget
+PASS TestAudit_RenewVerdictRacesCompletion
+PASS TestAudit_ShutdownRacesPoll
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+PASS TestAudit_RunWaitsForHeartbeatGoroutine
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant none: 0 tests fail
+=== mutant a:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestAudit_RenewalGoroutinePanic
+PASS TestAudit_PanicInValidateReleasesSlot
+PASS TestAudit_PanicDoesNotKillConcurrentAttempt
+FAIL TestAudit_DeliveryFailingHoldsSlotUntilBudget :: audit_v20_test.go:153: poll after 0s of a 1m0s delivery budget (1 failed deliveries): the only slot was released while delivery was still running
+PASS TestAudit_RenewVerdictRacesCompletion
+PASS TestAudit_ShutdownRacesPoll
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+PASS TestAudit_RunWaitsForHeartbeatGoroutine
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:404: waiting for poll loop to block on a full pool: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:451: waiting for an attempt to release its slot: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:474: waiting for the poll loop to block on a full pool: poll with 2 assignments outstanding and 2 slots
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:537: waiting for the slot release: poll with 1 assignments outstanding and 1 slots
+FAIL TestConcurrency_ShutdownDrainsWithoutLeaks :: concurrency_test.go:580: waiting for a full pool: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_ShutdownDrainIsBounded :: concurrency_test.go:612: waiting for a full pool: poll with 1 assignments outstanding and 1 slots
+FAIL TestConcurrency_ResultsNeverCrossBetweenAttempts :: concurrency_test.go:665: waiting for a full pool: poll with 2 assignments outstanding and 2 slots
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:780: waiting for j1 to start: poll with 1 assignments outstanding and 1 slots
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant a: 9 tests fail
+=== mutant b:  1 file changed, 2 insertions(+)
+PASS TestAudit_RenewalGoroutinePanic
+FAIL TestAudit_PanicInValidateReleasesSlot :: audit_v20_test.go:85: waiting for the slot release after a Validate panic: running = -1 after a release, outside [0, 1]
+FAIL TestAudit_PanicDoesNotKillConcurrentAttempt :: audit_v20_test.go:115: running = 0, want 1 (j1 still running)
+FAIL TestAudit_DeliveryFailingHoldsSlotUntilBudget :: audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+FAIL TestAudit_RenewVerdictRacesCompletion :: audit_v20_test.go:268: iter 0: running = -1 after a release, outside [0, 1]
+FAIL TestAudit_ShutdownRacesPoll :: audit_v20_test.go:351: iter 7: running = -1 after Run returned
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+PASS TestAudit_RunWaitsForHeartbeatGoroutine
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:411: waiting for poll loop to block again: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:453: heartbeat after 1 releases = 2, want 1
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:485: Run did not return after cancel
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:537: waiting for the slot release: running = -1 after a release, outside [0, 1]
+FAIL TestConcurrency_ShutdownDrainsWithoutLeaks :: concurrency_test.go:581: Run did not return after cancel
+FAIL TestConcurrency_ShutdownDrainIsBounded :: concurrency_test.go:650: timed out waiting for the abandoned attempt to finish
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+FAIL TestConcurrency_LostLeaseIsolatedToOneAttempt :: concurrency_test.go:719: running = 0, want 1 (j2)
+FAIL TestConcurrency_ReRegisterReportsLiveSlots :: concurrency_test.go:769: Run did not return after cancel
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:780: waiting for j2 to start: running = -1 after a release, outside [0, 1]
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant b: 14 tests fail
+=== mutant c:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestAudit_RenewalGoroutinePanic
+PASS TestAudit_PanicInValidateReleasesSlot
+PASS TestAudit_PanicDoesNotKillConcurrentAttempt
+PASS TestAudit_DeliveryFailingHoldsSlotUntilBudget
+PASS TestAudit_RenewVerdictRacesCompletion
+PASS TestAudit_ShutdownRacesPoll
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+PASS TestAudit_RunWaitsForHeartbeatGoroutine
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:446: heartbeat with 1 running = 3, want 2
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+FAIL TestConcurrency_ReRegisterReportsLiveSlots :: concurrency_test.go:763: register bodies reported [3 3], want [3 1]
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:785: heartbeat while j1 runs = 1, want 0
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant c: 3 tests fail
+=== mutant d:  1 file changed, 9 insertions(+), 3 deletions(-)
+PASS TestAudit_RenewalGoroutinePanic
+PASS TestAudit_PanicInValidateReleasesSlot
+PASS TestAudit_PanicDoesNotKillConcurrentAttempt
+FAIL TestAudit_DeliveryFailingHoldsSlotUntilBudget :: audit_v20_test.go:153: poll after 0s of a 1m0s delivery budget (1 failed deliveries): the only slot was released while delivery was still running
+PASS TestAudit_RenewVerdictRacesCompletion
+PASS TestAudit_ShutdownRacesPoll
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+PASS TestAudit_RunWaitsForHeartbeatGoroutine
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+FAIL TestConcurrency_MaxInFlightNeverExceedsSlots :: concurrency_test.go:410: waiting for the next attempt to start: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_HeartbeatTracksRunningAttempts :: concurrency_test.go:451: waiting for an attempt to release its slot: poll with 3 assignments outstanding and 3 slots
+FAIL TestConcurrency_FullWorkerDoesNotPoll :: concurrency_test.go:483: waiting for a result: poll with 2 assignments outstanding and 2 slots
+FAIL TestConcurrency_SlotReleasedOnEveryExit :: concurrency_test.go:537: waiting for the slot release: poll with 1 assignments outstanding and 1 slots
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+FAIL TestConcurrency_SingleSlotIsSerial :: concurrency_test.go:788: waiting for j1's result: poll with 1 assignments outstanding and 1 slots
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant d: 6 tests fail
+=== mutant e:  1 file changed, 1 insertion(+), 1 deletion(-)
+PASS TestAudit_RenewalGoroutinePanic
+PASS TestAudit_PanicInValidateReleasesSlot
+PASS TestAudit_PanicDoesNotKillConcurrentAttempt
+PASS TestAudit_DeliveryFailingHoldsSlotUntilBudget
+PASS TestAudit_RenewVerdictRacesCompletion
+PASS TestAudit_ShutdownRacesPoll
+PASS TestAudit_HungHeartbeatDoesNotHangShutdown
+FAIL TestAudit_RunWaitsForHeartbeatGoroutine :: audit_v20_test.go:484: Run returned while the heartbeat goroutine was still running (heartbeat WaitGroup not waited)
+PASS TestAudit_AvailableSlotsDuringInFlightPoll
+PASS TestConcurrency_MaxInFlightNeverExceedsSlots
+PASS TestConcurrency_HeartbeatTracksRunningAttempts
+PASS TestConcurrency_FullWorkerDoesNotPoll
+PASS TestConcurrency_SlotReleasedOnEveryExit
+PASS TestConcurrency_ShutdownDrainsWithoutLeaks
+PASS TestConcurrency_ShutdownDrainIsBounded
+PASS TestConcurrency_ResultsNeverCrossBetweenAttempts
+PASS TestConcurrency_LostLeaseIsolatedToOneAttempt
+PASS TestConcurrency_ReRegisterReportsLiveSlots
+PASS TestConcurrency_SingleSlotIsSerial
+PASS TestLoadWorkerConfig_SlotsUpperBound
+=== mutant e: 1 tests fail
+client.go restored
+rc=0
