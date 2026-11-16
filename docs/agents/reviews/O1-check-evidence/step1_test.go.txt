@@ -1,0 +1,156 @@
+package evidence_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/api"
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/scheduler"
+	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
+)
+
+func setupTestServer() (*httptest.Server, *coordinator.Service, *executor.Registry) {
+	repo := storage.NewInMemoryRepository()
+	sched := scheduler.NewRoundRobinScheduler()
+	reg := executor.NewRegistry()
+	svc := coordinator.NewService(repo, sched, reg, 10*time.Second)
+	apiServer := api.NewServer("127.0.0.1:0", svc)
+	ts := httptest.NewServer(apiServer.Handler())
+	return ts, svc, reg
+}
+
+func submitAndPoll(t *testing.T, ts *httptest.Server, reg *executor.Registry, payloadBytes []byte) (int, int, int, error) {
+	submittedLen := len(payloadBytes)
+	submitBody := []byte(fmt.Sprintf(`{"task_type":"echo","payload":%s}`, string(payloadBytes)))
+
+	subResp, err := http.Post(ts.URL+"/v1/jobs", "application/json", bytes.NewReader(submitBody))
+	if err != nil {
+		t.Fatalf("POST /v1/jobs failed: %v", err)
+	}
+	defer subResp.Body.Close()
+	if subResp.StatusCode != http.StatusCreated {
+		subErr, _ := io.ReadAll(subResp.Body)
+		t.Fatalf("expected 201 Created, got %d: %s", subResp.StatusCode, string(subErr))
+	}
+
+	pollResp, err := http.Post(fmt.Sprintf("%s/v1/workers/%s/poll", ts.URL, "worker-1"), "application/json", nil)
+	if err != nil {
+		t.Fatalf("poll failed: %v", err)
+	}
+	defer pollResp.Body.Close()
+	if pollResp.StatusCode != http.StatusOK {
+		t.Fatalf("poll returned status %d", pollResp.StatusCode)
+	}
+
+	var res struct {
+		Assignment *coordinator.WorkAssignment `json:"assignment"`
+	}
+	if err := json.NewDecoder(pollResp.Body).Decode(&res); err != nil {
+		t.Fatalf("decode poll response: %v", err)
+	}
+
+	receivedPayload := res.Assignment.Payload
+	receivedLen := len(receivedPayload)
+
+	_, exitCode, execErr := reg.Execute(context.Background(), res.Assignment.TaskType, receivedPayload, 5*time.Second)
+	return submittedLen, receivedLen, exitCode, execErr
+}
+
+func TestHTML_Escaping_Step1(t *testing.T) {
+	ts, _, reg := setupTestServer()
+	defer ts.Close()
+
+	// Register a worker with large capacity
+	workerReq := `{"id":"worker-1","total_slots":100,"supported_tasks":["echo"]}`
+	resp, err := http.Post(ts.URL+"/v1/workers/register", "application/json", strings.NewReader(workerReq))
+	if err != nil {
+		t.Fatalf("register worker failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("register worker status: %d", resp.StatusCode)
+	}
+
+	testCases := []struct {
+		name string
+		char string
+	}{
+		{name: "less-than '<'", char: "<"},
+		{name: "greater-than '>'", char: ">"},
+		{name: "ampersand '&'", char: "&"},
+		{name: "U+2028 line separator", char: "\u2028"},
+		{name: "U+2029 paragraph separator", char: "\u2029"},
+		{name: "control letters 'a'", char: "a"},
+	}
+
+	fmt.Println("================================================================================")
+	fmt.Println("STEP 1: In-memory API stack reproduction of HTML escaping payload expansion")
+	fmt.Println("================================================================================")
+
+	for _, tc := range testCases {
+		prefix := `{"message":"`
+		suffix := `"}`
+		fixedLen := len(prefix) + len(suffix) // 14 bytes
+		repeatCount := (65000 - fixedLen) / len(tc.char)
+		msgContent := strings.Repeat(tc.char, repeatCount)
+		payloadBytes := []byte(prefix + msgContent + suffix)
+
+		subLen, recLen, exitCode, execErr := submitAndPoll(t, ts, reg, payloadBytes)
+
+		fmt.Printf("CASE: %s\n", tc.name)
+		fmt.Printf("  Submitted Payload Length: %d bytes\n", subLen)
+		fmt.Printf("  Received Payload Length:  %d bytes (expansion: %.2fx)\n", recLen, float64(recLen)/float64(subLen))
+		fmt.Printf("  Worker Execute Exit Code: %d\n", exitCode)
+		fmt.Printf("  Worker Execute Error:     %v\n", execErr)
+		if execErr != nil {
+			fmt.Printf("  Error Classification:     %s\n", executor.Classify(execErr))
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("================================================================================")
+	fmt.Println("STEP 3: Finding exact boundary limits for '<' characters")
+	fmt.Println("================================================================================")
+
+	// Boundary test for object shape: {"message":"<...<"} (overhead = 14 bytes)
+	prefix := `{"message":"`
+	suffix := `"}`
+	for _, n := range []int{10920, 10921} {
+		payloadBytes := []byte(prefix + strings.Repeat("<", n) + suffix)
+		subLen, recLen, exitCode, execErr := submitAndPoll(t, ts, reg, payloadBytes)
+		fmt.Printf("OBJECT SHAPE: %d '<' characters\n", n)
+		fmt.Printf("  Submitted Payload Length: %d bytes\n", subLen)
+		fmt.Printf("  Received Payload Length:  %d bytes\n", recLen)
+		fmt.Printf("  Worker Execute Exit Code: %d\n", exitCode)
+		fmt.Printf("  Worker Execute Error:     %v\n", execErr)
+		if execErr != nil {
+			fmt.Printf("  Error Classification:     %s\n", executor.Classify(execErr))
+		}
+		fmt.Println()
+	}
+
+	// Boundary test for bare string shape: "<...<" (overhead = 2 bytes)
+	for _, n := range []int{10922, 10923} {
+		payloadBytes := []byte(`"` + strings.Repeat("<", n) + `"`)
+		subLen, recLen, exitCode, execErr := submitAndPoll(t, ts, reg, payloadBytes)
+		fmt.Printf("BARE STRING SHAPE: %d '<' characters\n", n)
+		fmt.Printf("  Submitted Payload Length: %d bytes\n", subLen)
+		fmt.Printf("  Received Payload Length:  %d bytes\n", recLen)
+		fmt.Printf("  Worker Execute Exit Code: %d\n", exitCode)
+		fmt.Printf("  Worker Execute Error:     %v\n", execErr)
+		if execErr != nil {
+			fmt.Printf("  Error Classification:     %s\n", executor.Classify(execErr))
+		}
+		fmt.Println()
+	}
+}

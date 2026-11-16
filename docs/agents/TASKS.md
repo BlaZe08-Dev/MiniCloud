@@ -23,6 +23,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
+| O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
+| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | not started | planned, not started |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
 | V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
@@ -53,6 +55,25 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Builder: Claude Code. Auditor: owner review (the AGENTS.md change needs the owner). Branch: `agent/claude/PV-01`. Status: complete, merged in PR #55.
 - Owned files: `docs/post-v1/**`, `docs/adr/0018-ai-assisted-workflow-dispatch.md`, `docs/adr/0004-version-boundaries-and-compatibility.md` (amendment note only), `docs/adr/0008-dispatch-transport-queue-interface.md` (note only), `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `README.md`, `docs/PROJECT_STATE.md` (top section and milestone line only), `docs/roadmap.md`, `docs/architecture.md`, `CHANGELOG.md`, `docs/agents/TASKS.md`, `docs/agents/handoffs/PV-01.md`, `reports/claude/PV-01.md`.
 - Out of scope: any `.go` file, migrations, `go.mod`/`go.sum`, API routes, tests, `tests/docs/citation_allowlist.txt` (unless `make test-docs` needs it), `docs/security/**`, historical handoffs and reviews, running docker or `make test-outage`. No implementation task is started.
+
+### O1-check — Investigation: HTML escaping payload expansion (SEC-067)
+- Goal: determine whether HTML escaping in coordinator API response writer inflates valid payloads under 64 KiB over the worker execution limit, causing false-positive permanent failures.
+- Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/O1-check`. Status: complete.
+- Owned files: `docs/agents/reviews/O1-check-evidence/**`, `reports/gemini/O1-check.md`, `docs/security/findings.md`, `docs/agents/TASKS.md`.
+- Out of scope: any `.go` file, migrations, `go.mod`/`go.sum`, `tests/docs/citation_allowlist.txt`, worker, executor, storage.
+
+### V1x-02 — Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit
+- Goal: Fix SEC-067 by configuring coordinator HTTP response encoder with `SetEscapeHTML(false)` so valid payloads containing HTML characters preserve exact wire byte fidelity; ensure `X-Content-Type-Options: nosniff` header is present.
+- Builder: Claude Code. Auditor: Gemini (read-only). Status: planned, not started.
+- Owned files: `internal/api/handlers.go`, `internal/api/*_test.go`, `docs/**`.
+- Out of scope: worker, executor, storage, migrations.
+- Acceptance criteria:
+  1. A regression test shows the poll response bytes equal the submitted payload for `<`, `>`, `&`, and U+2028/2029, and fails when the fix is reverted (mutation proof).
+  2. A header test verifies `X-Content-Type-Options: nosniff` on API responses.
+  3. Worker and executor packages remain completely unchanged.
+  4. An old worker still completes jobs successfully.
+  5. Baseline test and benchmark counts are not lower.
+  6. Auditor Gemini is read-only.
 
 ### V2-0 — Worker concurrency semantics (placeholder; full spec to be written by the orchestrator)
 - Goal: decide and document slot semantics (real concurrent execution with supervision, or advertise what is actually executed), ADR first, then implementation. The worker today runs one task at a time while registration and heartbeat report `available_slots` equal to `TotalSlots` (confirmed by code reading, `internal/worker/client.go` func `Run` and func `register`; spec section 2). Exit: advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible.

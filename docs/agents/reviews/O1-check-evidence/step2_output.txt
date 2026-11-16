@@ -1,0 +1,70 @@
+Starting coordinator...
+Coordinator is healthy on http://127.0.0.1:8989
+Starting worker...
+Worker started.
+Stopping worker and coordinator...
+
+================================================================================
+STEP 2 RESULTS (Real Binaries + minicloud_gemini_test Database):
+================================================================================
+TEST CASE: less-than '<'
+  Job ID:                   job_1_bbe624454675
+  Submitted Payload Length: 65000 bytes
+  Final Job State:          FAILED
+  Total Attempts:           1
+    - Attempt #1 State: FAILED, ExitCode: 1, ErrorClass: PERMANENT
+      Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Job Result: ExitCode=1, OutputLen=0, Error=payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+
+TEST CASE: greater-than '>'
+  Job ID:                   job_2_de5607f0115a
+  Submitted Payload Length: 65000 bytes
+  Final Job State:          FAILED
+  Total Attempts:           1
+    - Attempt #1 State: FAILED, ExitCode: 1, ErrorClass: PERMANENT
+      Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Job Result: ExitCode=1, OutputLen=0, Error=payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+
+TEST CASE: ampersand '&'
+  Job ID:                   job_3_b46e07d1884d
+  Submitted Payload Length: 65000 bytes
+  Final Job State:          FAILED
+  Total Attempts:           1
+    - Attempt #1 State: FAILED, ExitCode: 1, ErrorClass: PERMANENT
+      Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Job Result: ExitCode=1, OutputLen=0, Error=payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+
+TEST CASE: U+2028 line separator
+  Job ID:                   job_4_7d1a8a54a14f
+  Submitted Payload Length: 65000 bytes
+  Final Job State:          FAILED
+  Total Attempts:           1
+    - Attempt #1 State: FAILED, ExitCode: 1, ErrorClass: PERMANENT
+      Error: payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+  Job Result: ExitCode=1, OutputLen=0, Error=payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+
+TEST CASE: control letters 'a'
+  Job ID:                   job_5_7b4b4004a832
+  Submitted Payload Length: 65000 bytes
+  Final Job State:          SUCCEEDED
+  Total Attempts:           1
+    - Attempt #1 State: COMPLETED, ExitCode: 0, ErrorClass: 
+  Job Result: ExitCode=0, OutputLen=65009, Error=None
+
+TEST CASE: boundary 10,920 '<' (executes)
+  Job ID:                   job_6_c3ac5b27358c
+  Submitted Payload Length: 10934 bytes
+  Final Job State:          SUCCEEDED
+  Total Attempts:           1
+    - Attempt #1 State: COMPLETED, ExitCode: 0, ErrorClass: 
+  Job Result: ExitCode=0, OutputLen=65536, Error=None
+
+TEST CASE: boundary 10,921 '<' (fails)
+  Job ID:                   job_7_aad06a52cedd
+  Submitted Payload Length: 10935 bytes
+  Final Job State:          FAILED
+  Total Attempts:           1
+    - Attempt #1 State: FAILED, ExitCode: 1, ErrorClass: PERMANENT
+      Error: payload exceeds maximum allowed size: payload size 65540 exceeds 65536 bytes
+  Job Result: ExitCode=1, OutputLen=0, Error=payload exceeds maximum allowed size: payload size 65540 exceeds 65536 bytes
+

@@ -1,0 +1,181 @@
+import json
+import os
+import signal
+import subprocess
+import time
+
+DATABASE_URL = ""
+with open("/home/blazeee/MiniCloud-gemini/.env") as f:
+    for line in f:
+        line = line.strip()
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            DATABASE_URL = line.split("=", 1)[1]
+            break
+
+if not DATABASE_URL or "minicloud_gemini_test" not in DATABASE_URL:
+    raise RuntimeError(f"Invalid or missing test database url: {DATABASE_URL}")
+
+COORDINATOR_PORT = 8989
+COORDINATOR_URL = f"http://127.0.0.1:{COORDINATOR_PORT}"
+
+env_coord = os.environ.copy()
+env_coord["MINICLOUD_HTTP_ADDR"] = f"127.0.0.1:{COORDINATOR_PORT}"
+env_coord["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+env_coord["MINICLOUD_DATABASE_URL"] = DATABASE_URL
+env_coord["MINICLOUD_LOG_LEVEL"] = "info"
+env_coord["MINICLOUD_DISPATCH_POLICY"] = "round_robin"
+
+env_worker = os.environ.copy()
+env_worker["MINICLOUD_COORDINATOR_URL"] = COORDINATOR_URL
+env_worker["MINICLOUD_WORKER_ID"] = "worker-gemini-step2"
+env_worker["MINICLOUD_WORKER_SLOTS"] = "10"
+env_worker["MINICLOUD_HEARTBEAT_INTERVAL"] = "1s"
+env_worker["MINICLOUD_LOG_LEVEL"] = "info"
+
+coord_log = open("/tmp/coordinator_step2.log", "w")
+worker_log = open("/tmp/worker_step2.log", "w")
+
+print("Starting coordinator...")
+coord_proc = subprocess.Popen(
+    ["/home/blazeee/MiniCloud-gemini/bin/coordinator"],
+    env=env_coord,
+    stdout=coord_log,
+    stderr=subprocess.STDOUT
+)
+
+# Wait for healthz
+healthy = False
+for _ in range(100):
+    time.sleep(0.1)
+    res = subprocess.run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", f"{COORDINATOR_URL}/healthz"], capture_output=True, text=True)
+    if res.stdout.strip() == "200":
+        healthy = True
+        break
+
+if not healthy:
+    coord_proc.terminate()
+    raise RuntimeError("Coordinator failed to start")
+
+print("Coordinator is healthy on", COORDINATOR_URL)
+
+print("Starting worker...")
+worker_proc = subprocess.Popen(
+    ["/home/blazeee/MiniCloud-gemini/bin/worker"],
+    env=env_worker,
+    stdout=worker_log,
+    stderr=subprocess.STDOUT
+)
+
+time.sleep(1.0)
+print("Worker started.")
+
+test_cases = [
+    ("less-than '<'", "<", 65000),
+    ("greater-than '>'", ">", 65000),
+    ("ampersand '&'", "&", 65000),
+    ("U+2028 line separator", "\u2028", 65000),
+    ("control letters 'a'", "a", 65000),
+    ("boundary 10,920 '<' (executes)", "<", 14 + 10920),
+    ("boundary 10,921 '<' (fails)", "<", 14 + 10921),
+]
+
+results = []
+
+try:
+    for name, char, target_len in test_cases:
+        prefix = '{"message":"'
+        suffix = '"}'
+        fixed_len = len(prefix) + len(suffix) # 14 bytes
+        char_bytes = char.encode("utf-8")
+        repeat_count = (target_len - fixed_len) // len(char_bytes)
+        content = char * repeat_count
+        payload_bytes = (prefix + content + suffix).encode("utf-8")
+        sub_len = len(payload_bytes)
+
+        req_body = json.dumps({"task_type": "echo"}).encode("utf-8")[:-1] + b', "payload": ' + payload_bytes + b'}'
+
+        tmp_req_file = "/tmp/req_payload.json"
+        with open(tmp_req_file, "wb") as f:
+            f.write(req_body)
+
+        curl_cmd = [
+            "curl", "-s", "-w", "\n%{http_code}",
+            "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "--data-binary", f"@{tmp_req_file}",
+            f"{COORDINATOR_URL}/v1/jobs"
+        ]
+        sub_res = subprocess.run(curl_cmd, capture_output=True, text=True)
+        lines = sub_res.stdout.strip().split("\n")
+        http_code = lines[-1]
+        body = "\n".join(lines[:-1])
+
+        if http_code != "201":
+            print(f"FAILED submit for {name}: HTTP {http_code}: {body}")
+            continue
+
+        job_info = json.loads(body)
+        job_id = job_info["id"]
+
+        # Poll for completion
+        final_job = None
+        for _ in range(50):
+            time.sleep(0.1)
+            get_res = subprocess.run(["curl", "-s", f"{COORDINATOR_URL}/v1/jobs/{job_id}"], capture_output=True, text=True)
+            if get_res.returncode == 0:
+                cur_job = json.loads(get_res.stdout)
+                if cur_job.get("state") in ["SUCCEEDED", "FAILED", "CANCELLED"]:
+                    final_job = cur_job
+                    break
+
+        attempts_res = subprocess.run(["curl", "-s", f"{COORDINATOR_URL}/v1/jobs/{job_id}/attempts"], capture_output=True, text=True)
+        attempts_info = json.loads(attempts_res.stdout) if attempts_res.returncode == 0 else {}
+
+        results.append({
+            "name": name,
+            "job_id": job_id,
+            "submitted_payload_length": sub_len,
+            "final_state": final_job.get("state") if final_job else "TIMEOUT",
+            "job": final_job,
+            "attempts": attempts_info.get("attempts", [])
+        })
+
+finally:
+    print("Stopping worker and coordinator...")
+    worker_proc.terminate()
+    coord_proc.terminate()
+    try:
+        worker_proc.wait(timeout=2)
+        coord_proc.wait(timeout=2)
+    except Exception:
+        worker_proc.kill()
+        coord_proc.kill()
+    coord_log.close()
+    worker_log.close()
+
+print("\n" + "="*80)
+print("STEP 2 RESULTS (Real Binaries + minicloud_gemini_test Database):")
+print("="*80)
+
+for r in results:
+    print(f"TEST CASE: {r['name']}")
+    print(f"  Job ID:                   {r['job_id']}")
+    print(f"  Submitted Payload Length: {r['submitted_payload_length']} bytes")
+    print(f"  Final Job State:          {r['final_state']}")
+    
+    attempts = r["attempts"]
+    print(f"  Total Attempts:           {len(attempts)}")
+    for att in attempts:
+        att_no = att.get("attempt_no")
+        att_state = att.get("state")
+        att_err_class = att.get("error_class", "")
+        att_err = att.get("error", "")
+        att_exit = att.get("exit_code")
+        print(f"    - Attempt #{att_no} State: {att_state}, ExitCode: {att_exit}, ErrorClass: {att_err_class}")
+        if att_err:
+            print(f"      Error: {att_err}")
+    
+    job_result = r["job"].get("result") if r["job"] else None
+    if job_result:
+        print(f"  Job Result: ExitCode={job_result.get('exit_code')}, OutputLen={len(job_result.get('output', ''))}, Error={job_result.get('error')}")
+    print()
