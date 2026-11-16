@@ -1,0 +1,14 @@
+--- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped (0.84s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/less-than (0.19s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/greater-than (0.16s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/ampersand (0.15s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/U+2028 (0.08s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/U+2029 (0.09s)
+    --- FAIL: TestAPI_PollPayloadIsNotHTMLEscaped/mixed (0.10s)
+--- FAIL: TestAPI_PollPayloadMaxSizeBoundary (0.17s)
+--- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse (0.01s)
+--- FAIL: TestAPI_ResponseWireChangeIsJSONEquivalent (0.01s)
+--- FAIL: TestAPI_ErrorBodyIsNotHTMLEscaped (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	1.079s
+FAIL
