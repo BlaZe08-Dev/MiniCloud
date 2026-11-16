@@ -13,7 +13,7 @@ This document defines the normative limits across all entity types (Jobs, Worker
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Job** | `id` | `string` / `TEXT` | 1 char | 128 chars | Auto-generated (`job_<seq>_<hex>`) | `^[a-zA-Z0-9_-]+$` | `jobs_pkey` (PRIMARY KEY) | `400 INVALID_REQUEST` |
 | **Job** | `task_type` | `string` / `VARCHAR(64)` | 1 char | 64 chars | N/A (Required) | Allowlisted tasks (`echo`, `sleep`, `sha256_loop`) | None (Domain allowlist) | `400 UNKNOWN_TASK_TYPE` |
-| **Job** | `payload` | `[]byte` / `BYTEA` | 0 bytes | 65,536 bytes (64 KiB) | N/A (Required) | Arbitrary binary / JSON | `chk_jobs_payload_size` | `413 PAYLOAD_TOO_LARGE` |
+| **Job** | `payload` | `[]byte` / `BYTEA` | 0 bytes | 65,536 bytes (64 KiB) | N/A (Required) | Arbitrary binary / JSON. The 64 KiB limit now holds on the wire as well: responses are no longer HTML-escaped (SEC-067 fixed, V1x-02), so the worker receives the submitted bytes. | `chk_jobs_payload_size` | `413 PAYLOAD_TOO_LARGE` |
 | **Job** | `max_attempts` | `int` / `INTEGER` | 1 | 20 | 3 | Integer in `[1, 20]` | `chk_jobs_max_attempts` | `400 INVALID_REQUEST` |
 | **Job** | `timeout_seconds` | `int` / `INTEGER` | 1 | 86,400 (24h) | 60 | Integer in `[1, 86400]` | `chk_jobs_timeout` | `400 INVALID_REQUEST` |
 | **Job** | `state` | `string` / `VARCHAR(32)` | N/A | 32 chars | `SUBMITTED` | Central FSM states | `chk_jobs_state` | `400 INVALID_STATE_TRANSITION` |

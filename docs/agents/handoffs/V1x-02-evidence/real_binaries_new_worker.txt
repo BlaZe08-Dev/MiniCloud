@@ -1,0 +1,34 @@
+new [
+ {
+  "case": "<",
+  "payload_bytes": 65000,
+  "job": "job_1_d7998f9be9aa",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": ">",
+  "payload_bytes": 65000,
+  "job": "job_2_b9578fb78bd4",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": "&",
+  "payload_bytes": 65000,
+  "job": "job_3_fe02cc8c5040",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": "U+2028",
+  "payload_bytes": 65000,
+  "job": "job_4_55106e043a57",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ }
+]

@@ -1,0 +1,34 @@
+v100 [
+ {
+  "case": "<",
+  "payload_bytes": 65000,
+  "job": "job_1_3f40e612f445",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": ">",
+  "payload_bytes": 65000,
+  "job": "job_2_d50eed69ec8c",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": "&",
+  "payload_bytes": 65000,
+  "job": "job_3_79533315cfb7",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ },
+ {
+  "case": "U+2028",
+  "payload_bytes": 65000,
+  "job": "job_4_7851da142093",
+  "state": "SUCCEEDED",
+  "attempts": 1,
+  "nosniff": "nosniff"
+ }
+]

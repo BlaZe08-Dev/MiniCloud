@@ -24,7 +24,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 |---|---|---|---|---|---|
 | PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
 | O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
-| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | not started | planned, not started |
+| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | built, awaiting audit | `agent/claude/V1x-02`; handoff `docs/agents/handoffs/V1x-02.md` |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
 | V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
@@ -64,7 +64,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V1x-02 — Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit
 - Goal: Fix SEC-067 by configuring coordinator HTTP response encoder with `SetEscapeHTML(false)` so valid payloads containing HTML characters preserve exact wire byte fidelity; ensure `X-Content-Type-Options: nosniff` header is present.
-- Builder: Claude Code. Auditor: Gemini (read-only). Status: planned, not started.
+- Builder: Claude Code. Auditor: Gemini (read-only). Status: built on `agent/claude/V1x-02`, awaiting audit.
 - Owned files: `internal/api/handlers.go`, `internal/api/*_test.go`, `docs/**`.
 - Out of scope: worker, executor, storage, migrations.
 - Acceptance criteria:
