@@ -88,6 +88,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V1.0.x maintenance candidates added by V2-0 (not started)
 - O1 (ADR-0019 Section 7, inferred, not tested): `coordinator.WorkAssignment.Payload` is a `json.RawMessage` that keeps the HTML-escaped bytes the coordinator sends, so a legal payload with many `<`, `>` or `&` characters may reach the worker longer than 64 KiB and be rejected by `executor.Registry.Execute` before decoding. Needs a reproduction test first (break before fix).
+- `TestLogSafe_AssignmentPassRefreshFailed_LogsClassOnly` (coordinator, pre-existing flake seen in `make test-db` during V2-0): its leak list contains "6543", which can match a log timestamp (for example `02:31:39.463654363`). Fix: use a sentinel that cannot appear in a timestamp.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000006 with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
