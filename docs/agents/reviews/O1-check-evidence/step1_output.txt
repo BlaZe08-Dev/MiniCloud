@@ -1,0 +1,98 @@
+=== RUN   TestHTML_Escaping_Step1
+2026/11/16 01:58:49 INFO worker registered worker_id=worker-1 version="" slots=100 supported_tasks=[echo]
+================================================================================
+STEP 1: In-memory API stack reproduction of HTML escaping payload expansion
+================================================================================
+2026/11/16 01:58:49 INFO job submitted and queued job_id=job_1_94f58ce5fcfa task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:49 INFO job dispatched to worker job_id=job_1_94f58ce5fcfa attempt_id=att_1_03c1911f66a0 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: less-than '<'
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  389930 bytes (expansion: 6.00x)
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_2_409e174b781c task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_2_409e174b781c attempt_id=att_2_0517576d8d89 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: greater-than '>'
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  389930 bytes (expansion: 6.00x)
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_3_6b44b0940e78 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_3_6b44b0940e78 attempt_id=att_3_26f7be5b5f66 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: ampersand '&'
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  389930 bytes (expansion: 6.00x)
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_4_56602b8d5663 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_4_56602b8d5663 attempt_id=att_4_74d211861ca3 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: U+2028 line separator
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  129986 bytes (expansion: 2.00x)
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_5_c6159f2c89b2 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_5_c6159f2c89b2 attempt_id=att_5_cdb2921029c1 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: U+2029 paragraph separator
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  129986 bytes (expansion: 2.00x)
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_6_abcd9077d60c task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_6_abcd9077d60c attempt_id=att_6_a238c016c5f8 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+CASE: control letters 'a'
+  Submitted Payload Length: 65000 bytes
+  Received Payload Length:  65000 bytes (expansion: 1.00x)
+  Worker Execute Exit Code: 0
+  Worker Execute Error:     <nil>
+
+================================================================================
+STEP 3: Finding exact boundary limits for '<' characters
+================================================================================
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_7_ed68490be9a9 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_7_ed68490be9a9 attempt_id=att_7_6ccf234266aa attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+OBJECT SHAPE: 10920 '<' characters
+  Submitted Payload Length: 10934 bytes
+  Received Payload Length:  65534 bytes
+  Worker Execute Exit Code: 0
+  Worker Execute Error:     <nil>
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_8_bf42a7b258fd task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_8_bf42a7b258fd attempt_id=att_8_d9df6ea33e0b attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+OBJECT SHAPE: 10921 '<' characters
+  Submitted Payload Length: 10935 bytes
+  Received Payload Length:  65540 bytes
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 65540 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_9_3f409a6c7baf task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_9_3f409a6c7baf attempt_id=att_9_a2e1ae0fb625 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+BARE STRING SHAPE: 10922 '<' characters
+  Submitted Payload Length: 10924 bytes
+  Received Payload Length:  65534 bytes
+  Worker Execute Exit Code: 0
+  Worker Execute Error:     <nil>
+
+2026/11/16 01:58:50 INFO job submitted and queued job_id=job_10_dab62e6eeb9c task_type=echo state=QUEUED max_attempts=3
+2026/11/16 01:58:50 INFO job dispatched to worker job_id=job_10_dab62e6eeb9c attempt_id=att_10_aac2acbb8c22 attempt_no=1 worker_id=worker-1 policy=fifo_pull reason="claimed by polling worker with capacity"
+BARE STRING SHAPE: 10923 '<' characters
+  Submitted Payload Length: 10925 bytes
+  Received Payload Length:  65540 bytes
+  Worker Execute Exit Code: 1
+  Worker Execute Error:     payload exceeds maximum allowed size: payload size 65540 exceeds 65536 bytes
+  Error Classification:     PERMANENT
+
+--- PASS: TestHTML_Escaping_Step1 (0.14s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/docs/agents/reviews/O1-check-evidence	0.142s
