@@ -116,6 +116,24 @@ type Agent struct {
 	registry   *executor.Registry
 	httpClient *http.Client
 	clock      Clock
+
+	// running counts the attempts handed to an attempt goroutine that have not finished
+	// (ADR-0019 Section 2.1). It changes only while the attempt holds a slot token, so
+	// 0 <= running <= TotalSlots at every instant.
+	running atomic.Int64
+	// onSlotWait, when set, is called each time the poll loop finds no free slot and is about
+	// to block (tests only; set before Run).
+	onSlotWait func()
+	// onAttemptDone, when set, is called by each attempt goroutine right after it released its
+	// slot (tests only; set before Run).
+	onAttemptDone func()
+}
+
+// availableSlots is TotalSlots minus the attempts currently running (ADR-0019 Section 2.1), the
+// value register and heartbeat report. The clamp keeps the wire value inside [0, TotalSlots]
+// even if the invariant on running were ever broken; tests assert the invariant on running itself.
+func (a *Agent) availableSlots() int {
+	return min(max(a.cfg.TotalSlots-int(a.running.Load()), 0), a.cfg.TotalSlots)
 }
 
 // SetClock replaces the timer source (tests only; call before running work).
@@ -157,64 +175,171 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to register worker: %w", err)
 	}
 
-	// 2. Start periodic heartbeat loop
+	// 2. Start periodic heartbeat loop. Run waits for it before returning (ADR-0019 Section 2.5).
 	heartbeatTicker := time.NewTicker(a.cfg.HeartbeatInterval)
 	defer heartbeatTicker.Stop()
+	var heartbeatWG sync.WaitGroup
+	defer heartbeatWG.Wait()
 
+	heartbeatWG.Add(1)
 	go func() {
+		defer heartbeatWG.Done()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-heartbeatTicker.C:
-				if err := a.sendHeartbeat(ctx); err != nil {
-					slog.Warn("heartbeat failed", "worker_id", a.cfg.WorkerID, "err", err)
-				}
+				a.heartbeatTick(ctx)
 			}
 		}
 	}()
 
-	// 3. Work polling loop
+	// 3. Work polling loop: a bounded pool of TotalSlots concurrent attempts (ADR-0019). A slot is
+	// acquired before every poll, so a worker with no free slot never polls (Section 2.2).
 	consecutiveFailures := 0
+	sem := make(chan struct{}, a.cfg.TotalSlots)
+	var attempts sync.WaitGroup
 
 	for {
-		select {
-		case <-ctx.Done():
+		if !a.acquireSlot(ctx, sem) {
 			slog.Info("worker agent shutting down", "worker_id", a.cfg.WorkerID)
+			a.drain(&attempts)
 			return nil
-		default:
-			assignment, err := a.pollWork(ctx)
-			if err != nil {
-				if errors.Is(err, domain.ErrWorkerUnhealthy) {
-					consecutiveFailures = 0
-					slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
-					a.pollSleep(IdlePollInterval)
-				} else if errors.Is(err, domain.ErrNoQueuedJobs) {
-					consecutiveFailures = 0
-					a.pollSleep(IdlePollInterval)
-				} else if errors.Is(err, ErrServiceUnavailable) {
-					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
-					slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
-					a.pollSleep(backoff)
-				} else {
-					consecutiveFailures++
-					backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
-					slog.Warn("work poll error", "err", err, "backoff", backoff)
-					a.pollSleep(backoff)
-				}
-				continue
-			}
-
-			consecutiveFailures = 0
-			if assignment == nil {
-				a.pollSleep(IdlePollInterval)
-				continue
-			}
-
-			// Execute claimed work assignment
-			a.ExecuteAndReport(ctx, assignment)
 		}
+		assignment, err := a.pollWork(ctx)
+		if err != nil {
+			<-sem // no attempt: the poll loop still owns the token and gives it back
+			if errors.Is(err, domain.ErrWorkerUnhealthy) {
+				consecutiveFailures = 0
+				slog.Info("worker is marked unhealthy by coordinator; waiting for heartbeat to restore health", "worker_id", a.cfg.WorkerID)
+				a.pollSleep(IdlePollInterval)
+			} else if errors.Is(err, domain.ErrNoQueuedJobs) {
+				consecutiveFailures = 0
+				a.pollSleep(IdlePollInterval)
+			} else if errors.Is(err, ErrServiceUnavailable) {
+				consecutiveFailures++
+				backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
+				slog.Warn("coordinator or database unavailable; backing off before next poll", "worker_id", a.cfg.WorkerID, "failures", consecutiveFailures, "backoff", backoff)
+				a.pollSleep(backoff)
+			} else {
+				consecutiveFailures++
+				backoff := ComputeBackoffWithJitter(consecutiveFailures, IdlePollInterval, MaxPollBackoff)
+				slog.Warn("work poll error", "err", err, "backoff", backoff)
+				a.pollSleep(backoff)
+			}
+			continue
+		}
+
+		consecutiveFailures = 0
+		if assignment == nil {
+			<-sem
+			a.pollSleep(IdlePollInterval)
+			continue
+		}
+
+		// Hand the token to the attempt goroutine, which releases it exactly once.
+		a.running.Add(1)
+		attempts.Add(1)
+		go a.runAttempt(ctx, sem, &attempts, assignment)
+	}
+}
+
+// heartbeatTick sends one heartbeat. A panic in it is recovered and logged, and the heartbeat loop
+// goes on with the next tick (ADR-0019 Section 2.3): a missed heartbeat is harmless, a dead process
+// would end every running attempt.
+func (a *Agent) heartbeatTick(ctx context.Context) {
+	defer func() {
+		if p := recover(); p != nil {
+			logAgentPanic("heartbeat", nil, p)
+		}
+	}()
+	if err := a.sendHeartbeat(ctx); err != nil {
+		slog.Warn("heartbeat failed", "worker_id", a.cfg.WorkerID, "err", err)
+	}
+}
+
+// logAgentPanic logs a recovered panic of an agent goroutine (not task code; ADR-0019 Section 2.3):
+// only the goroutine's name, the job and attempt IDs when it serves one attempt, and the panic's
+// type. Never the panic's value, the lease token or the payload.
+func logAgentPanic(goroutine string, asg *coordinator.WorkAssignment, p any) {
+	attrs := []any{"goroutine", goroutine}
+	if asg != nil {
+		attrs = append(attrs, "job_id", asg.JobID, "attempt_id", asg.AttemptID)
+	}
+	attrs = append(attrs, "panic_type", fmt.Sprintf("%T", p))
+	slog.Error("agent goroutine panicked; recovered", attrs...)
+}
+
+// acquireSlot takes one slot token for the next poll. It returns false, holding nothing, when ctx
+// is done. When no slot is free it calls the onSlotWait hook and blocks until an attempt releases
+// one or ctx ends.
+func (a *Agent) acquireSlot(ctx context.Context, sem chan struct{}) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	select {
+	case sem <- struct{}{}:
+		return true
+	default:
+	}
+	if a.onSlotWait != nil {
+		a.onSlotWait()
+	}
+	select {
+	case sem <- struct{}{}:
+		if ctx.Err() != nil {
+			<-sem
+			return false
+		}
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// runAttempt executes one assignment in its own goroutine. Its single deferred function is the
+// only release site of the attempt's slot (ADR-0019 Section 2.3): it runs once on every exit,
+// including a panic, which it recovers so one attempt cannot kill the others. After a recovered
+// panic no result is reported; renewal has stopped (ExecuteAndReport's defers ran during the
+// unwinding), so the lease expires and the coordinator retries the job. Only the IDs and the
+// panic's type are logged, never its value, the lease token or the payload.
+func (a *Agent) runAttempt(ctx context.Context, sem chan struct{}, attempts *sync.WaitGroup, asg *coordinator.WorkAssignment) {
+	defer func() {
+		if p := recover(); p != nil {
+			slog.Error("attempt panicked; no result reported, the lease will expire and the job be retried",
+				"job_id", asg.JobID, "attempt_id", asg.AttemptID, "panic_type", fmt.Sprintf("%T", p))
+		}
+		a.running.Add(-1)
+		<-sem
+		if a.onAttemptDone != nil {
+			a.onAttemptDone()
+		}
+		attempts.Done()
+	}()
+	a.ExecuteAndReport(ctx, asg)
+}
+
+// drain waits for the running attempts after shutdown (ADR-0019 Section 2.5). They were cancelled
+// through ctx, the existing path. The wait is bounded by ResultDeliveryBudget on the agent clock;
+// with nothing running no timer is created.
+func (a *Agent) drain(attempts *sync.WaitGroup) {
+	if a.running.Load() == 0 {
+		// Every attempt goroutine is past its decrement and only has wg.Done left.
+		attempts.Wait()
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		attempts.Wait()
+		close(done)
+	}()
+	t := a.clock.NewTimer(ResultDeliveryBudget)
+	defer t.Stop()
+	select {
+	case <-done:
+	case <-t.C():
+		slog.Error("shutdown drain bound reached; attempts still running are abandoned (their leases will expire)",
+			"worker_id", a.cfg.WorkerID, "running", a.running.Load(), "bound", ResultDeliveryBudget)
 	}
 }
 
@@ -226,7 +351,7 @@ func (a *Agent) register(ctx context.Context) error {
 		"id":              a.cfg.WorkerID,
 		"version":         "v0.1.0",
 		"total_slots":     a.cfg.TotalSlots,
-		"available_slots": a.cfg.TotalSlots,
+		"available_slots": a.availableSlots(),
 		"supported_tasks": []string{"echo", "sleep", "sha256_loop"},
 	})
 	if err != nil {
@@ -256,7 +381,7 @@ func (a *Agent) register(ctx context.Context) error {
 
 func (a *Agent) sendHeartbeat(ctx context.Context) error {
 	payload, _ := json.Marshal(map[string]any{
-		"available_slots": a.cfg.TotalSlots,
+		"available_slots": a.availableSlots(),
 	})
 
 	url := fmt.Sprintf("%s/v1/workers/%s/heartbeat", a.cfg.CoordinatorURL, a.cfg.WorkerID)
@@ -638,6 +763,16 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		// A panic in the renewal goroutine is recovered in the fail-safe direction (ADR-0019
+		// Section 2.3): with no renewals the lease cannot be trusted, so the attempt is treated as
+		// lost. The task is cancelled, the result dropped, and the slot freed by runAttempt as usual.
+		defer func() {
+			if p := recover(); p != nil {
+				logAgentPanic("renewal", assignment, p)
+				run.markLost()
+				cancelTask()
+			}
+		}()
 		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)
 	}()
 	defer func() {
@@ -671,6 +806,15 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
 	defer cancel()
 	var expired atomic.Bool
 	go func() {
+		// A panic here is recovered in the fail-safe direction (ADR-0019 Section 2.3): the budget
+		// can no longer be enforced, so delivery is treated as expired now.
+		defer func() {
+			if p := recover(); p != nil {
+				logAgentPanic("delivery_budget", asg, p)
+				expired.Store(true)
+				cancel()
+			}
+		}()
 		select {
 		case <-budget.C():
 			expired.Store(true)

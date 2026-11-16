@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Post-V1 documentation reconciliation and design freeze (PV-01, docs only):** `docs/post-v1/` architecture pack (design only, nothing implemented), ADR-0018 (amends ADR-0004 with a new V4; trust model D2; device model D3), amendment note in ADR-0004, implementation note in ADR-0008, merged V2/V3/V4 roadmap, post-release section in `docs/PROJECT_STATE.md`, scoped post-V1 rule, standing rules and precedence list in `AGENTS.md`, task board reconciled (next migration `000006`). No Go source, migration, dependency, API route or test change.
+- **Worker concurrency tests (V2-0):** fifteen tests in `internal/worker/concurrency_test.go` (high-water bound, live heartbeat, poll gating, slot release on every exit, shutdown drain and its bound, the heartbeat wait, per-attempt isolation, single-slot rollback, recovered agent-goroutine panics, the slots upper bound), plus recorded mutants.
+
+### Changed
+- **Worker executes attempts concurrently (V2-0, ADR-0019) — visible behaviour change.** `MINICLOUD_WORKER_SLOTS` (default 4) now means real concurrency: the worker runs up to that many attempts in parallel instead of one at a time. `available_slots` in register and heartbeat is now `TotalSlots` minus the running attempts (was always `TotalSlots`; the coordinator still ignores the field). A worker with no free slot does not poll. Under the default `round_robin` policy parallelism stays **one job per worker** until slice V2-0b removes `domain.EffectiveWorkerSlots`; under `fifo_pull` a worker gets up to `MINICLOUD_WORKER_SLOTS` jobs. `MINICLOUD_WORKER_SLOTS=1` reproduces the previous serial behaviour.
+- **`MINICLOUD_WORKER_SLOTS` is bounded to 1 to 1024 at worker startup** (ADR-0019 Section 2.6), the coordinator's existing registration limit (SEC-015). Values above 1024 already failed at registration; they now fail at startup with a message naming the variable.
+- **A task panic no longer crashes the worker process:** the attempt goroutine recovers it, logs the job and attempt IDs and the panic type (never the panic value, lease token or payload), reports no result and frees the slot; the lease expires and the job is retried.
+- **A panic in an agent goroutine no longer crashes the worker process (V2-0 fix round 1):** a panic in an attempt's renewal goroutine treats that lease as lost (task cancelled, result dropped, slot freed); a panic in the delivery-budget goroutine expires that delivery at once; a panic in the heartbeat goroutine is logged and the heartbeat loop continues. Only the goroutine name, the job and attempt IDs and the panic type are logged.
+- **Worker shutdown is bounded:** after cancellation the poll loop finishes any poll sleep in progress (at most `MaxPollBackoff`, 3 s), then `Run` waits at most `ResultDeliveryBudget` (60 s) for running attempts, and waits for its heartbeat goroutine.
 
 ## [1.0.0] - 2026-11-15
 

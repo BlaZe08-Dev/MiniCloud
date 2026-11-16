@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 48402cb..fa43255 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -199,7 +199,7 @@ func (a *Agent) Run(ctx context.Context) error {
+ 	// 3. Work polling loop: a bounded pool of TotalSlots concurrent attempts (ADR-0019). A slot is
+ 	// acquired before every poll, so a worker with no free slot never polls (Section 2.2).
+ 	consecutiveFailures := 0
+-	sem := make(chan struct{}, a.cfg.TotalSlots)
++	sem := make(chan struct{}, 1<<20) // MUTANT a: semaphore bound removed
+ 	var attempts sync.WaitGroup
+ 
+ 	for {

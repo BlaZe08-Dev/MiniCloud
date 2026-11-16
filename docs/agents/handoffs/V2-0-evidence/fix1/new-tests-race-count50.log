@@ -1,0 +1,402 @@
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.03s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.03s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.01s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.03s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.23s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.19s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.23s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.03s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.03s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.14s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.03s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.01s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.20s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.01s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.23s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.19s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.02s)
+=== RUN   TestConcurrency_RunWaitsForHeartbeatGoroutine
+--- PASS: TestConcurrency_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestConcurrency_DeliveryBudgetPanicExpiresDelivery
+--- PASS: TestConcurrency_DeliveryBudgetPanicExpiresDelivery (0.02s)
+=== RUN   TestConcurrency_HeartbeatPanicIsRecovered
+--- PASS: TestConcurrency_HeartbeatPanicIsRecovered (0.03s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	30.915s

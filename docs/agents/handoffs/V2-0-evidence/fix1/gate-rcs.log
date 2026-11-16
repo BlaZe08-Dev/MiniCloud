@@ -1,0 +1,5 @@
+unset rc=0
+race rc=0
+db rc=2
+security rc=0
+db rerun rc=0 (run 1 rc=2: timestamp flake, kept as gate-db-run1-timestamp-flake.log)

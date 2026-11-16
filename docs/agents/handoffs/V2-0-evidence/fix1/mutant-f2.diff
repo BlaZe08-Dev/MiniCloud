@@ -1,0 +1,15 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..e4cee59 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -768,9 +768,7 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
+ 		// lost. The task is cancelled, the result dropped, and the slot freed by runAttempt as usual.
+ 		defer func() {
+ 			if p := recover(); p != nil {
+-				logAgentPanic("renewal", assignment, p)
+-				run.markLost()
+-				cancelTask()
++				logAgentPanic("renewal", assignment, p) // MUTANT f2: recovered, attempt not treated as lost
+ 			}
+ 		}()
+ 		a.renewLoop(renewCtx, run, assignment, renewalInterval(assignment), cancelTask)

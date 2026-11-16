@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..f020d88 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -809,7 +809,7 @@ func (a *Agent) deliverResult(ctx context.Context, run *attemptRun, asg *coordin
+ 		// A panic here is recovered in the fail-safe direction (ADR-0019 Section 2.3): the budget
+ 		// can no longer be enforced, so delivery is treated as expired now.
+ 		defer func() {
+-			if p := recover(); p != nil {
++			if p := any(nil); p != nil { // MUTANT g: delivery-budget recover removed
+ 				logAgentPanic("delivery_budget", asg, p)
+ 				expired.Store(true)
+ 				cancel()

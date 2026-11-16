@@ -1,0 +1,38 @@
+=== RUN   TestConcurrency_MaxInFlightNeverExceedsSlots
+--- PASS: TestConcurrency_MaxInFlightNeverExceedsSlots (0.14s)
+=== RUN   TestConcurrency_HeartbeatTracksRunningAttempts
+    concurrency_test.go:446: heartbeat with 1 running = 3, want 2
+--- FAIL: TestConcurrency_HeartbeatTracksRunningAttempts (0.01s)
+=== RUN   TestConcurrency_FullWorkerDoesNotPoll
+--- PASS: TestConcurrency_FullWorkerDoesNotPoll (0.11s)
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/success
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/task_error
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/panic
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/lost_lease
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/cancel_requested
+=== RUN   TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection
+--- PASS: TestConcurrency_SlotReleasedOnEveryExit (0.09s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/success (0.02s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/task_error (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/panic (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/lost_lease (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/cancel_requested (0.01s)
+    --- PASS: TestConcurrency_SlotReleasedOnEveryExit/terminal_rejection (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainsWithoutLeaks
+--- PASS: TestConcurrency_ShutdownDrainsWithoutLeaks (0.02s)
+=== RUN   TestConcurrency_ShutdownDrainIsBounded
+--- PASS: TestConcurrency_ShutdownDrainIsBounded (0.01s)
+=== RUN   TestConcurrency_ResultsNeverCrossBetweenAttempts
+--- PASS: TestConcurrency_ResultsNeverCrossBetweenAttempts (0.02s)
+=== RUN   TestConcurrency_LostLeaseIsolatedToOneAttempt
+--- PASS: TestConcurrency_LostLeaseIsolatedToOneAttempt (0.02s)
+=== RUN   TestConcurrency_ReRegisterReportsLiveSlots
+    concurrency_test.go:763: register bodies reported [3 3], want [3 1]
+--- FAIL: TestConcurrency_ReRegisterReportsLiveSlots (0.01s)
+=== RUN   TestConcurrency_SingleSlotIsSerial
+    concurrency_test.go:785: heartbeat while j1 runs = 1, want 0
+--- FAIL: TestConcurrency_SingleSlotIsSerial (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	0.469s
+FAIL

@@ -1,0 +1,13 @@
+diff --git a/internal/worker/client.go b/internal/worker/client.go
+index 767f12f..b9af289 100644
+--- a/internal/worker/client.go
++++ b/internal/worker/client.go
+@@ -767,7 +767,7 @@ func (a *Agent) ExecuteAndReport(ctx context.Context, assignment *coordinator.Wo
+ 		// Section 2.3): with no renewals the lease cannot be trusted, so the attempt is treated as
+ 		// lost. The task is cancelled, the result dropped, and the slot freed by runAttempt as usual.
+ 		defer func() {
+-			if p := recover(); p != nil {
++			if p := any(nil); p != nil { // MUTANT f: renewal recover removed
+ 				logAgentPanic("renewal", assignment, p)
+ 				run.markLost()
+ 				cancelTask()

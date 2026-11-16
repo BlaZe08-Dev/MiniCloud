@@ -1,0 +1,17 @@
+## gofmt -l .
+rc=0
+## go vet ./...
+rc=0
+## go build ./...
+rc=0
+## make test-docs
+go test ./tests/docs
+--- FAIL: TestCitations (1.63s)
+    --- FAIL: TestCitations/RuleA_RepoPaths (0.18s)
+        citations_test.go:761: docs/adr/0019-worker-concurrency-semantics.md:4: [RuleA] cited path "docs/agents/reviews/V2-0.md" does not exist in repository
+        citations_test.go:761: docs/agents/TASKS.md:59: [RuleA] cited path "docs/agents/reviews/V2-0.md" does not exist in repository
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.639s
+FAIL
+make: *** [Makefile:26: test-docs] Error 1
+rc=2
