@@ -25,7 +25,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
 | PV-02 | Record the proposed placement, cross-platform and AI-noise designs (docs only; every statement labelled Decided or Proposed) | Claude Code | owner review | agent/claude/PV-02 | complete on branch, awaiting owner merge |
 | O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
-| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | not started | planned, not started |
+| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | built, awaiting audit | `agent/claude/V1x-02`; handoff `docs/agents/handoffs/V1x-02.md` |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
 | V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
@@ -71,7 +71,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V1x-02 — Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit
 - Goal: Fix SEC-067 by configuring coordinator HTTP response encoder with `SetEscapeHTML(false)` so valid payloads containing HTML characters preserve exact wire byte fidelity; ensure `X-Content-Type-Options: nosniff` header is present.
-- Builder: Claude Code. Auditor: Gemini (read-only). Status: planned, not started.
+- Builder: Claude Code. Auditor: Gemini (read-only). Status: built on `agent/claude/V1x-02`, awaiting audit.
 - Owned files: `internal/api/handlers.go`, `internal/api/*_test.go`, `docs/**`.
 - Out of scope: worker, executor, storage, migrations.
 - Acceptance criteria:
@@ -96,6 +96,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 ### V1.0.x maintenance candidates added by V2-0 (not started)
 - O1 (ADR-0019 Section 7, inferred, not tested): `coordinator.WorkAssignment.Payload` is a `json.RawMessage` that keeps the HTML-escaped bytes the coordinator sends, so a legal payload with many `<`, `>` or `&` characters may reach the worker longer than 64 KiB and be rejected by `executor.Registry.Execute` before decoding. Needs a reproduction test first (break before fix).
 - `TestLogSafe_AssignmentPassRefreshFailed_LogsClassOnly` (coordinator, pre-existing flake seen in `make test-db` during V2-0): its leak list contains "6543", which can match a log timestamp (for example `02:31:39.463654363`). Fix: use a sentinel that cannot appear in a timestamp.
+- F-V1x02-1 (V1x-02 audit, comment only): the `MaxPollResponseBytes` comment in `internal/worker/client.go` is stale after SEC-067 (poll payloads are no longer HTML-escaped, so the escaping headroom it describes no longer applies); update the comment.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000006 with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.

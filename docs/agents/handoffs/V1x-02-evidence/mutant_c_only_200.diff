@@ -1,0 +1,28 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 2c7f270..7b1fdcb 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -76,10 +76,22 @@ type ErrorDetail struct {
+ 	Details any    `json:"details,omitempty"`
+ }
+ 
++// writeJSON writes data as a JSON response.
++//
++// HTML escaping is off (SEC-067): with it on, < > & become 6-byte escapes and U+2028/U+2029
++// double in size, so a valid payload under 64 KiB could reach the worker over the 64 KiB check
++// in executor.Registry.Execute. The change is JSON-equivalent. X-Content-Type-Options: nosniff
++// is the guard that keeps raw < and > safe in an application/json body. It is set here, before
++// WriteHeader, and nowhere else in internal/api.
+ func writeJSON(w http.ResponseWriter, status int, data any) {
+ 	w.Header().Set("Content-Type", "application/json")
++	if status == http.StatusOK {
++		w.Header().Set("X-Content-Type-Options", "nosniff")
++	}
+ 	w.WriteHeader(status)
+-	_ = json.NewEncoder(w).Encode(data)
++	enc := json.NewEncoder(w)
++	enc.SetEscapeHTML(false)
++	_ = enc.Encode(data)
+ }
+ 
+ func writeError(w http.ResponseWriter, status int, code, message string) {

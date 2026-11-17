@@ -1,0 +1,6 @@
+--- PASS: TestAPI_PollPayloadIsNotHTMLEscaped (0.52s)
+--- PASS: TestAPI_PollPayloadMaxSizeBoundary (0.09s)
+--- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse (0.01s)
+--- PASS: TestAPI_ResponseWireChangeIsJSONEquivalent (0.00s)
+--- PASS: TestAPI_ErrorBodyIsNotHTMLEscaped (0.00s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/api	1.659s
