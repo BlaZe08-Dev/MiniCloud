@@ -1,0 +1,97 @@
+package worker_test
+
+// V2-0 audit, attack 10: a panic in an attempt's renewal goroutine (agent code, not task code) is
+// not recovered. Uses only APIs present on both main (V1) and agent/claude/V2-0, so the same file
+// runs on both. The panic is injected through the Clock seam: NewTimer panics when asked for the
+// 2 s renewal interval that only job j2 (6 s lease) uses; j1 (30 s lease) uses 10 s.
+// The child process runs the agent; the parent checks how it died and whether j1 finished first.
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/config"
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker"
+)
+
+type panicClock struct{}
+
+func (panicClock) NewTimer(d time.Duration) worker.Timer {
+	if d == 2*time.Second {
+		panic("injected renewal-goroutine panic")
+	}
+	return rt{time.NewTimer(d)}
+}
+
+type rt struct{ t *time.Timer }
+
+func (r rt) C() <-chan time.Time { return r.t.C }
+func (r rt) Stop() bool          { return r.t.Stop() }
+
+func TestAudit_RenewalGoroutinePanic(t *testing.T) {
+	if os.Getenv("AUDIT_RENEWPANIC_CHILD") == "1" {
+		child()
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestAudit_RenewalGoroutinePanic$", "-test.v")
+	cmd.Env = append(os.Environ(), "AUDIT_RENEWPANIC_CHILD=1")
+	out, err := cmd.CombinedOutput()
+	s := string(out)
+	died := strings.Contains(s, "panic: injected renewal-goroutine panic")
+	t.Logf("child exit: %v; died of the injected panic: %v; j1 result delivered before death: %v; j1 started: %v",
+		err, died, strings.Contains(s, "AUDIT RESULT j1"), strings.Contains(s, "AUDIT START j1"))
+	for _, l := range strings.Split(s, "\n") {
+		if strings.HasPrefix(l, "AUDIT ") || strings.HasPrefix(l, "panic:") {
+			t.Log(l)
+		}
+	}
+	if !died {
+		t.Fatalf("child did not die of the injected panic:\n%s", s)
+	}
+}
+
+func child() {
+	var mu sync.Mutex
+	queue := []coordinator.WorkAssignment{
+		{JobID: "j1", AttemptID: "a1", AttemptNo: 1, LeaseToken: "t1", TaskType: "sleep", Payload: json.RawMessage(`{"duration_ms":1500}`), TimeoutSeconds: 60, LeaseDurationSeconds: 30},
+		{JobID: "j2", AttemptID: "a2", AttemptNo: 1, LeaseToken: "t2", TaskType: "sleep", Payload: json.RawMessage(`{"duration_ms":1500}`), TimeoutSeconds: 60, LeaseDurationSeconds: 6},
+	}
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		switch {
+		case strings.HasSuffix(p, "/poll"):
+			mu.Lock()
+			defer mu.Unlock()
+			if len(queue) == 0 {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			a := queue[0]
+			queue = queue[1:]
+			fmt.Printf("AUDIT START %s\n", a.JobID)
+			_ = json.NewEncoder(w).Encode(map[string]any{"assignment": a})
+		case strings.HasSuffix(p, "/result"):
+			fmt.Printf("AUDIT RESULT %s\n", strings.Split(p, "/")[3])
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			_, _ = w.Write([]byte(`{"status":"ACK","cancel_requested":false}`))
+		}
+	}))
+	ag := worker.NewAgent(&config.WorkerConfig{WorkerID: "w", CoordinatorURL: ts.URL, HeartbeatInterval: time.Hour, TotalSlots: 2}, executor.NewRegistry())
+	ag.SetClock(panicClock{})
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	_ = ag.Run(ctx)
+	fmt.Println("AUDIT child survived")
+}

@@ -1,0 +1,9 @@
+          datname           | xact_commit 
+----------------------------+-------------
+ minicloud                  |        6444
+ minicloud_claude_test      |      124079
+ minicloud_claudeaudit_test |          91
+ minicloud_gemini_test      |         218
+ minicloud_test             |           0
+(5 rows)
+

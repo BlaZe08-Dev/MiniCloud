@@ -23,6 +23,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
+| PV-02 | Record the proposed placement, cross-platform and AI-noise designs (docs only; every statement labelled Decided or Proposed) | Claude Code | owner review | agent/claude/PV-02 | complete on branch, awaiting owner merge |
 | O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
 | V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | built, awaiting audit | `agent/claude/V1x-02`; handoff `docs/agents/handoffs/V1x-02.md` |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
@@ -55,6 +56,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - Builder: Claude Code. Auditor: owner review (the AGENTS.md change needs the owner). Branch: `agent/claude/PV-01`. Status: complete, merged in PR #55.
 - Owned files: `docs/post-v1/**`, `docs/adr/0018-ai-assisted-workflow-dispatch.md`, `docs/adr/0004-version-boundaries-and-compatibility.md` (amendment note only), `docs/adr/0008-dispatch-transport-queue-interface.md` (note only), `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `README.md`, `docs/PROJECT_STATE.md` (top section and milestone line only), `docs/roadmap.md`, `docs/architecture.md`, `CHANGELOG.md`, `docs/agents/TASKS.md`, `docs/agents/handoffs/PV-01.md`, `reports/claude/PV-01.md`.
 - Out of scope: any `.go` file, migrations, `go.mod`/`go.sum`, API routes, tests, `tests/docs/citation_allowlist.txt` (unless `make test-docs` needs it), `docs/security/**`, historical handoffs and reviews, running docker or `make test-outage`. No implementation task is started.
+
+### PV-02 — Record proposed placement, cross-platform and AI-noise designs
+- Goal: record the owner's three questions of 2026-11-17 as labelled design text so no future builder mistakes them for implemented or decided features: V2-3 placement algorithm (filter, score, round-robin tie-break), heterogeneous devices support status, and V4 AI noise controls. Open decisions OD-21 to OD-25 added, none answered.
+- Builder: Claude Code. Auditor: owner review. Branch: `agent/claude/PV-02`. Status: complete on branch, awaiting owner merge.
+- Owned files: `docs/post-v1/NODE_CAPABILITIES.md`, `docs/post-v1/ARCHITECTURE.md`, `docs/post-v1/INTELLIGENCE_DISPATCHER.md`, `docs/post-v1/SECURITY.md`, `docs/post-v1/OPEN_DECISIONS.md`, `docs/post-v1/ROADMAP.md`, `docs/post-v1/IMPLEMENTATION_PLAN.md`, `docs/roadmap.md`, `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md` (one line), `docs/agents/handoffs/PV-02.md`, `reports/claude/PV-02.md`.
+- Out of scope: any `.go`, `.sql`, `go.mod`, `go.sum`, `tests/` or `tests/docs/citation_allowlist.txt` change; `AGENTS.md`, any ADR, `docs/security/findings.md`; a new ADR (the V2-3 ADR is written later); database tests and `make test-outage`.
 
 ### O1-check — Investigation: HTML escaping payload expansion (SEC-067)
 - Goal: determine whether HTML escaping in coordinator API response writer inflates valid payloads under 64 KiB over the worker execution limit, causing false-positive permanent failures.
@@ -89,6 +96,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 ### V1.0.x maintenance candidates added by V2-0 (not started)
 - O1 (ADR-0019 Section 7, inferred, not tested): `coordinator.WorkAssignment.Payload` is a `json.RawMessage` that keeps the HTML-escaped bytes the coordinator sends, so a legal payload with many `<`, `>` or `&` characters may reach the worker longer than 64 KiB and be rejected by `executor.Registry.Execute` before decoding. Needs a reproduction test first (break before fix).
 - `TestLogSafe_AssignmentPassRefreshFailed_LogsClassOnly` (coordinator, pre-existing flake seen in `make test-db` during V2-0): its leak list contains "6543", which can match a log timestamp (for example `02:31:39.463654363`). Fix: use a sentinel that cannot appear in a timestamp.
+- F-V1x02-1 (V1x-02 audit, comment only): the `MaxPollResponseBytes` comment in `internal/worker/client.go` is stale after SEC-067 (poll payloads are no longer HTML-escaped, so the escaping headroom it describes no longer applies); update the comment.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000006 with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.

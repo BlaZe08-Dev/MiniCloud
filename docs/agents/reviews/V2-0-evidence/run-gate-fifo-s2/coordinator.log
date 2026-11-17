@@ -1,0 +1,16 @@
+{"time":"2026-11-16T02:07:41.61385492+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T02:07:41.644355024+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T02:07:41.644412479+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T02:07:41.644829424+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18080"}
+{"time":"2026-11-16T02:07:42.075641922+05:30","level":"INFO","msg":"worker registered","worker_id":"w1","version":"v0.1.0","slots":2,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T02:07:42.209292561+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_55565e7d94b2","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T02:07:42.230704784+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_a85939c02e59","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T02:07:42.251763533+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_0ad7caab1398","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T02:07:42.3334063+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_55565e7d94b2","attempt_id":"att_job_1_55565e7d94b2_1","attempt_no":1,"worker_id":"w1","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T02:07:42.356329691+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_2_a85939c02e59","attempt_id":"att_job_2_a85939c02e59_1","attempt_no":1,"worker_id":"w1","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T02:07:52.366023068+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_55565e7d94b2","attempt_id":"att_job_1_55565e7d94b2_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T02:07:52.375351884+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_a85939c02e59","attempt_id":"att_job_2_a85939c02e59_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T02:07:52.391171342+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_3_0ad7caab1398","attempt_id":"att_job_3_0ad7caab1398_1","attempt_no":1,"worker_id":"w1","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T02:08:02.421622014+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_0ad7caab1398","attempt_id":"att_job_3_0ad7caab1398_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T02:08:02.639389424+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T02:08:02.64084479+05:30","level":"INFO","msg":"coordinator stopped cleanly"}

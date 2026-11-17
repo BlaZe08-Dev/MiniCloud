@@ -1,0 +1,14 @@
+{"time":"2026-11-16T02:10:37.309341581+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"w1"}
+{"time":"2026-11-16T02:10:37.313996461+05:30","level":"INFO","msg":"starting worker agent","worker_id":"w1","coordinator_url":"http://127.0.0.1:18081","slots":4}
+{"time":"2026-11-16T02:10:37.329553129+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"w1"}
+{"time":"2026-11-16T02:10:37.593902289+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_8302b1c5b387","attempt_id":"att_job_1_8302b1c5b387_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:10:38.615453262+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_8302b1c5b387","attempt_id":"att_job_1_8302b1c5b387_1","exit_code":0}
+{"time":"2026-11-16T02:10:39.104956655+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_3cf18b4b0d60","attempt_id":"att_job_2_3cf18b4b0d60_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:10:40.117743968+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_3cf18b4b0d60","attempt_id":"att_job_2_3cf18b4b0d60_1","exit_code":0}
+{"time":"2026-11-16T02:10:41.018983274+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_a057517b41df","attempt_id":"att_job_3_a057517b41df_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:10:42.053417613+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_a057517b41df","attempt_id":"att_job_3_a057517b41df_1","exit_code":0}
+{"time":"2026-11-16T02:10:43.056047476+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_4_bc0e0ad34a75","attempt_id":"att_job_4_bc0e0ad34a75_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:10:44.074371214+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_bc0e0ad34a75","attempt_id":"att_job_4_bc0e0ad34a75_1","exit_code":0}
+{"time":"2026-11-16T02:10:44.22027544+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T02:10:44.377312919+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"w1"}
+{"time":"2026-11-16T02:10:44.377373824+05:30","level":"INFO","msg":"worker process exited cleanly"}

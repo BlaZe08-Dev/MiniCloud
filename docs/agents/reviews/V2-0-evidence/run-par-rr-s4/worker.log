@@ -1,0 +1,23 @@
+{"time":"2026-11-16T02:04:42.320619664+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"w1"}
+{"time":"2026-11-16T02:04:42.321600494+05:30","level":"INFO","msg":"starting worker agent","worker_id":"w1","coordinator_url":"http://127.0.0.1:18081","slots":4}
+{"time":"2026-11-16T02:04:42.333873769+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"w1"}
+{"time":"2026-11-16T02:04:42.584970206+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_5bf30a8fd386","attempt_id":"att_job_1_5bf30a8fd386_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:04:47.610655744+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_5bf30a8fd386","attempt_id":"att_job_1_5bf30a8fd386_1","exit_code":0}
+{"time":"2026-11-16T02:04:47.966796359+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_9b1ca65da0e8","attempt_id":"att_job_2_9b1ca65da0e8_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:04:52.979794025+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_9b1ca65da0e8","attempt_id":"att_job_2_9b1ca65da0e8_1","exit_code":0}
+{"time":"2026-11-16T02:04:53.902549498+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_6ee24b883349","attempt_id":"att_job_3_6ee24b883349_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:04:58.926905534+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_6ee24b883349","attempt_id":"att_job_3_6ee24b883349_1","exit_code":0}
+{"time":"2026-11-16T02:05:00.068212895+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_4_15448a04d516","attempt_id":"att_job_4_15448a04d516_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:05:05.085611839+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_15448a04d516","attempt_id":"att_job_4_15448a04d516_1","exit_code":0}
+{"time":"2026-11-16T02:05:06.016979726+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_5_263ee015f089","attempt_id":"att_job_5_263ee015f089_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:05:11.026850088+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_263ee015f089","attempt_id":"att_job_5_263ee015f089_1","exit_code":0}
+{"time":"2026-11-16T02:05:11.957525284+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_6_bacbee44c717","attempt_id":"att_job_6_bacbee44c717_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:05:16.980066108+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_bacbee44c717","attempt_id":"att_job_6_bacbee44c717_1","exit_code":0}
+{"time":"2026-11-16T02:05:17.932629995+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_7_34176cb8915b","attempt_id":"att_job_7_34176cb8915b_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:05:22.952002266+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_7_34176cb8915b","attempt_id":"att_job_7_34176cb8915b_1","exit_code":0}
+{"time":"2026-11-16T02:05:24.02469377+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_8_de3cd1e6d351","attempt_id":"att_job_8_de3cd1e6d351_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-16T02:05:29.045107981+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_8_de3cd1e6d351","attempt_id":"att_job_8_de3cd1e6d351_1","exit_code":0}
+{"time":"2026-11-16T02:05:30.535362375+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T02:05:30.536050503+05:30","level":"WARN","msg":"work poll error","err":"Post \"http://127.0.0.1:18081/v1/workers/w1/poll\": context canceled","backoff":166819728}
+{"time":"2026-11-16T02:05:30.704138761+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"w1"}
+{"time":"2026-11-16T02:05:30.704202561+05:30","level":"INFO","msg":"worker process exited cleanly"}

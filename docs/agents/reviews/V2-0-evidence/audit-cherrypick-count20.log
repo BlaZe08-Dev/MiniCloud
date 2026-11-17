@@ -1,0 +1,103 @@
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0.25s of fake time and 26 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 26 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.60s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 25 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.70s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.64s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 26 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.63s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 29 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.62s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.67s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 29 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.63s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 25 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.69s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.66s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 25 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.68s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.66s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 26 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.77s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.50s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.59s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 27 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.61s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 28 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.66s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.52s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	24.076s
+rc=0

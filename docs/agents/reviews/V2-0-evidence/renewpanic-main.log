@@ -1,0 +1,10 @@
+=== RUN   TestAudit_RenewalGoroutinePanic
+    audit_v20_renewpanic_test.go:52: child exit: exit status 2; died of the injected panic: true; j1 result delivered before death: true; j1 started: true
+    audit_v20_renewpanic_test.go:56: AUDIT START j1
+    audit_v20_renewpanic_test.go:56: AUDIT RESULT j1
+    audit_v20_renewpanic_test.go:56: AUDIT START j2
+    audit_v20_renewpanic_test.go:56: panic: injected renewal-goroutine panic
+--- PASS: TestAudit_RenewalGoroutinePanic (1.54s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	1.554s
+rc=0

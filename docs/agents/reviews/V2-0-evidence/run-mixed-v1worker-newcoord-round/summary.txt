@@ -1,0 +1,25 @@
+submitted 4 jobs at 1794775225424
+worker SIGTERM -> exit (idle): 28 ms, exit code 0
+== job states
+SUCCEEDED|4
+== attempt states
+COMPLETED|4
+== attempts per job (max)
+1
+== results rows / distinct jobs
+4|4
+== max concurrent attempts (attempts.started_at..finished_at, ends sorted before starts at equal time)
+1
+== wall time: first job created -> last attempt finished (s)
+6.64
+== attempt timeline (job, attempt_no, state, start, finish, relative to first job created)
+job_1_ade7ce5c5dd0|1|COMPLETED|0.15|1.19
+job_2_56394f1d11a4|1|COMPLETED|1.66|2.67
+job_3_f8f9f73a3eaa|1|COMPLETED|3.52|4.53
+job_4_e0ea2159ddbe|1|COMPLETED|5.63|6.64
+== proxy: requests by kind
+      3 heartbeat 200
+      4 poll 200
+     14 poll 204
+      1 register 200
+      4 result 200

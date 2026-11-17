@@ -1,0 +1,525 @@
+package worker_test
+
+// V2-0 audit attack tests (auditor, not builder). Stored as .go.txt so the repo gates never compile
+// them; they run from a throwaway worktree with this file copied to internal/worker/audit_v20_test.go
+// next to the builder's concurrency_test.go, whose rig (ccRig, ccCoord, probeTask) they reuse.
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/config"
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker"
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker/workertest"
+)
+
+// newAuditRig is newCCRig with a heartbeat interval, an optional handler wrapper in front of the
+// fake coordinator and extra registered tasks.
+func newAuditRig(t *testing.T, total int, fake bool, hb time.Duration, wrap func(*ccRig, http.Handler) http.Handler, tasks []executor.Task, asgs ...coordinator.WorkAssignment) *ccRig {
+	t.Helper()
+	r := &ccRig{t: t, coord: newCCCoord(t, total, asgs...), probe: newProbe(),
+		slotWait: make(chan struct{}, 1), done: make(chan struct{}, 64), slotErrs: make(chan string, 64)}
+	var h http.Handler = r.coord
+	if wrap != nil {
+		h = wrap(r, h)
+	}
+	r.ts = httptest.NewServer(h)
+	t.Cleanup(r.ts.Close)
+	reg := executor.NewRegistry()
+	reg.Register(r.probe)
+	for _, tk := range tasks {
+		reg.Register(tk)
+	}
+	if hb == 0 {
+		hb = time.Hour
+	}
+	r.agent = worker.NewAgent(&config.WorkerConfig{WorkerID: "w-cc", CoordinatorURL: r.ts.URL, HeartbeatInterval: hb, TotalSlots: total}, reg)
+	if fake {
+		r.clk = workertest.NewFakeClock(time.Date(2026, 11, 16, 9, 0, 0, 0, time.UTC))
+		r.agent.SetClock(r.clk)
+	}
+	worker.SetSlotWaitHook(r.agent, func() {
+		select {
+		case r.slotWait <- struct{}{}:
+		default:
+		}
+	})
+	worker.SetAttemptDoneHook(r.agent, func() {
+		if n := worker.RunningForTest(r.agent); n < 0 || n > int64(total) {
+			r.slotErrs <- fmt.Sprintf("running = %d after a release, outside [0, %d]", n, total)
+		}
+		r.done <- struct{}{}
+	})
+	return r
+}
+
+type validatePanicTask struct{}
+
+func (validatePanicTask) Name() string { return "vpanic" }
+func (validatePanicTask) Validate([]byte) error {
+	panic("validate panic secret-payload-validate")
+}
+func (validatePanicTask) Execute(context.Context, []byte) (string, error) { return "", nil }
+
+// A1. A panic inside Validate (not Execute) is recovered, releases the slot once, reports nothing.
+func TestAudit_PanicInValidateReleasesSlot(t *testing.T) {
+	logs := quietLogs(t)
+	a := ccAsg("j1", "", 30)
+	a.TaskType = "vpanic"
+	r := newAuditRig(t, 1, true, 0, nil, []executor.Task{validatePanicTask{}}, a)
+	r.coord.markFinished()
+	r.start()
+	ccWaitOn(r, r.coord.polls, "the first poll")
+	ccWaitOn(r, r.done, "the slot release after a Validate panic")
+	ccWaitOn(r, r.coord.polls, "the poll only a released slot allows")
+	if got := worker.RunningForTest(r.agent); got != 0 {
+		t.Fatalf("running = %d, want 0", got)
+	}
+	if got := worker.AvailableSlotsForTest(r.agent); got != 1 {
+		t.Fatalf("available = %d, want 1", got)
+	}
+	r.stop()
+	if n := r.coord.resultCount("j1"); n != 0 {
+		t.Fatalf("%d results after a Validate panic, want 0", n)
+	}
+	out := logs.String()
+	if !strings.Contains(out, "attempt panicked") || !strings.Contains(out, "panic_type=string") || strings.Contains(out, "secret-payload") {
+		t.Fatalf("panic log wrong:\n%s", out)
+	}
+	r.coord.check()
+}
+
+// A2. A panic in one attempt does not disturb a concurrent attempt, which still delivers.
+func TestAudit_PanicDoesNotKillConcurrentAttempt(t *testing.T) {
+	quietLogs(t)
+	r := newAuditRig(t, 2, false, 0, nil, nil, ccAsg("j1", "", 30), ccAsg("j2", `,"panic":true`, 30))
+	r.coord.markFinished() // j2 ends without a result
+	r.start()
+	if got := ccWaitOn(r, r.probe.started, "j1 to start"); got != "j1" {
+		t.Fatalf("started %s", got)
+	}
+	ccWaitOn(r, r.done, "j2's slot release after its panic")
+	if got := worker.RunningForTest(r.agent); got != 1 {
+		t.Fatalf("running = %d, want 1 (j1 still running)", got)
+	}
+	if r.probe.wasCancelled("j1") {
+		t.Fatal("j1 was cancelled by j2's panic")
+	}
+	r.probe.release("j1")
+	if got := ccWaitOn(r, r.coord.resultCh, "j1's result"); got != "j1" {
+		t.Fatalf("result for %s, want j1", got)
+	}
+	r.stop()
+	if r.coord.resultCount("j1") != 1 || r.coord.resultCount("j2") != 0 {
+		t.Fatalf("results j1=%d j2=%d, want 1 and 0", r.coord.resultCount("j1"), r.coord.resultCount("j2"))
+	}
+	r.coord.check()
+}
+
+// A3. Result delivery failing forever (HTTP 500 on every attempt): the slot stays held for the
+// whole delivery budget, so a one-slot worker sends NO poll before the budget has elapsed on the
+// agent clock; afterwards the slot comes back exactly once. Kills "release before delivery ends".
+func TestAudit_DeliveryFailingHoldsSlotUntilBudget(t *testing.T) {
+	quietLogs(t)
+	r := newAuditRig(t, 1, true, 0, nil, nil, ccAsg("j1", "", 30))
+	r.coord.total = 1 << 30 // this test checks polls itself: ccCoord counts a 500 result as finished
+	r.coord.resultFn = func(string) int { return http.StatusInternalServerError }
+	r.start()
+	ccWaitOn(r, r.coord.polls, "the first poll")
+	ccWaitOn(r, r.probe.started, "j1 to start")
+	r.probe.release("j1")
+	ccWaitOn(r, r.coord.resultCh, "the first delivery attempt")
+	// From here the delivery budget timer exists; adv is fake time advanced since.
+	var adv time.Duration
+	results := 1
+	deadline := time.After(3 * ccWait)
+	released := false
+	for !released {
+		select {
+		case <-r.coord.polls:
+			if adv < worker.ResultDeliveryBudget {
+				t.Fatalf("poll after %v of a %v delivery budget (%d failed deliveries): the only slot was released while delivery was still running", adv, worker.ResultDeliveryBudget, results)
+			}
+		case <-r.coord.resultCh:
+			results++
+		case <-r.done:
+			released = true
+		case <-deadline:
+			t.Fatalf("slot never released; advanced %v, %d deliveries", adv, results)
+		case <-time.After(2 * time.Millisecond):
+			r.clk.Advance(250 * time.Millisecond)
+			adv += 250 * time.Millisecond
+		}
+	}
+	if adv < worker.ResultDeliveryBudget {
+		t.Fatalf("slot released after %v, before the %v budget", adv, worker.ResultDeliveryBudget)
+	}
+	t.Logf("slot released after %v of fake time and %d failed deliveries", adv, results)
+	ccWaitOn(r, r.coord.polls, "the poll after the budget")
+	if got := worker.RunningForTest(r.agent); got != 0 {
+		t.Fatalf("running = %d, want 0", got)
+	}
+	r.stop()
+	r.coord.check()
+}
+
+// A4. A renewal verdict (409, 403, recognised 404, cancel_requested) racing the task's own
+// completion, in three orderings, 50 iterations each: "race" (release and renewal fire together),
+// "verdict_first" (the worker has acted on the verdict, i.e. cancelled the task, before it is released) and "during_delivery"
+// (the verdict is answered while the first result request is held open, which then gets a 500).
+// Every iteration: the slot comes back exactly once, running returns to 0, the worker polls again,
+// and the result-request count is the one the ordering allows.
+func TestAudit_RenewVerdictRacesCompletion(t *testing.T) {
+	errBody := func(code string) map[string]any {
+		return map[string]any{"error": map[string]any{"code": code, "message": "x"}}
+	}
+	cases := []struct {
+		name  string
+		renew func(string) (int, map[string]any)
+		lost  bool
+	}{
+		{"409", func(string) (int, map[string]any) { return http.StatusConflict, errBody("LEASE_EXPIRED") }, true},
+		{"403", func(string) (int, map[string]any) { return http.StatusForbidden, errBody("WORKER_MISMATCH") }, true},
+		{"404", func(string) (int, map[string]any) { return http.StatusNotFound, errBody("ATTEMPT_NOT_FOUND") }, true},
+		{"cancel", func(string) (int, map[string]any) {
+			return http.StatusOK, map[string]any{"status": "RENEWED", "cancel_requested": true}
+		}, false},
+	}
+	const iters = 50
+	for _, tc := range cases {
+		for _, order := range []string{"race", "verdict_first", "during_delivery"} {
+			if order == "during_delivery" && !tc.lost {
+				continue
+			}
+			t.Run(tc.name+"/"+order, func(t *testing.T) {
+				logs := quietLogs(t)
+				outcomes := map[string]int{}
+				for i := 0; i < iters; i++ {
+					r := newAuditRig(t, 1, true, 0, nil, nil, ccAsg("j1", "", 30))
+					r.coord.total = 1 << 30 // outcome unknown in advance; the slot checks below replace the full-poll check
+					answered := make(chan struct{})
+					var ansOnce sync.Once
+					r.coord.renewFn = func(job string) (int, map[string]any) {
+						defer ansOnce.Do(func() { close(answered) })
+						return tc.renew(job)
+					}
+					resultIn := make(chan struct{}, 1)
+					if order == "during_delivery" {
+						var calls atomic.Int32
+						r.coord.resultFn = func(string) int {
+							if calls.Add(1) == 1 {
+								resultIn <- struct{}{}
+								select {
+								case <-answered:
+								case <-time.After(ccWait):
+								}
+								time.Sleep(time.Millisecond) // let the renew response leave first
+								return http.StatusInternalServerError
+							}
+							return http.StatusOK
+						}
+					}
+					r.start()
+					ccWaitOn(r, r.coord.polls, "the first poll")
+					ccWaitOn(r, r.probe.started, "j1 to start")
+					if !r.clk.BlockUntil(1, ccWait) {
+						t.Fatal("renewal timer never armed")
+					}
+					switch order {
+					case "race":
+						go r.probe.release("j1")
+						r.clk.Advance(worker.DefaultRenewalInterval)
+					case "verdict_first":
+						r.clk.Advance(worker.DefaultRenewalInterval)
+						ccWaitOn(r, r.coord.renews, "the renewal")
+						ccWaitOn(r, answered, "the verdict")
+						// The worker has processed the verdict once it cancelled the task.
+						for dl := time.Now().Add(ccWait); !r.probe.wasCancelled("j1"); time.Sleep(time.Millisecond) {
+							if time.Now().After(dl) {
+								t.Fatalf("iter %d: task never cancelled after the verdict", i)
+							}
+						}
+						r.probe.release("j1")
+					case "during_delivery":
+						r.probe.release("j1")
+						ccWaitOn(r, resultIn, "the first result request")
+						r.clk.Advance(worker.DefaultRenewalInterval)
+					}
+					// Keep the fake clock moving so a delivery backoff can end; stop at the release.
+					deadline := time.After(ccWait)
+				waitRelease:
+					for {
+						select {
+						case <-r.done:
+							break waitRelease
+						case msg := <-r.slotErrs:
+							t.Fatalf("iter %d: %s", i, msg)
+						case <-deadline:
+							t.Fatalf("iter %d: slot never released", i)
+						case <-time.After(2 * time.Millisecond):
+							r.clk.Advance(100 * time.Millisecond)
+						}
+					}
+					ccWaitOn(r, r.coord.polls, "the poll after the release")
+					if got := worker.RunningForTest(r.agent); got != 0 {
+						t.Fatalf("iter %d: running = %d, want 0", i, got)
+					}
+					if got := worker.AvailableSlotsForTest(r.agent); got != 1 {
+						t.Fatalf("iter %d: available = %d, want 1", i, got)
+					}
+					r.stop()
+					n := r.coord.resultCount("j1") // result requests, whatever their status
+					switch {
+					case order == "verdict_first" && tc.lost && n != 0,
+						order == "verdict_first" && !tc.lost && n != 1,
+						order == "during_delivery" && n != 1,
+						order == "race" && n > 1:
+						t.Fatalf("iter %d: %d result requests for %s/%s", i, n, tc.name, order)
+					}
+					select {
+					case msg := <-r.slotErrs:
+						t.Fatalf("iter %d: %s", i, msg)
+					default:
+					}
+					r.coord.check()
+					outcomes[fmt.Sprintf("result_requests=%d", n)]++
+					r.ts.Close()
+					worker.CloseIdleConnectionsForTest(r.agent)
+				}
+				if order == "during_delivery" && !strings.Contains(logs.String(), "lease lost while delivering; dropping the result") {
+					t.Fatalf("no 'lease lost while delivering' log in %s/%s", tc.name, order)
+				}
+				t.Logf("verdict %s order %s, %d iterations, outcomes %v", tc.name, order, iters, outcomes)
+			})
+		}
+	}
+}
+
+// A5. Shutdown racing a poll: the worker context is cancelled inside the poll handler, either
+// before the assignment is written or right after it is written and flushed. Covers the window
+// between acquireSlot and pollWork returning, and between pollWork returning an assignment and
+// the running.Add(1) hand-off. Every iteration: Run returns, running is 0, no result is reported,
+// no slot invariant breaks; after all iterations the goroutine count returns to the baseline.
+func TestAudit_ShutdownRacesPoll(t *testing.T) {
+	for _, when := range []string{"before_response", "after_response"} {
+		t.Run(when, func(t *testing.T) {
+			quietLogs(t)
+			baseline := runtime.NumGoroutine()
+			const iters = 100
+			handed := 0
+			for i := 0; i < iters; i++ {
+				cancelled := make(chan struct{})
+				wrap := func(r *ccRig, next http.Handler) http.Handler {
+					var once sync.Once
+					return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+						if !strings.HasSuffix(req.URL.Path, "/poll") {
+							next.ServeHTTP(w, req)
+							return
+						}
+						first := false
+						once.Do(func() { first = true })
+						if first && when == "before_response" {
+							r.cancel()
+							close(cancelled)
+						}
+						next.ServeHTTP(w, req)
+						if first && when == "after_response" {
+							w.(http.Flusher).Flush()
+							r.cancel()
+							close(cancelled)
+						}
+					})
+				}
+				r := newAuditRig(t, 1, true, 0, wrap, nil, ccAsg("j1", "", 30))
+				r.coord.total = 1 << 30
+				r.start()
+				ccWaitOn(r, cancelled, "the poll handler to cancel the worker")
+				r.stop()
+				if got := worker.RunningForTest(r.agent); got != 0 {
+					t.Fatalf("iter %d: running = %d after Run returned", i, got)
+				}
+				if n := r.coord.resultCount("j1"); n != 0 {
+					t.Fatalf("iter %d: %d results reported after shutdown", i, n)
+				}
+				select {
+				case <-r.probe.started:
+					handed++
+					if !r.probe.wasCancelled("j1") {
+						t.Fatalf("iter %d: attempt started after shutdown but was not cancelled", i)
+					}
+				default:
+				}
+				select {
+				case msg := <-r.slotErrs:
+					t.Fatalf("iter %d: %s", i, msg)
+				default:
+				}
+				r.ts.Close()
+				worker.CloseIdleConnectionsForTest(r.agent)
+			}
+			t.Logf("%s: %d iterations, assignment handed to an attempt goroutine in %d, dropped by the poll loop in %d", when, iters, handed, iters-handed)
+			deadline := time.Now().Add(ccWait)
+			for runtime.NumGoroutine() > baseline {
+				if time.Now().After(deadline) {
+					buf := make([]byte, 1<<20)
+					n := runtime.Stack(buf, true)
+					t.Fatalf("goroutines %d > baseline %d\n%s", runtime.NumGoroutine(), baseline, buf[:n])
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		})
+	}
+}
+
+// A6. heartbeatWG.Wait cannot hang: a heartbeat request (or a re-registration after a heartbeat
+// 404) that the coordinator never answers is aborted by ctx, and Run returns.
+func TestAudit_HungHeartbeatDoesNotHangShutdown(t *testing.T) {
+	for _, mode := range []string{"heartbeat_hangs", "reregister_hangs"} {
+		t.Run(mode, func(t *testing.T) {
+			quietLogs(t)
+			in := make(chan struct{}, 1)
+			var registers atomic.Int32
+			wrap := func(r *ccRig, next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					hang := false
+					switch {
+					case mode == "heartbeat_hangs" && strings.HasSuffix(req.URL.Path, "/heartbeat"):
+						hang = true
+					case mode == "reregister_hangs" && req.URL.Path == "/v1/workers/register":
+						hang = registers.Add(1) >= 2
+					}
+					if hang {
+						select {
+						case in <- struct{}{}:
+						default:
+						}
+						_, _ = io.Copy(io.Discard, req.Body)
+						<-req.Context().Done()
+						return
+					}
+					next.ServeHTTP(w, req)
+				})
+			}
+			r := newAuditRig(t, 2, false, 5*time.Millisecond, wrap, nil)
+			if mode == "reregister_hangs" {
+				r.coord.hb404 = true
+			}
+			r.start()
+			ccWaitOn(r, in, "a hung "+mode)
+			start := time.Now()
+			r.stop() // fails if Run does not return within ccWait
+			t.Logf("%s: Run returned %v after cancel", mode, time.Since(start))
+		})
+	}
+}
+
+// gateHandler blocks the heartbeat goroutine inside its "heartbeat failed" log call until the test
+// releases it, and signals when the poll loop logs its shutdown.
+type gateHandler struct {
+	hbFailed, shutting, release chan struct{}
+	o1, o2                      sync.Once
+}
+
+func (h *gateHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *gateHandler) WithAttrs([]slog.Attr) slog.Handler       { return h }
+func (h *gateHandler) WithGroup(string) slog.Handler            { return h }
+func (h *gateHandler) Handle(_ context.Context, rec slog.Record) error {
+	switch rec.Message {
+	case "heartbeat failed":
+		h.o1.Do(func() { close(h.hbFailed) })
+		<-h.release
+	case "worker agent shutting down":
+		h.o2.Do(func() { close(h.shutting) })
+	}
+	return nil
+}
+
+// A7. Run waits for the heartbeat goroutine (ADR-0019 Section 2.5 item 4): while that goroutine is
+// still busy after cancel, Run must not return. Kills the "skip heartbeatWG" mutant. The 300 ms
+// negative window can only make a broken build pass on a very slow machine, never fail a correct one.
+func TestAudit_RunWaitsForHeartbeatGoroutine(t *testing.T) {
+	h := &gateHandler{hbFailed: make(chan struct{}), shutting: make(chan struct{}), release: make(chan struct{})}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(h))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	var relOnce sync.Once
+	rel := func() { relOnce.Do(func() { close(h.release) }) }
+	t.Cleanup(rel)
+
+	hbIn := make(chan struct{}, 1)
+	wrap := func(r *ccRig, next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if strings.HasSuffix(req.URL.Path, "/heartbeat") {
+				select {
+				case hbIn <- struct{}{}:
+				default:
+				}
+				_, _ = io.Copy(io.Discard, req.Body)
+				<-req.Context().Done()
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	}
+	r := newAuditRig(t, 1, false, 5*time.Millisecond, wrap, nil)
+	r.start()
+	ccWaitOn(r, hbIn, "a heartbeat in flight")
+	r.cancel()
+	ccWaitOn(r, h.hbFailed, "the heartbeat goroutine to log its failure")
+	ccWaitOn(r, h.shutting, "the poll loop to shut down")
+	select {
+	case <-r.runDone:
+		t.Fatal("Run returned while the heartbeat goroutine was still running (heartbeat WaitGroup not waited)")
+	case <-time.After(300 * time.Millisecond):
+	}
+	rel()
+	select {
+	case err := <-r.runDone:
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	case <-time.After(ccWait):
+		t.Fatal("Run did not return after the heartbeat goroutine finished")
+	}
+}
+
+// A8. Item 4 window, documented in ADR-0019 Section 2.1: a slot held by an in-flight poll is
+// reported as available. This test pins the documented value; it is not a failure.
+func TestAudit_AvailableSlotsDuringInFlightPoll(t *testing.T) {
+	quietLogs(t)
+	pollIn := make(chan struct{}, 1)
+	wrap := func(r *ccRig, next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if strings.HasSuffix(req.URL.Path, "/poll") {
+				select {
+				case pollIn <- struct{}{}:
+				default:
+				}
+				<-req.Context().Done()
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	}
+	r := newAuditRig(t, 1, true, 0, wrap, nil)
+	r.start()
+	ccWaitOn(r, pollIn, "a poll in flight")
+	got := r.heartbeat()
+	t.Logf("heartbeat while the only slot is held by an in-flight poll: available_slots=%d (running=%d)", got, worker.RunningForTest(r.agent))
+	if got != 1 {
+		t.Fatalf("available_slots = %d, ADR-0019 Section 2.1 says 1", got)
+	}
+	r.stop()
+}

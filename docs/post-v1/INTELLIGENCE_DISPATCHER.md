@@ -82,3 +82,18 @@ The deterministic scheduler performs final eligibility and placement using actua
 Do not bind the system to one LLM vendor in the domain model. A planner-provider interface may be implemented behind the dispatcher. Provider credentials and billing policy are configuration concerns and must never be copied into worker assignments or logs.
 
 The planner's model provider is an open decision; see `OPEN_DECISIONS.md`.
+
+## Validation pipeline (proposed)
+
+Status: **[Proposed]**, designed, not executed. Slice V4-4. Recorded by PV-02 (owner question of 2026-11-17). It adds noise controls to the planning pipeline above; it does not change who decides (the deterministic scheduler, ADR-0018).
+
+| Stage | Control | Label |
+|---|---|---|
+| 1. Parse | Strict schema validation of the planner output; unknown or missing fields fail | [Proposed] |
+| 2. Repair | Bounded repair retries (the bound is a configured constant, not unlimited), then a clear typed planning failure | [Proposed] |
+| 3. Allowlist | Tasks and tools must be in the registered allowlist; no model-written shell strings | [Decided, ADR-0018 and `AGENTS.md` post-V1 standing rules] |
+| 4. Graph | Acyclicity check by topological sort and a dangling-dependency check before anything runs | [Proposed]; "reject cycles and missing dependencies" is already in the planning pipeline step 4 |
+| 5. Policy | Size limits, task count, permissions and approval gates | [Proposed]; approval for writes is [Decided, ADR-0018 D2] |
+| 6. Schedule | The deterministic scheduler decides placement; model output is untrusted advisory data | [Decided, ADR-0018] |
+
+Full problem-to-control table: [`SECURITY.md`](SECURITY.md) section "AI noise controls (proposed)".

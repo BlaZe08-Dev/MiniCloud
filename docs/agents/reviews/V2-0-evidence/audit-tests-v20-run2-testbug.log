@@ -1,0 +1,73 @@
+=== RUN   TestAudit_RenewalGoroutinePanic
+    audit_v20_renewpanic_test.go:52: child exit: exit status 2; died of the injected panic: true; j1 result delivered before death: false; j1 started: true
+    audit_v20_renewpanic_test.go:56: AUDIT START j1
+    audit_v20_renewpanic_test.go:56: AUDIT START j2
+    audit_v20_renewpanic_test.go:56: panic: injected renewal-goroutine panic
+--- PASS: TestAudit_RenewalGoroutinePanic (0.04s)
+=== RUN   TestAudit_PanicInValidateReleasesSlot
+--- PASS: TestAudit_PanicInValidateReleasesSlot (0.02s)
+=== RUN   TestAudit_PanicDoesNotKillConcurrentAttempt
+--- PASS: TestAudit_PanicDoesNotKillConcurrentAttempt (0.17s)
+=== RUN   TestAudit_DeliveryFailingHoldsSlotUntilBudget
+    audit_v20_test.go:169: slot released after 1m0s of fake time and 25 failed deliveries
+--- PASS: TestAudit_DeliveryFailingHoldsSlotUntilBudget (0.66s)
+=== RUN   TestAudit_RenewVerdictRacesCompletion
+=== RUN   TestAudit_RenewVerdictRacesCompletion/409/race
+    audit_v20_test.go:298: verdict 409 order race, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/409/verdict_first
+    audit_v20_test.go:283: iter 0: 1 result requests for 409/verdict_first
+=== RUN   TestAudit_RenewVerdictRacesCompletion/409/during_delivery
+    audit_v20_test.go:298: verdict 409 order during_delivery, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/403/race
+    audit_v20_test.go:298: verdict 403 order race, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/403/verdict_first
+    audit_v20_test.go:283: iter 0: 1 result requests for 403/verdict_first
+=== RUN   TestAudit_RenewVerdictRacesCompletion/403/during_delivery
+    audit_v20_test.go:298: verdict 403 order during_delivery, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/404/race
+    audit_v20_test.go:298: verdict 404 order race, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/404/verdict_first
+    audit_v20_test.go:283: iter 0: 1 result requests for 404/verdict_first
+=== RUN   TestAudit_RenewVerdictRacesCompletion/404/during_delivery
+    audit_v20_test.go:298: verdict 404 order during_delivery, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/cancel/race
+    audit_v20_test.go:298: verdict cancel order race, 50 iterations, outcomes map[result_requests=1:50]
+=== RUN   TestAudit_RenewVerdictRacesCompletion/cancel/verdict_first
+    audit_v20_test.go:298: verdict cancel order verdict_first, 50 iterations, outcomes map[result_requests=1:50]
+--- FAIL: TestAudit_RenewVerdictRacesCompletion (6.02s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/409/race (0.72s)
+    --- FAIL: TestAudit_RenewVerdictRacesCompletion/409/verdict_first (0.01s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/409/during_delivery (0.83s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/403/race (0.63s)
+    --- FAIL: TestAudit_RenewVerdictRacesCompletion/403/verdict_first (0.01s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/403/during_delivery (0.89s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/404/race (0.80s)
+    --- FAIL: TestAudit_RenewVerdictRacesCompletion/404/verdict_first (0.01s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/404/during_delivery (0.78s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/cancel/race (0.65s)
+    --- PASS: TestAudit_RenewVerdictRacesCompletion/cancel/verdict_first (0.68s)
+=== RUN   TestAudit_ShutdownRacesPoll
+=== RUN   TestAudit_ShutdownRacesPoll/before_response
+    audit_v20_test.go:366: before_response: 100 iterations, assignment handed to an attempt goroutine in 0, dropped by the poll loop in 100
+=== RUN   TestAudit_ShutdownRacesPoll/after_response
+    audit_v20_test.go:366: after_response: 100 iterations, assignment handed to an attempt goroutine in 22, dropped by the poll loop in 78
+--- PASS: TestAudit_ShutdownRacesPoll (2.15s)
+    --- PASS: TestAudit_ShutdownRacesPoll/before_response (1.11s)
+    --- PASS: TestAudit_ShutdownRacesPoll/after_response (1.03s)
+=== RUN   TestAudit_HungHeartbeatDoesNotHangShutdown
+=== RUN   TestAudit_HungHeartbeatDoesNotHangShutdown/heartbeat_hangs
+    audit_v20_test.go:417: heartbeat_hangs: Run returned 195.883461ms after cancel
+=== RUN   TestAudit_HungHeartbeatDoesNotHangShutdown/reregister_hangs
+    audit_v20_test.go:417: reregister_hangs: Run returned 192.651066ms after cancel
+--- PASS: TestAudit_HungHeartbeatDoesNotHangShutdown (0.42s)
+    --- PASS: TestAudit_HungHeartbeatDoesNotHangShutdown/heartbeat_hangs (0.21s)
+    --- PASS: TestAudit_HungHeartbeatDoesNotHangShutdown/reregister_hangs (0.21s)
+=== RUN   TestAudit_RunWaitsForHeartbeatGoroutine
+--- PASS: TestAudit_RunWaitsForHeartbeatGoroutine (0.51s)
+=== RUN   TestAudit_AvailableSlotsDuringInFlightPoll
+    audit_v20_test.go:514: heartbeat while the only slot is held by an in-flight poll: available_slots=1 (running=0)
+--- PASS: TestAudit_AvailableSlotsDuringInFlightPoll (0.02s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	10.096s
+FAIL
+rc=1
