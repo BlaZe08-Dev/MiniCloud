@@ -1,0 +1,42 @@
+=== Attack 8: Scope and Docs Verification ===
+
+1. Files changed between origin/main and branch:
+CHANGELOG.md
+docs/PROJECT_STATE.md
+docs/agents/TASKS.md
+docs/agents/handoffs/V1x-02-evidence/break_before_fix_unfixed.txt
+docs/agents/handoffs/V1x-02-evidence/fix.diff
+docs/agents/handoffs/V1x-02-evidence/gate5_unset_v_summary.txt
+docs/agents/handoffs/V1x-02-evidence/gate6_race_summary.txt
+docs/agents/handoffs/V1x-02-evidence/gate7_db_summary.txt
+docs/agents/handoffs/V1x-02-evidence/gate8_security_summary.txt
+docs/agents/handoffs/V1x-02-evidence/gate9_race_count50_summary.txt
+docs/agents/handoffs/V1x-02-evidence/gate_test_docs.txt
+docs/agents/handoffs/V1x-02-evidence/mutant_a_default_encoder.diff
+docs/agents/handoffs/V1x-02-evidence/mutant_a_output.txt
+docs/agents/handoffs/V1x-02-evidence/mutant_b_no_nosniff.diff
+docs/agents/handoffs/V1x-02-evidence/mutant_b_output.txt
+docs/agents/handoffs/V1x-02-evidence/mutant_c_only_200.diff
+docs/agents/handoffs/V1x-02-evidence/mutant_c_output.txt
+docs/agents/handoffs/V1x-02-evidence/real_binaries_new_worker.txt
+docs/agents/handoffs/V1x-02-evidence/real_binaries_v100_worker.txt
+docs/agents/handoffs/V1x-02-evidence/restored_green_output.txt
+docs/agents/handoffs/V1x-02.md
+docs/security/field-limits.md
+docs/security/findings.md
+internal/api/escape_test.go
+internal/api/handlers.go
+reports/claude/V1x-02.md
+
+2. Scope check:
+- Code changes: ONLY internal/api/handlers.go and internal/api/escape_test.go
+- No changes to: internal/worker, internal/executor, internal/coordinator, cmd/, migrations/, tests/, go.mod, go.sum.
+- All other files are in docs/, reports/, or evidence.
+- Verdict: STRICT COMPLIANCE WITH TASK OWNED FILES.
+
+3. Document claims verification:
+- CHANGELOG.md: Correctly documents SEC-067 fix under Fixed, mentions SetEscapeHTML(false), X-Content-Type-Options: nosniff, U+2028/U+2029 note, and v1.0.0 worker compatibility.
+- docs/PROJECT_STATE.md: Added entry for V1x-02 (SEC-067 fix, built, awaiting audit) with branch and handoff pointer.
+- docs/agents/TASKS.md: Updated status from planned to built, awaiting audit on agent/claude/V1x-02.
+- docs/security/field-limits.md: Updated Job payload entry noting the 64 KiB limit now holds on the wire without HTML escaping.
+- docs/security/findings.md: Updated SEC-067 status from Open to Fixed (task V1x-02, branch agent/claude/V1x-02) with root cause, fix details, U+2028/U+2029 note, and regression tests.

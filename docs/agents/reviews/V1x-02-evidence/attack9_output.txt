@@ -1,0 +1,28 @@
+=== Attack 9: Unlisted Items and Edge Cases Analysis ===
+
+1. Other Encoders in internal/api:
+- Audited all occurrences of json.NewEncoder, json.Marshal, and json.NewDecoder in internal/api.
+- In internal/api/handlers.go, writeJSON (line 90) is the SINGLE AND ONLY JSON encoder used across all response endpoints.
+- No other handlers instantiate their own encoder or call json.Marshal.
+
+2. Error Paths Building JSON by Hand:
+- Verified that no error paths build JSON by string concatenation or manual w.Write().
+- All error responses route through writeError(), which formats ErrorResponse and calls writeJSON().
+- Mux-generated errors (404 Not Found, 405 Method Not Allowed) are handled by Go stdlib http.Error, which writes text/plain and sets X-Content-Type-Options: nosniff.
+- Recovery middleware (panic handler) delegates to writeError(w, 500, "INTERNAL_ERROR", "internal server error"), which calls writeJSON and thus sets nosniff.
+
+3. Other Places Where 64 KiB Limit Could See Inflated Size:
+- Job view (GET /v1/jobs/{id}): Writes Job object via writeJSON with SetEscapeHTML(false); payload (json.RawMessage) remains unexpanded.
+- Attempts list (GET /v1/jobs/{id}/attempts): Writes Attempt list via writeJSON; Output strings are not HTML-escaped.
+- Result submission (POST .../result): Output is clamped to MaxOutputSizeBytes (64 KiB) by executor and worker client before commit; coordinator stores it safely.
+- No other endpoints re-serialize or inflate payload/result data.
+
+4. Impact of X-Content-Type-Options: nosniff:
+- Verified against all client endpoints: CLI (mc), worker client, tests, curl.
+- nosniff is standard RFC compliant behavior instructing user agents to respect Content-Type: application/json.
+- Zero client or test breakage.
+
+5. Stale Comment in internal/worker/client.go:
+- Lines 47-52 of internal/worker/client.go still describe coordinator writeJSON as having "HTML escaping enabled" and expanding "<" to 6-byte escapes.
+- Since internal/worker was out of scope for V1x-02, this comment was not updated.
+- Severity: Minor (doc/comment staleness only, does not affect functionality).

@@ -1,0 +1,85 @@
+{"time":"2026-11-16T18:55:32.521443238+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T18:55:32.544819423+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T18:55:32.544861633+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T18:55:32.545264192+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8992"}
+{"time":"2026-11-16T18:55:32.658089393+05:30","level":"INFO","msg":"worker registered","worker_id":"w_eq","version":"v0.1.0","slots":2,"supported_tasks":["echo"]}
+{"time":"2026-11-16T18:55:32.696147503+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_a5d892be2ad5","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:55:32.737774465+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_a5d892be2ad5","attempt_id":"att_job_1_a5d892be2ad5_1","attempt_no":1,"worker_id":"w_eq","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T18:55:32.7602546+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T18:55:32.760493017+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+{"time":"2026-11-16T18:55:34.092806933+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T18:55:34.124133621+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T18:55:34.124162863+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T18:55:34.124508866+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8993"}
+{"time":"2026-11-16T18:55:34.222626522+05:30","level":"INFO","msg":"worker registered","worker_id":"w_eq","version":"v0.1.0","slots":2,"supported_tasks":["echo"]}
+{"time":"2026-11-16T18:55:34.24627443+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_fd76f3aa8b42","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:55:34.298129291+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_fd76f3aa8b42","attempt_id":"att_job_1_fd76f3aa8b42_1","attempt_no":1,"worker_id":"w_eq","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T18:55:34.329148456+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T18:55:34.332683016+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+Collecting responses from MAIN coordinator...
+Collecting responses from BRANCH coordinator...
+
+================================================================================
+ATTACK 3: JSON Equivalence and Raw Byte Diffs
+================================================================================
+
+--- Endpoint: submit ---
+Decoded Semantic Equivalence: MATCH (True)
+Raw wire comparison:
+  MAIN raw length:   453 bytes
+  BRANCH raw length: 402 bytes
+  Raw diff (first 10 diff lines):
+    --- main_wire
+    +++ branch_wire
+    @@ -1 +1,3 @@
+    -{"id":"job_1_a5d892be2ad5","task_type":"echo","payload":{"message":"\u003cscript\u003ealert('test')\u003c/script\u003e \u0026 \u003cb\u003ebold\u003c/b\u003e \u2028line\u2029para"},"state":"QUEUED","priority":0,"max_attempts":3,"timeout_seconds":60,"created_at":"2026-11-16T13:25:32.676964702Z","updated_at":"2026-11-16T13:25:32.676979889Z","assigned_worker_id":null,"assignment_expires_at":null,"assignment_lapses":0,"assignment_fallback_reason":null}
+    +{"id":"job_1_fd76f3aa8b42","task_type":"echo","payload":{"message":"<script>alert('test')</script> & <b>bold</b>
+    +line
+    +para"},"state":"QUEUED","priority":0,"max_attempts":3,"timeout_seconds":60,"created_at":"2026-11-16T13:25:34.234141081Z","updated_at":"2026-11-16T13:25:34.234161582Z","assigned_worker_id":null,"assignment_expires_at":null,"assignment_lapses":0,"assignment_fallback_reason":null}
+
+--- Endpoint: job_view ---
+Decoded Semantic Equivalence: MATCH (True)
+Raw wire comparison:
+  MAIN raw length:   457 bytes
+  BRANCH raw length: 406 bytes
+  Raw diff (first 10 diff lines):
+    --- main_wire
+    +++ branch_wire
+    @@ -1 +1,3 @@
+    -{"id":"job_1_a5d892be2ad5","task_type":"echo","payload":{"message":"\u003cscript\u003ealert('test')\u003c/script\u003e \u0026 \u003cb\u003ebold\u003c/b\u003e \u2028line\u2029para"},"state":"QUEUED","priority":0,"max_attempts":3,"timeout_seconds":60,"created_at":"2026-11-16T18:55:32.676964+05:30","updated_at":"2026-11-16T18:55:32.676979+05:30","assigned_worker_id":null,"assignment_expires_at":null,"assignment_lapses":0,"assignment_fallback_reason":null}
+    +{"id":"job_1_fd76f3aa8b42","task_type":"echo","payload":{"message":"<script>alert('test')</script> & <b>bold</b>
+    +line
+    +para"},"state":"QUEUED","priority":0,"max_attempts":3,"timeout_seconds":60,"created_at":"2026-11-16T18:55:34.234141+05:30","updated_at":"2026-11-16T18:55:34.234161+05:30","assigned_worker_id":null,"assignment_expires_at":null,"assignment_lapses":0,"assignment_fallback_reason":null}
+
+--- Endpoint: poll ---
+Decoded Semantic Equivalence: MATCH (True)
+Raw wire comparison:
+  MAIN raw length:   440 bytes
+  BRANCH raw length: 389 bytes
+  Raw diff (first 10 diff lines):
+    --- main_wire
+    +++ branch_wire
+    @@ -1 +1,3 @@
+    -{"assignment":{"job_id":"job_1_a5d892be2ad5","attempt_id":"att_job_1_a5d892be2ad5_1","attempt_no":1,"lease_token":"p0LS4uHGnfyUBBsDDgQit4cIV63awFjP5Xzkw7JICHM","task_type":"echo","payload":{"message":"\u003cscript\u003ealert('test')\u003c/script\u003e \u0026 \u003cb\u003ebold\u003c/b\u003e \u2028line\u2029para"},"timeout_seconds":60,"lease_expires_at":"2026-11-16T18:56:02.732284+05:30","lease_duration_seconds":30,"policy":"fifo_pull"}}
+    +{"assignment":{"job_id":"job_1_fd76f3aa8b42","attempt_id":"att_job_1_fd76f3aa8b42_1","attempt_no":1,"lease_token":"g0Wb6nVx23ADFQ54mNPn_8BXy7fBRVDim551jTRcZMk","task_type":"echo","payload":{"message":"<script>alert('test')</script> & <b>bold</b>
+    +line
+    +para"},"timeout_seconds":60,"lease_expires_at":"2026-11-16T18:56:04.292713+05:30","lease_duration_seconds":30,"policy":"fifo_pull"}}
+
+--- Endpoint: attempts ---
+Decoded Semantic Equivalence: MATCH (True)
+Raw wire comparison:
+  MAIN raw length:   375 bytes
+  BRANCH raw length: 375 bytes
+  Raw diff (first 10 diff lines):
+    --- main_wire
+    +++ branch_wire
+    @@ -1 +1 @@
+    -{"attempts":[{"id":"att_job_1_a5d892be2ad5_1","job_id":"job_1_a5d892be2ad5","attempt_no":1,"worker_id":"w_eq","lease_token_hash":"4fe1f709698d6079ba8f7885f72e1667ba4f733762c2b140ff382642ebed4743","state":"RUNNING","started_at":"2026-11-16T18:55:32.732283+05:30","lease_expires_at":"2026-11-16T18:56:02.732284+05:30","exit_code":0,"output":""}],"job_id":"job_1_a5d892be2ad5"}
+    +{"attempts":[{"id":"att_job_1_fd76f3aa8b42_1","job_id":"job_1_fd76f3aa8b42","attempt_no":1,"worker_id":"w_eq","lease_token_hash":"25d63a7b45a657424b397549786232e8e156f92f309d5f9689f608a3dde35078","state":"RUNNING","started_at":"2026-11-16T18:55:34.292713+05:30","lease_expires_at":"2026-11-16T18:56:04.292713+05:30","exit_code":0,"output":""}],"job_id":"job_1_fd76f3aa8b42"}
+
+--- Endpoint: error ---
+Decoded Semantic Equivalence: MATCH (True)
+Raw wire comparison:
+  MAIN raw length:   84 bytes
+  BRANCH raw length: 84 bytes
+  Raw diff (first 10 diff lines):

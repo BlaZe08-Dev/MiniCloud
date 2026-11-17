@@ -1,0 +1,89 @@
+{"time":"2026-11-16T19:13:04.079552468+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T19:13:04.105469465+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T19:13:04.105510414+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T19:13:04.105785612+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8994"}
+{"time":"2026-11-16T19:13:04.225697135+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:04.227259893+05:30","level":"INFO","msg":"starting worker agent","worker_id":"w_mc","coordinator_url":"http://127.0.0.1:8994","slots":5}
+{"time":"2026-11-16T19:13:04.235186206+05:30","level":"INFO","msg":"worker registered","worker_id":"w_mc","version":"v0.1.0","slots":5,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T19:13:04.235629374+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:05.227092547+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_b33f58b7b5a0","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T19:13:05.299970906+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_b33f58b7b5a0","attempt_id":"att_job_1_b33f58b7b5a0_1","attempt_no":1,"worker_id":"w_mc","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T19:13:05.301623876+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_b33f58b7b5a0","attempt_id":"att_job_1_b33f58b7b5a0_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T19:13:05.324474575+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_b33f58b7b5a0","attempt_id":"att_job_1_b33f58b7b5a0_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T19:13:05.325174953+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_b33f58b7b5a0","attempt_id":"att_job_1_b33f58b7b5a0_1","exit_code":0}
+{"time":"2026-11-16T19:13:05.387759508+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T19:13:05.387880167+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T19:13:05.392069918+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+{"time":"2026-11-16T19:13:05.505942092+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:05.506064056+05:30","level":"INFO","msg":"worker process exited cleanly"}
+{"time":"2026-11-16T19:13:06.584589676+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T19:13:06.615304754+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T19:13:06.615357229+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T19:13:06.615646607+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8995"}
+{"time":"2026-11-16T19:13:06.716608448+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:06.717592944+05:30","level":"INFO","msg":"starting worker agent","worker_id":"w_mc","coordinator_url":"http://127.0.0.1:8995","slots":5}
+{"time":"2026-11-16T19:13:06.722832242+05:30","level":"INFO","msg":"worker registered","worker_id":"w_mc","version":"v0.1.0","slots":5,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T19:13:06.723271286+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:07.728520131+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_37e71ce5f10f","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T19:13:07.803175085+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_37e71ce5f10f","attempt_id":"att_job_1_37e71ce5f10f_1","attempt_no":1,"worker_id":"w_mc","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T19:13:07.804873914+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_37e71ce5f10f","attempt_id":"att_job_1_37e71ce5f10f_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T19:13:07.840123324+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_37e71ce5f10f","attempt_id":"att_job_1_37e71ce5f10f_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T19:13:07.842579632+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_37e71ce5f10f","attempt_id":"att_job_1_37e71ce5f10f_1","exit_code":0}
+{"time":"2026-11-16T19:13:07.909490637+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T19:13:07.909856999+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T19:13:07.910378209+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+{"time":"2026-11-16T19:13:08.016611802+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"w_mc"}
+{"time":"2026-11-16T19:13:08.016678402+05:30","level":"INFO","msg":"worker process exited cleanly"}
+================================================================================
+ATTACK 4: mc CLI output comparison and SEC-048 sanitization check
+================================================================================
+
+--- mc get output on MAIN ---
+Job Details:
+  ID:           job_1_b33f58b7b5a0
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_job_1_b33f58b7b5a0_1
+  Created At:   2026-11-16T19:13:05+05:30
+  Updated At:   2026-11-16T19:13:05+05:30
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"\u003cb\u003ehello\u003c/b\u003e \u0026 \u003ctag\u003e \u001b[31mred\u001b[0m"}}
+
+--- mc get output on BRANCH ---
+Job Details:
+  ID:           job_1_37e71ce5f10f
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_job_1_37e71ce5f10f_1
+  Created At:   2026-11-16T19:13:07+05:30
+  Updated At:   2026-11-16T19:13:07+05:30
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"\u003cb\u003ehello\u003c/b\u003e \u0026 \u003ctag\u003e \u001b[31mred\u001b[0m"}}
+
+--- mc attempts output on MAIN ---
+Attempts for Job job_1_b33f58b7b5a0 (1 total):
+NO   ATTEMPT ID                 WORKER   STATE       CLASS   EXIT   STARTED
+1    att_job_1_b33f58b7b5a0_1   w_mc     COMPLETED           0      19:13:05
+
+--- mc attempts output on BRANCH ---
+Attempts for Job job_1_37e71ce5f10f (1 total):
+NO   ATTEMPT ID                 WORKER   STATE       CLASS   EXIT   STARTED
+1    att_job_1_37e71ce5f10f_1   w_mc     COMPLETED           0      19:13:07
+
+--- mc workers output on MAIN ---
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+w_mc        HEALTHY   5/5               19:13:05         [echo sleep sha256_loop]
+
+--- mc workers output on BRANCH ---
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+w_mc        HEALTHY   5/5               19:13:07         [echo sleep sha256_loop]
+
+--- SEC-048 Sanitization Verification ---
+MAIN mc get has raw ESC (\x1b): False
+BRANCH mc get has raw ESC (\x1b): False
+MAIN mc sanitized ANSI visual output:   ['    Output:     {"echo":{"message":"\\u003cb\\u003ehello\\u003c/b\\u003e \\u0026 \\u003ctag\\u003e \\u001b[31mred\\u001b[0m"}}']
+BRANCH mc sanitized ANSI visual output: ['    Output:     {"echo":{"message":"\\u003cb\\u003ehello\\u003c/b\\u003e \\u0026 \\u003ctag\\u003e \\u001b[31mred\\u001b[0m"}}']

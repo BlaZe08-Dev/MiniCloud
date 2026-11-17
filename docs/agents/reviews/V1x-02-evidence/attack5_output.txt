@@ -1,0 +1,29 @@
+=== Attack 5: Worker-Side Limits and Wire Sizing ===
+
+1. Limit Constants:
+   executor.MaxPayloadSizeBytes = 65536 bytes (64 KiB)
+   worker.MaxPollResponseBytes  = 458752 bytes (448 KiB)
+   Calculated (6 * 64 KiB + 64 KiB) = 458752 bytes
+
+2. Maximum Legal Payload (65,536 bytes):
+   len(raw64kPayload) = 65536 bytes
+   Wire size on branch with envelope: 65855 bytes
+   Envelope overhead: 319 bytes
+   Headroom remaining under MaxPollResponseBytes: 392897 bytes (14.4% of limit used)
+
+3. Payload full of JSON-escaped quotes ("): 
+   len(quotePayload) = 65535 bytes
+   Wire size with quotes on branch: 65854 bytes
+   Difference from payload size: 319 bytes
+
+4. Payload full of JSON-escaped backslashes (\): 
+   len(slashPayload) = 65535 bytes
+   Wire size with backslashes on branch: 65854 bytes
+   Difference from payload size: 319 bytes
+
+5. Summary of Worker Checks on Poll Path:
+   a. HTTP status check: 200 OK required for assignment, 204 for no work, 503 for unavailable
+   b. Body reader limit: io.LimitReader(resp.Body, worker.MaxPollResponseBytes = 458752)
+   c. json.RawMessage preservation: payload is unmarshaled verbatim from wire bytes
+   d. Executor execution check: executor.Execute enforces len(payload) <= executor.MaxPayloadSizeBytes (65536)
+   e. Result: On the branch, all legal <=64 KiB payloads (including '<', '>', '&', '"', '\') stay <= 64 KiB on wire and pass worker and executor limits without expansion.

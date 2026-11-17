@@ -1,0 +1,15 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 3d92113..7b1fdcb 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -85,7 +85,9 @@ type ErrorDetail struct {
+ // WriteHeader, and nowhere else in internal/api.
+ func writeJSON(w http.ResponseWriter, status int, data any) {
+ 	w.Header().Set("Content-Type", "application/json")
+-	w.Header().Set("X-Content-Type-Options", "nosniff")
++	if status == http.StatusOK {
++		w.Header().Set("X-Content-Type-Options", "nosniff")
++	}
+ 	w.WriteHeader(status)
+ 	enc := json.NewEncoder(w)
+ 	enc.SetEscapeHTML(false)
