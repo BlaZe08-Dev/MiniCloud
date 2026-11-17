@@ -1,0 +1,45 @@
+{"time":"2026-11-16T18:52:02.687489338+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T18:52:02.709481009+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T18:52:02.709541413+05:30","level":"INFO","msg":"dispatch policy configured","policy":"fifo_pull","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T18:52:02.710128422+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8991"}
+{"time":"2026-11-16T18:52:02.82381237+05:30","level":"INFO","msg":"worker registered","worker_id":"w_hdr_1","version":"v0.1.0","slots":5,"supported_tasks":["echo"]}
+{"time":"2026-11-16T18:52:02.885849639+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_b9e70ce30717","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:52:02.909917746+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_b9e70ce30717","attempt_id":"att_job_1_b9e70ce30717_1","attempt_no":1,"worker_id":"w_hdr_1","policy":"fifo_pull","reason":"claimed by polling worker with capacity"}
+{"time":"2026-11-16T18:52:02.986004508+05:30","level":"INFO","msg":"job cancellation requested","job_id":"job_1_b9e70ce30717","state":"CANCEL_REQUESTED"}
+{"time":"2026-11-16T18:52:03.053433918+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T18:52:03.053703572+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+==============================================================================================================
+Endpoint                         | Status | Content-Type               | X-Content-Type-Options | Writer         
+==============================================================================================================
+healthz                          | 200    | application/json           | nosniff                | writeJSON      
+worker register                  | 200    | application/json           | nosniff                | writeJSON      
+heartbeat                        | 200    | application/json           | nosniff                | writeJSON      
+poll with no work (204)          | 204    | <none>                     | <none>                 | no body (w.WriteHeader)
+submit (201)                     | 201    | application/json           | nosniff                | writeJSON      
+poll with work                   | 200    | application/json           | nosniff                | writeJSON      
+job view                         | 200    | application/json           | nosniff                | writeJSON      
+worker list                      | 200    | application/json           | nosniff                | writeJSON      
+job list (GET /v1/jobs)          | 405    | text/plain; charset=utf-8  | nosniff                | stdlib (mux)   
+attempts                         | 200    | application/json           | nosniff                | writeJSON      
+cancel                           | 200    | application/json           | nosniff                | writeJSON      
+a 400                            | 400    | application/json           | nosniff                | writeJSON      
+a 404                            | 404    | application/json           | nosniff                | writeJSON      
+a 404 (mux route)                | 404    | text/plain; charset=utf-8  | nosniff                | stdlib (mux)   
+a 405 from the mux               | 405    | text/plain; charset=utf-8  | nosniff                | stdlib (mux)   
+a 413                            | 413    | application/json           | nosniff                | writeJSON      
+==============================================================================================================
+/tmp/check_500_503.go:9:2: no required module provides package github.com/blaze-08/minicloud/internal/api; to add it:
+	go get github.com/blaze-08/minicloud/internal/api
+/tmp/check_500_503.go:10:2: no required module provides package github.com/blaze-08/minicloud/internal/coordinator; to add it:
+	go get github.com/blaze-08/minicloud/internal/coordinator
+/tmp/check_500_503.go:11:2: no required module provides package github.com/blaze-08/minicloud/internal/domain; to add it:
+	go get github.com/blaze-08/minicloud/internal/domain
+/tmp/check_500_503.go:12:2: no required module provides package github.com/blaze-08/minicloud/internal/executor; to add it:
+	go get github.com/blaze-08/minicloud/internal/executor
+/tmp/check_500_503.go:13:2: no required module provides package github.com/blaze-08/minicloud/internal/scheduler; to add it:
+	go get github.com/blaze-08/minicloud/internal/scheduler
+/tmp/check_500_503.go:14:2: no required module provides package github.com/blaze-08/minicloud/internal/storage; to add it:
+	go get github.com/blaze-08/minicloud/internal/storage
+package docs/agents/reviews/V1x-02-evidence/check_500_503.go.txt is not in std (/usr/lib/go-1.22/src/docs/agents/reviews/V1x-02-evidence/check_500_503.go.txt)
+package command-line-arguments
+	../mc-audit-bin/check_500_503.go:9:2: use of internal package github.com/BlaZe08-Dev/Minicloud/internal/api not allowed

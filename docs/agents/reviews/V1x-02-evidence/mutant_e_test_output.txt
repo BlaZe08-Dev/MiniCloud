@@ -1,0 +1,68 @@
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/less-than
+2026/11/16 20:10:01 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:01 INFO job submitted and queued job_id=job_1_0228dc2d8a12 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:01 INFO job dispatched to worker job_id=job_1_0228dc2d8a12 attempt_id=att_1_3d3b3baba30a attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/greater-than
+2026/11/16 20:10:01 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:01 INFO job submitted and queued job_id=job_2_cc9489517d4a task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:01 INFO job dispatched to worker job_id=job_2_cc9489517d4a attempt_id=att_1_85ce3eb47f9b attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/ampersand
+2026/11/16 20:10:01 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:01 INFO job submitted and queued job_id=job_3_0ccf2c7e3bf2 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:01 INFO job dispatched to worker job_id=job_3_0ccf2c7e3bf2 attempt_id=att_1_015dca82792a attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/U+2028
+2026/11/16 20:10:01 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:01 INFO job submitted and queued job_id=job_4_bb4f5ee39d2b task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:01 INFO job dispatched to worker job_id=job_4_bb4f5ee39d2b attempt_id=att_1_810765eb0838 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/U+2029
+2026/11/16 20:10:01 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_5_c4f7b476344f task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:02 INFO job dispatched to worker job_id=job_5_c4f7b476344f attempt_id=att_1_a43e6b3c4928 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/mixed
+2026/11/16 20:10:02 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_6_f390583a67f1 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:02 INFO job dispatched to worker job_id=job_6_f390583a67f1 attempt_id=att_1_d04a03a800a7 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+=== RUN   TestAPI_PollPayloadIsNotHTMLEscaped/plain_letters
+2026/11/16 20:10:02 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_7_cc51526acb40 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:02 INFO job dispatched to worker job_id=job_7_cc51526acb40 attempt_id=att_1_db2b7d4feb2b attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAPI_PollPayloadIsNotHTMLEscaped (0.12s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/less-than (0.02s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/greater-than (0.03s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/ampersand (0.02s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/U+2028 (0.01s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/U+2029 (0.01s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/mixed (0.01s)
+    --- PASS: TestAPI_PollPayloadIsNotHTMLEscaped/plain_letters (0.01s)
+=== RUN   TestAPI_PollPayloadMaxSizeBoundary
+2026/11/16 20:10:02 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_8_278f53bdcd70 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:02 INFO job dispatched to worker job_id=job_8_278f53bdcd70 attempt_id=att_1_a7b4ade9dbc0 attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAPI_PollPayloadMaxSizeBoundary (0.02s)
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse/200_healthz
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse/201_submit
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_9_ca39879f8464 task_type=echo state=QUEUED max_attempts=3
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse/400_invalid
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse/404_job_not_found
+=== RUN   TestAPI_NosniffHeaderOnEveryWriteJSONResponse/503_outage
+2026/11/16 20:10:02 ERROR database outage or connection failure err=deadline_exceeded
+2026/11/16 20:10:02 ERROR database outage or connection failure err=deadline_exceeded
+--- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse (0.00s)
+    --- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse/200_healthz (0.00s)
+    --- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse/201_submit (0.00s)
+    --- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse/400_invalid (0.00s)
+    --- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse/404_job_not_found (0.00s)
+    --- PASS: TestAPI_NosniffHeaderOnEveryWriteJSONResponse/503_outage (0.00s)
+=== RUN   TestAPI_ResponseWireChangeIsJSONEquivalent
+2026/11/16 20:10:02 INFO worker registered worker_id=w1 version="" slots=100 supported_tasks=[echo]
+2026/11/16 20:10:02 INFO job submitted and queued job_id=job_10_2576cfaaa6a9 task_type=echo state=QUEUED max_attempts=3
+2026/11/16 20:10:02 INFO job dispatched to worker job_id=job_10_2576cfaaa6a9 attempt_id=att_1_9ff1b70c9cae attempt_no=1 worker_id=w1 policy=fifo_pull reason="claimed by polling worker with capacity"
+--- PASS: TestAPI_ResponseWireChangeIsJSONEquivalent (0.00s)
+=== RUN   TestAPI_ErrorBodyIsNotHTMLEscaped
+    escape_test.go:297: error body still escapes \u003c: {"error":{"code":"INVALID_REQUEST","message":"invalid request payload or parameters: bad \u003ctag\u003e \u0026 more\u2028end"}}
+--- FAIL: TestAPI_ErrorBodyIsNotHTMLEscaped (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/api	0.151s
+FAIL

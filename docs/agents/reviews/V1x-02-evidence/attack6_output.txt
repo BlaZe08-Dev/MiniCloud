@@ -1,0 +1,21 @@
+=== Testing json.Encoder with SetEscapeHTML(false) ===
+
+1. Plain string field:
+   Output: {"text":"a<b&c\u2028d\u2029e"}
+   Contains raw '<':      true
+   Contains raw '&':      true
+   Contains '\u003c':     false
+   Contains '\u2028':     true
+   Contains '\u2029':     true
+   Contains raw U+2028:   false
+   Contains raw U+2029:   false
+
+2. json.RawMessage field:
+   Output: {"raw":{"msg":"a<b&c d e"}}
+   Contains raw '<':      true
+   Contains raw '&':      true
+   Contains '\u003c':     false
+   Contains '\u2028':     false
+   Contains '\u2029':     false
+   Contains raw U+2028:   true
+   Contains raw U+2029:   true

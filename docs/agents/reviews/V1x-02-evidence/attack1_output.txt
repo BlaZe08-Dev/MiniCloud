@@ -1,0 +1,168 @@
+{"time":"2026-11-16T18:46:26.143205196+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T18:46:26.180737317+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T18:46:26.180788943+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T18:46:26.181317573+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8989"}
+{"time":"2026-11-16T18:46:26.275035238+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-main"}
+{"time":"2026-11-16T18:46:26.275703608+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-main","coordinator_url":"http://127.0.0.1:8989","slots":10}
+{"time":"2026-11-16T18:46:26.27934118+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-main","version":"v0.1.0","slots":10,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T18:46:26.279671023+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-main"}
+{"time":"2026-11-16T18:46:27.307893605+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_e461b67f491c","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:27.374893362+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_e461b67f491c","attempt_id":"att_job_1_e461b67f491c_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:27.392362035+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_e461b67f491c","attempt_id":"att_job_1_e461b67f491c_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:27.415190203+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_e461b67f491c","attempt_id":"att_job_1_e461b67f491c_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:27.415721657+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_e461b67f491c","attempt_id":"att_job_1_e461b67f491c_1","exit_code":1}
+{"time":"2026-11-16T18:46:27.509052412+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_0501cb9f709f","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:27.619686498+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_2_0501cb9f709f","attempt_id":"att_job_2_0501cb9f709f_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:27.643306894+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_0501cb9f709f","attempt_id":"att_job_2_0501cb9f709f_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:27.656912117+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_0501cb9f709f","attempt_id":"att_job_2_0501cb9f709f_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:27.657508159+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_0501cb9f709f","attempt_id":"att_job_2_0501cb9f709f_1","exit_code":1}
+{"time":"2026-11-16T18:46:27.883383059+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_74f554d2ba77","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:28.08908067+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_3_74f554d2ba77","attempt_id":"att_job_3_74f554d2ba77_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:28.111357722+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_74f554d2ba77","attempt_id":"att_job_3_74f554d2ba77_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:28.131778272+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_74f554d2ba77","attempt_id":"att_job_3_74f554d2ba77_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:28.132257449+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_74f554d2ba77","attempt_id":"att_job_3_74f554d2ba77_1","exit_code":1}
+{"time":"2026-11-16T18:46:28.243920982+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_4_bde66933f8c8","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:28.341997422+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_4_bde66933f8c8","attempt_id":"att_job_4_bde66933f8c8_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:28.349383236+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_4_bde66933f8c8","attempt_id":"att_job_4_bde66933f8c8_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:28.365611864+05:30","level":"INFO","msg":"job result committed","job_id":"job_4_bde66933f8c8","attempt_id":"att_job_4_bde66933f8c8_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:28.365992362+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_bde66933f8c8","attempt_id":"att_job_4_bde66933f8c8_1","exit_code":1}
+{"time":"2026-11-16T18:46:28.58604181+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_5_5f71d6b41d39","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:28.815124853+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_5_5f71d6b41d39","attempt_id":"att_job_5_5f71d6b41d39_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:28.834539485+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_5_5f71d6b41d39","attempt_id":"att_job_5_5f71d6b41d39_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:28.866860096+05:30","level":"INFO","msg":"job result committed","job_id":"job_5_5f71d6b41d39","attempt_id":"att_job_5_5f71d6b41d39_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:28.868063072+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_5f71d6b41d39","attempt_id":"att_job_5_5f71d6b41d39_1","exit_code":1}
+{"time":"2026-11-16T18:46:28.970519064+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_6_3c0cd141aad1","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:29.058822391+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_6_3c0cd141aad1","attempt_id":"att_job_6_3c0cd141aad1_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:29.063986868+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_6_3c0cd141aad1","attempt_id":"att_job_6_3c0cd141aad1_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:29.075085506+05:30","level":"INFO","msg":"job result committed","job_id":"job_6_3c0cd141aad1","attempt_id":"att_job_6_3c0cd141aad1_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:29.075370737+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_3c0cd141aad1","attempt_id":"att_job_6_3c0cd141aad1_1","exit_code":1}
+{"time":"2026-11-16T18:46:29.12059531+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_7_8d63ec0ccd4a","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:29.288983201+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_7_8d63ec0ccd4a","attempt_id":"att_job_7_8d63ec0ccd4a_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:29.294198786+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_7_8d63ec0ccd4a","attempt_id":"att_job_7_8d63ec0ccd4a_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:29.316981767+05:30","level":"INFO","msg":"job result committed","job_id":"job_7_8d63ec0ccd4a","attempt_id":"att_job_7_8d63ec0ccd4a_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:29.317344341+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_7_8d63ec0ccd4a","attempt_id":"att_job_7_8d63ec0ccd4a_1","exit_code":0}
+{"time":"2026-11-16T18:46:29.428928268+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_8_164c7161c040","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:29.530872067+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_8_164c7161c040","attempt_id":"att_job_8_164c7161c040_1","attempt_no":1,"worker_id":"worker-main","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:29.535319882+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_8_164c7161c040","attempt_id":"att_job_8_164c7161c040_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:29.551031939+05:30","level":"INFO","msg":"job result committed","job_id":"job_8_164c7161c040","attempt_id":"att_job_8_164c7161c040_1","final_state":"FAILED","exit_code":1,"error_class":"PERMANENT"}
+{"time":"2026-11-16T18:46:29.551418005+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_8_164c7161c040","attempt_id":"att_job_8_164c7161c040_1","exit_code":1}
+{"time":"2026-11-16T18:46:29.682347635+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T18:46:29.682387766+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T18:46:29.68289193+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+{"time":"2026-11-16T18:46:29.742971267+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"worker-main"}
+{"time":"2026-11-16T18:46:29.74300529+05:30","level":"INFO","msg":"worker process exited cleanly"}
+{"time":"2026-11-16T18:46:32.73701936+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-16T18:46:32.768024107+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":5,"max_conns":20}
+{"time":"2026-11-16T18:46:32.768662324+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-16T18:46:32.770041643+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:8989"}
+{"time":"2026-11-16T18:46:32.84919312+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-branch"}
+{"time":"2026-11-16T18:46:32.849508464+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-branch","coordinator_url":"http://127.0.0.1:8989","slots":10}
+{"time":"2026-11-16T18:46:32.855656578+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-branch","version":"v0.1.0","slots":10,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T18:46:32.856130845+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-branch"}
+{"time":"2026-11-16T18:46:33.895595333+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_61d6eda896b8","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:33.999446814+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_61d6eda896b8","attempt_id":"att_job_1_61d6eda896b8_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:34.00878966+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_61d6eda896b8","attempt_id":"att_job_1_61d6eda896b8_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:34.077378899+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_61d6eda896b8","attempt_id":"att_job_1_61d6eda896b8_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:34.07771218+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_61d6eda896b8","attempt_id":"att_job_1_61d6eda896b8_1","exit_code":0}
+{"time":"2026-11-16T18:46:34.229324295+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_c9d7a88128cb","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:34.266486684+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_2_c9d7a88128cb","attempt_id":"att_job_2_c9d7a88128cb_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:34.270415866+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_c9d7a88128cb","attempt_id":"att_job_2_c9d7a88128cb_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:34.287141678+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_c9d7a88128cb","attempt_id":"att_job_2_c9d7a88128cb_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:34.287595678+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_c9d7a88128cb","attempt_id":"att_job_2_c9d7a88128cb_1","exit_code":0}
+{"time":"2026-11-16T18:46:34.42887492+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_7f17142b6446","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:34.499855774+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_3_7f17142b6446","attempt_id":"att_job_3_7f17142b6446_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:34.510481735+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_7f17142b6446","attempt_id":"att_job_3_7f17142b6446_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:34.548784003+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_7f17142b6446","attempt_id":"att_job_3_7f17142b6446_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:34.549715654+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_7f17142b6446","attempt_id":"att_job_3_7f17142b6446_1","exit_code":0}
+{"time":"2026-11-16T18:46:34.617016308+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_4_66b02f4cdee5","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:34.74322038+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_4_66b02f4cdee5","attempt_id":"att_job_4_66b02f4cdee5_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:34.748747859+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_4_66b02f4cdee5","attempt_id":"att_job_4_66b02f4cdee5_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:34.780021378+05:30","level":"INFO","msg":"job result committed","job_id":"job_4_66b02f4cdee5","attempt_id":"att_job_4_66b02f4cdee5_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:34.780483598+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_66b02f4cdee5","attempt_id":"att_job_4_66b02f4cdee5_1","exit_code":0}
+{"time":"2026-11-16T18:46:34.934491549+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_5_7394bd139424","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:34.985610102+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_5_7394bd139424","attempt_id":"att_job_5_7394bd139424_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:34.991113864+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_5_7394bd139424","attempt_id":"att_job_5_7394bd139424_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:35.014844039+05:30","level":"INFO","msg":"job result committed","job_id":"job_5_7394bd139424","attempt_id":"att_job_5_7394bd139424_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:35.015348382+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_7394bd139424","attempt_id":"att_job_5_7394bd139424_1","exit_code":0}
+{"time":"2026-11-16T18:46:35.14503584+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_6_72cf798719a7","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:35.213481878+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_6_72cf798719a7","attempt_id":"att_job_6_72cf798719a7_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:35.21932742+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_6_72cf798719a7","attempt_id":"att_job_6_72cf798719a7_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:35.243027661+05:30","level":"INFO","msg":"job result committed","job_id":"job_6_72cf798719a7","attempt_id":"att_job_6_72cf798719a7_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:35.243567445+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_72cf798719a7","attempt_id":"att_job_6_72cf798719a7_1","exit_code":0}
+{"time":"2026-11-16T18:46:35.320219546+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_7_1ff4d83ab9c4","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:35.449273179+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_7_1ff4d83ab9c4","attempt_id":"att_job_7_1ff4d83ab9c4_1","attempt_no":1,"worker_id":"worker-branch","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:35.454856508+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_7_1ff4d83ab9c4","attempt_id":"att_job_7_1ff4d83ab9c4_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:35.483820792+05:30","level":"INFO","msg":"job result committed","job_id":"job_7_1ff4d83ab9c4","attempt_id":"att_job_7_1ff4d83ab9c4_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:35.484262081+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_7_1ff4d83ab9c4","attempt_id":"att_job_7_1ff4d83ab9c4_1","exit_code":0}
+{"time":"2026-11-16T18:46:35.678450512+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T18:46:35.875287828+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"worker-branch"}
+{"time":"2026-11-16T18:46:35.875397015+05:30","level":"INFO","msg":"worker process exited cleanly"}
+{"time":"2026-11-16T18:46:35.890963147+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"worker-v100"}
+{"time":"2026-11-16T18:46:35.893001315+05:30","level":"INFO","msg":"starting worker agent","worker_id":"worker-v100","coordinator_url":"http://127.0.0.1:8989","slots":5}
+{"time":"2026-11-16T18:46:35.90029049+05:30","level":"INFO","msg":"worker registered","worker_id":"worker-v100","version":"v0.1.0","slots":5,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-16T18:46:35.900836994+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"worker-v100"}
+{"time":"2026-11-16T18:46:36.913231937+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_8_772804f9f9fe","task_type":"echo","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-16T18:46:36.981607951+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_8_772804f9f9fe","attempt_id":"att_job_8_772804f9f9fe_1","attempt_no":1,"worker_id":"worker-v100","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-16T18:46:36.987745928+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_8_772804f9f9fe","attempt_id":"att_job_8_772804f9f9fe_1","task_type":"echo","timeout_seconds":60}
+{"time":"2026-11-16T18:46:37.020169891+05:30","level":"INFO","msg":"job result committed","job_id":"job_8_772804f9f9fe","attempt_id":"att_job_8_772804f9f9fe_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-16T18:46:37.020696645+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_8_772804f9f9fe","attempt_id":"att_job_8_772804f9f9fe_1","exit_code":0}
+{"time":"2026-11-16T18:46:37.075189122+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-16T18:46:37.229496711+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"worker-v100"}
+{"time":"2026-11-16T18:46:37.229522217+05:30","level":"INFO","msg":"worker process exited cleanly"}
+{"time":"2026-11-16T18:46:37.231151693+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-16T18:46:37.2315432+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
+================================================================================
+ATTACK 1: Before and after on real binaries (minicloud_gemini_test)
+================================================================================
+
+--- PART A: MAIN BINARIES (origin/main 28f5c61) ---
+MAIN [< 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+MAIN [> 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+MAIN [& 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 389930 exceeds 65536 bytes
+MAIN [U+2028 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+MAIN [U+2029 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 129986 exceeds 65536 bytes
+MAIN [mixed 65k]: submitted 65000 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT
+  Error: payload exceeds maximum allowed size: payload size 162482 exceeds 65536 bytes
+
+--- Main Boundary Checks ---
+MAIN [boundary 10920 '<']: raw 10934 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None err=None
+MAIN [boundary 10921 '<']: raw 10935 bytes | State: FAILED | Attempts: 1
+  Attempt 1: state=FAILED exit_code=1 error_class=PERMANENT err=payload exceeds maximum allowed size: payload size 65540 exceeds 65536 bytes
+
+--- PART B: BRANCH BINARIES (V1x-02 branch) ---
+BRANCH [< 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+BRANCH [> 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+BRANCH [& 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+BRANCH [U+2028 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+BRANCH [U+2029 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+BRANCH [mixed 65k]: submitted 65000 bytes | State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0 error_class=None
+
+--- Branch Boundary Checks ---
+BRANCH boundary 65,536 bytes submit HTTP status: 201
+  Job job_7_1ff4d83ab9c4 State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0
+BRANCH boundary 65,537 bytes submit HTTP status: 413
+  Response body: {"error":{"code":"PAYLOAD_TOO_LARGE","message":"payload exceeds maximum allowed size"}}
+
+
+--- PART C: V1.0.0 WORKER INTEROPERABILITY ---
+BRANCH COORD + V1.0.0 WORKER [65k '<']: Job State: SUCCEEDED | Attempts: 1
+  Attempt 1: state=COMPLETED exit_code=0

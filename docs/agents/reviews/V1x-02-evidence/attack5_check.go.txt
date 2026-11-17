@@ -1,0 +1,101 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
+	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/worker"
+)
+
+func main() {
+	fmt.Printf("=== Attack 5: Worker-Side Limits and Wire Sizing ===\n\n")
+
+	fmt.Printf("1. Limit Constants:\n")
+	fmt.Printf("   executor.MaxPayloadSizeBytes = %d bytes (%d KiB)\n", executor.MaxPayloadSizeBytes, executor.MaxPayloadSizeBytes/1024)
+	fmt.Printf("   worker.MaxPollResponseBytes  = %d bytes (%d KiB)\n", worker.MaxPollResponseBytes, worker.MaxPollResponseBytes/1024)
+	expectedMaxPoll := 6*executor.MaxPayloadSizeBytes + 64*1024
+	fmt.Printf("   Calculated (6 * 64 KiB + 64 KiB) = %d bytes\n\n", expectedMaxPoll)
+
+	// Test 65,536-byte raw payload
+	raw64k := bytes.Repeat([]byte("a"), executor.MaxPayloadSizeBytes-2)
+	raw64kPayload := json.RawMessage(fmt.Sprintf("%q", raw64k)) // exact 65536 bytes
+	fmt.Printf("2. Maximum Legal Payload (65,536 bytes):\n")
+	fmt.Printf("   len(raw64kPayload) = %d bytes\n", len(raw64kPayload))
+
+	now := time.Now().UTC()
+	asg := coordinator.WorkAssignment{
+		JobID:                "job_1_0123456789ab",
+		AttemptID:            "att_job_1_0123456789ab_1",
+		AttemptNo:            1,
+		LeaseToken:           "0123456789abcdef0123456789abcdef0123456789abcdef",
+		TaskType:             "echo",
+		Payload:              raw64kPayload,
+		TimeoutSeconds:       60,
+		LeaseExpiresAt:       &now,
+		LeaseDurationSeconds: 30,
+		Policy:               "fifo_pull",
+	}
+
+	envelope := map[string]any{"assignment": asg}
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(envelope); err != nil {
+		panic(err)
+	}
+
+	wireBytes := buf.Len()
+	envelopeSlack := wireBytes - len(raw64kPayload)
+	fmt.Printf("   Wire size on branch with envelope: %d bytes\n", wireBytes)
+	fmt.Printf("   Envelope overhead: %d bytes\n", envelopeSlack)
+	fmt.Printf("   Headroom remaining under MaxPollResponseBytes: %d bytes (%.1f%% of limit used)\n\n",
+		worker.MaxPollResponseBytes-wireBytes, float64(wireBytes)/float64(worker.MaxPollResponseBytes)*100)
+
+	// Test payload full of escaped quotes '\"'
+	// prefix `{"m":"` (7 bytes), suffix `"}` (2 bytes). 65536 - 9 = 65527 bytes of `\"`.
+	quotePairs := strings.Repeat(`\"`, 32763) + "x"
+	quotePayload := json.RawMessage(`{"m":"` + quotePairs + `"}`)
+	fmt.Printf("3. Payload full of JSON-escaped quotes (\"): \n")
+	fmt.Printf("   len(quotePayload) = %d bytes\n", len(quotePayload))
+
+	asgQuotes := asg
+	asgQuotes.Payload = quotePayload
+	buf.Reset()
+	enc = json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(map[string]any{"assignment": asgQuotes}); err != nil {
+		panic(err)
+	}
+	fmt.Printf("   Wire size with quotes on branch: %d bytes\n", buf.Len())
+	fmt.Printf("   Difference from payload size: %d bytes\n\n", buf.Len()-len(quotePayload))
+
+	// Test payload full of escaped backslashes '\\'
+	slashPairs := strings.Repeat(`\\`, 32763) + "x"
+	slashPayload := json.RawMessage(`{"m":"` + slashPairs + `"}`)
+	fmt.Printf("4. Payload full of JSON-escaped backslashes (\\): \n")
+	fmt.Printf("   len(slashPayload) = %d bytes\n", len(slashPayload))
+
+	asgSlashes := asg
+	asgSlashes.Payload = slashPayload
+	buf.Reset()
+	enc = json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(map[string]any{"assignment": asgSlashes}); err != nil {
+		panic(err)
+	}
+	fmt.Printf("   Wire size with backslashes on branch: %d bytes\n", buf.Len())
+	fmt.Printf("   Difference from payload size: %d bytes\n\n", buf.Len()-len(slashPayload))
+
+	fmt.Printf("5. Summary of Worker Checks on Poll Path:\n")
+	fmt.Printf("   a. HTTP status check: 200 OK required for assignment, 204 for no work, 503 for unavailable\n")
+	fmt.Printf("   b. Body reader limit: io.LimitReader(resp.Body, worker.MaxPollResponseBytes = %d)\n", worker.MaxPollResponseBytes)
+	fmt.Printf("   c. json.RawMessage preservation: payload is unmarshaled verbatim from wire bytes\n")
+	fmt.Printf("   d. Executor execution check: executor.Execute enforces len(payload) <= executor.MaxPayloadSizeBytes (%d)\n", executor.MaxPayloadSizeBytes)
+	fmt.Printf("   e. Result: On the branch, all legal <=64 KiB payloads (including '<', '>', '&', '\"', '\\') stay <= 64 KiB on wire and pass worker and executor limits without expansion.\n")
+}

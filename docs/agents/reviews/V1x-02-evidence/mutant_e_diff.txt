@@ -1,0 +1,15 @@
+diff --git a/internal/api/handlers.go b/internal/api/handlers.go
+index 3d92113..d0320af 100644
+--- a/internal/api/handlers.go
++++ b/internal/api/handlers.go
+@@ -88,7 +88,9 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
+ 	w.Header().Set("X-Content-Type-Options", "nosniff")
+ 	w.WriteHeader(status)
+ 	enc := json.NewEncoder(w)
+-	enc.SetEscapeHTML(false)
++	if status == http.StatusOK {
++		enc.SetEscapeHTML(false)
++	}
+ 	_ = enc.Encode(data)
+ }
+ 
