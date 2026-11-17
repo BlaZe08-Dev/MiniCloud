@@ -180,15 +180,15 @@ Status: **[Proposed]**, designed, not executed. Recorded by PV-02 (owner questio
 
 | Platform | Status | Label |
 |---|---|---|
-| Linux amd64 | The platform V1 is built and tested on | [Decided] confirmed by code reading: the development host is `linux/amd64`; the repository has no CI configuration |
+| Linux amd64 | The platform V1 is built and tested on | Observation, not a decision: the development host is `linux/amd64` (`go env`) and the repository has no CI configuration; no ADR states a support policy |
 | Linux on other architectures (for example arm64) | Untested | [Proposed] first target is open (OD-25) |
 | Windows | Untested; no release artefact | [Proposed] |
 | macOS | Untested; no release artefact | [Proposed] |
 
 Rules and milestones:
 
-- OS-specific process handling (discovery, launching, process-tree cancellation) lives behind the Node Agent or adapter boundary and never in the common domain model. [Decided, design rule already in [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Platform support"]
+- OS-specific process handling (discovery, launching, process-tree cancellation) lives behind the Node Agent or adapter boundary and never in the common domain model. [Proposed]; the source is the design rule in [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Platform support" (a post-V1 design document, not an accepted ADR)
 - Hardware and OS are reported as versioned inventory (`node_hardware`: OS, architecture); a platform mismatch is a placement filter ([`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Placement algorithm (proposed)"). [Proposed]
-- Telemetry libraries and platform support for the first slice: Linux first is acceptable (OD-08). [Decided as an open-decision constraint in [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md), not an answer]
-- A mixed-OS run is a V3-4 / V4-6 goal, not a V1 capability. Remote execution stays disabled until V3-1 and V3-2 pass. [Proposed milestone; the remote-execution gate is Decided in [`SECURITY.md`](SECURITY.md)]
+- Telemetry libraries and platform support for the first slice: Linux first is acceptable (OD-08). [Proposed]; the source is the OD-08 text in [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md), not an accepted decision
+- A mixed-OS run is a V3-4 / V4-6 goal, not a V1 capability. Remote execution stays disabled until V3-1 and V3-2 pass. [Proposed milestone; authentication before remote execution is [Decided, ADR-0018]; the V3-1 and V3-2 slice names are from [`ROADMAP.md`](ROADMAP.md)]
 - A non-Linux target needs its own build, tests and an owner-approved task before it is called supported (OD-25). [Proposed]

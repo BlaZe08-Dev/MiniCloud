@@ -116,7 +116,7 @@ Status: **[Proposed]**, designed, not executed. Slice V2-3; needs the V2-3 ADR a
 |---|---|---|
 | Speed | V2-2 benchmark results, the median of N runs (N open, OD-22). Not datasheet specs. | [Proposed] |
 | Telemetry (CPU load, free RAM) | Smoothed with an exponential moving average plus hysteresis (parameters set from V2-2 measurements, OD-22). | [Proposed] |
-| Freshness | Every capability and telemetry record has a time-to-live (values open, OD-23). An expired record counts as unknown. Unknown fails a hard constraint and never passes it. | [Proposed]; "absent data means unknown, never zero or unlimited" and "stale telemetry is never treated as current" are [Decided, ADR-0018 / V2-1 exit criterion in `ROADMAP.md`] |
+| Freshness | Every capability and telemetry record has a time-to-live (values open, OD-23). An expired record counts as unknown. Unknown fails a hard constraint and never passes it. | [Proposed]; "absent data means unknown, never zero or unlimited" and "stale telemetry is never treated as current" are existing design text in [`ROADMAP.md`](ROADMAP.md) and the rules above, not an accepted ADR, so also [Proposed] |
 
 ### What already exists (V1 code, not part of the proposal)
 
