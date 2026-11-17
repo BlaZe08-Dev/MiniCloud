@@ -173,3 +173,22 @@ Compatibility rules for every slice:
 - The planner is untrusted input. It proposes; the deterministic scheduler validates and decides. It never writes authoritative state.
 - Provider credentials stay on their node; the coordinator only stores readiness metadata.
 - Trust model (D2): AI CLI tasks may run on the host only for the owner's own projects, under a dedicated restricted OS account, inside a per-task workspace, read-only profile first, with approval for file changes. Any other or untrusted workload waits for Docker isolation (V3-1). See ADR-0018.
+
+## 12. Heterogeneous devices (proposed plan)
+
+Status: **[Proposed]**, designed, not executed. Recorded by PV-02 (owner question of 2026-11-17). Honest status: V1 is a Linux program; nothing here adds platform support.
+
+| Platform | Status | Label |
+|---|---|---|
+| Linux amd64 | The platform V1 is built and tested on | [Decided] confirmed by code reading: the development host is `linux/amd64`; the repository has no CI configuration |
+| Linux on other architectures (for example arm64) | Untested | [Proposed] first target is open (OD-25) |
+| Windows | Untested; no release artefact | [Proposed] |
+| macOS | Untested; no release artefact | [Proposed] |
+
+Rules and milestones:
+
+- OS-specific process handling (discovery, launching, process-tree cancellation) lives behind the Node Agent or adapter boundary and never in the common domain model. [Decided, design rule already in [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Platform support"]
+- Hardware and OS are reported as versioned inventory (`node_hardware`: OS, architecture); a platform mismatch is a placement filter ([`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Placement algorithm (proposed)"). [Proposed]
+- Telemetry libraries and platform support for the first slice: Linux first is acceptable (OD-08). [Decided as an open-decision constraint in [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md), not an answer]
+- A mixed-OS run is a V3-4 / V4-6 goal, not a V1 capability. Remote execution stays disabled until V3-1 and V3-2 pass. [Proposed milestone; the remote-execution gate is Decided in [`SECURITY.md`](SECURITY.md)]
+- A non-Linux target needs its own build, tests and an owner-approved task before it is called supported (OD-25). [Proposed]
