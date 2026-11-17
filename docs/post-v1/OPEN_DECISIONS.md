@@ -8,8 +8,9 @@ Already decided by the owner (2026-11-15, recorded in ADR-0018): D1 version plac
 
 | Needed before | Decisions |
 |---|---|
-| V2-1 | OD-08 telemetry libraries and platform support (Linux first is acceptable), OD-09 reservation model (node-level resources, worker-level slots), OD-19 node identity before V3 authentication |
-| V3-2 / V3-3 | OD-06 node and API authentication, OD-07 Node Agent deployment model, OD-20 workers per node and agent-process model, OD-13 sandbox (D2 covers the owner-only case) |
+| V2-1 | OD-08 telemetry libraries and platform support (Linux first is acceptable), OD-09 reservation model (node-level resources, worker-level slots), OD-19 node identity before V3 authentication, OD-23 time-to-live values (telemetry part) |
+| V2-3 | OD-21 score function and tie-break, OD-22 smoothing and hysteresis parameters (after V2-2), OD-23 time-to-live values, OD-24 job constraint fields |
+| V3-2 / V3-3 | OD-06 node and API authentication, OD-07 Node Agent deployment model, OD-20 workers per node and agent-process model, OD-13 sandbox (D2 covers the owner-only case), OD-25 first non-Linux target |
 | V4-0 / V4-1 | OD-10 workflow-to-job mapping, OD-11 artifact store, OD-12 workspace isolation |
 | V4-2 | OD-04 first provider, OD-05 verified CLI versions and invocation modes, OD-14 approval policy |
 | V4-4 | OD-02 planner model location, OD-03 planner credential ownership |
@@ -40,6 +41,11 @@ Already decided by the owner (2026-11-15, recorded in ADR-0018): D1 version plac
 | OD-18 | Redis Streams? | Preserve the existing V2 evaluation. Do not introduce Redis as source of truth or before a measured need. | V2-4 |
 | OD-19 | Node identity before V3 authentication | How a stable node ID is chosen and kept (for example a configured ID or a persisted generated ID). V3-2 later binds it to an authenticated enrollment. | V2-1 |
 | OD-20 | Workers per node | How many worker processes one node runs, and whether one agent process hosts several worker identities. | V3-3 |
+| OD-21 | Placement score function and tie-break (proposed filter-and-score, [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md)) | Options if known: weighted free capacity and measured speed; speed-only; capacity-only. Tie-break is proposed as ADR-0017 round-robin order. Not answered. Owner: owner. | V2-3 |
+| OD-22 | Smoothing parameters, hysteresis thresholds and N for median-of-N benchmarks | To be set from V2-2 measurements, not guessed. Options: exponential moving average factor and band widths. Not answered. Owner: owner. | V2-3 (after V2-2) |
+| OD-23 | Time-to-live values for capability and telemetry records | No options yet; derive from the measured heartbeat and sample interval. Not answered. Owner: owner. | V2-1 (telemetry) / V2-3 |
+| OD-24 | Job constraint field names and syntax (additive `/v1`) | Options: structured optional fields on job submit; label selectors. Must be additive (ADR-0004). Not answered. Owner: owner. | V2-3 |
+| OD-25 | First non-Linux target, and when it is built and tested | Options: Linux arm64, macOS, Windows. Needs its own build, tests and approved task. Not answered. Owner: owner. | V3-3 |
 
 ## Approval rule
 

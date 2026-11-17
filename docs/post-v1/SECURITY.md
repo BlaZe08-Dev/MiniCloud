@@ -95,6 +95,23 @@ Read-only analysis can have a less restrictive policy once identity and workspac
 - node resource exhaustion and process-tree leakage
 - split-brain coordinator and stale leader writes
 
+## AI noise controls (proposed)
+
+Status: the table mixes labels on purpose. [Decided] rows cite their source; [Proposed] rows need an ADR and owner approval. Nothing here is implemented. Recorded by PV-02 (owner question of 2026-11-17). Pipeline: [`INTELLIGENCE_DISPATCHER.md`](INTELLIGENCE_DISPATCHER.md) section "Validation pipeline (proposed)".
+
+| Problem | Control | Label |
+|---|---|---|
+| Malformed model output | Strict schema validation, bounded repair retries, then a clear failure | [Proposed] |
+| Invented tasks or tools | Fixed allowlist; no model-written shell strings | [Decided, ADR-0018] |
+| Cyclic or dangling plan | Acyclicity check by topological sort before anything runs | [Proposed] |
+| Prompt injection from repo or file content | Model output is untrusted advisory data; the deterministic scheduler decides; writes need approval | [Decided, ADR-0018 and D2] |
+| Noisy tool output | Normalize and truncate. Today `mc` strips terminal escapes from worker-supplied text (SEC-048, `docs/security/findings.md`, fixed in P4-07) and task output is capped at 64 KiB (`AGENTS.md` invariant 4). Applying the same normalization to AI CLI output is not built. | [Decided] for the SEC-048 `mc` sanitization and the 64 KiB cap; [Proposed] for AI CLI output |
+| Jumping CPU/RAM readings | Moving average with hysteresis | [Proposed] |
+| Stale device data | Time-to-live; expired counts as unknown | [Proposed] |
+| Noisy benchmark timings | Median of several runs | [Proposed] |
+| Repeated side effects on retry | One mutable workspace per attempt, plus backoff with jitter (worker poll loop `internal/worker/client.go:74`; job retries ADR-0015). Retry can still repeat external side effects; semantics stay at-least-once. | [Decided] (`AGENTS.md` post-V1 standing rules, invariant 5) |
+| Cost and run-time variance | Per-task timeouts and budgets enforced by the scheduler | [Proposed] for budgets; the V1 per-job timeout is [Decided] (`AGENTS.md` invariant 4) |
+
 ## V1 controls remain
 
 Preserve the existing V1 limits, lease semantics, state-machine validation, database lock ordering, secret redaction, security test workflow, and break-before-fix process. New AI execution must not weaken them.

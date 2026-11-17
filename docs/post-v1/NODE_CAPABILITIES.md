@@ -98,6 +98,45 @@ Then rank eligible candidates using deterministic policy inputs such as:
 
 A more powerful device is not automatically the best placement. A 16 GB RAM / 6 GB VRAM device may be suitable for some tasks, but the decision depends on the specific CLI, model, workload, current utilization, and required resources.
 
+## Placement algorithm (proposed)
+
+Status: **[Proposed]**, designed, not executed. Slice V2-3; needs the V2-3 ADR and owner approval (OD-21 to OD-25 in [`OPEN_DECISIONS.md`](OPEN_DECISIONS.md)). Recorded by PV-02 after the owner's question of 2026-11-17. Nothing here is implemented.
+
+### Shape: filter, then score, then tie-break
+
+| Step | Rule | Label |
+|---|---|---|
+| 1. Filter | Drop every worker that cannot run the job: task not in `supported_tasks`; OS or architecture mismatch; required tool missing (V4-3); no free slot; too little free RAM. A job constraint field would be additive to `/v1`. | [Proposed] |
+| 2. Score | Rank the survivors by free capacity and measured speed. The function is open (OD-21). | [Proposed] |
+| 3. Tie-break | Stable round-robin in ADR-0017 order: worker ID in byte order after the per-task-type cursor, wrapping. | [Proposed]; the rotation rule itself is [Decided, ADR-0017 section 2.3] |
+
+### Inputs
+
+| Input | Rule | Label |
+|---|---|---|
+| Speed | V2-2 benchmark results, the median of N runs (N open, OD-22). Not datasheet specs. | [Proposed] |
+| Telemetry (CPU load, free RAM) | Smoothed with an exponential moving average plus hysteresis (parameters set from V2-2 measurements, OD-22). | [Proposed] |
+| Freshness | Every capability and telemetry record has a time-to-live (values open, OD-23). An expired record counts as unknown. Unknown fails a hard constraint and never passes it. | [Proposed]; "absent data means unknown, never zero or unlimited" and "stale telemetry is never treated as current" are existing design text in [`ROADMAP.md`](ROADMAP.md) and the rules above, not an accepted ADR, so also [Proposed] |
+
+### What already exists (V1 code, not part of the proposal)
+
+| Fact | Where | Label |
+|---|---|---|
+| The assignment pass filters eligible workers by `supported_tasks`, health, heartbeat and poll recency, and free slots | `internal/storage/postgres/assignment.go:387` and `:476` (`$1::text = ANY(w.supported_tasks)`) | [Decided] confirmed by code reading |
+| The `fifo_pull` claim filters queued jobs by the worker's `supported_tasks` | `internal/storage/postgres/repository.go:848` (`task_type = ANY($1::text[])`) | [Decided] confirmed by code reading |
+| The fallback claim filters by `supported_tasks` | `internal/storage/postgres/assignment.go:578` | [Decided] confirmed by code reading |
+| Round-robin assignment with one cursor per task type | [ADR-0017](../adr/0017-assignment-round-robin.md) section 2.3 | [Decided] |
+| Capped exponential backoff with jitter on the worker poll loop | `internal/worker/client.go:74` (`ComputeBackoffWithJitter`) | [Decided] confirmed by code reading |
+| Capped exponential backoff with jitter for job retries | `internal/domain/retry.go` (`ComputeBackoff`, ADR-0015) | [Decided] confirmed by code reading |
+
+No V1 code filters by OS, architecture, tool or RAM, and nothing scores workers by speed or capacity.
+
+### V1 rules that stay
+
+- PostgreSQL is the source of truth; the coordinator decides placement; the worker only pulls ([AGENTS.md](../../AGENTS.md) hard rule 4 and the engineering rules).
+- The ADR-0017 invariants (INV-1 onward) must still hold; V2-3 does not change them without an ADR amendment.
+- The `/v1` API stays additive-only: a job constraint field is a new optional field, never a changed one (ADR-0004). `round_robin` and `fifo_pull` stay selectable.
+
 ## Registration and heartbeat
 
 Node identity and capability registration must be authenticated before any remote node is accepted (V3-2). Before V3, nodes exist only on the localhost deployment (SEC-004 mitigation unchanged). Separate slow-changing inventory from fast-changing telemetry to avoid rewriting large capability blobs on every heartbeat.
@@ -117,4 +156,4 @@ A slot represents a real concurrently supervised execution capacity, not merely 
 
 ## Platform support
 
-The design should be cross-platform. Process discovery and launching must account for Linux, macOS, and Windows differences. Do not hardcode PowerShell or a POSIX shell into the common domain model; implement platform-specific process handling behind the Node Agent/adapter boundary.
+The design should be cross-platform (a design goal, not a V1 capability; support status in [`ARCHITECTURE.md`](ARCHITECTURE.md) section 12). Process discovery and launching must account for Linux, macOS, and Windows differences. Do not hardcode PowerShell or a POSIX shell into the common domain model; implement platform-specific process handling behind the Node Agent/adapter boundary.
