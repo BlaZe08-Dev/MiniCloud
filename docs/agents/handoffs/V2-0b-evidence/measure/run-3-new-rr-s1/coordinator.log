@@ -1,0 +1,31 @@
+{"time":"2026-11-19T20:47:35.201040307+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-19T20:47:35.225014959+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":6,"max_conns":20}
+{"time":"2026-11-19T20:47:35.225104393+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-19T20:47:35.225778609+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18090"}
+{"time":"2026-11-19T20:47:35.34381186+05:30","level":"INFO","msg":"worker registered","worker_id":"w1","version":"v0.1.0","slots":1,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-19T20:47:35.980404823+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_41d642fa2aa6","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.023354465+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_b635892cff6b","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.037608321+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_0f65233a7434","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.050929458+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_4_f59fdc11b2ad","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.064344137+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_5_4c52e39b1ca8","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.082926473+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_6_8d64f8576872","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.096183818+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_7_52671ba5c6f4","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.114815336+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_8_55bc65807fa3","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T20:47:36.223065018+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_41d642fa2aa6","attempt_id":"att_job_1_41d642fa2aa6_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:47:41.245598553+05:30","level":"INFO","msg":"job result committed","job_id":"job_1_41d642fa2aa6","attempt_id":"att_job_1_41d642fa2aa6_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:47:42.283804847+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_2_b635892cff6b","attempt_id":"att_job_2_b635892cff6b_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:47:47.299069688+05:30","level":"INFO","msg":"job result committed","job_id":"job_2_b635892cff6b","attempt_id":"att_job_2_b635892cff6b_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:47:48.37249017+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_3_0f65233a7434","attempt_id":"att_job_3_0f65233a7434_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:47:53.381673832+05:30","level":"INFO","msg":"job result committed","job_id":"job_3_0f65233a7434","attempt_id":"att_job_3_0f65233a7434_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:47:54.41659918+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_4_f59fdc11b2ad","attempt_id":"att_job_4_f59fdc11b2ad_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:47:59.422997629+05:30","level":"INFO","msg":"job result committed","job_id":"job_4_f59fdc11b2ad","attempt_id":"att_job_4_f59fdc11b2ad_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:48:00.256230834+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_5_4c52e39b1ca8","attempt_id":"att_job_5_4c52e39b1ca8_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:48:05.26707159+05:30","level":"INFO","msg":"job result committed","job_id":"job_5_4c52e39b1ca8","attempt_id":"att_job_5_4c52e39b1ca8_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:48:06.297610666+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_6_8d64f8576872","attempt_id":"att_job_6_8d64f8576872_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:48:11.305098652+05:30","level":"INFO","msg":"job result committed","job_id":"job_6_8d64f8576872","attempt_id":"att_job_6_8d64f8576872_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:48:12.341102742+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_7_52671ba5c6f4","attempt_id":"att_job_7_52671ba5c6f4_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:48:17.349579924+05:30","level":"INFO","msg":"job result committed","job_id":"job_7_52671ba5c6f4","attempt_id":"att_job_7_52671ba5c6f4_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:48:18.385644206+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_8_55bc65807fa3","attempt_id":"att_job_8_55bc65807fa3_1","attempt_no":1,"worker_id":"w1","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T20:48:23.409523017+05:30","level":"INFO","msg":"job result committed","job_id":"job_8_55bc65807fa3","attempt_id":"att_job_8_55bc65807fa3_1","final_state":"SUCCEEDED","exit_code":0,"error_class":""}
+{"time":"2026-11-19T20:48:23.839545378+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-19T20:48:23.8400896+05:30","level":"INFO","msg":"coordinator stopped cleanly"}

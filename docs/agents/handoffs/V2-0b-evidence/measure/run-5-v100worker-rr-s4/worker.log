@@ -1,0 +1,22 @@
+{"time":"2026-11-19T20:49:19.172140058+05:30","level":"INFO","msg":"starting MiniCloud worker process...","worker_id":"w1"}
+{"time":"2026-11-19T20:49:19.173176969+05:30","level":"INFO","msg":"starting worker agent","worker_id":"w1","coordinator_url":"http://127.0.0.1:18090","slots":4}
+{"time":"2026-11-19T20:49:19.179433154+05:30","level":"INFO","msg":"worker successfully registered with coordinator","worker_id":"w1"}
+{"time":"2026-11-19T20:49:19.838553813+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_1_d91ca8f1ad14","attempt_id":"att_job_1_d91ca8f1ad14_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:24.86505621+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_1_d91ca8f1ad14","attempt_id":"att_job_1_d91ca8f1ad14_1","exit_code":0}
+{"time":"2026-11-19T20:49:25.109139935+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_2_a526ea5e644d","attempt_id":"att_job_2_a526ea5e644d_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:30.123073241+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_2_a526ea5e644d","attempt_id":"att_job_2_a526ea5e644d_1","exit_code":0}
+{"time":"2026-11-19T20:49:31.171775444+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_3_d2404b6ade04","attempt_id":"att_job_3_d2404b6ade04_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:36.194644901+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_3_d2404b6ade04","attempt_id":"att_job_3_d2404b6ade04_1","exit_code":0}
+{"time":"2026-11-19T20:49:37.067693446+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_4_7d2f4064876b","attempt_id":"att_job_4_7d2f4064876b_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:42.080279861+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_4_7d2f4064876b","attempt_id":"att_job_4_7d2f4064876b_1","exit_code":0}
+{"time":"2026-11-19T20:49:43.128272221+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_5_1ba9be2bd151","attempt_id":"att_job_5_1ba9be2bd151_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:48.137396492+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_5_1ba9be2bd151","attempt_id":"att_job_5_1ba9be2bd151_1","exit_code":0}
+{"time":"2026-11-19T20:49:49.177125552+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_6_fbf48427cc89","attempt_id":"att_job_6_fbf48427cc89_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:49:54.184746921+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_6_fbf48427cc89","attempt_id":"att_job_6_fbf48427cc89_1","exit_code":0}
+{"time":"2026-11-19T20:49:55.228562179+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_7_3bc8b11cf5ca","attempt_id":"att_job_7_3bc8b11cf5ca_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:50:00.24010578+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_7_3bc8b11cf5ca","attempt_id":"att_job_7_3bc8b11cf5ca_1","exit_code":0}
+{"time":"2026-11-19T20:50:01.077501132+05:30","level":"INFO","msg":"executing job assignment","job_id":"job_8_e06040a516f4","attempt_id":"att_job_8_e06040a516f4_1","task_type":"sleep","timeout_seconds":120}
+{"time":"2026-11-19T20:50:06.093513056+05:30","level":"INFO","msg":"result successfully committed","job_id":"job_8_e06040a516f4","attempt_id":"att_job_8_e06040a516f4_1","exit_code":0}
+{"time":"2026-11-19T20:50:06.421420332+05:30","level":"INFO","msg":"received termination signal, stopping worker agent","signal":"terminated"}
+{"time":"2026-11-19T20:50:06.507894993+05:30","level":"INFO","msg":"worker agent shutting down","worker_id":"w1"}
+{"time":"2026-11-19T20:50:06.507985004+05:30","level":"INFO","msg":"worker process exited cleanly"}
