@@ -268,7 +268,7 @@ Report for each: wall time, maximum concurrent attempts, attempts per job, lapse
 
 - **Back to today's behaviour without a code change:** start workers with `MINICLOUD_WORKER_SLOTS=1` (then `S = 1` whatever is declared), or run a worker binary that does not send the field (any v1.0.0 or `main` worker). `MINICLOUD_DISPATCH_POLICY=fifo_pull` remains the policy-level rollback (ADR-0017 Section 4.5).
 - **No coordinator-wide switch** is proposed: it would need `internal/config`, which is outside the Stage B scope (question Q4).
-- **Code rollback:** revert the Stage B commits. Migration `000006` is forward-only (ADR-0010); the column stays, older code neither reads nor writes it, and it is harmless.
+- **Code rollback:** revert the Stage B commits. Migration `000006` is forward-only (ADR-0010); the column stays and the older coordinator code neither reads nor writes it. It is not fully inert: a v1.0.0 worker that re-registers under the OLD coordinator leaves the stored flag `TRUE` (the old upsert does not touch it), so after a later roll-forward that worker would be given reservations although it cannot use them. **Decided** (audit evidence `mixed-rollback/summary.txt`). Operator step: Before rolling forward again, run `UPDATE workers SET executes_concurrently = false;` (workers that are still running send `true` again on their next register), or restart all workers.
 - **`/v1`:** additive only: one optional request field, one additive field on the worker view. No route, status code or error code changes.
 - **`fifo_pull`:** no change. `DispatchNextJob` and its tests, including `TestConformance_FifoPull_IgnoresAssignmentColumns`, stay as they are.
 
