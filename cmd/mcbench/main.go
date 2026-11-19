@@ -139,10 +139,15 @@ func run(args []string) error {
 func redact(s string) string {
 	fields := strings.Fields(s)
 	for i, f := range fields {
-		if strings.Contains(f, "://") && strings.Contains(f, "@") {
-			if u, err := url.Parse(strings.TrimPrefix(f, "-db-url=")); err == nil {
+		prefix := ""
+		raw := f
+		if strings.HasPrefix(f, "-db-url=") {
+			prefix, raw = "-db-url=", strings.TrimPrefix(f, "-db-url=")
+		}
+		if strings.Contains(raw, "://") && strings.Contains(raw, "@") {
+			if u, err := url.Parse(raw); err == nil {
 				u.User = nil
-				fields[i] = "-db-url=" + u.String()
+				fields[i] = prefix + u.String()
 			}
 		}
 	}

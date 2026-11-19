@@ -158,9 +158,13 @@ func TestResult_FormatRoundTrip(t *testing.T) {
 }
 
 func TestRedact_RemovesCredentials(t *testing.T) {
-	got := redact("-db-url=postgres://u:secret@127.0.0.1:5433/x -n 5")
-	if strings.Contains(got, "secret") {
-		t.Errorf("credential leaked: %s", got)
+	for in, want := range map[string]string{
+		"-db-url=postgres://u:secret@127.0.0.1:5433/x -n 5": "-db-url=postgres://127.0.0.1:5433/x -n 5",
+		"-db-url postgres://u:secret@127.0.0.1:5433/x -n 5": "-db-url postgres://127.0.0.1:5433/x -n 5",
+	} {
+		if got := redact(in); got != want {
+			t.Errorf("redact(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 
