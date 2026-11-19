@@ -243,11 +243,11 @@ The existing fault tests `TestFault_AssignedWorkerDiesBeforePoll`, `TestFault_As
 | M7 | `<=` instead of `<` in the rule | `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestReservationRoom_Table` (executed) |
 | M8a | Re-check under the worker row lock drops the whole sum clause | `TestPostgresRepository_Assign_RecheckUsesSlotRule` (executed by the auditor) |
 | M8b | Re-check drops only the live-reservation term `R` from the sum | `TestPostgresRepository_Assign_RecheckCountsLiveReservations/last_slot_filled_by_reservation` (executed in fix round 1) |
-| M8c | Re-check drops the cap `R < $4` (the parameter stays in use) | `TestPostgresRepository_Assign_RecheckCountsLiveReservations/eighth_reservation` (executed in fix round 1) |
+| M8c | Re-check drops the cap `R < $4` (the parameter stays in use) | `TestPostgresRepository_Assign_RecheckCountsLiveReservations/eighth_reservation` fails; `last_slot_filled_by_reservation` passes (executed in fix round 2, `-v`, this test only) |
 | M8d | Re-check keeps the `26b440a` predicate (snapshot changed only) | `TestPostgresRepository_Assign_RecheckUsesSlotRule` and the positive-path conformance tests `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `_ActiveAttemptsCountAgainstSlots`, `_ReservationCapPerWorker`, `_RotationWithMultiSlotWorkers`, `_ReRegisterLowerSlots_NoNewReservations` (executed in fix round 1; the auditor ran one test only) |
+| M9 | `UpsertWorker` does not overwrite the field on conflict | `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (executed) |
 
 M8b and M8c are not equivalent mutants. With one coordinator the advisory lock keeps `R` from growing between the pass snapshot and the re-check, but `TestPostgresRepository_Assign_RecheckCountsLiveReservations` makes it grow: a second connection holds the worker row lock while the pass is blocked on it, then commits a live reservation (the last free slot, or the 8th) and releases. The re-check must reject in each case, so the `R` terms are tested, not defence-only. M8d is stricter than a safe re-check on the positive path (it refuses a multi-slot worker the new rule accepts), so it fails the tests that expect those assignments.
-| M9 | `UpsertWorker` does not overwrite the field on conflict | `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (executed) |
 
 New and changed tests run at `-race -count=50`.
 
