@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# V2-0b audit: HTTP attempts to beat MaxReservationsPerWorker (8) and the A+R<S rule against a real
+# coordinator binary (round_robin, postgres) on the auditor's own throwaway database
+# minicloud_claudeaudit_test. A psql \watch monitor samples, every 100 ms, per worker:
+# S (assignable), A (PENDING/RUNNING attempts), R (live reservations).
+# usage: abuse-http.sh COORD_BIN MIGRATE_BIN OUTDIR
+set -u
+COORD=$1 MIGRATE=$2 OUT=$3
+ROOT=$(git rev-parse --show-toplevel)
+mkdir -p "$OUT"
+DB=minicloud_claudeaudit_test
+case "$DB" in minicloud_test|minicloud_claude_test|minicloud_gemini_test) echo REFUSED; exit 1;; esac
+printf '%s\n' "$DB" | grep -Eqx 'minicloud_[a-z0-9]+_test' || { echo REFUSED; exit 1; }
+BASE=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' "$ROOT/.env" | cut -d= -f2-)
+URL=$(printf '%s\n' "$BASE" | sed -E "s#/[^/?]+([?].*)?\$#/$DB\\1#")
+psqlq() { docker exec -i minicloud-postgres sh -c 'psql -X -A -t -F" " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d '"$DB"; }
+docker exec minicloud-postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS $1" -c "CREATE DATABASE $1"' sh "$DB" >/dev/null
+MINICLOUD_DATABASE_URL="$URL" "$MIGRATE" > "$OUT/migrate.log" 2>&1 || { cat "$OUT/migrate.log"; exit 1; }
+
+P=18091; C=http://127.0.0.1:$P
+MINICLOUD_HTTP_ADDR=127.0.0.1:$P MINICLOUD_STORAGE_DRIVER=postgres MINICLOUD_DATABASE_URL="$URL" \
+  MINICLOUD_DISPATCH_POLICY=round_robin "$COORD" > "$OUT/coordinator.log" 2>&1 &
+CPID=$!
+for i in $(seq 100); do curl -sf $C/healthz >/dev/null && break; sleep 0.1; done
+
+MONQ="SELECT to_char(clock_timestamp(),'HH24:MI:SS.MS') t, w.id, CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END s,
+ (SELECT count(*) FROM attempts a WHERE a.worker_id=w.id AND a.state IN ('PENDING','RUNNING')) a,
+ (SELECT count(*) FROM jobs j WHERE j.assigned_worker_id=w.id AND j.assignment_expires_at>clock_timestamp()) r
+ FROM workers w ORDER BY w.id"
+printf '%s \\watch i=0.1\n' "$MONQ" | psqlq > "$OUT/monitor.txt" 2>&1 &
+MPID=$!
+
+reg() { # id slots concurrent(json literal or omitted with "-")
+  local body
+  if [ "$3" = "-" ]; then body="{\"id\":\"$1\",\"version\":\"x\",\"total_slots\":$2,\"supported_tasks\":[\"sleep\"]}"
+  else body="{\"id\":\"$1\",\"version\":\"x\",\"total_slots\":$2,\"supported_tasks\":[\"sleep\"],\"executes_concurrently\":$3}"; fi
+  curl -s -o /dev/null -w '%{http_code}' -X POST $C/v1/workers/register -H 'Content-Type: application/json' -d "$body"
+}
+poll() { curl -s -o /dev/null -w '%{http_code}' -X POST $C/v1/workers/$1/poll -H 'Content-Type: application/json' -d '{}'; }
+hb() { curl -s -o /dev/null -X POST $C/v1/workers/$1/heartbeat -H 'Content-Type: application/json' -d '{"available_slots":1}'; }
+submit() { for i in $(seq "$1"); do curl -s -o /dev/null -w '%{http_code}\n' -X POST $C/v1/jobs -H 'Content-Type: application/json' \
+  -d '{"task_type":"sleep","payload":{"duration_ms":10000},"max_attempts":3,"timeout_seconds":120}'; done; }
+snap() { echo "== $1"; echo "$MONQ" | psqlq; }
+
+LOG="$OUT/attacks.txt"; : > "$LOG"
+IDS="w_quiet w_evil w_two"
+for n in $(seq -w 1 20); do IDS="$IDS w_s$n"; done
+( while true; do for id in $IDS; do hb $id; done; sleep 2; done ) > /dev/null 2>&1 &
+HPID=$!
+
+{
+echo "A0 register w_quiet 1024 declared, never polls: $(reg w_quiet 1024 true)"
+echo "A1 register w_evil 1024 declared: $(reg w_evil 1024 true); one poll on empty queue: $(poll w_evil)"
+echo "A1 submit 60 codes: $(submit 60 | sort | uniq -c | tr '\n' ' ')"
+echo "A1 fresh poll (queue full, no reservation yet): $(poll w_evil)"
+sleep 2.5
+snap "A1 after 60 jobs + 2.5 s (expect w_evil R<=8, w_quiet R=0)"
+
+echo "A2 re-register loop (40x) while reservations live, alternating flag and slots"
+codes=""
+for i in $(seq 40); do
+  case $((i % 4)) in 0) codes="$codes $(reg w_evil 1024 true)";; 1) codes="$codes $(reg w_evil 1024 false)";;
+                     2) codes="$codes $(reg w_evil 1 true)";; 3) codes="$codes $(reg w_evil 1024 -)";; esac
+  sleep 0.05
+done
+echo "A2 register codes:$codes"
+reg w_evil 1024 true >/dev/null
+snap "A2 after loop (last register 1024 declared)"
+
+echo "A3 poll storm: 30 parallel polls from w_evil"
+pids=""; for i in $(seq 30); do { poll w_evil; echo; } >> "$OUT/a3-codes.txt" & pids="$pids $!"; done; wait $pids
+echo "A3 poll codes: $(sort "$OUT/a3-codes.txt" 2>/dev/null | uniq -c | tr '\n' ' ')"
+sleep 2.5
+snap "A3 after storm + 2.5 s (expect w_evil R<=8, A<=1024)"
+
+echo "A4 sybil: 20 IDs, each 1024 declared, one poll each"
+for n in $(seq -w 1 20); do reg w_s$n 1024 true >/dev/null; poll w_s$n >/dev/null; done
+echo "A4 submit 60 codes: $(submit 60 | sort | uniq -c | tr '\n' ' ')"
+for n in $(seq -w 1 20); do poll w_s$n >/dev/null; done
+sleep 2.5
+snap "A4 after 20 IDs + 60 more jobs + 2.5 s (expect each R<=8)"
+
+echo "A5 small S race: w_two total_slots=2 declared, one poll, then 20 parallel polls"
+reg w_two 2 true >/dev/null; poll w_two >/dev/null; sleep 1.5
+pids=""; for i in $(seq 20); do { poll w_two; echo; } >> "$OUT/a5-codes.txt" & pids="$pids $!"; done; wait $pids
+echo "A5 poll codes: $(sort "$OUT/a5-codes.txt" | uniq -c | tr '\n' ' ')"
+sleep 2.5
+snap "A5 after race + 2.5 s (expect w_two A+R<=2)"
+
+echo "A6 input bounds"
+echo " total_slots 1025 declared: $(reg w_bad 1025 true)"
+echo " executes_concurrently \"true\" (string): $(reg w_bad 4 '"true"')"
+echo " executes_concurrently 1 (number): $(reg w_bad 4 1)"
+echo " executes_concurrently null: $(reg w_null 4 null) stored=$(echo "SELECT executes_concurrently FROM workers WHERE id='w_null'" | psqlq)"
+echo " total_slots 0: $(reg w_bad 0 true)"
+} >> "$LOG" 2>&1
+
+sleep 1
+kill $HPID $MPID 2>/dev/null; wait $HPID $MPID 2>/dev/null
+# killing the pipeline does not end the psql \watch inside the container; end it explicitly
+pkill -f "docker exec -i minicloud-postgres sh -c psql -X -A -t -F" 2>/dev/null
+docker exec minicloud-postgres sh -c 'psql -X -A -t -q -U "$POSTGRES_USER" -d postgres -c "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity WHERE datname = '"'"'$1'"'"' AND pid <> pg_backend_pid() AND query LIKE '"'"'SELECT to_char%'"'"'"' sh "$DB" > /dev/null
+kill -TERM $CPID; wait $CPID 2>/dev/null
+
+{
+echo "== monitor samples: $(grep -c . "$OUT/monitor.txt") rows"
+echo "== max R per worker over all samples"
+awk 'NF==5 && $5 ~ /^[0-9]+$/ {if ($5>m[$2]) m[$2]=$5} END {for (k in m) print k, m[k]}' "$OUT/monitor.txt" | sort
+echo "== samples with R > 8 (must be none)"
+awk 'NF==5 && $5 ~ /^[0-9]+$/ && $5>8' "$OUT/monitor.txt" | head
+echo "== samples with A+R > S (allowed only right after a re-register lowered S; FS-28 caveat)"
+awk 'NF==5 && $5 ~ /^[0-9]+$/ && $4+$5>$3 {c[$2]++} END {for (k in c) print k, c[k], "samples"}' "$OUT/monitor.txt" | sort
+echo "== JOB_ASSIGNED events per worker"
+echo "SELECT details->>'worker_id', count(*) FROM job_events WHERE event_type='JOB_ASSIGNED' GROUP BY 1 ORDER BY 1" | psqlq
+echo "== JOB_DISPATCHED per worker and policy"
+echo "SELECT details->>'worker_id', details->>'policy', count(*) FROM job_events WHERE event_type='JOB_DISPATCHED' GROUP BY 1,2 ORDER BY 1,2" | psqlq
+} >> "$LOG" 2>&1
+cat "$LOG"

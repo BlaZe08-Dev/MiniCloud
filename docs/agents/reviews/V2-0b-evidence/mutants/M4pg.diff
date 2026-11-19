@@ -1,0 +1,22 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index d508cb0..4a3bdc1 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -396,7 +396,7 @@ func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p sto
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+ 			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
+ 			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+-			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4;`,
++			AND $4::int > 0;`,
+ 		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker)
+ 	if err != nil {
+ 		return "", nil, false, mapPgError(err)
+@@ -485,7 +485,7 @@ func assignLockAndRecheck(ctx context.Context, tx pgx.Tx, workerID, ty string, p
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+ 			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
+ 			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+-			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4);`,
++			AND $4::int > 0);`,
+ 		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker, workerID).Scan(&eligible)
+ 	if err != nil {
+ 		return 0, mapPgError(err)

@@ -1,0 +1,22 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index d508cb0..ea39483 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -394,7 +394,7 @@ func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p sto
+ 			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
+ 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+-			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
++			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id)
+ 			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+ 			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4;`,
+ 		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker)
+@@ -483,7 +483,7 @@ func assignLockAndRecheck(ctx context.Context, tx pgx.Tx, workerID, ty string, p
+ 			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
+ 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
+ 			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+-			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
++			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id)
+ 			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+ 			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4);`,
+ 		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker, workerID).Scan(&eligible)

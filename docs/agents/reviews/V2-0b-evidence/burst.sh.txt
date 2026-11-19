@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# V2-0b audit, item 7: the untimed gap. Real coordinator + real worker binaries (branch b5aec6f),
+# round_robin, postgres, ONE worker with MINICLOUD_WORKER_SLOTS=8 (declares executes_concurrently),
+# NJOBS sleep jobs queued before the worker starts, so every pass meets a deep backlog.
+# Measures, from job_events on database time: reservation (JOB_ASSIGNED) -> claim (JOB_DISPATCHED) per
+# job; per burst (JOB_ASSIGNED events less than 100 ms apart = one pass) the time from the first
+# reservation to the last claim of that burst; lapse events; fallback claims; max concurrent attempts.
+# Own throwaway database minicloud_claudeaudit_test.
+# usage: burst.sh LABEL NJOBS SLEEP_MS COORD_BIN WORKER_BIN MIGRATE_BIN OUTDIR
+set -u
+LABEL=$1 NJOBS=$2 SLEEP_MS=$3 COORD=$4 WORKER=$5 MIGRATE=$6 OUT=$7/run-$1
+ROOT=$(git rev-parse --show-toplevel)
+rm -rf "$OUT"; mkdir -p "$OUT"
+DB=minicloud_claudeaudit_test
+case "$DB" in minicloud_test|minicloud_claude_test|minicloud_gemini_test) echo REFUSED; exit 1;; esac
+printf '%s\n' "$DB" | grep -Eqx 'minicloud_[a-z0-9]+_test' || { echo REFUSED; exit 1; }
+BASE=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' "$ROOT/.env" | cut -d= -f2-)
+URL=$(printf '%s\n' "$BASE" | sed -E "s#/[^/?]+([?].*)?\$#/$DB\\1#")
+psqlq() { docker exec -i minicloud-postgres sh -c 'psql -X -A -t -F" " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d '"$DB"; }
+docker exec minicloud-postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS $1" -c "CREATE DATABASE $1"' sh "$DB" >/dev/null
+MINICLOUD_DATABASE_URL="$URL" "$MIGRATE" > "$OUT/migrate.log" 2>&1 || { cat "$OUT/migrate.log"; exit 1; }
+
+P=18092; C=http://127.0.0.1:$P
+MINICLOUD_HTTP_ADDR=127.0.0.1:$P MINICLOUD_STORAGE_DRIVER=postgres MINICLOUD_DATABASE_URL="$URL" \
+  MINICLOUD_DISPATCH_POLICY=round_robin "$COORD" > "$OUT/coordinator.log" 2>&1 &
+CPID=$!
+for i in $(seq 100); do curl -sf $C/healthz >/dev/null && break; sleep 0.1; done
+for i in $(seq "$NJOBS"); do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST $C/v1/jobs -H 'Content-Type: application/json' \
+    -d "{\"task_type\":\"sleep\",\"payload\":{\"duration_ms\":$SLEEP_MS},\"max_attempts\":3,\"timeout_seconds\":120}"
+done | sort | uniq -c > "$OUT/submit-codes.txt"
+MINICLOUD_COORDINATOR_URL=$C MINICLOUD_WORKER_SLOTS=8 MINICLOUD_WORKER_ID=w1 "$WORKER" > "$OUT/worker.log" 2>&1 &
+WPID=$!
+for i in $(seq 3000); do
+  N=$(echo "SELECT count(*) FROM jobs WHERE state IN ('SUCCEEDED','FAILED','DEAD_LETTER','CANCELLED')" | psqlq)
+  [ "$N" = "$NJOBS" ] && break
+  sleep 0.1
+done
+kill -TERM $WPID; wait $WPID 2>/dev/null
+kill -TERM $CPID; wait $CPID 2>/dev/null
+
+{
+echo "label=$LABEL jobs=$NJOBS sleep_ms=$SLEEP_MS worker_slots=8 policy=round_robin coordinator=$COORD worker=$WORKER"
+echo "== submit codes"; cat "$OUT/submit-codes.txt"
+echo "== worker row (total_slots, executes_concurrently)"; echo "SELECT total_slots, executes_concurrently FROM workers" | psqlq
+echo "== job states"; echo "SELECT state, count(*) FROM jobs GROUP BY state ORDER BY state" | psqlq
+echo "== attempts per job (max)"; echo "SELECT max(n) FROM (SELECT count(*) n FROM attempts GROUP BY job_id) s" | psqlq
+echo "== max concurrent attempts"
+echo "WITH ev AS (SELECT started_at t, 1 d FROM attempts UNION ALL SELECT finished_at, -1 FROM attempts WHERE finished_at IS NOT NULL)
+      SELECT max(c) FROM (SELECT sum(d) OVER (ORDER BY t, d ROWS UNBOUNDED PRECEDING) c FROM ev) s" | psqlq
+echo "== wall time: worker registered -> last attempt finished (s)"
+echo "SELECT round(extract(epoch FROM (SELECT max(finished_at) FROM attempts) - (SELECT registered_at FROM workers))::numeric, 2)" | psqlq
+echo "== lapse events (JOB_ASSIGNMENT_LAPSED), revokes"
+echo "SELECT event_type, count(*) FROM job_events WHERE event_type IN ('JOB_ASSIGNMENT_LAPSED','JOB_ASSIGNMENT_REVOKED') GROUP BY 1" | psqlq
+echo "== JOB_DISPATCHED by policy"; echo "SELECT details->>'policy', count(*) FROM job_events WHERE event_type='JOB_DISPATCHED' GROUP BY 1 ORDER BY 1" | psqlq
+echo "== reservation -> claim per job, ms (n, min, p50, p95, max)"
+echo "WITH d AS (SELECT j.id, (SELECT max(e.created_at) FROM job_events e WHERE e.job_id=j.id AND e.event_type='JOB_ASSIGNED') a,
+                        (SELECT min(e.created_at) FROM job_events e WHERE e.job_id=j.id AND e.event_type='JOB_DISPATCHED') c FROM jobs j)
+      SELECT count(*), round(min(ms)), round(percentile_cont(0.5) WITHIN GROUP (ORDER BY ms)::numeric), round(percentile_cont(0.95) WITHIN GROUP (ORDER BY ms)::numeric), round(max(ms))
+      FROM (SELECT extract(epoch FROM c - a)*1000 ms FROM d WHERE a IS NOT NULL AND c IS NOT NULL AND c > a) s" | psqlq
+echo "== bursts (one pass = JOB_ASSIGNED events < 100 ms apart): burst, size, first reservation -> last claim (ms), max reservation->claim (ms)"
+echo "WITH a AS (SELECT job_id, created_at t FROM job_events WHERE event_type='JOB_ASSIGNED'),
+      l AS (SELECT job_id, t, CASE WHEN t - lag(t) OVER (ORDER BY t) > interval '100 ms' THEN 1 ELSE 0 END nb FROM a),
+      g AS (SELECT job_id, t, sum(nb) OVER (ORDER BY t) b FROM l),
+      c AS (SELECT g.b, g.t, (SELECT min(e.created_at) FROM job_events e WHERE e.job_id=g.job_id AND e.event_type='JOB_DISPATCHED' AND e.created_at > g.t) ct FROM g)
+      SELECT b, count(*), round(extract(epoch FROM max(ct) - min(t))*1000), round(max(extract(epoch FROM ct - t))*1000) FROM c GROUP BY b ORDER BY b" | psqlq
+echo "== burst summary: bursts, max size, max first-reservation->last-claim (ms)"
+echo "WITH a AS (SELECT job_id, created_at t FROM job_events WHERE event_type='JOB_ASSIGNED'),
+      l AS (SELECT job_id, t, CASE WHEN t - lag(t) OVER (ORDER BY t) > interval '100 ms' THEN 1 ELSE 0 END nb FROM a),
+      g AS (SELECT job_id, t, sum(nb) OVER (ORDER BY t) b FROM l),
+      c AS (SELECT g.b, g.t, (SELECT min(e.created_at) FROM job_events e WHERE e.job_id=g.job_id AND e.event_type='JOB_DISPATCHED' AND e.created_at > g.t) ct FROM g),
+      s AS (SELECT b, count(*) n, extract(epoch FROM max(ct) - min(t))*1000 ms FROM c GROUP BY b)
+      SELECT count(*), max(n), round(max(ms)) FROM s" | psqlq
+echo "== worker log: poll errors / backoffs"; grep -c -i 'backing off\|poll error' "$OUT/worker.log"
+} > "$OUT/summary.txt" 2>&1
+cat "$OUT/summary.txt"

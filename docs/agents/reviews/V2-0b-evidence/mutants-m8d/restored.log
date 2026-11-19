@@ -1,0 +1,11 @@
+$ go test -p 1 -count=1 -v -run ^(TestPostgresRepository_Assign_RecheckUsesSlotRule)$ ./internal/storage/ ./internal/storage/postgres/ ./tests/abuse/
+testing: warning: no tests to run
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s [no tests to run]
+=== RUN   TestPostgresRepository_Assign_RecheckUsesSlotRule
+--- PASS: TestPostgresRepository_Assign_RecheckUsesSlotRule (0.37s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.374s
+testing: warning: no tests to run
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.004s [no tests to run]

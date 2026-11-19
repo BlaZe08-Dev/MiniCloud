@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# V2-0b audit, item 2: mixed versions and the rollback story (ADR-0020 Section 2.10), real binaries,
+# own throwaway database minicloud_claudeaudit_test. Workers are simulated with curl (register bodies
+# as the real binaries send them: v1.0.0/main omit executes_concurrently, V2-0b sends true).
+#  step 1: branch migrate (schema 6), branch coordinator: register w_x with the field (V2-0b worker)
+#  step 2: code rollback: main 26b440a coordinator on the same schema-6 database (does it start?);
+#          register w_x WITHOUT the field (an operator swapped in a v1.0.0 worker under the same ID);
+#          also register w_new WITH the field (unknown field to the old decoder)
+#  step 3: roll forward: branch coordinator again, no re-registration (worker keeps heartbeating);
+#          what does the pass give the now-serial w_x?
+# usage: mixed-rollback.sh BRANCH_BIN_DIR MAIN_BIN_DIR OUTDIR
+set -u
+BB=$1 MB=$2 OUT=$3
+ROOT=$(git rev-parse --show-toplevel)
+rm -rf "$OUT"; mkdir -p "$OUT"
+DB=minicloud_claudeaudit_test
+case "$DB" in minicloud_test|minicloud_claude_test|minicloud_gemini_test) echo REFUSED; exit 1;; esac
+printf '%s\n' "$DB" | grep -Eqx 'minicloud_[a-z0-9]+_test' || { echo REFUSED; exit 1; }
+BASE=$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' "$ROOT/.env" | cut -d= -f2-)
+URL=$(printf '%s\n' "$BASE" | sed -E "s#/[^/?]+([?].*)?\$#/$DB\\1#")
+psqlq() { docker exec -i minicloud-postgres sh -c 'psql -X -A -t -F" " -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d '"$DB"; }
+docker exec minicloud-postgres sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS $1" -c "CREATE DATABASE $1"' sh "$DB" >/dev/null
+MINICLOUD_DATABASE_URL="$URL" "$BB/migrate" > "$OUT/migrate.log" 2>&1 || { cat "$OUT/migrate.log"; exit 1; }
+P=18093; C=http://127.0.0.1:$P
+start() { MINICLOUD_HTTP_ADDR=127.0.0.1:$P MINICLOUD_STORAGE_DRIVER=postgres MINICLOUD_DATABASE_URL="$URL" \
+  MINICLOUD_DISPATCH_POLICY=round_robin "$1" > "$OUT/coord-$2.log" 2>&1 & CPID=$!
+  for i in $(seq 100); do curl -sf $C/healthz >/dev/null && return 0; sleep 0.1; done; echo "coordinator $2 did not start"; tail -3 "$OUT/coord-$2.log"; }
+stop() { kill -TERM $CPID; wait $CPID 2>/dev/null; }
+reg() { curl -s -w ' %{http_code}' -X POST $C/v1/workers/register -H 'Content-Type: application/json' -d "$1"; echo; }
+poll() { curl -s -o /dev/null -w '%{http_code}' -X POST $C/v1/workers/$1/poll -H 'Content-Type: application/json' -d '{}'; }
+col() { echo "SELECT id, total_slots, executes_concurrently FROM workers ORDER BY id" | psqlq; }
+OLD='{"id":"w_x","version":"v0.1.0","total_slots":4,"available_slots":4,"supported_tasks":["echo","sleep","sha256_loop"]}'
+NEW='{"id":"w_x","version":"v0.1.0","total_slots":4,"available_slots":4,"supported_tasks":["echo","sleep","sha256_loop"],"executes_concurrently":true}'
+NEW2='{"id":"w_new","version":"v0.1.0","total_slots":4,"available_slots":4,"supported_tasks":["echo","sleep","sha256_loop"],"executes_concurrently":true}'
+{
+echo "schema version: $(echo 'SELECT max(version) FROM schema_migrations' | psqlq)"
+echo "== step 1: branch coordinator, w_x registers as a V2-0b worker"
+start "$BB/coordinator" step1; echo "register: $(reg "$NEW")"; col; stop
+echo "== step 2: main 26b440a coordinator on the schema-6 database"
+start "$MB/coordinator" step2; grep -o '"msg":"connected to postgres storage"[^}]*' "$OUT/coord-step2.log"
+echo "w_x re-registers WITHOUT the field (v1.0.0 binary under the same ID): $(reg "$OLD")"
+echo "w_new registers WITH the field (unknown to the old decoder): $(reg "$NEW2")"
+echo "GET /v1/workers on the old coordinator:"; curl -s $C/v1/workers; echo
+col; stop
+echo "== step 3: roll forward to the branch coordinator, no re-registration"
+start "$BB/coordinator" step3
+col
+echo "w_x heartbeat (the real worker keeps heartbeating, it does not re-register): $(curl -s -o /dev/null -w '%{http_code}' -X POST $C/v1/workers/w_x/heartbeat -H 'Content-Type: application/json' -d '{"available_slots":4}')"
+echo "w_x poll on empty queue (freshness): $(poll w_x)"
+for i in 1 2 3 4 5 6; do curl -s -o /dev/null -X POST $C/v1/jobs -H 'Content-Type: application/json' \
+  -d '{"task_type":"sleep","payload":{"duration_ms":1000},"max_attempts":3,"timeout_seconds":60}'; done
+echo "w_x poll again after 6 jobs (keeps it fresh): $(poll w_x)"
+sleep 2.5
+echo "live reservations per worker 2.5 s later (a serial worker should hold at most 1):"
+echo "SELECT assigned_worker_id, count(*) FROM jobs WHERE assignment_expires_at > clock_timestamp() GROUP BY 1 ORDER BY 1" | psqlq
+echo "attempts per worker:"; echo "SELECT worker_id, state, count(*) FROM attempts GROUP BY 1,2 ORDER BY 1,2" | psqlq
+stop
+} > "$OUT/summary.txt" 2>&1
+cat "$OUT/summary.txt"

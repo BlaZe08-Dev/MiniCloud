@@ -1,0 +1,7 @@
+$ go test -p 1 -count=1 -v -run ^(TestConformance_Worker_ExecutesConcurrentlyRoundTrip)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Worker_ExecutesConcurrentlyRoundTrip
+    assignment_slots.go:350: re-registered without the declaration: GetWorker executes_concurrently=true, want false
+--- FAIL: TestConformance_Worker_ExecutesConcurrentlyRoundTrip (0.30s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.309s
+FAIL

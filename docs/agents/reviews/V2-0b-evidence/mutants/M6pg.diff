@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index d508cb0..05d8af0 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -669,7 +669,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE assigned_worker_id = $1 AND assignment_expires_at > clock_timestamp();`, workerID).Scan(&reserved); err != nil {
+ 			return nil, mapPgError(err)
+ 		}
+-		if !domain.HasFallbackRoom(domain.AssignableSlots(concurrent, totalSlots), activeWorkerAttempts, reserved) {
++		if !domain.HasFallbackRoom(domain.AssignableSlots(concurrent, totalSlots), activeWorkerAttempts, 0) {
+ 			return nil, domain.ErrWorkerNoCapacity
+ 		}
+ 	}
