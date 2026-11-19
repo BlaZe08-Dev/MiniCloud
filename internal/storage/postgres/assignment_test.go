@@ -923,3 +923,122 @@ func TestPostgresRepository_DeleteWorkerWithReservation_Rejected(t *testing.T) {
 		t.Fatalf("control: deleting a worker without a reservation: %v", err)
 	}
 }
+
+// ADR-0020 (V2-0b): the round-robin pass and the fallback claim use the worker's real slots.
+
+func TestConformance_Assign_ReservationsUpToDeclaredSlots(t *testing.T) {
+	storagetest.RunAssignReservationsUpToDeclaredSlotsConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_ActiveAttemptsCountAgainstSlots(t *testing.T) {
+	storagetest.RunAssignActiveAttemptsCountAgainstSlotsConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_ReservationCapPerWorker(t *testing.T) {
+	storagetest.RunAssignReservationCapPerWorkerConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_ExpiredReservationDoesNotHoldSlot(t *testing.T) {
+	storagetest.RunAssignExpiredReservationDoesNotHoldSlotConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot(t *testing.T) {
+	storagetest.RunAssignUndeclaredFourSlotWorkerKeepsOneSlotConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_RotationWithMultiSlotWorkers(t *testing.T) {
+	storagetest.RunAssignRotationWithMultiSlotWorkersConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Claim_FallbackRespectsReservedSlots(t *testing.T) {
+	storagetest.RunClaimFallbackRespectsReservedSlotsConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations(t *testing.T) {
+	storagetest.RunAssignReRegisterLowerSlotsNoNewReservationsConformance(t, newPostgresAssignmentHarness)
+}
+
+func TestConformance_Worker_ExecutesConcurrentlyRoundTrip(t *testing.T) {
+	storagetest.RunWorkerExecutesConcurrentlyRoundTripConformance(t, newPostgresAssignmentHarness(t).Repo)
+}
+
+// TestPostgresRepository_Assign_RecheckUsesSlotRule: ADR-0020 Section 2.7, the re-check under the
+// worker row lock applies the real-slot rule, not only the snapshot. w_1 does not declare
+// concurrency and has total_slots 2, so it has one assignable slot. A second connection (an
+// in-flight claim) holds w_1's row and inserts a RUNNING attempt for it, uncommitted. The pass's
+// snapshot therefore sees w_1 eligible and waits for the row. The connection commits while the pass
+// waits; the re-check must then see A = 1 of 1 assignable slot and reserve nothing. A re-check
+// that kept only total_slots - A > 0 would reserve job_1 to w_1 (1 of 2 slots used).
+func TestPostgresRepository_Assign_RecheckUsesSlotRule(t *testing.T) {
+	ctx := context.Background()
+	h, pool, repo := newPostgresAssignmentHarnessWithRepo(t, postgres.WithSweepLockTimeout(5*time.Second))
+	storagetest.AssignAddWorker(t, h, "w_1", 2, "echo")
+	storagetest.AssignPoll(t, h, "w_1")
+	storagetest.AssignSubmit(t, h, "job_1", "echo")
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs (id, task_type, payload, state) VALUES ('job_run', 'echo', '\x00', 'RUNNING')`); err != nil {
+		t.Fatalf("insert job_run: %v", err)
+	}
+
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = holder.Rollback(ctx) }()
+	if _, err := holder.Exec(ctx, `SELECT id FROM workers WHERE id = 'w_1' FOR UPDATE`); err != nil {
+		t.Fatalf("hold w_1: %v", err)
+	}
+	if _, err := holder.Exec(ctx, `
+		INSERT INTO attempts (id, job_id, attempt_no, worker_id, lease_token_hash, state, lease_expires_at)
+		VALUES ('att_run_1', 'job_run', 1, 'w_1', repeat('a', 64), 'RUNNING', clock_timestamp() + INTERVAL '30 seconds')`); err != nil {
+		t.Fatalf("insert the in-flight attempt: %v", err)
+	}
+	var holderPID int
+	if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
+		t.Fatal(err)
+	}
+
+	type passOut struct {
+		res storage.AssignResult
+		err error
+	}
+	done := make(chan passOut, 1)
+	go func() {
+		res, err := repo.AssignQueuedJobs(ctx, storagetest.AssignTestParams())
+		done <- passOut{res, err}
+	}()
+
+	// Wait until the pass is blocked on w_1's row (it took its snapshot first), then commit.
+	deadline := time.Now().Add(4 * time.Second)
+	for {
+		var waiting int
+		if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND $1 = ANY(pg_blocking_pids(pid))`, holderPID).Scan(&waiting); err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		select {
+		case out := <-done:
+			t.Fatalf("pass finished without waiting on w_1's row: res=%+v err=%v (the snapshot did not see w_1 as eligible)", out.res, out.err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the pass never waited on w_1's row lock")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err := holder.Commit(ctx); err != nil {
+		t.Fatalf("commit the in-flight attempt: %v", err)
+	}
+
+	out := <-done
+	if out.err != nil {
+		t.Fatalf("pass: %v", out.err)
+	}
+	if got := reservedTo(t, pool, "job_1"); got != "" {
+		t.Fatalf("job_1 reserved to %q after the re-check; w_1 has 1 RUNNING attempt of 1 assignable slot", got)
+	}
+	if out.res.Reserved != 0 {
+		t.Fatalf("pass reserved %d, want 0", out.res.Reserved)
+	}
+}

@@ -341,3 +341,41 @@ func TestLapseCounts_PendingEndsAtUntil(t *testing.T) {
 		}
 	}
 }
+
+// ADR-0020 (V2-0b): the round-robin pass and the fallback claim use the worker's real slots.
+
+func TestConformance_Assign_ReservationsUpToDeclaredSlots(t *testing.T) {
+	storagetest.RunAssignReservationsUpToDeclaredSlotsConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_ActiveAttemptsCountAgainstSlots(t *testing.T) {
+	storagetest.RunAssignActiveAttemptsCountAgainstSlotsConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_ReservationCapPerWorker(t *testing.T) {
+	storagetest.RunAssignReservationCapPerWorkerConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_ExpiredReservationDoesNotHoldSlot(t *testing.T) {
+	storagetest.RunAssignExpiredReservationDoesNotHoldSlotConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot(t *testing.T) {
+	storagetest.RunAssignUndeclaredFourSlotWorkerKeepsOneSlotConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_RotationWithMultiSlotWorkers(t *testing.T) {
+	storagetest.RunAssignRotationWithMultiSlotWorkersConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Claim_FallbackRespectsReservedSlots(t *testing.T) {
+	storagetest.RunClaimFallbackRespectsReservedSlotsConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations(t *testing.T) {
+	storagetest.RunAssignReRegisterLowerSlotsNoNewReservationsConformance(t, newInMemoryAssignmentHarness)
+}
+
+func TestConformance_Worker_ExecutesConcurrentlyRoundTrip(t *testing.T) {
+	storagetest.RunWorkerExecutesConcurrentlyRoundTripConformance(t, newInMemoryAssignmentHarness(t).Repo)
+}
