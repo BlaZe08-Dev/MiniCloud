@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const (
@@ -33,6 +35,25 @@ func CheckDatabaseURL(raw, allowedName string) error {
 	name := strings.TrimPrefix(u.Path, "/")
 	if name != allowedName {
 		return fmt.Errorf("SAFETY VIOLATION: database %q is not the allowed database %q", name, allowedName)
+	}
+	// pgx lets query parameters override the URL path and host, so only sslmode is allowed.
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return fmt.Errorf("SAFETY VIOLATION: database URL query does not parse")
+	}
+	for k := range q {
+		if !strings.EqualFold(k, "sslmode") {
+			return fmt.Errorf("SAFETY VIOLATION: database URL query parameter %q is not allowed (only sslmode)", k)
+		}
+	}
+	// Belt and braces: parse the way the driver does (never connect) and check the result.
+	cfg, err := pgconn.ParseConfig(raw)
+	if err != nil {
+		return fmt.Errorf("SAFETY VIOLATION: database URL does not parse as a connection string")
+	}
+	if cfg.Database != allowedName || cfg.Host != allowedDBHost || fmt.Sprint(cfg.Port) != allowedDBPort || len(cfg.Fallbacks) > 0 {
+		return fmt.Errorf("SAFETY VIOLATION: effective connection %s:%d/%s is not the allowed %s:%s/%s",
+			cfg.Host, cfg.Port, cfg.Database, allowedDBHost, allowedDBPort, allowedName)
 	}
 	return nil
 }

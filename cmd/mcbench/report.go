@@ -122,6 +122,10 @@ func (r *Result) Markdown() string {
 		e.LoadAfter.One, e.LoadAfter.Five, e.LoadAfter.Fifteen, e.StartedAt, e.EndedAt, e.IdleCheck, e.MaxLoad)
 	b.WriteString("| series | unit | N | min | median | p95 | max | warm-up discarded |\n|---|---|---|---|---|---|---|---|\n")
 	for _, s := range r.Series {
+		if s.Stats.N == 0 {
+			fmt.Fprintf(&b, "| %s | %s | 0 | n/a | n/a | n/a | n/a | %d |\n", s.Name, s.Unit, len(s.Warmup))
+			continue
+		}
 		p95 := fmt.Sprintf("%.3f", s.Stats.P95)
 		if s.Stats.P95IsMax {
 			p95 += " (= max, N<20)"

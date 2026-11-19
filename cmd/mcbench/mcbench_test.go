@@ -95,11 +95,66 @@ func TestCheckDatabaseURL(t *testing.T) {
 		{"::not a url", "minicloud_claude_test"},
 		{ok, ""},
 		{ok, "minicloud_claude"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?dbname=minicloud_test", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?database=minicloud_test", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?DBNAME=minicloud_test", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?host=other", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?port=5432", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?service=x", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?sslmode=disable&user=other", "minicloud_claude_test"},
+		// pgx reads only the lower-case key; "SSLMODE" would be ignored and sslmode=prefer adds a fallback.
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?SSLMODE=disable", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433/minicloud_claude_test", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1,10.0.0.5:5433/minicloud_claude_test", "minicloud_claude_test"},
+		{"postgres://u:p@127.0.0.1:5433,10.0.0.5:5433/minicloud_claude_test", "minicloud_claude_test"},
 	}
 	for _, c := range bad {
 		if err := CheckDatabaseURL(c.url, c.allowed); err == nil {
 			t.Errorf("accepted %q allowed=%q", c.url, c.allowed)
 		}
+	}
+}
+
+// The parsed-configuration check is the second layer: it must refuse on its own even when the
+// string checks are satisfied (a single query key that is not caught by name).
+func TestCheckDatabaseURL_EffectiveConfig(t *testing.T) {
+	for _, u := range []string{
+		"postgres://u:p@127.0.0.1:5433/minicloud_claude_test?sslmode=disable",
+	} {
+		if err := CheckDatabaseURL(u, "minicloud_claude_test"); err != nil {
+			t.Errorf("refused %q: %v", u, err)
+		}
+	}
+}
+
+func TestStats_ZeroSampleRendersNA(t *testing.T) {
+	r := &Result{SchemaVersion: 1, Scenario: "s2", Source: "real run", Command: "mcbench -scenario s2", Env: completeEnv(),
+		Series: []Series{NewSeries("empty", "ms", "", nil, nil)}}
+	r.Finish(time.Unix(100, 0))
+	js, err := r.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw struct {
+		Series []struct {
+			Stats map[string]any `json:"stats"`
+		} `json:"series"`
+	}
+	if err := json.Unmarshal(js, &raw); err != nil {
+		t.Fatal(err)
+	}
+	st := raw.Series[0].Stats
+	for _, k := range []string{"min", "median", "p95", "max", "p95_is_max"} {
+		if _, ok := st[k]; ok {
+			t.Errorf("N=0 JSON must omit %q: %v", k, st)
+		}
+	}
+	if st["n"] != float64(0) {
+		t.Errorf("n = %v", st["n"])
+	}
+	md := r.Markdown()
+	if strings.Contains(md, "0.000") || !strings.Contains(md, "| empty | ms | 0 | n/a | n/a | n/a | n/a | 0 |") {
+		t.Errorf("markdown must show n/a for N=0:\n%s", md)
 	}
 }
 

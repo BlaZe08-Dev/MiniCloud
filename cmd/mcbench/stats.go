@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"math"
 	"sort"
 )
@@ -15,6 +16,16 @@ type Stats struct {
 	P95      float64 `json:"p95"`
 	Max      float64 `json:"max"`
 	P95IsMax bool    `json:"p95_is_max"`
+}
+
+// MarshalJSON omits every summary number when N is 0 (there is nothing to summarise), so a
+// reader cannot mistake an empty series for a 0 ms one. The record then carries only "n": 0.
+func (s Stats) MarshalJSON() ([]byte, error) {
+	if s.N == 0 {
+		return []byte(`{"n":0}`), nil
+	}
+	type plain Stats
+	return json.Marshal(plain(s))
 }
 
 // Percentile returns the nearest-rank percentile (0 < p <= 100) of an already sorted slice.
