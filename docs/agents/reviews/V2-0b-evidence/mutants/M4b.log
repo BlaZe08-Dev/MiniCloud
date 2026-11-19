@@ -1,0 +1,60 @@
+$ go test -p 1 -count=1 -v -run ^(TestConformance_Assign_ReservationCapPerWorker|TestAbuse_Register_LargeDeclaredSlots_ReservationCap)$ ./internal/storage/ ./tests/abuse/
+=== RUN   TestConformance_Assign_ReservationCapPerWorker
+    assignment_slots.go:136: pass reserved 9 to a 1024-slot worker, want the cap 8
+--- FAIL: TestConformance_Assign_ReservationCapPerWorker (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+=== RUN   TestAbuse_Register_LargeDeclaredSlots_ReservationCap
+=== RUN   TestAbuse_Register_LargeDeclaredSlots_ReservationCap/memory
+2026/11/19 21:38:53 INFO worker registered worker_id=w_big version=sec slots=1024 supported_tasks="[echo sleep sha256_loop]"
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_1_3657d7f986b0 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_2_129544c542e2 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_3_fef8b526857e task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_4_530148d176d3 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_5_df1d4a7011d5 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_6_47a81e8eab2c task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_7_a1c50745a2ee task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_8_d4606c744c71 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_9_9b72a946451e task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_10_d315d18cfd9a task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_11_f44fa17c7735 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_12_f5e18d31e5a2 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_13_d286de560752 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_14_ee5047e01319 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_15_13ee958965bb task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_16_9b32e7f3a1af task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_17_c34b7785f274 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_18_c22d09877b81 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_19_c599f20ec441 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_20_60d877888c22 task_type=echo state=QUEUED max_attempts=3
+    real_slots_test.go:51: w_big holds 9 of 20 jobs after one round, want the cap 8
+=== RUN   TestAbuse_Register_LargeDeclaredSlots_ReservationCap/postgres
+2026/11/19 21:38:53 INFO worker registered worker_id=w_big version=sec slots=1024 supported_tasks="[echo sleep sha256_loop]"
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_21_089f0dfb2f59 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_22_ab64d655fd2c task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_23_45ce02ef376b task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_24_41e4c323e8f3 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_25_15d6606c8074 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_26_5546cedd4b56 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_27_47f61a0d68db task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_28_4773200fee3a task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_29_86af14952352 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_30_f1e8076766aa task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_31_f978118d8e69 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_32_178f315b5e02 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_33_c9860d3bfa45 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_34_44ab5148bc8e task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_35_4c1b56e9865a task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_36_796210e1c43b task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_37_b8d56bc34add task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_38_f7fa4f2cab16 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_39_d95330e2eebd task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO job submitted and queued job_id=job_40_35d4f0542a70 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 21:38:53 INFO worker registered worker_id=w_honest version=sec slots=1 supported_tasks="[echo sleep sha256_loop]"
+2026/11/19 21:38:53 INFO job dispatched to worker job_id=job_21_089f0dfb2f59 attempt_id=att_job_21_089f0dfb2f59_1 attempt_no=1 worker_id=w_honest policy=round_robin fallback_reason=""
+--- FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap (0.56s)
+    --- FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap/memory (0.01s)
+    --- PASS: TestAbuse_Register_LargeDeclaredSlots_ReservationCap/postgres (0.54s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.563s
+FAIL

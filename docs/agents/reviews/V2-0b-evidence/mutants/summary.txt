@@ -1,0 +1,13 @@
+M4a | drop R<M in domain.CanReserve | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap TestConformance_Assign_ReservationCapPerWorker | SKIP: -
+M4b | off by one: R<=M in domain.CanReserve | occurrences=2 (all) | rc=1 | KILLED | top-level FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap TestConformance_Assign_ReservationCapPerWorker | SKIP: -
+M4pg | drop R<$4 in BOTH PostgreSQL copies | occurrences=2 (all) | rc=1 | KILLED | top-level FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap TestConformance_Assign_ReservationCapPerWorker | SKIP: -
+M5 | in-memory live count ignores expiry | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Assign_ExpiredReservationDoesNotHoldSlot | SKIP: -
+M5pg | PostgreSQL sum term ignores expiry (both copies) | occurrences=2 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Assign_ExpiredReservationDoesNotHoldSlot | SKIP: -
+M6 | in-memory fallback check ignores reservations (R=0) | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Claim_FallbackRespectsReservedSlots | SKIP: -
+M6pg | PostgreSQL fallback check ignores reservations (R=0) | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Claim_FallbackRespectsReservedSlots | SKIP: -
+M8a | PostgreSQL re-check drops the slot-sum clause (snapshot unchanged) | occurrences=2 (last) | rc=1 | KILLED | top-level FAIL: TestPostgresRepository_Assign_RecheckUsesSlotRule | SKIP: -
+M8b | PostgreSQL re-check drops only the R term of the sum (snapshot unchanged) | occurrences=2 (last) | rc=0 | SURVIVED | top-level FAIL: - | SKIP: -
+M8c | PostgreSQL re-check drops R<$4 (snapshot unchanged) | occurrences=1 (last) | rc=0 | SURVIVED | top-level FAIL: - | SKIP: -
+M9a | UpsertWorker does not overwrite the flag on conflict | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Worker_ExecutesConcurrentlyRoundTrip | SKIP: -
+M9b | UpsertWorker makes the flag sticky (OR) | occurrences=1 (all) | rc=1 | KILLED | top-level FAIL: TestConformance_Worker_ExecutesConcurrentlyRoundTrip | SKIP: -
+RESTORED | rc=0 | top-level PASS 6 FAIL 0 SKIP 0 | TestAbuse_Register_LargeDeclaredSlots_ReservationCap TestConformance_Assign_ExpiredReservationDoesNotHoldSlot TestConformance_Assign_ReservationCapPerWorker TestConformance_Claim_FallbackRespectsReservedSlots TestConformance_Worker_ExecutesConcurrentlyRoundTrip TestPostgresRepository_Assign_RecheckUsesSlotRule

@@ -1,0 +1,7 @@
+$ go test -p 1 -count=1 -v -run ^(TestPostgresRepository_Assign_RecheckUsesSlotRule|TestConformance_Assign_ReservationCapPerWorker)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_ReservationCapPerWorker
+--- PASS: TestConformance_Assign_ReservationCapPerWorker (0.54s)
+=== RUN   TestPostgresRepository_Assign_RecheckUsesSlotRule
+--- PASS: TestPostgresRepository_Assign_RecheckUsesSlotRule (0.38s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.928s

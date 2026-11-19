@@ -1,0 +1,31 @@
+label=s100 jobs=60 sleep_ms=100 worker_slots=8 policy=round_robin coordinator=/tmp/claude-1000/-home-blazeee-MiniCloud-claude/d1234dcf-0672-49a4-8fc4-061337c087d2/scratchpad/bin-branch/coordinator worker=/tmp/claude-1000/-home-blazeee-MiniCloud-claude/d1234dcf-0672-49a4-8fc4-061337c087d2/scratchpad/bin-branch/worker
+== submit codes
+     60 201
+== worker row (total_slots, executes_concurrently)
+8 t
+== job states
+SUCCEEDED 60
+== attempts per job (max)
+1
+== max concurrent attempts
+8
+== wall time: worker registered -> last attempt finished (s)
+8.33
+== lapse events (JOB_ASSIGNMENT_LAPSED), revokes
+== JOB_DISPATCHED by policy
+round_robin 60
+== reservation -> claim per job, ms (n, min, p50, p95, max)
+60 29 183 277 299
+== bursts (one pass = JOB_ASSIGNED events < 100 ms apart): burst, size, first reservation -> last claim (ms), max reservation->claim (ms)
+0 8 155 122
+1 8 124 93
+2 8 78 59
+3 8 302 276
+4 8 269 237
+5 8 290 260
+6 8 329 299
+7 4 239 230
+== burst summary: bursts, max size, max first-reservation->last-claim (ms)
+8 8 329
+== worker log: poll errors / backoffs
+0

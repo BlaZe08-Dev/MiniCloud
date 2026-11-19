@@ -1,0 +1,2 @@
+M8d | ADR-0020 M8 as written: the re-check keeps the OLD (main 26b440a) predicate, snapshot unchanged | occurrences=1 (last) | rc=0 | SURVIVED | top-level FAIL: - | SKIP: -
+RESTORED | rc=0 | top-level PASS 1 FAIL 0 SKIP 0 | TestPostgresRepository_Assign_RecheckUsesSlotRule

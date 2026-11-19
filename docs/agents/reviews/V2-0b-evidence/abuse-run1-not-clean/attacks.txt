@@ -1,0 +1,149 @@
+A0 register w_quiet 1024 declared, never polls: 200
+A1 register w_evil 1024 declared: 200; one poll on empty queue: 204
+A1 submit 60 codes:      60 201 
+A1 fresh poll (queue full, no reservation yet): 200
+== A1 after 60 jobs + 2.5 s (expect w_evil R<=8, w_quiet R=0)
+16:06:58.850 w_evil 1024 1 8
+16:06:58.850 w_quiet 1024 0 0
+A2 re-register loop (40x) while reservations live, alternating flag and slots
+A2 register codes: 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200 200
+== A2 after loop (last register 1024 declared)
+16:07:02.337 w_evil 1024 1 0
+16:07:02.337 w_quiet 1024 0 0
+A3 poll storm: 30 parallel polls from w_evil
+A3 poll codes:       2        8 200      19 204       1 204204204 
+== A3 after storm + 2.5 s (expect w_evil R<=8, A<=1024)
+16:07:05.668 w_evil 1024 9 8
+16:07:05.669 w_quiet 1024 0 0
+A4 sybil: 20 IDs, each 1024 declared, one poll each
+A4 submit 60 codes:      60 201 
+== A4 after 20 IDs + 60 more jobs + 2.5 s (expect each R<=8)
+16:07:10.638 w_evil 1024 9 0
+16:07:10.638 w_quiet 1024 0 0
+16:07:10.638 w_s01 1024 1 5
+16:07:10.638 w_s02 1024 1 5
+16:07:10.638 w_s03 1024 1 5
+16:07:10.638 w_s04 1024 1 5
+16:07:10.638 w_s05 1024 1 5
+16:07:10.638 w_s06 1024 1 5
+16:07:10.638 w_s07 1024 1 5
+16:07:10.638 w_s08 1024 1 5
+16:07:10.638 w_s09 1024 1 5
+16:07:10.638 w_s10 1024 1 5
+16:07:10.638 w_s11 1024 1 5
+16:07:10.638 w_s12 1024 1 4
+16:07:10.638 w_s13 1024 1 4
+16:07:10.638 w_s14 1024 1 4
+16:07:10.638 w_s15 1024 1 4
+16:07:10.638 w_s16 1024 1 4
+16:07:10.638 w_s17 1024 1 4
+16:07:10.638 w_s18 1024 1 4
+16:07:10.638 w_s19 1024 1 4
+16:07:10.638 w_s20 1024 1 4
+A5 small S race: w_two total_slots=2 declared, one poll, then 20 parallel polls
+A5 poll codes:       1 200      19 204 
+== A5 after race + 2.5 s (expect w_two A+R<=2)
+16:07:15.196 w_evil 1024 9 0
+16:07:15.196 w_quiet 1024 0 0
+16:07:15.196 w_s01 1024 1 1
+16:07:15.196 w_s02 1024 1 1
+16:07:15.196 w_s03 1024 1 1
+16:07:15.196 w_s04 1024 1 1
+16:07:15.196 w_s05 1024 1 0
+16:07:15.196 w_s06 1024 1 0
+16:07:15.196 w_s07 1024 1 0
+16:07:15.196 w_s08 1024 1 0
+16:07:15.196 w_s09 1024 1 0
+16:07:15.196 w_s10 1024 1 0
+16:07:15.196 w_s11 1024 1 0
+16:07:15.196 w_s12 1024 1 1
+16:07:15.196 w_s13 1024 1 1
+16:07:15.196 w_s14 1024 1 2
+16:07:15.196 w_s15 1024 1 2
+16:07:15.196 w_s16 1024 1 2
+16:07:15.196 w_s17 1024 1 3
+16:07:15.196 w_s18 1024 1 3
+16:07:15.196 w_s19 1024 1 4
+16:07:15.196 w_s20 1024 1 6
+16:07:15.196 w_two 2 1 1
+A6 input bounds
+ total_slots 1025 declared: 400
+ executes_concurrently "true" (string): 400
+ executes_concurrently 1 (number): 400
+ executes_concurrently null: 200 stored=f
+ total_slots 0: 400
+== monitor samples: 2653 rows
+== max R per worker over all samples
+w_evil 8
+w_null 
+w_quiet 
+w_s01 6
+w_s02 6
+w_s03 5
+w_s04 5
+w_s05 5
+w_s06 5
+w_s07 5
+w_s08 5
+w_s09 5
+w_s10 5
+w_s11 5
+w_s12 5
+w_s13 5
+w_s14 5
+w_s15 5
+w_s16 5
+w_s17 5
+w_s18 5
+w_s19 5
+w_s20 6
+w_two 1
+== samples with R > 8 (must be none)
+== samples with A+R > S (allowed only right after a re-register lowered S; FS-28 caveat)
+w_evil 18 samples
+== JOB_ASSIGNED events per worker
+w_evil 25
+w_s01 7
+w_s02 7
+w_s03 7
+w_s04 7
+w_s05 6
+w_s06 6
+w_s07 6
+w_s08 6
+w_s09 6
+w_s10 6
+w_s11 6
+w_s12 6
+w_s13 6
+w_s14 7
+w_s15 7
+w_s16 7
+w_s17 8
+w_s18 8
+w_s19 9
+w_s20 11
+w_two 2
+== JOB_DISPATCHED per worker and policy
+w_evil round_robin 9
+w_s01 round_robin 1
+w_s02 round_robin 1
+w_s03 round_robin 1
+w_s04 round_robin 1
+w_s05 round_robin 1
+w_s06 round_robin 1
+w_s07 round_robin 1
+w_s08 round_robin 1
+w_s09 round_robin 1
+w_s10 round_robin 1
+w_s11 round_robin 1
+w_s12 round_robin 1
+w_s13 round_robin 1
+w_s14 round_robin 1
+w_s15 round_robin 1
+w_s16 round_robin 1
+w_s17 round_robin 1
+w_s18 round_robin 1
+w_s19 round_robin 1
+w_s20 round_robin 1
+w_two round_robin 1

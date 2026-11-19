@@ -1,0 +1,7 @@
+{"time":"2026-11-19T21:54:02.337512254+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-19T21:54:02.36503609+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":6,"max_conns":20}
+{"time":"2026-11-19T21:54:02.365089403+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-19T21:54:02.36551561+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18093"}
+{"time":"2026-11-19T21:54:02.476377536+05:30","level":"INFO","msg":"worker registered","worker_id":"w_x","version":"v0.1.0","slots":4,"supported_tasks":["echo","sleep","sha256_loop"]}
+{"time":"2026-11-19T21:54:02.788624129+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-19T21:54:02.78887909+05:30","level":"INFO","msg":"coordinator stopped cleanly"}

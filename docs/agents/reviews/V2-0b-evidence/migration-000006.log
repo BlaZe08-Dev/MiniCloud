@@ -1,0 +1,6 @@
+=== RUN   TestMigrator_Migration000006_FreshSchema
+--- PASS: TestMigrator_Migration000006_FreshSchema (0.37s)
+=== RUN   TestMigrator_Migration000006_UpgradeFrom000005_WithExistingRows
+--- PASS: TestMigrator_Migration000006_UpgradeFrom000005_WithExistingRows (0.27s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.651s

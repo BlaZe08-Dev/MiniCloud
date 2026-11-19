@@ -1,0 +1,26 @@
+schema version: 6
+== step 1: branch coordinator, w_x registers as a V2-0b worker
+register: {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+ 200
+w_x 4 t
+== step 2: main 26b440a coordinator on the schema-6 database
+"msg":"connected to postgres storage","schema_version":6,"max_conns":20
+w_x re-registers WITHOUT the field (v1.0.0 binary under the same ID): {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+ 200
+w_new registers WITH the field (unknown to the old decoder): {"heartbeat_interval_seconds":2,"status":"REGISTERED"}
+ 200
+GET /v1/workers on the old coordinator:
+{"workers":[{"id":"w_new","version":"v0.1.0","status":"HEALTHY","total_slots":4,"available_slots":4,"supported_tasks":["echo","sleep","sha256_loop"],"last_heartbeat_at":"2026-11-19T21:54:02.95039+05:30","registered_at":"2026-11-19T21:54:02.95039+05:30"},{"id":"w_x","version":"v0.1.0","status":"HEALTHY","total_slots":4,"available_slots":4,"supported_tasks":["echo","sleep","sha256_loop"],"last_heartbeat_at":"2026-11-19T21:54:02.933791+05:30","registered_at":"2026-11-19T21:54:02.474449+05:30"}]}
+
+w_new 4 f
+w_x 4 t
+== step 3: roll forward to the branch coordinator, no re-registration
+w_new 4 f
+w_x 4 t
+w_x heartbeat (the real worker keeps heartbeating, it does not re-register): 200
+w_x poll on empty queue (freshness): 204
+w_x poll again after 6 jobs (keeps it fresh): 200
+live reservations per worker 2.5 s later (a serial worker should hold at most 1):
+w_x 3
+attempts per worker:
+w_x RUNNING 1

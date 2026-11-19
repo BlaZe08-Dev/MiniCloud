@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+# V2-0b audit: independent mutants, written by the auditor (not copied from the builder's script).
+# Runs in the throwaway worktree ~/mc-mut-claude (detached at b5aec6f), one mutant at a time:
+# apply -> run the named tests -> record -> git checkout. Then the restored code runs the same tests.
+# usage: python3 -I mutants.py OUTDIR [ID,ID,...]   (second run: M8d only)
+import os, subprocess, sys, re
+W = os.path.expanduser('~/mc-mut-claude')
+OUT = sys.argv[1]
+os.makedirs(OUT, exist_ok=True)
+env = dict(os.environ)
+for line in open(os.path.join(W, '.env')):
+    if line.startswith('MINICLOUD_TEST_DATABASE_URL='):
+        env['MINICLOUD_TEST_DATABASE_URL'] = line.split('=', 1)[1].strip()
+assert env['MINICLOUD_TEST_DATABASE_URL'].split('/')[-1].split('?')[0] == 'minicloud_claude_test'
+
+DOM = 'internal/domain/assignment.go'
+MEM = 'internal/storage/inmemory_assignment.go'
+PG = 'internal/storage/postgres/assignment.go'
+REPO = 'internal/storage/postgres/repository.go'
+SUM_R = "\n\t\t\t    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())\n"
+SUM_CLAUSE = ("\t\t\tAND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))"
+              + SUM_R + "\t\t\t    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)\n")
+
+CAP = 'TestConformance_Assign_ReservationCapPerWorker'
+ABUSE = 'TestAbuse_Register_LargeDeclaredSlots_ReservationCap'
+EXP = 'TestConformance_Assign_ExpiredReservationDoesNotHoldSlot'
+FB = 'TestConformance_Claim_FallbackRespectsReservedSlots'
+RECHECK = 'TestPostgresRepository_Assign_RecheckUsesSlotRule'
+RT = 'TestConformance_Worker_ExecutesConcurrentlyRoundTrip'
+MEMPKG, PGPKG, ABPKG = './internal/storage/', './internal/storage/postgres/', './tests/abuse/'
+
+# (id, description, file, old, new, occurrence: 'all' | 'last' | 'first', tests, packages)
+muts = [
+ ('M4a', 'drop R<M in domain.CanReserve', DOM,
+  'return active+reserved < assignable && reserved < MaxReservationsPerWorker', 'return active+reserved < assignable',
+  'all', [CAP, ABUSE], [MEMPKG, ABPKG]),
+ ('M4b', 'off by one: R<=M in domain.CanReserve', DOM,
+  'reserved < MaxReservationsPerWorker', 'reserved <= MaxReservationsPerWorker', 'all', [CAP, ABUSE], [MEMPKG, ABPKG]),
+ ('M4pg', 'drop R<$4 in BOTH PostgreSQL copies', PG,
+  "AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4",
+  "AND $4::int > 0", 'all', [CAP, ABUSE], [PGPKG, ABPKG]),
+ ('M5', 'in-memory live count ignores expiry', MEM,
+  'j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {\n\t\t\tn++',
+  'j.AssignmentExpiresAt != nil {\n\t\t\tn++', 'all', [EXP], [MEMPKG]),
+ ('M5pg', 'PostgreSQL sum term ignores expiry (both copies)', PG, SUM_R,
+  "\n\t\t\t    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id)\n", 'all', [EXP], [PGPKG]),
+ ('M6', 'in-memory fallback check ignores reservations (R=0)', MEM,
+  'r.activeAttemptsLocked(workerID), r.liveReservationsLocked(workerID, now)) {',
+  'r.activeAttemptsLocked(workerID), 0) {', 'all', [FB], [MEMPKG]),
+ ('M6pg', 'PostgreSQL fallback check ignores reservations (R=0)', PG,
+  'domain.AssignableSlots(concurrent, totalSlots), activeWorkerAttempts, reserved)',
+  'domain.AssignableSlots(concurrent, totalSlots), activeWorkerAttempts, 0)', 'all', [FB], [PGPKG]),
+ ('M8a', 'PostgreSQL re-check drops the slot-sum clause (snapshot unchanged)', PG, SUM_CLAUSE, '', 'last', [RECHECK], [PGPKG]),
+ ('M8b', 'PostgreSQL re-check drops only the R term of the sum (snapshot unchanged)', PG, SUM_R, '\n', 'last', [RECHECK], [PGPKG]),
+ ('M8c', 'PostgreSQL re-check drops R<$4 (snapshot unchanged)', PG,
+  "AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4);",
+  "AND $4::int > 0);", 'last', [RECHECK, CAP], [PGPKG]),
+ ('M8d', 'ADR-0020 M8 as written: the re-check keeps the OLD (main 26b440a) predicate, snapshot unchanged', PG,
+  SUM_CLAUSE + "\t\t\tAND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4);",
+  "\t\t\tAND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) < 1\n"
+  "\t\t\tAND $4::int > 0\n"
+  "\t\t\tAND NOT EXISTS (\n\t\t\t\tSELECT 1 FROM jobs rj\n"
+  "\t\t\t\tWHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()));",
+  'last', [RECHECK], [PGPKG]),
+ ('M9a', 'UpsertWorker does not overwrite the flag on conflict', REPO,
+  '\t\t\texecutes_concurrently = EXCLUDED.executes_concurrently,\n', '', 'all', [RT], [PGPKG]),
+ ('M9b', 'UpsertWorker makes the flag sticky (OR)', REPO,
+  'executes_concurrently = EXCLUDED.executes_concurrently,',
+  'executes_concurrently = workers.executes_concurrently OR EXCLUDED.executes_concurrently,', 'all', [RT], [PGPKG]),
+]
+
+def sh(cmd, **kw):
+    return subprocess.run(cmd, cwd=W, capture_output=True, text=True, **kw)
+
+def run_tests(tests, pkgs, log):
+    cmd = ['go', 'test', '-p', '1', '-count=1', '-v', '-run', '^(' + '|'.join(tests) + ')$'] + pkgs
+    r = sh(cmd, env=env)
+    open(log, 'w').write('$ ' + ' '.join(cmd) + '\n' + r.stdout + r.stderr)
+    out = r.stdout
+    fails = sorted(set(re.findall(r'^--- FAIL: (\S+)', out, re.M)))
+    passes = sorted(set(re.findall(r'^--- PASS: (\S+)', out, re.M)))
+    skips = sorted(set(re.findall(r'^--- SKIP: (\S+)', out, re.M)))
+    return r.returncode, fails, passes, skips
+
+summary = []
+ONLY = set(sys.argv[2].split(',')) if len(sys.argv) > 2 else None
+for mid, desc, f, old, new, occ, tests, pkgs in muts:
+    if ONLY and mid not in ONLY:
+        continue
+    sh(['git', 'checkout', '-q', '--', '.'], check=True)
+    p = os.path.join(W, f)
+    src = open(p).read()
+    n = src.count(old)
+    if n == 0:
+        summary.append(f'{mid} | {desc} | NOT APPLIED (pattern missing)'); continue
+    if occ == 'all':
+        src = src.replace(old, new)
+    elif occ == 'last':
+        i = src.rfind(old); src = src[:i] + new + src[i + len(old):]
+    open(p, 'w').write(src)
+    open(os.path.join(OUT, f'{mid}.diff'), 'w').write(sh(['git', 'diff']).stdout)
+    rc, fails, passes, skips = run_tests(tests, pkgs, os.path.join(OUT, f'{mid}.log'))
+    top = [t for t in fails if '/' not in t]
+    verdict = 'KILLED' if any(t in top for t in tests) else 'SURVIVED'
+    summary.append(f'{mid} | {desc} | occurrences={n} ({occ}) | rc={rc} | {verdict} | top-level FAIL: {" ".join(top) or "-"} | SKIP: {" ".join(skips) or "-"}')
+
+sh(['git', 'checkout', '-q', '--', '.'], check=True)
+assert sh(['git', 'status', '--porcelain']).stdout.strip() == '', 'worktree not clean after restore'
+alltests = sorted({t for m in muts for t in m[6] if not ONLY or m[0] in ONLY})
+rc, fails, passes, skips = run_tests(alltests, [MEMPKG, PGPKG, ABPKG], os.path.join(OUT, 'restored.log'))
+top_p = [t for t in passes if '/' not in t]
+summary.append(f'RESTORED | rc={rc} | top-level PASS {len(top_p)} FAIL {len(fails)} SKIP {len(skips)} | {" ".join(top_p)}')
+open(os.path.join(OUT, 'summary.txt'), 'w').write('\n'.join(summary) + '\n')
+print('\n'.join(summary))

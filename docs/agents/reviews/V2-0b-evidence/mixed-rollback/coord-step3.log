@@ -1,0 +1,13 @@
+{"time":"2026-11-19T21:54:03.285879169+05:30","level":"INFO","msg":"starting MiniCloud coordinator..."}
+{"time":"2026-11-19T21:54:03.309649441+05:30","level":"INFO","msg":"connected to postgres storage","schema_version":6,"max_conns":20}
+{"time":"2026-11-19T21:54:03.309719735+05:30","level":"INFO","msg":"dispatch policy configured","policy":"round_robin","assignment_accept_window":"5s","assignment_interval":"1s","assignment_max_lapses":3,"assignment_fallback_age":"30s","assignment_batch_limit":50,"assignment_min_yield":"10ms"}
+{"time":"2026-11-19T21:54:03.310237336+05:30","level":"INFO","msg":"coordinator listening for requests","addr":"127.0.0.1:18093"}
+{"time":"2026-11-19T21:54:03.781991674+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_1_a28b006e0ce5","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.815497226+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_2_525f2fbfda48","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.852136171+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_3_16c9bb7c12f5","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.868699403+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_4_fae90cd1e4ea","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.885309586+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_5_1abd641b9e88","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.901140602+05:30","level":"INFO","msg":"job submitted and queued","job_id":"job_6_1f12d5ab4482","task_type":"sleep","state":"QUEUED","max_attempts":3}
+{"time":"2026-11-19T21:54:03.925731006+05:30","level":"INFO","msg":"job dispatched to worker","job_id":"job_1_a28b006e0ce5","attempt_id":"att_job_1_a28b006e0ce5_1","attempt_no":1,"worker_id":"w_x","policy":"round_robin","fallback_reason":""}
+{"time":"2026-11-19T21:54:07.020791916+05:30","level":"INFO","msg":"received termination signal, initiating graceful shutdown","signal":"terminated"}
+{"time":"2026-11-19T21:54:07.021081099+05:30","level":"INFO","msg":"coordinator stopped cleanly"}
