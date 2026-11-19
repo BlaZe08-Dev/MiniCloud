@@ -1,7 +1,7 @@
 # ADR 0020: Round-Robin Uses the Worker's Real Slots
 
 ## Status
-Accepted (2026-11-19, end of task V2-0b Stage B, branch `agent/claude/V2-0b`, awaiting audit and merge). Proposed in Stage A; approved by the orchestrator ("ADR approved") with the decisions below; implemented in Stage B. Evidence: `docs/agents/handoffs/V2-0b.md` and `docs/agents/handoffs/V2-0b-evidence/`.
+Accepted (2026-11-19, end of task V2-0b Stage B, branch `agent/claude/V2-0b`, awaiting audit and merge). Proposed in Stage A; approved by the orchestrator ("ADR approved") with the decisions below (the record is `docs/agents/handoffs/V2-0b-orchestrator-decisions.md`); implemented in Stage B. Evidence: `docs/agents/handoffs/V2-0b.md` and `docs/agents/handoffs/V2-0b-evidence/`.
 
 **Decided (orchestrator, 2026-11-19; the owner can overrule):**
 - Q1: option A. Optional register field `executes_concurrently`, migration `000006`; V2-1 moves to `000007`.
