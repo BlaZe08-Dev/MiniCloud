@@ -12,7 +12,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | Resource | Held by | Notes |
 |---|---|---|
-| Next migration number | V2-0b (000006) | `000006_worker_executes_concurrently.sql` is taken by V2-0b (ADR-0020, branch `agent/claude/V2-0b`). Next free migration number after it: 000007, expected taker V2-1 (node and capability model) |
+| Next migration number | none (000007 next) | `000006_worker_executes_concurrently.sql` was merged in V2-0b (PR #63, ADR-0020). Next free migration number: 000007, expected taker V2-1 (node and capability model) |
 | `go.mod` / `go.sum` | none | |
 | `internal/domain` | none | |
 | `internal/storage/storagetest` | none | Shared conformance suite |
@@ -22,34 +22,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| PV-01 | Post-V1 documentation reconciliation and design freeze (docs only) | Claude Code | owner review (AGENTS.md change) | agent/claude/PV-01 | complete, merged in PR #55 |
-| PV-02 | Record the proposed placement, cross-platform and AI-noise designs (docs only; every statement labelled Decided or Proposed) | Claude Code | owner review | agent/claude/PV-02 | complete on branch, awaiting owner merge |
-| O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
-| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | agent/claude/V1x-02 | merged in PR #60; audit APPROVE, archived in PR #61 (findings F-V1x02-1 and F-V1x02-2, both minor); SEC-067 Fixed; handoff `docs/agents/handoffs/V1x-02.md` |
-| V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
-| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | agent/claude/V2-0b | built, awaiting audit (ADR-0020 Accepted; Stage B on the branch, handoff `docs/agents/handoffs/V2-0b.md`); before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
-| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
-| P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | merged in PR #51 (status corrected by PV-01) |
-| P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
-| P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | complete, merged in PR #43 |
-| P4-16 | Fix SEC-062: older env helpers reject a set bad value at startup | Claude Code | to be assigned | agent/claude/P4-16 | merged in PR #46 (status corrected by PV-01) |
-| P4-14 | Fix backoff overflow (finding F-5c2-1) | Gemini | Claude Code | agent/gemini/P4-14 | merged in PR #42 (status corrected by PV-01) |
-| P4-12 | Friendlier make test-security guard | Gemini | Claude Code | agent/gemini/P4-12 | merged in PR #39 (status corrected by PV-01) |
-| P4-11 | Register follow-ups and fix stale statuses | Gemini | Claude Code | agent/gemini/P4-11 | merged in PR #37 |
-| P4-10 | Worker response body limit and URL path escaping (SEC-060, SEC-061) | Gemini | Claude Code | agent/gemini/P4-10 | merged in PR #36 |
-| P4-09 | Worker execution timeout clamping (SEC-012) | Gemini | Claude Code | agent/gemini/P4-09 | merged in PR #34 |
-| P4-08b | ADR-0017 slice 5a: domain, pure policy and in-memory parity (no database) | Claude Code | Gemini | agent/claude/P4-08b | merged in PR #35 |
-| P4-08a | ADR-0017 assignment-based round-robin (design) | Claude Code | Orchestrator review | agent/claude/P4-08a | merged in PR #33 |
-| P4-07 | CLI output sanitization (SEC-048 / F-4e-18) | Gemini | Claude Code | agent/gemini/P4-07 | merged in PR #32 (status corrected by PV-01) |
-| P4-08d | ADR-0017 slice 5c, part 1: coordinator loop, grace, binary wiring | Claude Code | Claude Code (independent session) | agent/claude/P4-08d | merged in PR #40 (status corrected by PV-01) |
-| P4-08e | ADR-0017 slice 5c, part 2: API fields (poll `policy` and `fallback_reason`, job view assignment fields) and worker timing (INV-17); fault and abuse suites move to P4-08f | Claude Code | to be assigned | agent/claude/P4-08e | merged in PR #41 (status corrected by PV-01) |
-| P4-08f | ADR-0017 slice 5c, part 3: the fault, abuse and property suites, measurements, worker test tidy-ups | Claude Code | to be assigned | agent/claude/P4-08f | merged in PR #44 (status corrected by PV-01) |
-| P4-08g | Fix round for the P4-08f audit: tests that kill the surviving mutants, property test and rig tightening, Makefile `-p 1`, ADR-0017 corrections | Claude Code | to be assigned | agent/claude/P4-08g | merged in PR #45 (status corrected by PV-01) |
-| P4-17 | Flip the default dispatch policy to `round_robin` (ADR-0017 Q1) | Claude Code | to be assigned | agent/claude/P4-17 | complete, merged in PR #47 |
-| P4-20 | Fix the test-outage LeakScan poll for the round_robin default (bounded retry, default policy kept) | Claude Code | to be assigned | agent/claude/P4-20 | complete, merged in PR #48 |
-| P4-22 | SEC-066: stop raw database errors (host, port, user, database, SQL) reaching coordinator logs | Claude Code | to be assigned | agent/claude/P4-22 | complete, merged in PR #50 |
-| P4-08c | ADR-0017 slice 5b: migration 000005 and the PostgreSQL assignment repository | Claude Code | Gemini | agent/claude/P4-08c | merged in PR #38 at 3b12ae5 |
-| P4-06b | Phase 4 docs pass (findings SEC-031..058, review records, protocol/failure-model) | Gemini | Claude Code | agent/gemini/P4-06b | merged in PR #31 |
+| DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | Gemini | orchestrator review | agent/gemini/DOC-SYNC-1 | active |
+| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
 
 ### PV-01 — Post-V1 documentation reconciliation and design freeze
 - Goal: apply sections 3 to 5 of the post-V1 integration spec (orchestrator proposal, 2026-11-15, owner decisions D1 to D3): add `docs/post-v1/` (13 files, corrected), ADR-0018 with the ADR-0004 amendment, the trust model (D2) and the device model (D3); amendment notes in ADR-0004 and ADR-0008; scoped AGENTS.md rule, context map, precedence list and three standing rules; README, PROJECT_STATE top section, roadmap V2/V3/V4 table, CHANGELOG reconciliation, architecture.md post-V1 section; CLAUDE.md and GEMINI.md navigation; this board (next migration 000006, stale rows closed against merged PRs).
@@ -59,13 +33,13 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### PV-02 — Record proposed placement, cross-platform and AI-noise designs
 - Goal: record the owner's three questions of 2026-11-17 as labelled design text so no future builder mistakes them for implemented or decided features: V2-3 placement algorithm (filter, score, round-robin tie-break), heterogeneous devices support status, and V4 AI noise controls. Open decisions OD-21 to OD-25 added, none answered.
-- Builder: Claude Code. Auditor: owner review. Branch: `agent/claude/PV-02`. Status: complete on branch, awaiting owner merge.
+- Builder: Claude Code. Auditor: owner review. Branch: `agent/claude/PV-02`. Status: complete, merged in PR #59.
 - Owned files: `docs/post-v1/NODE_CAPABILITIES.md`, `docs/post-v1/ARCHITECTURE.md`, `docs/post-v1/INTELLIGENCE_DISPATCHER.md`, `docs/post-v1/SECURITY.md`, `docs/post-v1/OPEN_DECISIONS.md`, `docs/post-v1/ROADMAP.md`, `docs/post-v1/IMPLEMENTATION_PLAN.md`, `docs/roadmap.md`, `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md` (one line), `docs/agents/handoffs/PV-02.md`, `reports/claude/PV-02.md`.
 - Out of scope: any `.go`, `.sql`, `go.mod`, `go.sum`, `tests/` or `tests/docs/citation_allowlist.txt` change; `AGENTS.md`, any ADR, `docs/security/findings.md`; a new ADR (the V2-3 ADR is written later); database tests and `make test-outage`.
 
 ### O1-check — Investigation: HTML escaping payload expansion (SEC-067)
 - Goal: determine whether HTML escaping in coordinator API response writer inflates valid payloads under 64 KiB over the worker execution limit, causing false-positive permanent failures.
-- Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/O1-check`. Status: complete.
+- Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/O1-check`. Status: complete, merged in PR #56.
 - Owned files: `docs/agents/reviews/O1-check-evidence/**`, `reports/gemini/O1-check.md`, `docs/security/findings.md`, `docs/agents/TASKS.md`.
 - Out of scope: any `.go` file, migrations, `go.mod`/`go.sum`, `tests/docs/citation_allowlist.txt`, worker, executor, storage.
 
@@ -84,13 +58,13 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V2-0 — Worker concurrency semantics (placeholder; full spec to be written by the orchestrator)
 - Goal: decide and document slot semantics (real concurrent execution with supervision, or advertise what is actually executed), ADR first, then implementation. The worker today runs one task at a time while registration and heartbeat report `available_slots` equal to `TotalSlots` (confirmed by code reading, `internal/worker/client.go` func `Run` and func `register`; spec section 2). Exit: advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible.
-- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/V2-0`. Status: audited, fix round 1 (audit: review V2-0 on branch `agent/claude/V2-0-audit`, APPROVE WITH FIXES; findings A-1 to A-4 fixed on this branch). ADR-0019 (`docs/adr/0019-worker-concurrency-semantics.md`) approved by the orchestrator with answers Q1 to Q4 and set to Accepted at the end of Stage B.
+- Builder: Claude Code. Auditor: to be assigned. Branch: `agent/claude/V2-0`. Status: merged in PR #57 (implementation) and PR #58 (audit fix round 1). ADR-0019 Accepted.
 - Owned files (Stage B): `internal/worker/*`, `internal/config/config.go` (slots upper bound), docs (`README.md`, `CHANGELOG.md`, `docs/PROJECT_STATE.md`, `docs/post-v1/CURRENT_BASELINE.md`, `docs/roadmap.md`, `docs/adr/0019-worker-concurrency-semantics.md`, `docs/adr/0017-assignment-round-robin.md` (Q5 note only), this board, `docs/agents/handoffs/V2-0.md`, `docs/agents/handoffs/V2-0-evidence/**`, `reports/claude/V2-0*.md`). A test under `tests/` only if it truly assumes a serial worker, with evidence first.
 - Out of scope: coordinator, storage, migrations, API routes, `go.mod`/`go.sum`, `tests/docs/citation_allowlist.txt`, running `make test-outage`.
 
 ### V2-0b — Round-robin uses every free slot
 - Goal: remove `domain.EffectiveWorkerSlots` so the ADR-0017 assignment pass reserves work up to the worker's real slots (`A + R < S`, at most `domain.MaxReservationsPerWorker = 8` live reservations), for workers that declare `executes_concurrently`; amend ADR-0017. Until a worker declares it, parallelism stays one job per worker.
-- Builder: Claude Code. Auditor: Opus (independent session). Branch: `agent/claude/V2-0b`. Status: built, audited, fix round 1 (audit file `V2-0b.md` under the reviews folder on branch `agent/claude/V2-0b-audit`, not copied here). ADR-0020 (`docs/adr/0020-round-robin-real-slots.md`) is Accepted. The record of the orchestrator decisions and of "ADR approved" is `docs/agents/handoffs/V2-0b-orchestrator-decisions.md` (Q1 to Q8). Handoff `docs/agents/handoffs/V2-0b.md`, evidence `docs/agents/handoffs/V2-0b-evidence/`. Migration 000006. Before V2-1.
+- Builder: Claude Code. Auditor: Opus (independent session). Branch: `agent/claude/V2-0b`. Status: merged in PR #63 (implementation) and PR #64 (audit). ADR-0020 Accepted. Migration 000006 merged. Handoff `docs/agents/handoffs/V2-0b.md`, evidence `docs/agents/handoffs/V2-0b-evidence/`. Before V2-1.
 - Acceptance criteria:
   - A worker that registers with `executes_concurrently: true` is reserved jobs while `A + R < total_slots`, with `R <= 8`; a worker that does not send the field keeps one slot (`TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot`, `TestConformance_Assign_ReservationCapPerWorker`).
   - The fallback claim and the PostgreSQL re-check under the worker row lock apply the same sum and cap as the pass snapshot (INV-10r): `TestConformance_Claim_FallbackRespectsReservedSlots`, `TestPostgresRepository_Assign_RecheckUsesSlotRule`, `TestPostgresRepository_Assign_RecheckCountsLiveReservations`.
@@ -348,8 +322,15 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | (owner) | PROJECT_STATE update for the V1 gate (branch `docs/project-state-v1`) | PR #52, merge commit 05b47c2 |
 | (owner) | PROJECT_STATE citation-checker fix (branch `docs/project-state-fix`) | PR #53, merge commit 4df57d7 |
 | P4-23 | Archive unmerged audit records and review index | PR #54, merge commit 166c719 (tagged `v1.0.0`) |
+| PV-01 | Post-V1 documentation reconciliation and design freeze | PR #55, merge commit 6c2ef78 |
+| O1-check | Investigation: HTML escaping payload expansion (SEC-067) | PR #56, merge commit 7893aab |
+| V2-0 | Worker concurrency semantics (ADR-0019) | PR #57, merge commit 450aac7; audit fix round 1 PR #58, merge commit 28f5c61 |
+| PV-02 | Record proposed placement, cross-platform and AI-noise designs | PR #59, merge commit 140be14 |
+| V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads | PR #60, merge commit 73c21cd; audit PR #61, merge commit 26b440a |
+| DOC-AUDIT-1 | Documentation accuracy and consistency audit | PR #62, merge commit c0351d6 |
+| V2-0b | Round-robin uses every free slot (ADR-0020, migration 000006) | PR #63, merge commit 211569b; audit PR #64, merge commit 3b8d486 |
 
-Rows from PR #31 onward were added by PV-01 from `git log --merges` on `main` at 166c719.
+Rows from PR #31 onward were added from `git log --merges`.
 
 ## Follow-ups
 

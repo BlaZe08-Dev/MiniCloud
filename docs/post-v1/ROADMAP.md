@@ -1,6 +1,6 @@
 # MiniCloud Post-V1 Roadmap
 
-Status: designed, not executed. Every row after Gate 0 is planned; none is implemented.
+Status: designed, not executed. V2-0 and V2-0b are merged; every row after V2-0b is planned; none is implemented.
 
 ## Baseline
 
@@ -14,7 +14,8 @@ This roadmap replaces the pack's original Gate 1 to Gate 9 sequence with the mer
 |---|---|---|---|
 | V1.0.x | maintenance | the v1.0.1 list (minors F-5a-14/16/17, `GetWorker` not reading `last_poll_at`, in-memory F05/F06 mutation gap, `logsafe` in `cmd/migrate`, repo cleanup) | no behaviour change beyond the listed fixes |
 | Gate 0 | PV-01 | documentation reconciliation and design freeze | `make test-docs` rc 0; hierarchy and links verified; no code touched |
-| **V2** | V2-0 | **Worker concurrency truth.** Decide and document slot semantics: real concurrent execution with supervision, or advertise what is actually executed. ADR first. | advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible |
+| **V2** | V2-0 | **Worker concurrency truth.** ADR-0019; worker executes attempts concurrently. Merged in PR #57 and PR #58. | advertised capacity equals real concurrency; race tests; V1 worker protocol still compatible |
+| V2 | V2-0b | **Round-robin uses every free slot.** ADR-0020; migration `000006`. Merged in PR #63 and PR #64. | under `round_robin` a worker with free slots is reserved work up to its capacity; no reservation beyond it; ADR-0017 invariants still pass |
 | V2 | V2-1 | **Node and capability model (D3).** Additive forward-only migration `000007`+ (`000006` is taken by V2-0b, ADR-0020) with separate tables: `nodes` (identity only), `node_hardware` (versioned static inventory: OS, arch, CPU, RAM total, disk, GPU optional), `node_telemetry` (latest dynamic sample with `sampled_at`: CPU load, free RAM, free disk), and nullable `workers.node_id`. The `node_tools` table is designed in the V2-1 ADR but created in V4 (no empty unused table). Absent data means "unknown"; legacy workers (NULL node) stay eligible under the existing policies. Telemetry updates must not rewrite the hardware row. | stale telemetry is never treated as current; V1 workers register unchanged; hardware rows are not rewritten by telemetry |
 | V2 | V2-2 | Workload generator and benchmark harness (built-in tasks only, controlled hardware, no invented numbers). Proposed: also record median-of-N speed per task type per worker, the input of the proposed V2-3 score ([`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Placement algorithm (proposed)"). | repeatable runs, recorded environment |
 | V2 | V2-3 | **Resource-aware policy** plugged into the ADR-0017 assignment pass: hard constraints first, deterministic ranking, decision audit record. Proposed design (filter, score, round-robin tie-break; EMA with hysteresis; TTL): [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md) section "Placement algorithm (proposed)", questions OD-21 to OD-25. Compared with `round_robin` and `fifo_pull` on p50/p95/p99, queue wait, throughput, fairness. | placement reproducible from recorded inputs; resource limits never violated in tests |

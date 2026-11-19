@@ -64,13 +64,13 @@ To ensure server-side diagnostics do not leak sensitive infrastructure internals
 
 | PostgreSQL SQLSTATE / Error | Specific Constraint Name | Typed Domain Error | HTTP Status & Error Code | Client Error Envelope |
 | :--- | :--- | :--- | :--- | :--- |
-| `23514` (check_violation) | `chk_jobs_payload_size` | `domain.ErrPayloadTooLarge` | `413 PAYLOAD_TOO_LARGE` | `{"error":{"code":"PAYLOAD_TOO_LARGE","message":"payload size exceeds maximum allowed 65536 bytes"}}` |
-| `23514` (check_violation) | `chk_attempts_output_size` | `domain.ErrOutputTooLarge` | `400 OUTPUT_TOO_LARGE` | `{"error":{"code":"OUTPUT_TOO_LARGE","message":"output size exceeds maximum allowed 65536 bytes"}}` |
+| `23514` (check_violation) | `chk_jobs_payload_size` | `domain.ErrPayloadTooLarge` | `413 PAYLOAD_TOO_LARGE` | `{"error":{"code":"PAYLOAD_TOO_LARGE","message":"payload exceeds maximum allowed size"}}` |
+| `23514` (check_violation) | `chk_attempts_output_size` | `domain.ErrOutputTooLarge` | `400 OUTPUT_TOO_LARGE` | `{"error":{"code":"OUTPUT_TOO_LARGE","message":"output exceeds maximum allowed size"}}` |
 | `23514` (check_violation) | `chk_jobs_max_attempts` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"max_attempts must be between 1 and 20"}}` |
 | `23514` (check_violation) | `chk_jobs_timeout` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"timeout_seconds must be between 1 and 86400"}}` |
 | `23514` (check_violation) | `chk_workers_total_slots_range` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"total_slots must be between 1 and 1024"}}` |
 | `23514` (check_violation) | `chk_workers_version_length` | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"version length must not exceed 64 characters"}}` |
-| `23514` (check_violation) | `chk_workers_supported_tasks_count`| `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"supported_tasks cannot exceed 16 tasks"}}` |
+| `23514` (check_violation) | `chk_workers_supported_tasks_count`| `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"supported_tasks must contain at most 16 tasks"}}` |
 | `23514` (check_violation) | `chk_attempts_last_error_size` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Generic fall-through, no custom message |
 | `23514` (check_violation) | `chk_attempts_error_class` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
 | `23514` (check_violation) | `chk_jobs_assignment_shape` | `domain.ErrInvalidRequest` (generic fall-through, no custom message) | `400 INVALID_REQUEST` | Column is coordinator-written, not client-supplied; violation indicates an internal bug, not bad client input (generic fall-through, no custom message) |
