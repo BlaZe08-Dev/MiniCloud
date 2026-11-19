@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -149,7 +150,7 @@ func (a *API) Poll(workerID string) (*Assignment, int, time.Duration, error) {
 		}
 		return &v.Assignment, code, d, nil
 	}
-	return nil, code, d, fmt.Errorf("poll: HTTP %d", code)
+	return nil, code, d, fmt.Errorf("poll: HTTP %d: %.200s", code, strings.TrimSpace(string(data)))
 }
 
 // Heartbeat keeps a probe worker healthy.

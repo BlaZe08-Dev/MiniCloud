@@ -73,7 +73,17 @@ func RunS2(a *API, p Params) ([]Series, []string, error) {
 		return nil, nil, err
 	}
 	var idle, idleW, sub, subW, claim, claimW, wait []float64
+	// Heartbeat by elapsed time, not by poll count: the coordinator marks a probe worker
+	// unhealthy after its worker timeout, and a loaded machine slows the polls.
+	lastHB := time.Now()
+	beat := func() {
+		if time.Since(lastHB) >= time.Second {
+			_ = a.Heartbeat(p.ProbeID)
+			lastHB = time.Now()
+		}
+	}
 	for i := 0; i < p.Polls+p.Warmup; i++ {
+		beat()
 		as, code, d, err := a.Poll(p.ProbeID)
 		if err != nil {
 			return nil, nil, err
@@ -85,9 +95,6 @@ func RunS2(a *API, p Params) ([]Series, []string, error) {
 			idleW = append(idleW, ms(d))
 		} else {
 			idle = append(idle, ms(d))
-		}
-		if i%50 == 49 {
-			_ = a.Heartbeat(p.ProbeID)
 		}
 	}
 	const batch = 8
@@ -114,6 +121,7 @@ func RunS2(a *API, p Params) ([]Series, []string, error) {
 			if tries > 20000 {
 				return nil, nil, fmt.Errorf("claim timeout")
 			}
+			beat()
 			as, code, d, err := a.Poll(p.ProbeID)
 			if err != nil {
 				return nil, nil, err
@@ -122,9 +130,6 @@ func RunS2(a *API, p Params) ([]Series, []string, error) {
 				wait = append(wait, ms(d))
 				_ = code
 				a.Sleep(20 * time.Millisecond)
-				if tries%100 == 99 {
-					_ = a.Heartbeat(p.ProbeID)
-				}
 				continue
 			}
 			if done+got < p.Warmup {
