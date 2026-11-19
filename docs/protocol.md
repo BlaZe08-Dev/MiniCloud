@@ -225,9 +225,12 @@ Invoked when a worker starts up.
   "worker_id": "worker-1",
   "version": "v0.1.0",
   "total_slots": 4,
-  "supported_tasks": ["echo", "sleep", "sha256_loop"]
+  "supported_tasks": ["echo", "sleep", "sha256_loop"],
+  "executes_concurrently": true
 }
 ```
+
+`executes_concurrently` (optional boolean, additive since V2-0b, [ADR-0020](adr/0020-round-robin-real-slots.md) Section 2.6): `true` means the worker executes up to `total_slots` attempts at once, so the `round_robin` pass may reserve it up to `total_slots` jobs (at most 8 live reservations). Absent or `false` means one assignable slot, which is what the v1.0.0 and V2-0 workers, which do not send it, get. A non-boolean value is rejected with 400 `MALFORMED_JSON`. Each registration rewrites the stored value. `GET /v1/workers` shows it.
 
 **Response (200 OK):**
 ```json

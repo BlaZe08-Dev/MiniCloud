@@ -12,7 +12,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | Resource | Held by | Notes |
 |---|---|---|
-| Next migration number | none | Next free migration number 000006 (000005 merged in PR #38 at 3b12ae5; corrected by PV-01). Expected taker: V2-1 (node and capability model) |
+| Next migration number | V2-0b (000006) | `000006_worker_executes_concurrently.sql` is taken by V2-0b (ADR-0020, branch `agent/claude/V2-0b`). Next free migration number after it: 000007, expected taker V2-1 (node and capability model) |
 | `go.mod` / `go.sum` | none | |
 | `internal/domain` | none | |
 | `internal/storage/storagetest` | none | Shared conformance suite |
@@ -27,8 +27,8 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
 | V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | agent/claude/V1x-02 | merged in PR #60; audit APPROVE, archived in PR #61 (findings F-V1x02-1 and F-V1x02-2, both minor); SEC-067 Fixed; handoff `docs/agents/handoffs/V1x-02.md` |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
-| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | agent/claude/V2-0b | ADR proposed (ADR-0020, Stage A; code waits for "ADR approved"); after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
-| V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
+| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | agent/claude/V2-0b | built, awaiting audit (ADR-0020 Accepted; Stage B on the branch, handoff `docs/agents/handoffs/V2-0b.md`); before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
+| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
 | P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | merged in PR #51 (status corrected by PV-01) |
 | P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
 | P4-15 | Register findings SEC-063..065 and correct P4-14 result delivery estimate | Gemini | Claude Code | agent/gemini/P4-15 | complete, merged in PR #43 |
@@ -90,16 +90,17 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V2-0b — Round-robin uses every free slot (placeholder; full spec to be written by the orchestrator)
 - Goal: remove `domain.EffectiveWorkerSlots` so the ADR-0017 assignment pass reserves work up to `total_slots - running - reserved` per worker (ADR-0017 Section 2.4 and Q5, ADR-0019 Section 2.2 and Q1); amend ADR-0017; coordinator, storage (in-memory and PostgreSQL) and tests. Until it lands, parallelism under `round_robin` stays one job per worker.
-- Builder: Claude Code. Auditor: Opus (independent session). Branch: `agent/claude/V2-0b`. Status: ADR proposed: `docs/adr/0020-round-robin-real-slots.md` (Stage A, docs only); Stage B starts only after the orchestrator writes "ADR approved". Before V2-1.
+- Builder: Claude Code. Auditor: Opus (independent session). Branch: `agent/claude/V2-0b`. Status: built, awaiting audit. ADR-0020 (`docs/adr/0020-round-robin-real-slots.md`) approved by the orchestrator (decisions Q1 to Q8) and set to Accepted at the end of Stage B; handoff `docs/agents/handoffs/V2-0b.md`, evidence `docs/agents/handoffs/V2-0b-evidence/`. Migration 000006. Before V2-1.
 - Also measure the `round_robin` assignment-pass overhead: in the V2-0 audit (O-1) 8 `sleep` jobs of 5 s on one worker took 46.60 s under `round_robin` against 40.41 s under serial `fifo_pull` with one slot (about 6 s slower, attributed to the assignment pass interval, inferred).
 
 ### V1.0.x maintenance candidates added by V2-0 (not started)
 - O1 (ADR-0019 Section 7, inferred, not tested): `coordinator.WorkAssignment.Payload` is a `json.RawMessage` that keeps the HTML-escaped bytes the coordinator sends, so a legal payload with many `<`, `>` or `&` characters may reach the worker longer than 64 KiB and be rejected by `executor.Registry.Execute` before decoding. Needs a reproduction test first (break before fix).
 - `TestLogSafe_AssignmentPassRefreshFailed_LogsClassOnly` (coordinator, pre-existing flake seen in `make test-db` during V2-0): its leak list contains "6543", which can match a log timestamp (for example `02:31:39.463654363`). Fix: use a sentinel that cannot appear in a timestamp.
+- [Proposed] Candidate from V2-0b (ADR-0020 Q8, not a slice): trigger an assignment pass when a full worker frees a slot, to cut the per-wave `round_robin` overhead measured in `docs/agents/handoffs/V2-0b.md`.
 - F-V1x02-1 (V1x-02 audit, comment only): the `MaxPollResponseBytes` comment in `internal/worker/client.go` is stale after SEC-067 (poll payloads are no longer HTML-escaped, so the escaping headroom it describes no longer applies); update the comment.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
-- Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000006 with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
+- Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000007 (000006 is taken by V2-0b) with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
 - Builder: Claude Code. Auditor: to be assigned. Status: planned, after V2-0.
 
 ### P4-21 — Docs part 2 from the P4-18 audit
@@ -351,4 +352,4 @@ Rows from PR #31 onward were added by PV-01 from `git log --merges` on `main` at
 - **`make test-security` shared database detection (Resolved in P4-12)**: `make test-security` prints a 5-line explanatory error refusing execution (exit 2) when run against the shared database (`minicloud_test`) or when unset. Override with `ALLOW_SHARED_DB=1` to run against the shared database.
 - **Per-worktree test database note**: `make test-security` must be run from a worktree configured with its own `minicloud_<agent>_test` database (e.g. `minicloud_gemini_test` or `minicloud_claude_test`). `make test-db` is the appropriate suite for the shared database.
 - **Next Slices (Post-Phase 4)**: Phase 4 core is complete. Next milestone is the Post-Phase 4 Assignment-Based Round-Robin Slice (Candidate A pre-assignment with bounded accept window) required before V1 release tagging.
-- **Post-V1 (PV-01)**: V1 is released (`v1.0.0` on 166c719). The next work is V2-0 (worker concurrency semantics), then V2-1 (node and capability model, migration 000006); sequence in `docs/roadmap.md` and `docs/post-v1/ROADMAP.md`.
+- **Post-V1 (PV-01)**: V1 is released (`v1.0.0` on 166c719). The next work is V2-0 (worker concurrency semantics), then V2-1 (node and capability model, migration 000007 since V2-0b took 000006); sequence in `docs/roadmap.md` and `docs/post-v1/ROADMAP.md`.

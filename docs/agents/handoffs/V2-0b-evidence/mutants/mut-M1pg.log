@@ -1,0 +1,10 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ReservationsUpToDeclaredSlots|TestConformance_Assign_OneReservationPerWorker)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_OneReservationPerWorker
+    assignment.go:352: first pass reserved 2, want 1
+--- FAIL: TestConformance_Assign_OneReservationPerWorker (0.50s)
+=== RUN   TestConformance_Assign_ReservationsUpToDeclaredSlots
+    assignment_slots.go:75: first pass reserved 5 to a declared 3-slot idle worker, want 3
+--- FAIL: TestConformance_Assign_ReservationsUpToDeclaredSlots (0.39s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.901s
+FAIL

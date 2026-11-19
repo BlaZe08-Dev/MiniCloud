@@ -22,7 +22,7 @@ The pack's original P0 to P7 slice list is replaced by the merged roadmap in [`R
 | PV-01 | Documentation reconciliation and design freeze (Gate 0) | Claude Code | docs only; owner reviews the `AGENTS.md` change |
 | V2-0 | ADR and implementation: worker concurrency semantics | Claude Code | first V2 task; touches the worker and its tests |
 | PV-02 | Record the proposed placement, cross-platform and AI-noise designs (docs only) | Claude Code | every statement labelled [Decided] or [Proposed]; nothing implemented |
-| V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | after V2-0; needs the V2-1 ADR with OD-19 answered |
+| V2-1 | Node and capability model (D3) and migration 000007 (000006 taken by V2-0b, ADR-0020) | Claude Code | after V2-0; needs the V2-1 ADR with OD-19 answered |
 
 PV-01 acceptance: no `.go`, migration, dependency or route change; `make test-docs` rc 0 with exact output; every relative link and ADR reference resolves; no historical record deleted; no claim that a future component is implemented; PASS/SKIP/FAIL reported separately; the report lists conflicts found and how each was resolved.
 

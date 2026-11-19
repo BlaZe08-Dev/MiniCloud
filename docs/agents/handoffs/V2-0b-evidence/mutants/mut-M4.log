@@ -1,0 +1,35 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ReservationCapPerWorker|TestAbuse_Register_LargeDeclaredSlots_ReservationCap)$ ./internal/storage/ ./tests/abuse/
+=== RUN   TestConformance_Assign_ReservationCapPerWorker
+    assignment_slots.go:136: pass reserved 50 to a 1024-slot worker, want the cap 8
+--- FAIL: TestConformance_Assign_ReservationCapPerWorker (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.008s
+=== RUN   TestAbuse_Register_LargeDeclaredSlots_ReservationCap
+=== RUN   TestAbuse_Register_LargeDeclaredSlots_ReservationCap/memory
+2026/11/19 20:26:44 INFO worker registered worker_id=w_big version=sec slots=1024 supported_tasks="[echo sleep sha256_loop]"
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_1_727a33cfd0ff task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_2_2f709cd7431e task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_3_6e286d83c2c8 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_4_d831897d6911 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_5_69d610139f83 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_6_9f24ac3c66d9 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_7_8f355a8f770a task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_8_7483a5d7e614 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_9_4dcbbc61e938 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_10_8e9bec610336 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_11_3825482ae067 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_12_d49c6437a1b4 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_13_da830fa83b44 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_14_e7a9fcbbaa51 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_15_a81aa4218607 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_16_e0c7cb8e7db6 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_17_c443d44ee4dd task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_18_5b366e44e0af task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_19_2be51c32dea7 task_type=echo state=QUEUED max_attempts=3
+2026/11/19 20:26:44 INFO job submitted and queued job_id=job_20_820ea143a67f task_type=echo state=QUEUED max_attempts=3
+    real_slots_test.go:51: w_big holds 20 of 20 jobs after one round, want the cap 8
+--- FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap (0.01s)
+    --- FAIL: TestAbuse_Register_LargeDeclaredSlots_ReservationCap/memory (0.01s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.014s
+FAIL

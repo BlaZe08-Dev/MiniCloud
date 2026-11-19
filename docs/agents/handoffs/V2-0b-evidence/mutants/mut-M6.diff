@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 1271c99..e0e1864 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -288,7 +288,7 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string,
+ 		// A fallback claim never makes active + live reservations exceed the assignable slots
+ 		// (ADR-0020 Section 2.4).
+ 		assignable := domain.AssignableSlots(worker.ExecutesConcurrently, worker.TotalSlots)
+-		if !domain.HasFallbackRoom(assignable, r.activeAttemptsLocked(workerID), r.liveReservationsLocked(workerID, now)) {
++		if !domain.HasFallbackRoom(assignable, r.activeAttemptsLocked(workerID), 0) && false {
+ 			return nil, domain.ErrWorkerNoCapacity
+ 		}
+ 		return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, reason, now)

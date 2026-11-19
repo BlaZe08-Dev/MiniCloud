@@ -95,4 +95,4 @@ Potential new tables/entities:
 - `artifact_references`
 - `approvals`
 
-These are conceptual names, not an approved migration specification. Check existing schema and lock ordering before choosing final tables. Migrations remain forward-only; the next free number is `000006`, expected to be taken by V2-1.
+These are conceptual names, not an approved migration specification. Check existing schema and lock ordering before choosing final tables. Migrations remain forward-only; the next free number is `000007` (`000006` is taken by V2-0b, ADR-0020), expected to be taken by V2-1.

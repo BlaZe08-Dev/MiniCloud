@@ -470,3 +470,13 @@ The sweeper opens an outage grace window of MINICLOUD_OUTAGE_GRACE_WINDOW (30 s)
 - **Forward-Only**: In accordance with [ADR 0010: Database Migrations Policy and Runner Architecture](adr/0010-migrations-policy.md), MiniCloud strictly employs forward-only migrations; no down migrations are supported.
 - **Zero Lock Contention**: Constraint addition uses `NOT VALID` followed by `VALIDATE CONSTRAINT` ensuring table rewrites and exclusive table locks are avoided during coordinator execution (ADR-0013).
 
+## 6. Migration `000006_worker_executes_concurrently.sql` (V2-0b)
+
+*Status: on branch `agent/claude/V2-0b`, [ADR-0020](adr/0020-round-robin-real-slots.md) Section 2.6.*
+
+```sql
+ALTER TABLE workers
+    ADD COLUMN executes_concurrently BOOLEAN NOT NULL DEFAULT FALSE;
+```
+
+Stores the optional register field `executes_concurrently`. Existing rows read `FALSE` (one assignable slot) until the worker re-registers; `UpsertWorker` writes it on every registration. The `worker_capacity` view is unchanged; `GetWorker` and `ListWorkers` read the column with a subquery. Tests: `TestMigrator_Migration000006_FreshSchema`, `TestMigrator_Migration000006_UpgradeFrom000005_WithExistingRows`. The next free migration number is `000007` (V2-1).

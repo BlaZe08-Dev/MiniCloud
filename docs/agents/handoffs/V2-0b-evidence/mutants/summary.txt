@@ -1,0 +1,14 @@
+M1 | ignore reservations in the count (domain) | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_OneReservationPerWorker TestConformance_Assign_ReservationsUpToDeclaredSlots
+M1pg | ignore reservations in the count (PostgreSQL SQL, both copies) | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_OneReservationPerWorker TestConformance_Assign_ReservationsUpToDeclaredSlots
+M2 | ignore active attempts (domain) | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_SkipsWorkerWithRunningAttempt TestConformance_Assign_ActiveAttemptsCountAgainstSlots
+M3a | ignore the declaration, always total_slots | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_SkipsWorkerWithRunningAttempt TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot
+M3b | ignore the declaration, always 1 | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Assign_ReservationsUpToDeclaredSlots
+M4 | drop the bound (domain) | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_ReservationCapPerWorker TestAbuse_Register_LargeDeclaredSlots_ReservationCap
+M4pg | drop the bound (PostgreSQL SQL, both copies) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Assign_ReservationCapPerWorker
+M5 | count a lapsed reservation (in-memory) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Assign_ExpiredReservationDoesNotHoldSlot
+M5pg | count a lapsed reservation (PostgreSQL SQL, sum term, both copies) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Assign_ExpiredReservationDoesNotHoldSlot
+M6 | fallback claim keeps today's check (in-memory) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Claim_FallbackRespectsReservedSlots
+M6pg | fallback claim keeps today's check (PostgreSQL) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Claim_FallbackRespectsReservedSlots
+M7 | <= instead of < (domain) | mutated: KILLED | top-level FAIL 2 PASS 0 | TestConformance_Assign_ReservationsUpToDeclaredSlots TestReservationRoom_Table
+M8 | PostgreSQL re-check drops the slot-sum clause (snapshot unchanged) | mutated: KILLED | top-level FAIL 1 PASS 0 | TestPostgresRepository_Assign_RecheckUsesSlotRule
+M9 | UpsertWorker does not overwrite the field on conflict | mutated: KILLED | top-level FAIL 1 PASS 0 | TestConformance_Worker_ExecutesConcurrentlyRoundTrip

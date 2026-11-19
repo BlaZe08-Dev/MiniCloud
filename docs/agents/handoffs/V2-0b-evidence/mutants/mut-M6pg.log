@@ -1,0 +1,11 @@
+go test -count=1 -v -run ^(TestConformance_Claim_FallbackRespectsReservedSlots)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Claim_FallbackRespectsReservedSlots
+=== RUN   TestConformance_Claim_FallbackRespectsReservedSlots/live_reservation_fills_the_second_slot
+    assignment_slots.go:265: fallback claim with active 1 + reserved 1 of 2 slots: claim=&{0xc0003082a0 0xc000310340 round_robin_fallback lapses} err=<nil>, want ErrWorkerNoCapacity
+=== RUN   TestConformance_Claim_FallbackRespectsReservedSlots/control:_no_reservation,_fallback_claims
+--- FAIL: TestConformance_Claim_FallbackRespectsReservedSlots (0.76s)
+    --- FAIL: TestConformance_Claim_FallbackRespectsReservedSlots/live_reservation_fills_the_second_slot (0.37s)
+    --- PASS: TestConformance_Claim_FallbackRespectsReservedSlots/control:_no_reservation,_fallback_claims (0.39s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.764s
+FAIL

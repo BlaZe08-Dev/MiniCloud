@@ -1,0 +1,14 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ReservationsUpToDeclaredSlots|TestReservationRoom_Table)$ ./internal/storage/ ./internal/domain/
+=== RUN   TestConformance_Assign_ReservationsUpToDeclaredSlots
+    assignment_slots.go:75: first pass reserved 4 to a declared 3-slot idle worker, want 3
+--- FAIL: TestConformance_Assign_ReservationsUpToDeclaredSlots (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+=== RUN   TestReservationRoom_Table
+    assignment_test.go:28: one slot, running: CanReserve(1, 1, 0) = true, want false
+    assignment_test.go:28: one slot, reserved: CanReserve(1, 0, 1) = true, want false
+    assignment_test.go:28: sum equals slots: CanReserve(4, 2, 2) = true, want false
+--- FAIL: TestReservationRoom_Table (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/domain	0.003s
+FAIL

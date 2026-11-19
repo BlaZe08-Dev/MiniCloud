@@ -1,0 +1,7 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ExpiredReservationDoesNotHoldSlot)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_ExpiredReservationDoesNotHoldSlot
+    assignment_slots.go:168: reserved 0; the unrevoked expired reservation held the worker's only slot
+--- FAIL: TestConformance_Assign_ExpiredReservationDoesNotHoldSlot (0.44s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.447s
+FAIL

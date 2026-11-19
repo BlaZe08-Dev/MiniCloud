@@ -1,0 +1,26 @@
+== restored, DB URL set: go test -count=1 -v -run '^(TestConformance_Assign_ReservationsUpToDeclaredSlots|TestConformance_Assign_OneReservationPerWorker|TestConformance_Assign_ActiveAttemptsCountAgainstSlots|TestConformance_Assign_SkipsWorkerWithRunningAttempt|TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot|TestConformance_Assign_ReservationCapPerWorker|TestAbuse_Register_LargeDeclaredSlots_ReservationCap|TestConformance_Assign_ExpiredReservationDoesNotHoldSlot|TestConformance_Claim_FallbackRespectsReservedSlots|TestReservationRoom_Table|TestPostgresRepository_Assign_RecheckUsesSlotRule|TestConformance_Worker_ExecutesConcurrentlyRoundTrip)$' ./internal/domain/ ./internal/storage/ ./internal/storage/postgres/ ./tests/abuse/
+--- PASS: TestReservationRoom_Table (0.00s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/domain	0.031s
+--- PASS: TestConformance_Assign_OneReservationPerWorker (0.00s)
+--- PASS: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.00s)
+--- PASS: TestConformance_Assign_ReservationsUpToDeclaredSlots (0.00s)
+--- PASS: TestConformance_Assign_ActiveAttemptsCountAgainstSlots (0.00s)
+--- PASS: TestConformance_Assign_ReservationCapPerWorker (0.00s)
+--- PASS: TestConformance_Assign_ExpiredReservationDoesNotHoldSlot (0.00s)
+--- PASS: TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot (0.00s)
+--- PASS: TestConformance_Claim_FallbackRespectsReservedSlots (0.00s)
+--- PASS: TestConformance_Worker_ExecutesConcurrentlyRoundTrip (0.00s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.014s
+--- PASS: TestConformance_Assign_OneReservationPerWorker (0.56s)
+--- PASS: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.48s)
+--- PASS: TestConformance_Assign_ReservationsUpToDeclaredSlots (0.37s)
+--- PASS: TestConformance_Assign_ActiveAttemptsCountAgainstSlots (1.00s)
+--- PASS: TestConformance_Assign_ReservationCapPerWorker (0.63s)
+--- PASS: TestConformance_Assign_ExpiredReservationDoesNotHoldSlot (0.37s)
+--- PASS: TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot (0.63s)
+--- PASS: TestConformance_Claim_FallbackRespectsReservedSlots (1.21s)
+--- PASS: TestConformance_Worker_ExecutesConcurrentlyRoundTrip (0.41s)
+--- PASS: TestPostgresRepository_Assign_RecheckUsesSlotRule (0.52s)
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	6.201s
+--- PASS: TestAbuse_Register_LargeDeclaredSlots_ReservationCap (0.87s)
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/abuse	0.878s

@@ -1,0 +1,16 @@
+diff --git a/internal/domain/assignment.go b/internal/domain/assignment.go
+index e11aa5f..c940c5f 100644
+--- a/internal/domain/assignment.go
++++ b/internal/domain/assignment.go
+@@ -27,10 +27,7 @@ const MaxReservationsPerWorker = 8
+ // (ADR-0020 Section 2.1): totalSlots when the worker declared concurrent execution at its latest
+ // registration, otherwise 1 (the v1.0.0 and V2-0 workers do not declare it).
+ func AssignableSlots(executesConcurrently bool, totalSlots int) int {
+-	if executesConcurrently {
+-		return totalSlots
+-	}
+-	return 1
++	return totalSlots
+ }
+ 
+ // CanReserve reports whether a worker with assignable slots, active PENDING or RUNNING attempts

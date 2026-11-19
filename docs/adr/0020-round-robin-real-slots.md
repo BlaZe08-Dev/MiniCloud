@@ -1,12 +1,24 @@
 # ADR 0020: Round-Robin Uses the Worker's Real Slots
 
 ## Status
-Proposed (2026-11-19, task V2-0b Stage A, branch `agent/claude/V2-0b`). Nothing in this ADR is implemented. Code starts only after the orchestrator writes "ADR approved" (Stage B).
+Accepted (2026-11-19, end of task V2-0b Stage B, branch `agent/claude/V2-0b`, awaiting audit and merge). Proposed in Stage A; approved by the orchestrator ("ADR approved") with the decisions below; implemented in Stage B. Evidence: `docs/agents/handoffs/V2-0b.md` and `docs/agents/handoffs/V2-0b-evidence/`.
+
+**Decided (orchestrator, 2026-11-19; the owner can overrule):**
+- Q1: option A. Optional register field `executes_concurrently`, migration `000006`; V2-1 moves to `000007`.
+- Q2: a boolean named `executes_concurrently`; no integer count.
+- Q3: `domain.MaxReservationsPerWorker = 8`, a fixed constant in `internal/domain`; no setting.
+- Q4: no coordinator-wide switch; operators use `MINICLOUD_WORKER_SLOTS=1` on workers; `internal/config` is not touched.
+- Q5: update SEC-015 (`total_slots`) and correct the ADR-0017 Section 6.2 citation that said SEC-016.
+- Q6: the new abuse finding is registered as SEC-068 (Low, within SEC-004).
+- Q7: no immediate revoke; a reservation of a re-registered worker lapses normally (FS-28).
+- Q8: no new slice; one candidate line on the task board.
+
+**Deviations in Stage B (each small, recorded here):** `TestReservationCap_FitsAcceptWindow` lives in `internal/worker/real_slots_test.go`, beside the existing timing test's package, not in `internal/coordinator` (the existing `TestPollTiming_AcceptWindowExceedsBackoff` is in `internal/worker`). `TestMigrator_Migration000005_FreshSchema` pinned 000005 as the last migration; it now applies the first five migrations only and the last-migration pin moved to `TestMigrator_Migration000006_FreshSchema`. A fallback claim refused by Section 2.4 returns `ErrWorkerNoCapacity` in both repositories, as planned. The PostgreSQL slot predicate is written out twice (snapshot and re-check), because the repository's SQL-safety test forbids building SQL by string concatenation.
 
 Amends [ADR 0017](0017-assignment-round-robin.md) Section 2.4 (one effective slot), invariant INV-10 and question Q5. Builds on [ADR 0019](0019-worker-concurrency-semantics.md) (worker concurrency, slice V2-0), Section 2.2 and its question Q1. Version gate: V2 (ADR-0004, ADR-0018 roadmap), before V2-1.
 
 ### Evidence labels
-Labels follow `AGENTS.md` section 2. Statements about today's code were read on `main` at 26b440a and are **confirmed by code reading** unless labelled otherwise. Measurements quoted from the V2-0 audit are **executed** by that audit, not by this task ([docs/agents/reviews/V2-0.md](../agents/reviews/V2-0.md)). Everything about the new behaviour is **designed, not executed**. Every test named below either exists today (checked with `grep` for its `func` line on 26b440a) or is marked as a planned test in the same clause.
+Labels follow `AGENTS.md` section 2. Statements about today's code were read on `main` at 26b440a and are **confirmed by code reading** unless labelled otherwise. Measurements quoted from the V2-0 audit are **executed** by that audit, not by this task ([docs/agents/reviews/V2-0.md](../agents/reviews/V2-0.md)). Sections 1 and 2 were written in Stage A as design; the tests they name were **executed** in Stage B (real output in `docs/agents/handoffs/V2-0b.md`). Every test named below exists on the branch.
 
 ## 1. Context
 
@@ -140,16 +152,16 @@ A worker that declares 1024 slots and **never polls** gets no reservation at all
 
 The bound does **not** stop a hostile worker that polls repeatedly from claiming up to its `total_slots`; that is the pre-existing SEC-004 and SEC-015 bound (1024), closed only by worker authentication (V3-2).
 
-**Tests that prove the bound (all planned, Stage B):**
-- `TestConformance_Assign_ReservationCapPerWorker` (planned test): a worker with 1024 declared slots, one fresh poll, 50 jobs; a pass reserves exactly 8; a second pass reserves 0 while those are live. Runs against both repositories.
-- `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (planned test, `tests/abuse/assignment_test.go`): over HTTP, the same registration; the job views show at most 8 jobs assigned to that worker; after the window they lapse and an honest worker gets them.
-- `TestReservationRoom_Table` (planned test, domain): the predicate returns false at `R = M` for any `A` and `S`.
+**Tests that prove the bound (executed in Stage B):**
+- `TestConformance_Assign_ReservationCapPerWorker` (executed): a worker with 1024 declared slots, one fresh poll, 50 jobs; a pass reserves exactly 8; a second pass reserves 0 while those are live. Runs against both repositories.
+- `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (executed, `tests/abuse/assignment_test.go`): over HTTP, the same registration; the job views show at most 8 jobs assigned to that worker; after the window they lapse and an honest worker gets them.
+- `TestReservationRoom_Table` (executed, domain): the predicate returns false at `R = M` for any `A` and `S`.
 - Mutant "drop the bound" (Section 2.8) must fail the first two.
 
-**Rows to update in Stage B.** Proposed replacement text, applied in Stage B once the tests exist:
+**Rows updated in Stage B** (ADR-0017 Section 6.2 note, SEC-015, SEC-068):
 - ADR-0017 Section 6.2, row "A worker registers with a large `total_slots` to look attractive": *"Effective since ADR-0020 for a worker that declares concurrency: it stays eligible while `A + R < total_slots`. Reservations are bounded by `MaxReservationsPerWorker` (8); claims by `total_slots <= 1024` (SEC-015) and `max_attempts`. Pre-existing under `fifo_pull`. Closed by worker authentication (V3-2)."* A short amendment note pointing here is added to ADR-0017 in Stage A.
-- `docs/security/findings.md` **SEC-015** (the `total_slots` bound): add that under `round_robin` the bound now also limits reservations and claims of one declared-concurrent worker, and cite the planned tests above once they exist. The task text names SEC-016, but SEC-016 is the `version` length cap (Section 2.6 option B would make it relevant); ADR-0017 Section 6.2 also cites "SEC-016 CHECK" for `total_slots`, which looks like a numbering slip. Question Q5 below.
-- A new finding (number provisional; `docs/security/findings.md` is the authority): "one registration can hold up to 8 reservations and claim up to `total_slots` under `round_robin`", Low, within SEC-004.
+- `docs/security/findings.md` **SEC-015** (the `total_slots` bound): add that under `round_robin` the bound now also limits reservations and claims of one declared-concurrent worker, and cite the tests above (done). The task text names SEC-016, but SEC-016 is the `version` length cap (Section 2.6 option B would make it relevant); ADR-0017 Section 6.2 also cites "SEC-016 CHECK" for `total_slots`, which was a numbering slip (owner decision Q5: SEC-015 updated, the ADR-0017 citation corrected).
+- A new finding, registered as SEC-068: "one registration can hold up to 8 reservations and claim up to `total_slots` under `round_robin`", Low, within SEC-004.
 
 ### 2.6 Mixed versions (item 6): how old workers keep one slot
 
@@ -177,59 +189,59 @@ Both repositories implement Section 2.1 and Section 2.4 with the same predicate,
 
 **Existing INV-10 conformance tests: kept, names unchanged.** `TestConformance_Assign_OneReservationPerWorker` (worker with 1 slot) and `TestConformance_Assign_SkipsWorkerWithRunningAttempt` (worker with 2 slots, no declaration) register workers without the new field, so under this ADR they still expect exactly one reservation and none while `RUNNING`. They become the guard that an **undeclared** worker keeps one slot. Their names stay because historical records cite them (for example `docs/agents/handoffs/P4-08b-evidence/mutation-index.md` and `docs/agents/handoffs/P4-08c-evidence/mutation-index.md`), and renaming would break `make test-docs` against files this slice must not edit. Their doc comments in `storagetest` and the ADR-0017 INV-10 row are updated to say "undeclared worker". `TestConformance_Claim_RespectsWorkerCapacity` stays unchanged.
 
-**New conformance tests (planned, both repositories):**
+**New conformance tests (executed, both repositories; `internal/storage/storagetest/assignment_slots.go`):**
 
 | Test | Proves |
 |---|---|
-| `TestConformance_Assign_ReservationsUpToDeclaredSlots` (planned test) | A declared 3-slot idle worker and 5 jobs: one pass reserves 3; a second pass reserves 0. |
-| `TestConformance_Assign_ActiveAttemptsCountAgainstSlots` (planned test) | A declared 3-slot worker with 1 `RUNNING` attempt gets 2 reservations; with 3 `RUNNING` it gets none. |
-| `TestConformance_Assign_ReservationCapPerWorker` (planned test) | The bound of Section 2.5. |
-| `TestConformance_Assign_ExpiredReservationDoesNotHoldSlot` (planned test) | With batch limit 1, one expired reservation stays unrevoked; it does not count, so the worker is reserved up to `S` live ones. |
-| `TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot` (planned test) | `total_slots = 4` without the field: one reservation, none while `RUNNING`. |
-| `TestConformance_Assign_RotationWithMultiSlotWorkers` (planned test) | The two-worker example of Section 2.2, decision by decision, with the `JOB_ASSIGNED` `cursor_before` values. |
-| `TestConformance_Claim_FallbackRespectsReservedSlots` (planned test) | A declared 2-slot worker with `A = 1` and one live reservation it cannot claim by its own arm (re-registered without that task type): a lapse-arm claim returns `ErrWorkerNoCapacity`. |
-| `TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations` (planned test) | FS-28: re-registering with fewer slots or without the declaration stops new reservations while `A + R >= S`. |
-| `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (planned test) | Option A only: the field is stored, read back, and reset to false by a re-registration without it. |
+| `TestConformance_Assign_ReservationsUpToDeclaredSlots` (executed) | A declared 3-slot idle worker and 5 jobs: one pass reserves 3; a second pass reserves 0. |
+| `TestConformance_Assign_ActiveAttemptsCountAgainstSlots` (executed) | A declared 3-slot worker with 1 `RUNNING` attempt gets 2 reservations; with 3 `RUNNING` it gets none. |
+| `TestConformance_Assign_ReservationCapPerWorker` (executed) | The bound of Section 2.5. |
+| `TestConformance_Assign_ExpiredReservationDoesNotHoldSlot` (executed) | With batch limit 1, one expired reservation stays unrevoked; it does not count, so the worker is reserved up to `S` live ones. |
+| `TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot` (executed) | `total_slots = 4` without the field: one reservation, none while `RUNNING`. |
+| `TestConformance_Assign_RotationWithMultiSlotWorkers` (executed) | The two-worker example of Section 2.2, decision by decision, with the `JOB_ASSIGNED` `cursor_before` values. |
+| `TestConformance_Claim_FallbackRespectsReservedSlots` (executed) | A declared 2-slot worker with `A = 1` and one live reservation it cannot claim by its own arm (re-registered without that task type): a lapse-arm claim returns `ErrWorkerNoCapacity`. |
+| `TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations` (executed) | FS-28: re-registering with fewer slots or without the declaration stops new reservations while `A + R >= S`. |
+| `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (executed) | Option A only: the field is stored, read back, and reset to false by a re-registration without it. |
 
-**PostgreSQL only (planned):** `TestPostgresRepository_Assign_RecheckUsesSlotRule` (planned test): a second connection holds the worker row lock and inserts a `RUNNING` attempt that fills the last slot; the pass's snapshot sees the worker as eligible; the connection commits while the pass waits on the lock; the re-check must reject the worker. It pins that the re-check uses the new predicate, not only the snapshot.
+**PostgreSQL only:** `TestPostgresRepository_Assign_RecheckUsesSlotRule` (executed): a second connection holds the worker row lock and inserts a `RUNNING` attempt that fills the last slot; the pass's snapshot sees the worker as eligible; the connection commits while the pass waits on the lock; the re-check must reject the worker. It pins that the re-check uses the new predicate, not only the snapshot.
 
 ### 2.8 Test plan (item 8)
 
-**Pure-function tests (planned, `internal/domain`):** `TestReservationRoom_Table` (planned test) covers `CanReserve` at the edges (`A + R = S - 1`, `= S`, `R = M - 1`, `= M`, `S = 1`). `TestAssignableSlots_UndeclaredIsOne` (planned test) covers `AssignableSlots(false, n) = 1` for `n` in 1..1024 and `AssignableSlots(true, n) = n`. `TestReservationCap_FitsAcceptWindow` (planned test, `internal/coordinator`, beside `TestPollTiming_AcceptWindowExceedsBackoff`) pins `MaxPollBackoff + MaxReservationsPerWorker x IdlePollInterval < MinAcceptWindow`.
+**Pure-function tests (`internal/domain/assignment_test.go`):** `TestReservationRoom_Table` (executed) covers `CanReserve` at the edges (`A + R = S - 1`, `= S`, `R = M - 1`, `= M`, `S = 1`). `TestAssignableSlots_UndeclaredIsOne` (executed) covers `AssignableSlots(false, n) = 1` for `n` in 1..1024 and `AssignableSlots(true, n) = n`. `TestReservationCap_FitsAcceptWindow` (executed, `internal/worker/real_slots_test.go`, the package of `TestPollTiming_AcceptWindowExceedsBackoff`) pins `MaxPollBackoff + MaxReservationsPerWorker x IdlePollInterval < MinAcceptWindow`.
 
-**Property test:** `TestProperty_AssignmentSubState_ModelConformance` checks INV-10 after every step; its INV-10 check is replaced by INV-10r, and its random worker set gains declared multi-slot workers (planned change to an existing test).
+**Property test:** `TestProperty_AssignmentSubState_ModelConformance` checks INV-10 after every step; its INV-10 check is replaced by INV-10r, and its worker set gains `w_c`, which declares 3 slots, and a vacuity guard requires a worker holding two or more reservations (executed).
 
-**Fault suite (planned rows FS-25 to FS-28 for `docs/failure-model.md` and `docs/fault-injection-plan.md`, tests in `tests/faultinject/assignment_test.go`):**
+**Fault suite (rows FS-25 to FS-28, recorded in `docs/fault-injection-plan.md`; tests in `tests/faultinject/real_slots_test.go`):**
 
 | Row | Fault | Planned test |
 |---|---|---|
-| FS-25 | A worker holding several reservations dies: the reaper marks it `UNHEALTHY` and the next pass revokes all of them without a counted lapse; jobs go to another worker. | `TestFault_MultiReservationWorkerDies_AllRevoked` (planned test) |
-| FS-26 | Reservations reach a locally full worker (zombie attempt window): each lapses once, the worker becomes ineligible after one window, jobs complete elsewhere. | `TestFault_ReservationToFullWorker_LapsesOnce` (planned test) |
-| FS-27 | Mixed versions: an undeclared worker with 4 slots under `round_robin` never holds more than one reservation and never has a lapse caused by an extra reservation. | `TestFault_UndeclaredWorker_NoExtraReservations` (planned test) |
-| FS-28 | Re-registration lowers slots or drops the declaration while reservations are live. | covered by `TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations` (planned test) |
+| FS-25 | A worker holding several reservations dies: the reaper marks it `UNHEALTHY` and the next pass revokes all of them without a counted lapse; jobs go to another worker. | `TestFault_MultiReservationWorkerDies_AllRevoked` (executed) |
+| FS-26 | Reservations reach a locally full worker (zombie attempt window): each lapses once, the worker becomes ineligible after one window, jobs complete elsewhere. | `TestFault_ReservationToFullWorker_LapsesOnce` (executed) |
+| FS-27 | Mixed versions: an undeclared worker with 4 slots under `round_robin` never holds more than one reservation and never has a lapse caused by an extra reservation. | `TestFault_UndeclaredWorker_NoExtraReservations` (executed) |
+| FS-28 | Re-registration lowers slots or drops the declaration while reservations are live. | covered by `TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations` (executed) |
 
 The existing fault tests `TestFault_AssignedWorkerDiesBeforePoll`, `TestFault_AssignmentLapseLoop_BoundedByLimit` and `TestFault_PollRoundTripBeyondWindow` must pass unchanged.
 
-**Abuse suite (planned, `tests/abuse/assignment_test.go`):** `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (planned test, Section 2.5); `TestAbuse_Register_ExecutesConcurrentlyNotBoolean_400` (planned test): a string or number value returns 400 `MALFORMED_JSON`. `TestAbuse_Poll_ForeignAssignment_Returns204` must pass unchanged.
+**Abuse suite (`tests/abuse/real_slots_test.go`):** `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (executed, Section 2.5); `TestAbuse_Register_ExecutesConcurrentlyNotBoolean_400` (executed): a string or number value returns 400 `MALFORMED_JSON`. `TestAbuse_Poll_ForeignAssignment_Returns204` must pass unchanged.
 
-**API and worker (planned):** `TestAPI_RegisterWorker_ExecutesConcurrentlyOptional` (planned test): absent stores false, `true` stores true, existing response unchanged. `TestRegister_SendsExecutesConcurrently` (planned test, `internal/worker`). `TestConcurrency_SingleSlotIsSerial` must pass unchanged.
+**API and worker:** `TestAPI_RegisterWorker_ExecutesConcurrentlyOptional` (executed): absent stores false, `true` stores true, existing response unchanged. `TestRegister_SendsExecutesConcurrently` (executed, `internal/worker`). `TestConcurrency_SingleSlotIsSerial` must pass unchanged.
 
-**Migration (option A only):** `TestMigrator_Migration000006_FreshSchema` (planned test) and `TestMigrator_Migration000006_UpgradeFrom000005_WithExistingRows` (planned test), following `TestMigrator_Migration000005_FreshSchema`; existing worker rows read `executes_concurrently = false`. Stage B checks whether `internal/storage/postgres/migrator_test.go` pins the latest version.
+**Migration (option A only):** `TestMigrator_Migration000006_FreshSchema` (executed) and `TestMigrator_Migration000006_UpgradeFrom000005_WithExistingRows` (executed), following `TestMigrator_Migration000005_FreshSchema`; existing worker rows read `executes_concurrently = false`. Stage B checks whether `internal/storage/postgres/migrator_test.go` pins the latest version.
 
 **Mutants (Stage B, each in `~/mc-mut-claude`, each must fail at least one named test, then pass after restore):**
 
 | # | Mutation | Must fail |
 |---|---|---|
-| M1 | Ignore reservations in the count (`A < S`) | `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestConformance_Assign_OneReservationPerWorker` (planned tests where not yet in the tree) |
-| M2 | Ignore active attempts (`R < S`) | `TestConformance_Assign_ActiveAttemptsCountAgainstSlots`, `TestConformance_Assign_SkipsWorkerWithRunningAttempt` (planned tests where not yet in the tree) |
-| M3a | Ignore the declaration, always `S = total_slots` | `TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot`, `TestConformance_Assign_SkipsWorkerWithRunningAttempt` (planned tests where not yet in the tree) |
-| M3b | Ignore the declaration, always `S = 1` | `TestConformance_Assign_ReservationsUpToDeclaredSlots` (planned tests where not yet in the tree) |
-| M4 | Drop the bound `R < M` | `TestConformance_Assign_ReservationCapPerWorker`, `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (planned tests where not yet in the tree) |
-| M5 | Count a lapsed reservation (drop `assignment_expires_at > now` from `R`) | `TestConformance_Assign_ExpiredReservationDoesNotHoldSlot` (planned tests where not yet in the tree) |
-| M6 | Fallback claim keeps today's check (`total_slots - A > 0`) | `TestConformance_Claim_FallbackRespectsReservedSlots` (planned tests where not yet in the tree) |
-| M7 | `<=` instead of `<` in the rule | `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestReservationRoom_Table` (planned tests where not yet in the tree) |
-| M8 | PostgreSQL re-check keeps the old predicate (snapshot changed only) | `TestPostgresRepository_Assign_RecheckUsesSlotRule` (planned tests where not yet in the tree) |
-| M9 | `UpsertWorker` does not overwrite the field on conflict | `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (planned tests where not yet in the tree) |
+| M1 | Ignore reservations in the count (`A < S`) | `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestConformance_Assign_OneReservationPerWorker` (executed) |
+| M2 | Ignore active attempts (`R < S`) | `TestConformance_Assign_ActiveAttemptsCountAgainstSlots`, `TestConformance_Assign_SkipsWorkerWithRunningAttempt` (executed) |
+| M3a | Ignore the declaration, always `S = total_slots` | `TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot`, `TestConformance_Assign_SkipsWorkerWithRunningAttempt` (executed) |
+| M3b | Ignore the declaration, always `S = 1` | `TestConformance_Assign_ReservationsUpToDeclaredSlots` (executed) |
+| M4 | Drop the bound `R < M` | `TestConformance_Assign_ReservationCapPerWorker`, `TestAbuse_Register_LargeDeclaredSlots_ReservationCap` (executed) |
+| M5 | Count a lapsed reservation (drop `assignment_expires_at > now` from `R`) | `TestConformance_Assign_ExpiredReservationDoesNotHoldSlot` (executed) |
+| M6 | Fallback claim keeps today's check (`total_slots - A > 0`) | `TestConformance_Claim_FallbackRespectsReservedSlots` (executed) |
+| M7 | `<=` instead of `<` in the rule | `TestConformance_Assign_ReservationsUpToDeclaredSlots`, `TestReservationRoom_Table` (executed) |
+| M8 | PostgreSQL re-check keeps the old predicate (snapshot changed only) | `TestPostgresRepository_Assign_RecheckUsesSlotRule` (executed) |
+| M9 | `UpsertWorker` does not overwrite the field on conflict | `TestConformance_Worker_ExecutesConcurrentlyRoundTrip` (executed) |
 
 New and changed tests run at `-race -count=50`.
 
@@ -260,8 +272,9 @@ Report for each: wall time, maximum concurrent attempts, attempts per job, lapse
 - Old workers keep exactly today's behaviour (option A).
 - A hostile registration can now hold up to 8 reservations and keep claiming under `round_robin` (Section 2.5); the bound is named, tested and recorded.
 - The `round_robin` per-wave overhead (Section 1.2) is not removed by this slice; it is measured again.
+- [Proposed] A reservation of a worker that re-registered without the reserved task type, or with fewer slots, is not revoked at once; it lapses after the window (owner decision Q7, FS-28). A later slice may revoke it in the pass.
 
-## 4. Open questions for the owner (item 11, not answered here)
+## 4. Open questions for the owner (item 11); answered in the Status section
 - **Q1.** Item 6: option A (optional `executes_concurrently` register field and migration `000006`, V2-1 moves to `000007`), B or C?
 - **Q2.** If A: the field name and type (boolean `executes_concurrently`, or an integer count of concurrent slots that must be at most `total_slots`)?
 - **Q3.** The reservation bound: 8, as a constant? Or another value, or a setting (a setting needs `internal/config`)?

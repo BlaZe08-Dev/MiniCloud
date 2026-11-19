@@ -1,0 +1,7 @@
+go test -count=1 -v -run ^(TestPostgresRepository_Assign_RecheckUsesSlotRule)$ ./internal/storage/postgres/
+=== RUN   TestPostgresRepository_Assign_RecheckUsesSlotRule
+    assignment_test.go:1039: job_1 reserved to "w_1" after the re-check; w_1 has 1 RUNNING attempt of 1 assignable slot
+--- FAIL: TestPostgresRepository_Assign_RecheckUsesSlotRule (0.49s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.500s
+FAIL

@@ -1,0 +1,12 @@
+diff --git a/internal/storage/postgres/repository.go b/internal/storage/postgres/repository.go
+index 6c928d4..a79795b 100644
+--- a/internal/storage/postgres/repository.go
++++ b/internal/storage/postgres/repository.go
+@@ -386,7 +386,6 @@ func (r *Repository) UpsertWorker(ctx context.Context, worker *domain.Worker) er
+ 		ON CONFLICT (id) DO UPDATE 
+ 		SET version = EXCLUDED.version,
+ 			total_slots = EXCLUDED.total_slots,
+-			executes_concurrently = EXCLUDED.executes_concurrently,
+ 			status = EXCLUDED.status,
+ 			supported_tasks = EXCLUDED.supported_tasks,
+ 			last_heartbeat_at = CURRENT_TIMESTAMP;
