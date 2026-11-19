@@ -27,7 +27,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | O1-check | Investigation: HTML escaping payload expansion (SEC-067) | Gemini | orchestrator review | agent/gemini/O1-check | complete |
 | V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads over worker limit | Claude Code | Gemini (read-only) | agent/claude/V1x-02 | merged in PR #60; audit APPROVE, archived in PR #61 (findings F-V1x02-1 and F-V1x02-2, both minor); SEC-067 Fixed; handoff `docs/agents/handoffs/V1x-02.md` |
 | V2-0 | ADR and implementation: worker concurrency semantics (advertised slots equal real concurrency) | Claude Code | to be assigned | agent/claude/V2-0 | audited, fix round 1 (ADR-0019 Accepted; audit APPROVE WITH FIXES on agent/claude/V2-0-audit) |
-| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | not started | planned, not started; after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
+| V2-0b | Round-robin uses every free slot: remove `domain.EffectiveWorkerSlots`, amend ADR-0017 | Claude Code | Opus (independent session) | agent/claude/V2-0b | ADR proposed (ADR-0020, Stage A; code waits for "ADR approved"); after V2-0, before V2-1; must measure the `round_robin` assignment-pass overhead (V2-0 audit O-1: about 6 s slower than serial `fifo_pull` for 8 x 5 s jobs) |
 | V2-1 | Node and capability model (D3) and migration 000006 | Claude Code | to be assigned | not started | planned, after V2-0; needs the V2-1 ADR with OD-19 answered |
 | P4-19 | Docs part 1: security and ADR records (ADR-0017 status, findings register, test and fault plans, roadmap, V1 gate results) | Claude Code | to be assigned | agent/claude/P4-19 | merged in PR #51 (status corrected by PV-01) |
 | P4-21 | Docs part 2 from the P4-18 audit | Gemini | to be assigned | agent/gemini/P4-21 | complete, merged in PR #49 |
@@ -90,7 +90,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V2-0b — Round-robin uses every free slot (placeholder; full spec to be written by the orchestrator)
 - Goal: remove `domain.EffectiveWorkerSlots` so the ADR-0017 assignment pass reserves work up to `total_slots - running - reserved` per worker (ADR-0017 Section 2.4 and Q5, ADR-0019 Section 2.2 and Q1); amend ADR-0017; coordinator, storage (in-memory and PostgreSQL) and tests. Until it lands, parallelism under `round_robin` stays one job per worker.
-- Builder: Claude Code. Auditor: Opus (independent session). Status: planned, not started; after V2-0, before V2-1.
+- Builder: Claude Code. Auditor: Opus (independent session). Branch: `agent/claude/V2-0b`. Status: ADR proposed: `docs/adr/0020-round-robin-real-slots.md` (Stage A, docs only); Stage B starts only after the orchestrator writes "ADR approved". Before V2-1.
 - Also measure the `round_robin` assignment-pass overhead: in the V2-0 audit (O-1) 8 `sleep` jobs of 5 s on one worker took 46.60 s under `round_robin` against 40.41 s under serial `fifo_pull` with one slot (about 6 s slower, attributed to the assignment pass interval, inferred).
 
 ### V1.0.x maintenance candidates added by V2-0 (not started)
