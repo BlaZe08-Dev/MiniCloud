@@ -102,6 +102,21 @@ func rrHeartbeat(t *testing.T, svc *coordinator.Service, workerID string, tasks 
 	}
 }
 
+// rrHeartbeatDeclared registers a worker that declares executes_concurrently with the given slots
+// (ADR-0020 Section 2.6), then heartbeats it.
+func rrHeartbeatDeclared(t *testing.T, svc *coordinator.Service, workerID string, slots int, tasks ...string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := svc.RegisterWorker(ctx, &domain.Worker{
+		ID: workerID, Version: "v0.1.0", TotalSlots: slots, Status: domain.WorkerStatusHealthy, SupportedTasks: tasks, ExecutesConcurrently: true,
+	}); err != nil {
+		t.Fatalf("RegisterWorker(%s): %v", workerID, err)
+	}
+	if err := svc.Heartbeat(ctx, workerID, slots); err != nil {
+		t.Fatalf("Heartbeat(%s): %v", workerID, err)
+	}
+}
+
 func newPassFaultRepo(clk *mockClock) *passFaultRepo {
 	return &passFaultRepo{InMemoryRepository: storage.NewInMemoryRepository(storage.WithClock(clk))}
 }
@@ -372,7 +387,10 @@ func TestConformance_PollResponse_PolicyField(t *testing.T) {
 //     reservations are those read right after that pass, before the claim (P4-08g H2);
 //   - INV-6: right after a successful pass, no reservation is held at or past its expiry;
 //   - INV-8: a cancelled job is never claimed and holds no reservation;
-//   - INV-10: no worker holds two live reservations, or one while it runs an attempt.
+//   - INV-10r (ADR-0020 Section 2.4, replaces INV-10): for every worker, active attempts plus live
+//     reservations never exceed its assignable slots (1 for the undeclared w_a and w_b, 3 for w_c,
+//     which declares executes_concurrently), and no worker holds more than
+//     domain.MaxReservationsPerWorker live reservations.
 //
 // INV-14 (liveness) closes every iteration: the pass is stalled, a fresh worker polls once per
 // interval, and every job still QUEUED must be claimed within FALLBACK_AGE plus one interval per job
@@ -387,7 +405,7 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 		}
 		first, last = n, n
 	}
-	reservations, rrClaims, drained := 0, 0, 0
+	reservations, rrClaims, drained, maxReserved := 0, 0, 0, 0
 	claims, checkedAfterPass := 0, 0
 	var current int64
 	defer func() {
@@ -396,8 +414,8 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 			return
 		}
 		t.Logf("claims %d, of which INV-3 checked against the post-refresh reservations %d (all %d are checked)", claims, checkedAfterPass, claims)
-		if first == 1 && (reservations == 0 || rrClaims == 0 || drained == 0 || checkedAfterPass == 0) {
-			t.Errorf("model exercised no reservations (%d), round-robin claims (%d), stalled drains (%d) or claims after a refresh (%d); the property is vacuous", reservations, rrClaims, drained, checkedAfterPass)
+		if first == 1 && (reservations == 0 || rrClaims == 0 || drained == 0 || checkedAfterPass == 0 || maxReserved < 2) {
+			t.Errorf("model exercised no reservations (%d), round-robin claims (%d), stalled drains (%d), claims after a refresh (%d) or a worker holding two or more reservations (max %d); the property is vacuous", reservations, rrClaims, drained, checkedAfterPass, maxReserved)
 		}
 	}()
 	for seed := first; seed <= last; seed++ {
@@ -411,8 +429,15 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 		var postPass map[string]reservation // reservations right after the last completed pass
 		repo.afterPass = func() { postPass = reservationsOf(t, repo, jobs) }
 		workers := []string{"w_a", "w_b", "w_c"}
-		for _, w := range workers {
+		heartbeat := func(w string) {
+			if w == "w_c" {
+				rrHeartbeatDeclared(t, svc, w, 3, "echo")
+				return
+			}
 			rrHeartbeat(t, svc, w, "echo")
+		}
+		for _, w := range workers {
+			heartbeat(w)
 		}
 		cancelled := map[string]bool{}
 		running := map[string]string{} // job -> lease token, for finishing
@@ -475,7 +500,7 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 			case 5:
 				repo.setFailing(rnd.Intn(2) == 0)
 			case 6:
-				rrHeartbeat(t, svc, w, "echo")
+				heartbeat(w)
 			case 7:
 				for id, token := range running {
 					att := attemptOf(t, repo, id)
@@ -490,7 +515,9 @@ func TestProperty_AssignmentSubState_ModelConformance(t *testing.T) {
 			if rnd.Intn(4) == 0 {
 				_, _ = svc.ReapInactiveWorkers(ctx)
 			}
-			checkSubStateInvariants(t, repo, clk, seed, step, workers, jobs)
+			if m := checkSubStateInvariants(t, repo, clk, seed, step, workers, jobs); m > maxReserved {
+				maxReserved = m
+			}
 			for _, id := range jobs {
 				if j, _ := repo.GetJob(ctx, id); j.State == domain.StateCancelled && j.AssignedWorkerID != nil {
 					t.Fatalf("seed %d step %d: INV-8: cancelled job %s holds a reservation to %s", seed, step, id, *j.AssignedWorkerID)
@@ -575,7 +602,7 @@ func attemptOf(t *testing.T, repo storage.Repository, jobID string) *domain.Atte
 	return att
 }
 
-func checkSubStateInvariants(t *testing.T, repo *passFaultRepo, clk *mockClock, seed int64, step int, workers, jobs []string) {
+func checkSubStateInvariants(t *testing.T, repo *passFaultRepo, clk *mockClock, seed int64, step int, workers, jobs []string) int {
 	t.Helper()
 	ctx := context.Background()
 	now := clk.Now()
@@ -602,21 +629,32 @@ func checkSubStateInvariants(t *testing.T, repo *passFaultRepo, clk *mockClock, 
 			}
 		}
 	}
-	for w, n := range perWorker {
-		if n > 1 {
-			t.Fatalf("seed %d step %d: INV-10: worker %s holds %d live reservations", seed, step, w, n)
+	// INV-10r: active + live reservations <= assignable slots, live reservations <= the cap.
+	attempts := mustAttempts(t, repo, jobs)
+	maxReserved := 0
+	for _, w := range workers {
+		wk, err := repo.GetWorker(ctx, w)
+		if err != nil {
+			t.Fatalf("GetWorker(%s): %v", w, err)
 		}
-		for _, id := range jobs {
-			job, _ := repo.GetJob(ctx, id)
-			if job.AssignedWorkerID != nil && *job.AssignedWorkerID == w && job.AssignmentExpiresAt != nil && job.AssignmentExpiresAt.After(now) {
-				for _, a := range mustAttempts(t, repo, jobs) {
-					if a.WorkerID == w && a.State == domain.AttemptRunning {
-						t.Fatalf("seed %d step %d: INV-10: live reservation to %s while it runs attempt %s", seed, step, w, a.ID)
-					}
-				}
+		active := 0
+		for _, a := range attempts {
+			if a.WorkerID == w && (a.State == domain.AttemptRunning || a.State == domain.AttemptPending) {
+				active++
 			}
 		}
+		reserved := perWorker[w]
+		if reserved > maxReserved {
+			maxReserved = reserved
+		}
+		if s := domain.AssignableSlots(wk.ExecutesConcurrently, wk.TotalSlots); active+reserved > s {
+			t.Fatalf("seed %d step %d: INV-10r: worker %s has %d active attempts + %d live reservations, above its %d assignable slots", seed, step, w, active, reserved, s)
+		}
+		if reserved > domain.MaxReservationsPerWorker {
+			t.Fatalf("seed %d step %d: INV-10r: worker %s holds %d live reservations, above the cap %d", seed, step, w, reserved, domain.MaxReservationsPerWorker)
+		}
 	}
+	return maxReserved
 }
 
 func mustAttempts(t *testing.T, repo *passFaultRepo, jobs []string) []*domain.Attempt {
