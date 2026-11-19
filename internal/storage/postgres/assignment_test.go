@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
@@ -1041,4 +1042,140 @@ func TestPostgresRepository_Assign_RecheckUsesSlotRule(t *testing.T) {
 	if out.res.Reserved != 0 {
 		t.Fatalf("pass reserved %d, want 0", out.res.Reserved)
 	}
+}
+
+// recheckHolderReserve makes the holder transaction commit a live reservation (assigned_worker_id
+// set, expiring in the future) of jobID to workerID.
+func recheckHolderReserve(t *testing.T, ctx context.Context, tx pgx.Tx, jobID, workerID string) {
+	t.Helper()
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO jobs (id, task_type, payload, state, assigned_worker_id, assigned_at, assignment_expires_at)
+		VALUES ($1, 'echo', '\x00', 'QUEUED', $2, clock_timestamp(), clock_timestamp() + INTERVAL '60 seconds')`,
+		jobID, workerID); err != nil {
+		t.Fatalf("holder reserves %s to %s: %v", jobID, workerID, err)
+	}
+}
+
+// runPassBlockedOnWorkerRow runs an assignment pass while a second connection holds workerID's row
+// lock. holderWork runs on that connection (uncommitted); once the pass is blocked on the row, which
+// proves its snapshot saw the worker eligible, the connection commits and the pass re-checks.
+func runPassBlockedOnWorkerRow(t *testing.T, pool *pgxpool.Pool, repo *postgres.Repository, workerID string, holderWork func(ctx context.Context, tx pgx.Tx)) storage.AssignResult {
+	t.Helper()
+	ctx := context.Background()
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = holder.Rollback(ctx) }()
+	if _, err := holder.Exec(ctx, `SELECT id FROM workers WHERE id = $1 FOR UPDATE`, workerID); err != nil {
+		t.Fatalf("hold %s: %v", workerID, err)
+	}
+	holderWork(ctx, holder)
+	var holderPID int
+	if err := holder.QueryRow(ctx, `SELECT pg_backend_pid()`).Scan(&holderPID); err != nil {
+		t.Fatal(err)
+	}
+
+	type passOut struct {
+		res storage.AssignResult
+		err error
+	}
+	done := make(chan passOut, 1)
+	go func() {
+		res, err := repo.AssignQueuedJobs(ctx, storagetest.AssignTestParams())
+		done <- passOut{res, err}
+	}()
+
+	deadline := time.Now().Add(4 * time.Second)
+	for {
+		var waiting int
+		if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND $1 = ANY(pg_blocking_pids(pid))`, holderPID).Scan(&waiting); err != nil {
+			t.Fatal(err)
+		}
+		if waiting > 0 {
+			break
+		}
+		select {
+		case out := <-done:
+			t.Fatalf("pass finished without waiting on %s's row: res=%+v err=%v (the snapshot did not see it as eligible)", workerID, out.res, out.err)
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the pass never waited on %s's row lock", workerID)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err := holder.Commit(ctx); err != nil {
+		t.Fatalf("commit the holder: %v", err)
+	}
+	out := <-done
+	if out.err != nil {
+		t.Fatalf("pass: %v", out.err)
+	}
+	return out.res
+}
+
+// TestPostgresRepository_Assign_RecheckCountsLiveReservations: ADR-0020 INV-10r, the re-check under
+// the worker row lock counts live reservations (the R term of A + R < S) and enforces R < M, both
+// against rows committed by another connection after the pass took its snapshot. Kills the mutants
+// that drop R from the re-check sum (M8b) and drop R < $4 from the re-check (M8c).
+func TestPostgresRepository_Assign_RecheckCountsLiveReservations(t *testing.T) {
+	t.Run("last_slot_filled_by_reservation", func(t *testing.T) {
+		// S = 2, A = 0, R = 1 at the snapshot (one slot left). The holder commits a second live
+		// reservation: A + R = 2 = S. total_slots - A > 0 and R < 8 still hold, so only the
+		// R term of the sum rejects.
+		ctx := context.Background()
+		h, pool, repo := newPostgresAssignmentHarnessWithRepo(t, postgres.WithSweepLockTimeout(5*time.Second))
+		storagetest.AssignAddDeclaredWorker(t, h, "w_1", 2, "echo")
+		storagetest.AssignPoll(t, h, "w_1")
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		recheckHolderReserve(t, ctx, tx, "job_res_0", "w_1")
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+		storagetest.AssignSubmit(t, h, "job_1", "echo")
+
+		res := runPassBlockedOnWorkerRow(t, pool, repo, "w_1", func(ctx context.Context, tx pgx.Tx) {
+			recheckHolderReserve(t, ctx, tx, "job_res_1", "w_1")
+		})
+		if got := reservedTo(t, pool, "job_1"); got != "" {
+			t.Fatalf("job_1 reserved to %q; w_1 had 2 live reservations of 2 slots at the re-check", got)
+		}
+		if res.Reserved != 0 {
+			t.Fatalf("pass reserved %d, want 0", res.Reserved)
+		}
+	})
+
+	t.Run("eighth_reservation", func(t *testing.T) {
+		// S = 16, A = 0, R = 7 at the snapshot. The holder commits the 8th live reservation:
+		// A + R = 8 < 16, so only R < MaxReservationsPerWorker rejects.
+		ctx := context.Background()
+		h, pool, repo := newPostgresAssignmentHarnessWithRepo(t, postgres.WithSweepLockTimeout(5*time.Second))
+		storagetest.AssignAddDeclaredWorker(t, h, "w_1", 16, "echo")
+		storagetest.AssignPoll(t, h, "w_1")
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < domain.MaxReservationsPerWorker-1; i++ {
+			recheckHolderReserve(t, ctx, tx, fmt.Sprintf("job_res_%d", i), "w_1")
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+		storagetest.AssignSubmit(t, h, "job_1", "echo")
+
+		res := runPassBlockedOnWorkerRow(t, pool, repo, "w_1", func(ctx context.Context, tx pgx.Tx) {
+			recheckHolderReserve(t, ctx, tx, "job_res_last", "w_1")
+		})
+		if got := reservedTo(t, pool, "job_1"); got != "" {
+			t.Fatalf("job_1 reserved to %q; w_1 had %d live reservations at the re-check", got, domain.MaxReservationsPerWorker)
+		}
+		if res.Reserved != 0 {
+			t.Fatalf("pass reserved %d, want 0", res.Reserved)
+		}
+	})
 }
