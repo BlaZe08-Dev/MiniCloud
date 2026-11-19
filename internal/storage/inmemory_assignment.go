@@ -39,15 +39,16 @@ func (r *InMemoryRepository) activeAttemptsLocked(workerID string) int {
 	return n
 }
 
-// liveReservationLocked reports whether any job holds an unexpired reservation to the worker.
-// Caller holds r.mu.
-func (r *InMemoryRepository) liveReservationLocked(workerID string, now time.Time) bool {
+// liveReservationsLocked counts the jobs holding an unexpired reservation to the worker. An
+// expired reservation does not count (ADR-0020 Section 2.1). Caller holds r.mu.
+func (r *InMemoryRepository) liveReservationsLocked(workerID string, now time.Time) int {
+	n := 0
 	for _, j := range r.jobs {
 		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
-			return true
+			n++
 		}
 	}
-	return false
+	return n
 }
 
 // eligibleWorkersLocked returns the IDs eligible for a reservation of taskType, sorted (ADR-0017
@@ -64,14 +65,14 @@ func (r *InMemoryRepository) eligibleWorkersLocked(taskType string, now time.Tim
 		if w.LastPollAt == nil || !w.LastPollAt.After(now.Add(-p.AcceptWindow)) {
 			continue
 		}
-		// One effective slot (ADR-0017 Section 2.4): no PENDING or RUNNING attempt, and capacity.
-		if r.activeAttemptsLocked(id) >= domain.EffectiveWorkerSlots {
-			continue
-		}
+		// Real slots (ADR-0020 Section 2.1): active + live reservations below the assignable slots,
+		// and at most MaxReservationsPerWorker reservations. Recounted per decision, so a
+		// reservation made earlier in this pass counts.
 		if r.computeAvailableSlotsLocked(id, w.TotalSlots) <= 0 {
 			continue
 		}
-		if r.liveReservationLocked(id, now) {
+		assignable := domain.AssignableSlots(w.ExecutesConcurrently, w.TotalSlots)
+		if !domain.CanReserve(assignable, r.activeAttemptsLocked(id), r.liveReservationsLocked(id, now)) {
 			continue
 		}
 		ids = append(ids, id)
@@ -275,12 +276,22 @@ func (r *InMemoryRepository) ClaimForPoll(ctx context.Context, workerID string, 
 		if j.AssignedWorkerID != nil && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
 			continue // a live reservation belongs to its worker
 		}
+		reason := ""
 		if j.AssignmentLapses >= opts.MaxLapses {
-			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonLapses, now)
+			reason = domain.FallbackReasonLapses
+		} else if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {
+			reason = domain.FallbackReasonAge
 		}
-		if opts.AgeArmOpen && passSilent && !dispatchableSince(j).After(silentBefore) {
-			return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, domain.FallbackReasonAge, now)
+		if reason == "" {
+			continue
 		}
+		// A fallback claim never makes active + live reservations exceed the assignable slots
+		// (ADR-0020 Section 2.4).
+		assignable := domain.AssignableSlots(worker.ExecutesConcurrently, worker.TotalSlots)
+		if !domain.HasFallbackRoom(assignable, r.activeAttemptsLocked(workerID), r.liveReservationsLocked(workerID, now)) {
+			return nil, domain.ErrWorkerNoCapacity
+		}
+		return r.claimLocked(j, workerID, domain.DispatchPolicyRoundRobinFallback, reason, now)
 	}
 	return nil, domain.ErrNoQueuedJobs
 }

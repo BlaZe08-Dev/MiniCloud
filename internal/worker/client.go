@@ -353,6 +353,10 @@ func (a *Agent) register(ctx context.Context) error {
 		"total_slots":     a.cfg.TotalSlots,
 		"available_slots": a.availableSlots(),
 		"supported_tasks": []string{"echo", "sleep", "sha256_loop"},
+		// This worker executes up to total_slots attempts at once (ADR-0019), so the round-robin
+		// pass may reserve it that many jobs (ADR-0020 Section 2.6). Older workers omit the field
+		// and keep one slot.
+		"executes_concurrently": true,
 	})
 	if err != nil {
 		return err

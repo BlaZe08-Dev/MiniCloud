@@ -381,11 +381,12 @@ func (r *Repository) UpsertWorker(ctx context.Context, worker *domain.Worker) er
 	}
 
 	query := `
-		INSERT INTO workers (id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at)
-		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO workers (id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at, executes_concurrently)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $6)
 		ON CONFLICT (id) DO UPDATE 
 		SET version = EXCLUDED.version,
 			total_slots = EXCLUDED.total_slots,
+			executes_concurrently = EXCLUDED.executes_concurrently,
 			status = EXCLUDED.status,
 			supported_tasks = EXCLUDED.supported_tasks,
 			last_heartbeat_at = CURRENT_TIMESTAMP;
@@ -396,6 +397,7 @@ func (r *Repository) UpsertWorker(ctx context.Context, worker *domain.Worker) er
 		worker.TotalSlots,
 		string(status),
 		worker.SupportedTasks,
+		worker.ExecutesConcurrently,
 	)
 	if err != nil {
 		return mapPgError(err)
@@ -423,7 +425,8 @@ func (r *Repository) RecordHeartbeat(ctx context.Context, workerID string, _ int
 // GetWorker retrieves a worker by ID with AvailableSlots computed from active attempts.
 func (r *Repository) GetWorker(ctx context.Context, id string) (*domain.Worker, error) {
 	query := `
-		SELECT id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at, available_slots
+		SELECT id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at, available_slots,
+		       (SELECT x.executes_concurrently FROM workers x WHERE x.id = worker_capacity.id)
 		FROM worker_capacity
 		WHERE id = $1;
 	`
@@ -440,6 +443,7 @@ func (r *Repository) GetWorker(ctx context.Context, id string) (*domain.Worker, 
 		&w.RegisteredAt,
 		&w.LastHeartbeatAt,
 		&w.AvailableSlots,
+		&w.ExecutesConcurrently,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -454,7 +458,8 @@ func (r *Repository) GetWorker(ctx context.Context, id string) (*domain.Worker, 
 // ListWorkers returns all workers with AvailableSlots derived from active attempts.
 func (r *Repository) ListWorkers(ctx context.Context) ([]*domain.Worker, error) {
 	query := `
-		SELECT id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at, available_slots
+		SELECT id, version, total_slots, status, supported_tasks, registered_at, last_heartbeat_at, available_slots,
+		       (SELECT x.executes_concurrently FROM workers x WHERE x.id = worker_capacity.id)
 		FROM worker_capacity
 		ORDER BY id ASC;
 	`
@@ -479,6 +484,7 @@ func (r *Repository) ListWorkers(ctx context.Context) ([]*domain.Worker, error) 
 			&w.RegisteredAt,
 			&w.LastHeartbeatAt,
 			&w.AvailableSlots,
+			&w.ExecutesConcurrently,
 		)
 		if err != nil {
 			return nil, mapPgError(err)

@@ -15,6 +15,12 @@ type Worker struct {
 	LastHeartbeatAt time.Time    `json:"last_heartbeat_at"`
 	RegisteredAt    time.Time    `json:"registered_at"`
 
+	// ExecutesConcurrently is the optional register field executes_concurrently (ADR-0020
+	// Section 2.6): true when the worker executes up to TotalSlots attempts at the same time.
+	// Absent (false) means the round-robin pass treats the worker as having one slot, which keeps
+	// the v1.0.0 and V2-0 workers, which do not send it, at their one-slot behaviour.
+	ExecutesConcurrently bool `json:"executes_concurrently"`
+
 	// LastPollAt is the time of the last poll that reached this worker while it was HEALTHY
 	// (ADR-0017 Section 2.2). nil means the worker has never polled, so it is not assignable.
 	// It is internal: it is not part of any response.

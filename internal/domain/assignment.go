@@ -16,11 +16,36 @@ const (
 	FallbackReasonAge    = "age"
 )
 
-// EffectiveWorkerSlots is the number of slots the round-robin pass treats a worker as having
-// (ADR-0017 Section 2.4). The worker loop is synchronous (ADR-0017 C12), so a worker with a
-// PENDING or RUNNING attempt has no free slot for a reservation. The pass uses this constant
-// rather than worker_capacity, and it is removed when worker concurrency lands (Q5).
-const EffectiveWorkerSlots = 1
+// MaxReservationsPerWorker bounds the live reservations one worker may hold (ADR-0020 Section
+// 2.5). It is a constant, not configuration. MaxPollBackoff + MaxReservationsPerWorker x
+// IdlePollInterval (3 s + 8 x 200 ms = 4.6 s) stays below the 5 s accept-window floor, so a worker
+// can claim every reservation it holds inside the window; it also caps how many jobs one
+// registration that polls once and stops can make lapse per window.
+const MaxReservationsPerWorker = 8
+
+// AssignableSlots is the number of slots the round-robin pass and the fallback claim give a worker
+// (ADR-0020 Section 2.1): totalSlots when the worker declared concurrent execution at its latest
+// registration, otherwise 1 (the v1.0.0 and V2-0 workers do not declare it).
+func AssignableSlots(executesConcurrently bool, totalSlots int) int {
+	if executesConcurrently {
+		return totalSlots
+	}
+	return 1
+}
+
+// CanReserve reports whether a worker with assignable slots, active PENDING or RUNNING attempts
+// and live reservations may receive one more reservation (ADR-0020 Section 2.1, INV-10r):
+// active + reserved < assignable and reserved < MaxReservationsPerWorker.
+func CanReserve(assignable, active, reserved int) bool {
+	return active+reserved < assignable && reserved < MaxReservationsPerWorker
+}
+
+// HasFallbackRoom reports whether a fallback claim may give the worker one more attempt (ADR-0020
+// Section 2.4): active + reserved < assignable. A fallback claim creates no reservation, so the
+// reservation cap does not apply.
+func HasFallbackRoom(assignable, active, reserved int) bool {
+	return active+reserved < assignable
+}
 
 // IsValidDispatchPolicy reports whether name selects a dispatch policy that may be configured.
 // The fallback policy name is an output of a claim, not a setting, so it is not valid here.

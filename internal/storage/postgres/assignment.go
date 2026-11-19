@@ -374,10 +374,14 @@ func assignReserve(ctx context.Context, tx pgx.Tx, p storage.AssignParams, res *
 // for the event payload.
 //
 // Eligibility (Section 2.2), with $1 the task type, $2 the worker timeout and $3 the accept window
-// in seconds and $4 domain.EffectiveWorkerSlots: HEALTHY, supports the type, fresh heartbeat, fresh
-// poll, one effective slot (no PENDING or RUNNING attempt, Section 2.4), capacity left, and no live
-// reservation. Inside the pass transaction the reservation check also sees this pass's own
-// reservations, so a worker reserved earlier in the pass is not eligible again. The snapshot read
+// in seconds and $4 domain.MaxReservationsPerWorker: HEALTHY, supports the type, fresh heartbeat,
+// fresh poll, capacity left, and the real-slot rule of ADR-0020 Section 2.1: active PENDING or
+// RUNNING attempts plus live (unexpired) reservations below the assignable slots (total_slots for a
+// worker that declared executes_concurrently, otherwise 1; domain.AssignableSlots), and fewer than
+// $4 live reservations (domain.CanReserve). The same predicate text appears in
+// assignLockAndRecheck; the two copies must stay identical.
+// Inside the pass transaction the reservation count also sees this pass's own reservations, so
+// each reservation made earlier in the pass counts against the worker's slots. The snapshot read
 // and the re-check under the lock use the same predicate.
 func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p storage.AssignParams, skipped map[string]bool) (string, []string, bool, error) {
 	rows, err := tx.Query(ctx, `
@@ -388,12 +392,12 @@ func assignChooseWorker(ctx context.Context, tx pgx.Tx, ty, cursor string, p sto
 			AND w.last_heartbeat_at > clock_timestamp() - make_interval(secs => $2::double precision)
 			AND w.last_poll_at IS NOT NULL
 			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
-			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) < $4
 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
-			AND NOT EXISTS (
-				SELECT 1 FROM jobs rj
-				WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp());`,
-		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.EffectiveWorkerSlots)
+			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
+			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4;`,
+		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker)
 	if err != nil {
 		return "", nil, false, mapPgError(err)
 	}
@@ -477,12 +481,12 @@ func assignLockAndRecheck(ctx context.Context, tx pgx.Tx, workerID, ty string, p
 			AND w.last_heartbeat_at > clock_timestamp() - make_interval(secs => $2::double precision)
 			AND w.last_poll_at IS NOT NULL
 			AND w.last_poll_at > clock_timestamp() - make_interval(secs => $3::double precision)
-			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) < $4
 			AND w.total_slots - (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING')) > 0
-			AND NOT EXISTS (
-				SELECT 1 FROM jobs rj
-				WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()));`,
-		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.EffectiveWorkerSlots, workerID).Scan(&eligible)
+			AND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))
+			    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())
+			    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)
+			AND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4);`,
+		ty, p.WorkerTimeout.Seconds(), p.AcceptWindow.Seconds(), domain.MaxReservationsPerWorker, workerID).Scan(&eligible)
 	if err != nil {
 		return 0, mapPgError(err)
 	}
@@ -627,9 +631,10 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
 		totalSlots   int
 		workerStatus string
 		lockedTasks  []string
+		concurrent   bool
 	)
-	err = tx.QueryRow(ctx, `SELECT total_slots, status, supported_tasks FROM workers WHERE id = $1 FOR UPDATE;`, workerID).
-		Scan(&totalSlots, &workerStatus, &lockedTasks)
+	err = tx.QueryRow(ctx, `SELECT total_slots, status, supported_tasks, executes_concurrently FROM workers WHERE id = $1 FOR UPDATE;`, workerID).
+		Scan(&totalSlots, &workerStatus, &lockedTasks, &concurrent)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrWorkerNotFound
@@ -655,6 +660,18 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
 	}
 	if totalSlots-activeWorkerAttempts <= 0 {
 		return nil, domain.ErrWorkerNoCapacity
+	}
+	if policy == domain.DispatchPolicyRoundRobinFallback {
+		// A fallback claim never makes active + live reservations exceed the assignable slots
+		// (ADR-0020 Section 2.4). The own arm needs no such check: it turns a reservation, already
+		// counted, into an attempt.
+		var reserved int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM jobs WHERE assigned_worker_id = $1 AND assignment_expires_at > clock_timestamp();`, workerID).Scan(&reserved); err != nil {
+			return nil, mapPgError(err)
+		}
+		if !domain.HasFallbackRoom(domain.AssignableSlots(concurrent, totalSlots), activeWorkerAttempts, reserved) {
+			return nil, domain.ErrWorkerNoCapacity
+		}
 	}
 	var activeJobAttempts int
 	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM attempts WHERE job_id = $1 AND state IN ('PENDING', 'RUNNING');`, job.ID).Scan(&activeJobAttempts); err != nil {
