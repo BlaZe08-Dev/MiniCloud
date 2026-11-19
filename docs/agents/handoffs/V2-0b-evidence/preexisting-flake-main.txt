@@ -1,0 +1,19 @@
+main 26b440a Merge pull request #61 from BlaZe08-Dev/agent/gemini/V1x-02-audit, coordinator+storage unit tests running in parallel as load
+command: env -u MINICLOUD_TEST_DATABASE_URL go test -count=150 -cpu 1,4 -run '^TestConcurrency_RenewalPanicTreatsLeaseAsLost$' ./internal/worker/
+      1 ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	2.957s
+    300 --- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost
+
+Earlier run in the same session, same command on main 26b440a with the same parallel load (output was
+not redirected to a file; the lines below are the console output of that run, copied verbatim, with
+counts from `sort | uniq -c`):
+      1     concurrency_test.go:1012: timed out waiting for j1's renewal
+      2 FAIL
+      1 FAIL	github.com/BlaZe08-Dev/Minicloud/internal/worker	13.955s
+      1 --- FAIL: TestConcurrency_RenewalPanicTreatsLeaseAsLost (10.00s)
+Then on agent/claude/V2-0b, same command and load: `ok ... 2.895s` (300/300 PASS).
+
+On the branch the test failed in both full unset-suite runs (packages run in parallel, no -p 1), passed in
+`make test-race` (-p 1), and passed 5/5 in isolation (rerun-two-isolated.log). The change on the branch
+touches nothing in this test's path except one extra field in the register body. Suspected cause
+(inferred, not proven): the test waits with `r.clk.BlockUntil(1, ccWait)` for "one timer armed", which
+under load can be satisfied by a timer other than j1's renewal timer.

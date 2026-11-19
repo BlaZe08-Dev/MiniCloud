@@ -1,0 +1,72 @@
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.01s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:291: gap  1: 201.478102ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  2: 200.659511ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  3: 200.869949ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  4: 200.671512ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  5: 200.953644ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  6: 153.630797ms, bound [100ms, 350ms]
+    poll_timing_test.go:291: gap  7: 237.232025ms, bound [200ms, 550ms]
+    poll_timing_test.go:291: gap  8: 669.91389ms, bound [400ms, 950ms]
+    poll_timing_test.go:291: gap  9: 1.600834042s, bound [800ms, 1.75s]
+    poll_timing_test.go:291: gap 10: 201.994966ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (4.04s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.01s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:291: gap  1: 201.927256ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  2: 201.824429ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  3: 201.608134ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  4: 200.815292ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  5: 201.0046ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  6: 149.06658ms, bound [100ms, 350ms]
+    poll_timing_test.go:291: gap  7: 261.019696ms, bound [200ms, 550ms]
+    poll_timing_test.go:291: gap  8: 481.948659ms, bound [400ms, 950ms]
+    poll_timing_test.go:291: gap  9: 1.382906399s, bound [800ms, 1.75s]
+    poll_timing_test.go:291: gap 10: 201.212122ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.63s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:291: gap  1: 201.293294ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  2: 202.687514ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  3: 200.907441ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  4: 201.014113ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  5: 201.639341ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  6: 197.320534ms, bound [100ms, 350ms]
+    poll_timing_test.go:291: gap  7: 239.283171ms, bound [200ms, 550ms]
+    poll_timing_test.go:291: gap  8: 468.299972ms, bound [400ms, 950ms]
+    poll_timing_test.go:291: gap  9: 958.457163ms, bound [800ms, 1.75s]
+    poll_timing_test.go:291: gap 10: 201.599068ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.18s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.01s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:291: gap  1: 200.71054ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  2: 201.479006ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  3: 201.183205ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  4: 201.014992ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  5: 201.088888ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  6: 120.774633ms, bound [100ms, 350ms]
+    poll_timing_test.go:291: gap  7: 217.233227ms, bound [200ms, 550ms]
+    poll_timing_test.go:291: gap  8: 598.308375ms, bound [400ms, 950ms]
+    poll_timing_test.go:291: gap  9: 1.545722249s, bound [800ms, 1.75s]
+    poll_timing_test.go:291: gap 10: 201.11093ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.85s)
+=== RUN   TestConcurrency_RenewalPanicTreatsLeaseAsLost
+--- PASS: TestConcurrency_RenewalPanicTreatsLeaseAsLost (0.02s)
+=== RUN   TestPollTiming_RealClockSleeps
+    poll_timing_test.go:291: gap  1: 201.019367ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  2: 201.71578ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  3: 201.654398ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  4: 201.45253ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  5: 201.124961ms, bound [200ms, 350ms]
+    poll_timing_test.go:291: gap  6: 145.253109ms, bound [100ms, 350ms]
+    poll_timing_test.go:291: gap  7: 227.488046ms, bound [200ms, 550ms]
+    poll_timing_test.go:291: gap  8: 729.946084ms, bound [400ms, 950ms]
+    poll_timing_test.go:291: gap  9: 986.483926ms, bound [800ms, 1.75s]
+    poll_timing_test.go:291: gap 10: 202.684141ms, bound [200ms, 350ms]
+--- PASS: TestPollTiming_RealClockSleeps (3.50s)
+PASS
+ok  	github.com/BlaZe08-Dev/Minicloud/internal/worker	18.273s

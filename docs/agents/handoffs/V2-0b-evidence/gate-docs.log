@@ -1,0 +1,9 @@
+go test ./tests/docs
+--- FAIL: TestCitations (2.68s)
+    --- FAIL: TestCitations/RuleC_TestIdentifiers (0.93s)
+        citations_test.go:775: docs/agents/handoffs/V2-0b.md:14: [RuleC] cited test "TestFault_" does not exist
+        citations_test.go:775: docs/agents/handoffs/V2-0b.md:14: [RuleC] cited test "TestAbuse_" does not exist
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/tests/docs	2.686s
+FAIL
+make: *** [Makefile:26: test-docs] Error 1
