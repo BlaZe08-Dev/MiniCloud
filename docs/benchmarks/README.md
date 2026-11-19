@@ -22,4 +22,4 @@
 Each run writes `<scenario>-<UTC date>-<short commit>.json` and `.md`. The JSON holds the command, parameters, the environment record, every warm-up value (labelled `warmup_discarded` and excluded from statistics), every recorded value and the statistics. Percentiles are nearest-rank; for N below 20 the p95 equals the maximum and the table says so. A series with N=0 shows `n/a` in the table and its JSON `stats` object holds only `"n": 0`. Nothing is trimmed and no mean is reported. A result whose environment record is incomplete is refused (`invalid`) and no file is written.
 
 ## Kept results
-The files in this directory come from real runs on the machine described in each file's environment record (commit `deaa293`, one run per scenario). They are not examples.
+The files in this directory come from real runs on the machine described in each file's environment record (commit `deaa293`, one run per scenario; S2 was re-run at commit `d07c59e` in fix round 1). They are not examples.
