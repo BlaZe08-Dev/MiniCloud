@@ -1,0 +1,228 @@
+Spot-Check of 45 Citations Across MiniCloud Documentation
+================================================================================
+
+[01] PASS | Cited: cmd/migrate/main_test.go:8
+     Source Doc: CHANGELOG.md:127
+     Context: - **SEC-011 (Migration CLI Credential Exposure Deprecation):** Updated `cmd/migrate/main.go` to prio
+     Content at line 8: func TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable(t *testing.T) {
+
+[02] PASS | Cited: internal/api/handlers.go:267
+     Source Doc: docs/protocol.md:185
+     Context: *Note on Cancel Status Codes (Unchanged from Today):* In Milestone 1–3 and continuing through Phase 
+     Content at line 267: }
+
+[03] PASS | Cited: internal/domain/transition.go:21
+     Source Doc: docs/state-machine.md:54
+     Context: 3. **Running Attempt Resolution via Lease / Commit Path**: The worker discovers cancellation via the
+     Content at line 21: StateSucceeded: true,
+
+[04] PASS | Cited: internal/storage/postgres/repository.go:873
+     Source Doc: docs/state-machine.md:78
+     Context: | `AttemptRunning` | `"RUNNING"` | `RUNNING` | `repo.DispatchJob` (`internal/storage/postgres/reposi
+     Content at line 873: job.State = domain.JobState(jobState)
+
+[05] PASS | Cited: internal/storage/postgres/repository.go:946
+     Source Doc: docs/state-machine.md:80
+     Context: | `AttemptFailed` | `"FAILED"` | `FAILED` | `repo.CommitAttempt` (`internal/storage/postgres/reposit
+     Content at line 946: FROM attempts
+
+[06] PASS | Cited: tests/integration/part_d_security_test.go:794
+     Source Doc: docs/failure-model.md:8
+     Context: - **Phase 4 Lease Recovery & Grace Period Guarantees:** In Phase 4 (ADR-0014, ADR-0015, ADR-0016), d
+     Content at line 794: func TestSecurity_PartD_Outage_MidDispatchAndMidCommit(t *testing.T) {
+
+[07] PASS | Cited: internal/storage/postgres/testhelper_test.go:52
+     Source Doc: docs/security/findings.md:18
+     Context: | **SEC-006** | Informational | Open (inferred from code review, unconfirmed) | Test Helpers | Test 
+     Content at line 52: schemaName := fmt.Sprintf("test_repo_%s", hex.EncodeToString(b))
+
+[08] PASS | Cited: internal/api/handlers.go:27
+     Source Doc: docs/security/findings.md:20
+     Context: | **SEC-008** | Low | Fixed (Slice 3d) | Coordinator & API Validation | Worker IDs and route paramet
+     Content at line 27: }
+
+[09] PASS | Cited: internal/storage/inmemory.go:19
+     Source Doc: docs/security/findings.md:22
+     Context: | **SEC-010** | Low | Accepted Risk (V1) | In-Memory Collections | Unbounded in-memory collections i
+     Content at line 19: maxAttemptErrorBytes  = 10 * 1024
+
+[10] PASS | Cited: cmd/migrate/main.go:16
+     Source Doc: docs/security/findings.md:23
+     Context: | **SEC-011** | Informational | Fixed (Slice 3d) | Migration CLI | Migration CLI prioritizes `MINICL
+     Content at line 16: // ResolveDatabaseURL resolves the database URL primarily from the MINICLOUD_DATABASE_URL
+
+[11] PASS | Cited: internal/api/handlers.go:138
+     Source Doc: docs/security/findings.md:26
+     Context: | **SEC-014** | Medium/Low | Confirmed, Fixed (Slice 3d) | Coordinator & API Boundary | `POST /v1/jo
+     Content at line 138: case errors.Is(err, domain.ErrWorkerUnhealthy):
+
+[12] PASS | Cited: internal/storage/postgres/security_test.go:888
+     Source Doc: docs/security/findings.md:27
+     Context: | **SEC-015** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `total_slots` is bounded t
+     Content at line 888: }
+
+[13] PASS | Cited: internal/storage/postgres/security_test.go:888
+     Source Doc: docs/security/findings.md:29
+     Context: | **SEC-017** | Low | Confirmed, Fixed (Slice 3d) | Worker Registration | `supported_tasks` slice bo
+     Content at line 888: }
+
+[14] PASS | Cited: tests/docs/citations_test.go:695
+     Source Doc: docs/security/findings.md:32
+     Context: | **SEC-020** | Low | Confirmed, Remediated by Tooling | Documentation Integrity / Citation Checker 
+     Content at line 695: })
+
+[15] PASS | Cited: tests/docs/citations_test.go:857
+     Source Doc: docs/security/findings.md:33
+     Context: | **SEC-021** | Informational | Confirmed by owner mutation; remediated for unrelated names; residua
+     Content at line 857: Data: []byte("1\n2\n3\n4\n5\n"),
+
+[16] PASS | Cited: internal/api/server.go:50
+     Source Doc: docs/security/findings.md:134
+     Context: - **Evidence**: Static inspection of `internal/api/server.go:50-67` confirms routes are registered o
+     Content at line 50: s.httpServer = &http.Server{
+
+[17] PASS | Cited: internal/api/handlers.go:138
+     Source Doc: docs/security/findings.md:147
+     Context: - **Affected Component**: Coordinator & API Handlers (`internal/coordinator/service.go` func `Submit
+     Content at line 138: case errors.Is(err, domain.ErrWorkerUnhealthy):
+
+[18] PASS | Cited: internal/storage/postgres/security_test.go:569
+     Source Doc: docs/security/findings.md:188
+     Context: - **Regression Test**: `TestPostgresRepository_Security_ASTCheck_NoDynamicSQLConcatenation` (`intern
+     Content at line 569: })
+
+[19] PASS | Cited: internal/api/handlers.go:19
+     Source Doc: docs/security/findings.md:197
+     Context: - **Detail**: In `internal/api/handlers.go:19-75`, `mapDomainErrorToHTTP` now routes all unmapped er
+     Content at line 19: )
+
+[20] PASS | Cited: internal/api/server.go:15
+     Source Doc: docs/security/findings.md:207
+     Context: - **Detail**: In `internal/api/server.go:15,42`, `DefaultReadHeaderTimeout` is explicitly configured
+     Content at line 15: 
+
+[21] PASS | Cited: internal/queue/inmemory.go:18
+     Source Doc: docs/security/findings.md:212
+     Context: - **Detail**: `internal/storage/inmemory.go:19-25` retains all jobs, attempts, workers, and events i
+     Content at line 18: // NewInMemoryQueue constructs a new InMemoryQueue.
+
+[22] PASS | Cited: cmd/migrate/main_test.go:8
+     Source Doc: docs/security/findings.md:218
+     Context: - **Regression Test**: `TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable`, `TestMigrateCLI_Reso
+     Content at line 8: func TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable(t *testing.T) {
+
+[23] PASS | Cited: internal/storage/postgres/migrator_test.go:481
+     Source Doc: docs/security/findings.md:233
+     Context: - **Regression Test**: `TestAPI_RegisterWorker_SlotsUpperLimit` (`internal/api/api_test.go`), `TestP
+     Content at line 481: 
+
+[24] PASS | Cited: internal/storage/postgres/migrator_test.go:507
+     Source Doc: docs/security/findings.md:238
+     Context: - **Regression Test**: `TestAPI_RegisterWorker_VersionLengthLimit` (`internal/api/api_test.go`), `Te
+     Content at line 507: 
+
+[25] PASS | Cited: internal/storage/postgres/migrator_test.go:522
+     Source Doc: docs/security/findings.md:243
+     Context: - **Regression Test**: `TestAPI_RegisterWorker_SupportedTasksAllowlist` (`internal/api/api_test.go`)
+     Content at line 522: 
+
+[26] PASS | Cited: internal/domain/transition_test.go:79
+     Source Doc: docs/security/findings.md:256
+     Context: - `TestJob_Transitions` (does not exist (invented in an earlier report); actual real tests asserting
+     Content at line 79: func TestJob_TransitionTo(t *testing.T) {
+
+[27] PASS | Cited: tests/integration/local_core_test.go:25
+     Source Doc: docs/security/findings.md:259
+     Context: - `TestAgent_Run_SingleJobSuccess` (does not exist (invented in an earlier report); actual real inte
+     Content at line 25: func TestLocalCore_MultiProcessIntegration(t *testing.T) {
+
+[28] PASS | Cited: internal/storage/postgres/security_test.go:888
+     Source Doc: docs/security/findings.md:261
+     Context: - `TestAPI_WorkerRegistration_Limits` (does not exist (invented in an earlier report); actual real t
+     Content at line 888: }
+
+[29] PASS | Cited: tests/integration/part_d_security_test.go:45
+     Source Doc: docs/security/findings.md:294
+     Context: - **Regression Test**: `TestSecurity_PartD_PoolExhaustion` (`tests/integration/part_d_security_test.
+     Content at line 45: // or an opaque 503 SERVICE_UNAVAILABLE (no other 5xx, no hang), and the system recovers.
+
+[30] PASS | Cited: tests/docs/citations_test.go:754
+     Source Doc: docs/security/findings.md:313
+     Context: - **Regression Test**: `TestCitations` (`tests/docs/citations_test.go:695`), `TestFixtures` (`tests/
+     Content at line 754: t.Errorf("%s", v)
+
+[31] PASS | Cited: docs/security/test-plan.md:93
+     Source Doc: docs/security/findings.md:322
+     Context: The owner executed an adversarial mutation suite in a throwaway worktree against `docs/security/test
+     Content at line 93: ### 2.2 Controlled Load Generation
+
+[32] PASS | Cited: internal/domain/transition.go:20
+     Source Doc: docs/security/findings.md:419
+     Context: Neither repository checks for `job.State == domain.StateCancelRequested`. Fallback `else` transition
+     Content at line 20: StateCancelled: true,
+
+[33] PASS | Cited: internal/api/server.go:36
+     Source Doc: docs/security/threat-model.md:38
+     Context: | **HTTP API (`internal/api`)** | Coordinator availability, HTTP request handling, response data | P
+     Content at line 36: h := NewHandler(coord)
+
+[34] PASS | Cited: internal/executor/executor_test.go:96
+     Source Doc: docs/security/threat-model.md:38
+     Context: | **HTTP API (`internal/api`)** | Coordinator availability, HTTP request handling, response data | P
+     Content at line 96: func TestExecutor_PayloadSizeLimit(t *testing.T) {
+
+[35] PASS | Cited: internal/api/server.go:15
+     Source Doc: docs/security/threat-model.md:39
+     Context: | | | | **Slowloris / Idle connection exhaustion**: Slow header write exhausts file descriptors. | `
+     Content at line 15: 
+
+[36] PASS | Cited: internal/storage/postgres/security_test.go:809
+     Source Doc: docs/security/threat-model.md:42
+     Context: | | | | **Invalid Numeric Parameters in Job Submission**: Negative or out-of-bounds `max_attempts` o
+     Content at line 809: t.Fatalf("sanity check failed: no production .go files were found in internal/storage/postgres")
+
+[37] PASS | Cited: internal/storage/inmemory.go:19
+     Source Doc: docs/security/threat-model.md:47
+     Context: | | | | **Unbounded In-Memory Growth (DoS)**: Monotonic map growth under load without rate limits (S
+     Content at line 19: maxAttemptErrorBytes  = 10 * 1024
+
+[38] PASS | Cited: internal/storage/postgres/security_test.go:192
+     Source Doc: docs/security/threat-model.md:48
+     Context: | **Worker Protocol (`internal/worker`)** | Attempt lease tokens, worker availability | Remote Worke
+     Content at line 192: 
+
+[39] PASS | Cited: internal/domain/transition.go:15
+     Source Doc: docs/security/threat-model.md:53
+     Context: | **Job State Machine (`internal/domain`)** | Job & Attempt state invariants, transition validity | 
+     Content at line 15: StateRetrying:        true,
+
+[40] PASS | Cited: internal/executor/executor.go:14
+     Source Doc: docs/security/threat-model.md:54
+     Context: | | | | **Oversized Payloads & Outputs**: Jobs with massive payloads crashing workers. | Validated i
+     Content at line 14: MaxPayloadSizeBytes = 64 * 1024
+
+[41] PASS | Cited: internal/storage/postgres/security_test.go:104
+     Source Doc: docs/security/threat-model.md:54
+     Context: | | | | **Oversized Payloads & Outputs**: Jobs with massive payloads crashing workers. | Validated i
+     Content at line 104: // output boundary enforcement at 65535 (below), 65536 (exact limit), and 65537 (above limit).
+
+[42] PASS | Cited: tests/integration/part_d_security_test.go:48
+     Source Doc: docs/security/threat-model.md:56
+     Context: | | | | **Connection Pool Exhaustion**: High concurrency starving connection pool. | `pgxpool.Pool` 
+     Content at line 48: 
+
+[43] PASS | Cited: internal/executor/executor_test.go:80
+     Source Doc: docs/security/threat-model.md:58
+     Context: | **Task Executor (`internal/executor`)** | Host Operating System security | Worker process to Host 
+     Content at line 80: func TestExecutor_UnknownTaskType(t *testing.T) {
+
+[44] PASS | Cited: cmd/migrate/main_test.go:8
+     Source Doc: docs/security/threat-model.md:59
+     Context: | **Configuration & Secrets (`internal/config`, `deployments`)** | DB passwords, listening ports, co
+     Content at line 8: func TestMigrateCLI_ResolveDatabaseURL_EnvironmentVariable(t *testing.T) {
+
+[45] PASS | Cited: internal/api/handlers.go:27
+     Source Doc: docs/security/threat-model.md:73
+     Context: 2. **Unvalidated Route Parameters and Worker IDs (`internal/api/handlers.go:27-39,105-248`)** (SEC-0
+     Content at line 27: }
+

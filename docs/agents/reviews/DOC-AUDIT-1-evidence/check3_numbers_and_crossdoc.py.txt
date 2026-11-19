@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+import os
+import re
+import glob
+
+REPO_ROOT = "/home/blazeee/MiniCloud-gemini"
+
+def check_adrs():
+    adr_files = sorted(glob.glob(os.path.join(REPO_ROOT, "docs/adr/*.md")))
+    adrs = {}
+    print(f"--- ADR Audit ({len(adr_files)} files) ---")
+    for f in adr_files:
+        basename = os.path.basename(f)
+        m = re.match(r"^(\d{4})-(.*)\.md$", basename)
+        if m:
+            num = int(m.group(1))
+            slug = m.group(2)
+            content = open(f).read()
+            # check status section
+            status_match = re.search(r"##\s+Status\s*\n+([^\n]+)", content)
+            status = status_match.group(1).strip() if status_match else "NO STATUS HEADER"
+            adrs[num] = (basename, status)
+        else:
+            print(f"Non-matching ADR filename: {basename}")
+    
+    max_num = max(adrs.keys()) if adrs else 0
+    min_num = min(adrs.keys()) if adrs else 0
+    print(f"Range: {min_num:04d} to {max_num:04d}")
+    for n in range(1, max_num + 1):
+        if n not in adrs:
+            print(f"MISSING ADR: {n:04d}")
+        else:
+            fname, st = adrs[n]
+            if st == "NO STATUS HEADER":
+                print(f"ADR {n:04d} ({fname}): MISSING '## Status' header")
+
+def check_ods():
+    print("\n--- Open Decisions (OD) Audit ---")
+    post_v1_files = glob.glob(os.path.join(REPO_ROOT, "docs/post-v1/*.md"))
+    od_pattern = re.compile(r"\bOD-(\d+)\b")
+    all_ods = {}
+    for f in post_v1_files:
+        rel = os.path.relpath(f, REPO_ROOT)
+        content = open(f).read()
+        matches = set(od_pattern.findall(content))
+        for m in matches:
+            num = int(m)
+            all_ods.setdefault(num, []).append(rel)
+    
+    max_od = max(all_ods.keys()) if all_ods else 0
+    print(f"Total OD numbers referenced: {len(all_ods)}, Max: OD-{max_od:02d}")
+    for n in range(1, max_od + 1):
+        if n not in all_ods:
+            print(f"GAPPED OD: OD-{n:02d} not found anywhere in docs/post-v1/")
+
+    # Now inspect OPEN_DECISIONS.md
+    od_doc_path = os.path.join(REPO_ROOT, "docs/post-v1/OPEN_DECISIONS.md")
+    if os.path.exists(od_doc_path):
+        lines = open(od_doc_path).readlines()
+        defined_nums = []
+        for l in lines:
+            m = re.match(r"^\|\s*OD-(\d+)\s*\|", l)
+            if m:
+                defined_nums.append(int(m.group(1)))
+        print(f"Found {len(defined_nums)} OD entries in OPEN_DECISIONS.md decision table")
+        dupes = [x for x in set(defined_nums) if defined_nums.count(x) > 1]
+        if dupes:
+            print(f"DUPLICATE OD definitions in OPEN_DECISIONS.md: {dupes}")
+        print(f"Defined range in OPEN_DECISIONS.md: {min(defined_nums) if defined_nums else 0} to {max(defined_nums) if defined_nums else 0}")
+        for n in range(1, max(defined_nums) + 1):
+            if n not in defined_nums:
+                print(f"MISSING DEFINITION in OPEN_DECISIONS.md: OD-{n:02d}")
+
+def check_secs():
+    print("\n--- Security Findings (SEC-xxx) Audit ---")
+    sec_file = os.path.join(REPO_ROOT, "docs/security/findings.md")
+    content = open(sec_file).read()
+    defined_secs = re.findall(r"^###\s+(SEC-\d+):", content, flags=re.MULTILINE)
+    print(f"Found {len(defined_secs)} SEC-xxx headings in docs/security/findings.md")
+    nums = [int(s.split("-")[1]) for s in defined_secs]
+    dupes = [x for x in set(nums) if nums.count(x) > 1]
+    if dupes:
+        print(f"DUPLICATE SEC definitions: {dupes}")
+    max_sec = max(nums) if nums else 0
+    print(f"Defined range: SEC-001 to SEC-{max_sec:03d}")
+    for n in range(1, max_sec + 1):
+        if n not in nums:
+            print(f"MISSING SEC: SEC-{n:03d}")
+
+def check_slice_names_and_migrations():
+    print("\n--- Slice Names & Migrations Audit ---")
+    tasks_content = open(os.path.join(REPO_ROOT, "docs/agents/TASKS.md")).read()
+    roadmap_content = open(os.path.join(REPO_ROOT, "docs/roadmap.md")).read()
+    postv1_roadmap = open(os.path.join(REPO_ROOT, "docs/post-v1/ROADMAP.md")).read()
+
+    # Migration references
+    for doc_name, text in [("TASKS.md", tasks_content), ("roadmap.md", roadmap_content), ("post-v1/ROADMAP.md", postv1_roadmap)]:
+        migs = re.findall(r"00000\d[^\s,\.]*", text)
+        print(f"Migration references in {doc_name}: {set(migs)}")
+
+    # Slice names: P4-xx, PV-xx, V1x-xx, V2-xx
+    p4_pattern = re.compile(r"\bP4-[0-9a-z]+\b")
+    pv_pattern = re.compile(r"\bPV-[0-9a-z]+\b")
+    v1x_pattern = re.compile(r"\bV1x-[0-9a-z]+\b")
+    v2_pattern = re.compile(r"\bV2-[0-9a-z]+\b")
+
+    for doc_name, text in [("TASKS.md", tasks_content), ("roadmap.md", roadmap_content), ("post-v1/ROADMAP.md", postv1_roadmap)]:
+        p4s = set(p4_pattern.findall(text))
+        pvs = set(pv_pattern.findall(text))
+        v1xs = set(v1x_pattern.findall(text))
+        v2s = set(v2_pattern.findall(text))
+        print(f"\nSlices in {doc_name}:")
+        print(f"  P4 ({len(p4s)}): {sorted(list(p4s))}")
+        print(f"  PV ({len(pvs)}): {sorted(list(pvs))}")
+        print(f"  V1x ({len(v1xs)}): {sorted(list(v1xs))}")
+        print(f"  V2 ({len(v2s)}): {sorted(list(v2s))}")
+
+if __name__ == "__main__":
+    check_adrs()
+    check_ods()
+    check_secs()
+    check_slice_names_and_migrations()

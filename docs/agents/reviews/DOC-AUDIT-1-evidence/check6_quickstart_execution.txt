@@ -1,0 +1,147 @@
+MiniCloud README Quick Start Verification Evidence
+Date: 2026-11-19 15:22:34 UTC
+Git tip: 26b440a8e6c358f76a0f306925a51305f10b8e90
+
+================================================================================
+PART 1: In-Memory Quick Start Execution (Verbatim from README)
+================================================================================
+$ make build
+go build -o bin/coordinator ./cmd/coordinator
+go build -o bin/worker ./cmd/worker
+go build -o bin/mc ./cmd/mc
+go build -o bin/migrate ./cmd/migrate
+Build complete. Executables located in bin/
+
+
+$ MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:18080 ./bin/coordinator &
+$ until curl -sf http://127.0.0.1:18080/readyz >/dev/null; do sleep 0.5; done
+Readiness probe exit code: 0
+
+$ MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18080 MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker &
+
+$ ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID   STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-1    HEALTHY   2/2               15:22:40         [echo sleep sha256_loop]
+
+
+$ ./bin/mc submit --task echo --payload '{"message":"hello minicloud"}'
+Job Submitted Successfully!
+  ID:           job_1_3ab2e55f495a
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+
+
+$ ./bin/mc get job_1_3ab2e55f495a
+Job Details:
+  ID:           job_1_3ab2e55f495a
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_88a8c75515ad
+  Created At:   2026-11-19T15:22:42Z
+  Updated At:   2026-11-19T15:22:42Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello minicloud"}}
+
+
+$ ./bin/mc attempts job_1_3ab2e55f495a
+Attempts for Job job_1_3ab2e55f495a (1 total):
+NO   ATTEMPT ID           WORKER     STATE       CLASS   EXIT   STARTED
+1    att_1_88a8c75515ad   worker-1   COMPLETED           0      15:22:42
+
+
+================================================================================
+PART 2: PostgreSQL Mode Quick Start Execution on minicloud_gemini_test
+================================================================================
+$ docker exec minicloud-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS minicloud_gemini_test" -c "CREATE DATABASE minicloud_gemini_test"'
+
+$ MINICLOUD_DATABASE_URL="<test_db_url>" ./bin/migrate
+Successfully applied 5 migration(s).
+
+
+$ MINICLOUD_STORAGE_DRIVER=postgres MINICLOUD_HTTP_ADDR=127.0.0.1:18081 ./bin/coordinator &
+PostgreSQL coordinator readiness probe exit code: 0
+
+$ MINICLOUD_COORDINATOR_URL=http://127.0.0.1:18081 MINICLOUD_WORKER_ID=worker-pg-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker &
+
+$ ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID     STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+worker-pg-1   HEALTHY   2/2               20:52:46         [echo sleep sha256_loop]
+
+
+$ ./bin/mc submit --task echo --payload '{"message":"hello postgres"}'
+Job Submitted Successfully!
+  ID:           job_1_de4d2ca6ed26
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+
+
+$ ./bin/mc get job_1_de4d2ca6ed26
+Job Details:
+  ID:           job_1_de4d2ca6ed26
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_job_1_de4d2ca6ed26_1
+  Created At:   2026-11-19T20:52:48+05:30
+  Updated At:   2026-11-19T20:52:48+05:30
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello postgres"}}
+
+
+$ ./bin/mc attempts job_1_de4d2ca6ed26
+Attempts for Job job_1_de4d2ca6ed26 (1 total):
+NO   ATTEMPT ID                 WORKER        STATE       CLASS   EXIT   STARTED
+1    att_job_1_de4d2ca6ed26_1   worker-pg-1   COMPLETED           0      20:52:48
+
+
+================================================================================
+PART 3: Fresh Clone Outside Repo Execution
+================================================================================
+$ git clone --single-branch --branch agent/gemini/DOC-AUDIT-1 file:///home/blazeee/MiniCloud/.git /home/blazeee/mc-quickstart-audit
+Cloning into '/home/blazeee/mc-quickstart-audit'...
+
+$ cd /home/blazeee/mc-quickstart-audit && make build
+go build -o bin/coordinator ./cmd/coordinator
+go build -o bin/worker ./cmd/worker
+go build -o bin/mc ./cmd/mc
+go build -o bin/migrate ./cmd/migrate
+Build complete. Executables located in bin/
+
+
+$ ./bin/mc workers
+Registered Workers (1 total):
+WORKER ID      STATUS    AVAILABLE/TOTAL   LAST HEARTBEAT   TASKS
+clone-worker   HEALTHY   2/2               15:23:02         [echo sleep sha256_loop]
+
+
+$ ./bin/mc submit --task echo --payload '{"message":"hello from clone"}'
+Job Submitted Successfully!
+  ID:           job_1_4bcb50860179
+  Task:         echo
+  State:        QUEUED
+  Max Attempts: 3
+
+
+$ ./bin/mc get job_1_4bcb50860179
+Job Details:
+  ID:           job_1_4bcb50860179
+  Task:         echo
+  State:        SUCCEEDED
+  Attempt ID:   att_1_c498c2fc4b3c
+  Created At:   2026-11-19T15:23:03Z
+  Updated At:   2026-11-19T15:23:04Z
+  Result:
+    Exit Code:  0
+    Output:     {"echo":{"message":"hello from clone"}}
+
+
+Cleaned up /home/blazeee/mc-quickstart-audit.
+
+================================================================================
+RESULT: In-Memory=True, PostgreSQL=True, FreshClone=True
+================================================================================

@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+import os
+import re
+import glob
+
+REPO_ROOT = "/home/blazeee/MiniCloud-gemini"
+
+def check_post_v1():
+    post_v1_files = sorted(glob.glob(os.path.join(REPO_ROOT, "docs/post-v1/*.md")))
+    print(f"--- Analyzing {len(post_v1_files)} post-v1 files for [Decided] and Proposed ---")
+
+    decided_matches = []
+    proposed_matches = []
+
+    decided_re = re.compile(r'(\[Decided\]|\bDecided\b[^\.\n]*)', re.IGNORECASE)
+    proposed_re = re.compile(r'(\[Proposed\]|\bProposed\b[^\.\n]*)', re.IGNORECASE)
+
+    for f in post_v1_files:
+        rel = os.path.relpath(f, REPO_ROOT)
+        for line_no, line in enumerate(open(f), 1):
+            if "[Decided]" in line or "Decided:" in line:
+                decided_matches.append((rel, line_no, line.strip()))
+            if "[Proposed]" in line or "Proposed:" in line:
+                proposed_matches.append((rel, line_no, line.strip()))
+
+    print(f"\nFound {len(decided_matches)} lines with [Decided]:")
+    for r, l, text in decided_matches:
+        print(f"  {r}:{l}: {text}")
+
+    print(f"\nFound {len(proposed_matches)} lines with [Proposed]:")
+    for r, l, text in proposed_matches:
+        print(f"  {r}:{l}: {text}")
+
+    # Check if any Proposed features are stated as facts in README, roadmap, or PROJECT_STATE
+    core_docs = ["README.md", "docs/roadmap.md", "docs/PROJECT_STATE.md"]
+    print("\n--- Checking if core docs present Proposed features as facts ---")
+    # For example, filter-and-score scheduling, node_capabilities, workspace isolation, AI workflows
+    for doc in core_docs:
+        rel = os.path.join(REPO_ROOT, doc)
+        content = open(rel).read()
+        # check mentions of post-v1 proposals
+        # Look for words like "implements", "has", "supports" in relation to V2/V3/V4 features
+        print(f"Scanning {doc}...")
+        for line_no, line in enumerate(open(rel), 1):
+            # If line mentions AI workflow or Node capabilities, does it say it's implemented or planned?
+            if any(term in line.lower() for term in ["node agent", "filter-and-score", "artifact store", "workspace isolation", "intelligence dispatcher"]):
+                print(f"  {doc}:{line_no}: {line.strip()}")
+
+if __name__ == "__main__":
+    check_post_v1()

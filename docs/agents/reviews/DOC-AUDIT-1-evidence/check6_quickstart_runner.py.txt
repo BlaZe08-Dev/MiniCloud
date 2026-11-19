@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+import os
+import sys
+import time
+import subprocess
+import shutil
+import re
+
+REPO_ROOT = "/home/blazeee/MiniCloud-gemini"
+EVIDENCE_FILE = os.path.join(REPO_ROOT, "docs/agents/reviews/DOC-AUDIT-1-evidence/check6_quickstart_execution.txt")
+
+def log(f, msg):
+    print(msg)
+    f.write(msg + "\n")
+    f.flush()
+
+def run_in_memory(f):
+    log(f, "================================================================================")
+    log(f, "PART 1: In-Memory Quick Start Execution (Verbatim from README)")
+    log(f, "================================================================================")
+    
+    # Build
+    log(f, "$ make build")
+    res = subprocess.run(["make", "build"], cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    if res.returncode != 0:
+        log(f, f"make build FAILED with code {res.returncode}")
+        return False
+    
+    port = "18080"
+    coord_url = f"http://127.0.0.1:{port}"
+    env_coord = os.environ.copy()
+    env_coord["MINICLOUD_STORAGE_DRIVER"] = "memory"
+    env_coord["MINICLOUD_HTTP_ADDR"] = f"127.0.0.1:{port}"
+    
+    log(f, f"\n$ MINICLOUD_STORAGE_DRIVER=memory MINICLOUD_HTTP_ADDR=127.0.0.1:{port} ./bin/coordinator &")
+    coord_proc = subprocess.Popen(["./bin/coordinator"], cwd=REPO_ROOT, env=env_coord, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    
+    # Wait for readyz
+    log(f, f"$ until curl -sf {coord_url}/readyz >/dev/null; do sleep 0.5; done")
+    ready = False
+    for _ in range(10):
+        time.sleep(0.5)
+        check = subprocess.run(["curl", "-sf", f"{coord_url}/readyz"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if check.returncode == 0:
+            ready = True
+            break
+    log(f, f"Readiness probe exit code: {0 if ready else 1}")
+    if not ready:
+        log(f, "Coordinator failed to become ready!")
+        coord_proc.kill()
+        return False
+
+    # Start worker
+    env_worker = os.environ.copy()
+    env_worker["MINICLOUD_COORDINATOR_URL"] = coord_url
+    env_worker["MINICLOUD_WORKER_ID"] = "worker-1"
+    env_worker["MINICLOUD_WORKER_SLOTS"] = "2"
+    log(f, f"\n$ MINICLOUD_COORDINATOR_URL={coord_url} MINICLOUD_WORKER_ID=worker-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker &")
+    worker_proc = subprocess.Popen(["./bin/worker"], cwd=REPO_ROOT, env=env_worker, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(1.5) # allow registration
+
+    env_mc = os.environ.copy()
+    env_mc["MINICLOUD_COORDINATOR_URL"] = coord_url
+
+    # mc workers
+    log(f, "\n$ ./bin/mc workers")
+    res = subprocess.run(["./bin/mc", "workers"], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    # mc submit
+    log(f, "\n$ ./bin/mc submit --task echo --payload '{\"message\":\"hello minicloud\"}'")
+    res = subprocess.run(["./bin/mc", "submit", "--task", "echo", "--payload", '{"message":"hello minicloud"}'], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    job_id_match = re.search(r"ID:\s+(job_[a-zA-Z0-9_]+)", res.stdout)
+    if not job_id_match:
+        log(f, "Could not extract job_id from submit output!")
+        coord_proc.kill()
+        worker_proc.kill()
+        return False
+    job_id = job_id_match.group(1)
+
+    time.sleep(1.0)
+
+    # mc get
+    log(f, f"\n$ ./bin/mc get {job_id}")
+    res = subprocess.run(["./bin/mc", "get", job_id], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    # mc attempts
+    log(f, f"\n$ ./bin/mc attempts {job_id}")
+    res = subprocess.run(["./bin/mc", "attempts", job_id], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    coord_proc.terminate()
+    worker_proc.terminate()
+    try:
+        coord_proc.wait(timeout=2)
+        worker_proc.wait(timeout=2)
+    except:
+        coord_proc.kill()
+        worker_proc.kill()
+    return True
+
+def run_postgres(f):
+    log(f, "\n================================================================================")
+    log(f, "PART 2: PostgreSQL Mode Quick Start Execution on minicloud_gemini_test")
+    log(f, "================================================================================")
+    
+    # Read database URL from .env
+    env_file = os.path.join(REPO_ROOT, ".env")
+    test_db_url = ""
+    for line in open(env_file):
+        if line.startswith("MINICLOUD_TEST_DATABASE_URL="):
+            test_db_url = line.split("=", 1)[1].strip()
+    
+    if not test_db_url or "minicloud_gemini_test" not in test_db_url:
+        log(f, f"Invalid test DB URL in .env: {test_db_url}")
+        return False
+
+    # Reset minicloud_gemini_test safely per AGENTS.md section 9
+    log(f, "$ docker exec minicloud-postgres sh -c 'psql -v ON_ERROR_STOP=1 -U \"$POSTGRES_USER\" -d postgres -c \"DROP DATABASE IF EXISTS minicloud_gemini_test\" -c \"CREATE DATABASE minicloud_gemini_test\"'")
+    subprocess.run(["docker", "exec", "minicloud-postgres", "sh", "-c", 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS minicloud_gemini_test" -c "CREATE DATABASE minicloud_gemini_test"'], check=True)
+
+    # Migrate
+    log(f, "\n$ MINICLOUD_DATABASE_URL=\"<test_db_url>\" ./bin/migrate")
+    env_mig = os.environ.copy()
+    env_mig["MINICLOUD_DATABASE_URL"] = test_db_url
+    res = subprocess.run(["./bin/migrate"], cwd=REPO_ROOT, env=env_mig, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    if res.returncode != 0:
+        log(f, "Migrate failed!")
+        return False
+
+    port = "18081"
+    coord_url = f"http://127.0.0.1:{port}"
+    env_coord = os.environ.copy()
+    env_coord["MINICLOUD_STORAGE_DRIVER"] = "postgres"
+    env_coord["MINICLOUD_DATABASE_URL"] = test_db_url
+    env_coord["MINICLOUD_HTTP_ADDR"] = f"127.0.0.1:{port}"
+
+    log(f, f"\n$ MINICLOUD_STORAGE_DRIVER=postgres MINICLOUD_HTTP_ADDR=127.0.0.1:{port} ./bin/coordinator &")
+    coord_proc = subprocess.Popen(["./bin/coordinator"], cwd=REPO_ROOT, env=env_coord, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    ready = False
+    for _ in range(10):
+        time.sleep(0.5)
+        check = subprocess.run(["curl", "-sf", f"{coord_url}/readyz"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if check.returncode == 0:
+            ready = True
+            break
+    log(f, f"PostgreSQL coordinator readiness probe exit code: {0 if ready else 1}")
+    if not ready:
+        log(f, "PostgreSQL Coordinator failed to become ready!")
+        coord_proc.kill()
+        return False
+
+    env_worker = os.environ.copy()
+    env_worker["MINICLOUD_COORDINATOR_URL"] = coord_url
+    env_worker["MINICLOUD_WORKER_ID"] = "worker-pg-1"
+    env_worker["MINICLOUD_WORKER_SLOTS"] = "2"
+    log(f, f"\n$ MINICLOUD_COORDINATOR_URL={coord_url} MINICLOUD_WORKER_ID=worker-pg-1 MINICLOUD_WORKER_SLOTS=2 ./bin/worker &")
+    worker_proc = subprocess.Popen(["./bin/worker"], cwd=REPO_ROOT, env=env_worker, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(1.5)
+
+    env_mc = os.environ.copy()
+    env_mc["MINICLOUD_COORDINATOR_URL"] = coord_url
+
+    log(f, "\n$ ./bin/mc workers")
+    res = subprocess.run(["./bin/mc", "workers"], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    log(f, "\n$ ./bin/mc submit --task echo --payload '{\"message\":\"hello postgres\"}'")
+    res = subprocess.run(["./bin/mc", "submit", "--task", "echo", "--payload", '{"message":"hello postgres"}'], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    job_id_match = re.search(r"ID:\s+(job_[a-zA-Z0-9_]+)", res.stdout)
+    if not job_id_match:
+        log(f, "Could not extract job_id from submit output!")
+        coord_proc.kill()
+        worker_proc.kill()
+        return False
+    job_id = job_id_match.group(1)
+
+    time.sleep(1.0)
+
+    log(f, f"\n$ ./bin/mc get {job_id}")
+    res = subprocess.run(["./bin/mc", "get", job_id], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    log(f, f"\n$ ./bin/mc attempts {job_id}")
+    res = subprocess.run(["./bin/mc", "attempts", job_id], cwd=REPO_ROOT, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    coord_proc.terminate()
+    worker_proc.terminate()
+    try:
+        coord_proc.wait(timeout=2)
+        worker_proc.wait(timeout=2)
+    except:
+        coord_proc.kill()
+        worker_proc.kill()
+    return True
+
+def run_fresh_clone(f):
+    log(f, "\n================================================================================")
+    log(f, "PART 3: Fresh Clone Outside Repo Execution")
+    log(f, "================================================================================")
+    clone_dir = "/home/blazeee/mc-quickstart-audit"
+    if os.path.exists(clone_dir):
+        shutil.rmtree(clone_dir)
+
+    log(f, f"$ git clone --single-branch --branch agent/gemini/DOC-AUDIT-1 file:///home/blazeee/MiniCloud/.git {clone_dir}")
+    res = subprocess.run(["git", "clone", "--single-branch", "--branch", "agent/gemini/DOC-AUDIT-1", "file:///home/blazeee/MiniCloud/.git", clone_dir], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    if res.returncode != 0:
+        log(f, f"Clone failed with code {res.returncode}")
+        return False
+
+    log(f, f"$ cd {clone_dir} && make build")
+    res = subprocess.run(["make", "build"], cwd=clone_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    if res.returncode != 0:
+        log(f, f"Build in fresh clone failed with code {res.returncode}")
+        shutil.rmtree(clone_dir)
+        return False
+
+    port = "18082"
+    coord_url = f"http://127.0.0.1:{port}"
+    env_coord = os.environ.copy()
+    env_coord["MINICLOUD_STORAGE_DRIVER"] = "memory"
+    env_coord["MINICLOUD_HTTP_ADDR"] = f"127.0.0.1:{port}"
+
+    coord_proc = subprocess.Popen(["./bin/coordinator"], cwd=clone_dir, env=env_coord, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(1.0)
+
+    env_worker = os.environ.copy()
+    env_worker["MINICLOUD_COORDINATOR_URL"] = coord_url
+    env_worker["MINICLOUD_WORKER_ID"] = "clone-worker"
+    env_worker["MINICLOUD_WORKER_SLOTS"] = "2"
+    worker_proc = subprocess.Popen(["./bin/worker"], cwd=clone_dir, env=env_worker, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(1.5)
+
+    env_mc = os.environ.copy()
+    env_mc["MINICLOUD_COORDINATOR_URL"] = coord_url
+
+    log(f, "\n$ ./bin/mc workers")
+    res = subprocess.run(["./bin/mc", "workers"], cwd=clone_dir, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+
+    log(f, "\n$ ./bin/mc submit --task echo --payload '{\"message\":\"hello from clone\"}'")
+    res = subprocess.run(["./bin/mc", "submit", "--task", "echo", "--payload", '{"message":"hello from clone"}'], cwd=clone_dir, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    log(f, res.stdout)
+    job_id_match = re.search(r"ID:\s+(job_[a-zA-Z0-9_]+)", res.stdout)
+    if job_id_match:
+        job_id = job_id_match.group(1)
+        time.sleep(1.0)
+        log(f, f"\n$ ./bin/mc get {job_id}")
+        res = subprocess.run(["./bin/mc", "get", job_id], cwd=clone_dir, env=env_mc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        log(f, res.stdout)
+
+    coord_proc.terminate()
+    worker_proc.terminate()
+    try:
+        coord_proc.wait(timeout=2)
+        worker_proc.wait(timeout=2)
+    except:
+        coord_proc.kill()
+        worker_proc.kill()
+
+    # Clean up clone dir
+    shutil.rmtree(clone_dir)
+    log(f, f"\nCleaned up {clone_dir}.")
+    return True
+
+def main():
+    with open(EVIDENCE_FILE, "w") as f:
+        log(f, "MiniCloud README Quick Start Verification Evidence")
+        log(f, f"Date: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}")
+        log(f, f"Git tip: {subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO_ROOT).decode().strip()}")
+        log(f, "")
+        
+        p1 = run_in_memory(f)
+        p2 = run_postgres(f)
+        p3 = run_fresh_clone(f)
+        
+        log(f, "\n================================================================================")
+        log(f, f"RESULT: In-Memory={p1}, PostgreSQL={p2}, FreshClone={p3}")
+        log(f, "================================================================================")
+
+if __name__ == "__main__":
+    main()

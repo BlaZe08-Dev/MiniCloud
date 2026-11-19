@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import os
+import re
+
+REPO_ROOT = "/home/blazeee/MiniCloud-gemini"
+
+# We select citations from diverse doc files across the repo
+CITATIONS_TO_CHECK = [
+    # (Doc file, line in doc, cited path, cited line, what it claims / topic)
+    ("README.md", 36, "cmd/coordinator/main.go", 1, "Coordinator main entrypoint"),
+    ("README.md", 36, "cmd/worker/main.go", 1, "Worker main entrypoint"),
+    ("README.md", 36, "cmd/mc/main.go", 1, "mc CLI main entrypoint"),
+    ("docs/architecture.md", 23, "internal/domain/state.go", 1, "Domain state machine"),
+    ("docs/architecture.md", 27, "internal/api/server.go", 1, "HTTP API server"),
+    ("docs/architecture.md", 31, "internal/storage/postgres/repository.go", 1, "Postgres storage repository"),
+    ("docs/architecture.md", 35, "internal/worker/client.go", 1, "Worker HTTP client"),
+    ("docs/protocol.md", 42, "internal/domain/errors.go", 1, "Domain error definitions"),
+    ("docs/protocol.md", 115, "internal/api/handlers.go", 1, "API handlers"),
+    ("docs/state-machine.md", 18, "internal/domain/state.go", 10, "Job states"),
+    ("docs/schema.md", 45, "internal/storage/postgres/migrations/000001_initial_schema.sql", 1, "Initial schema migration"),
+    ("docs/schema.md", 55, "internal/storage/postgres/migrations/000004_leases_retries_cancellation.sql", 1, "Phase 4 schema migration"),
+    ("docs/schema.md", 60, "internal/storage/postgres/migrations/000005_assignment_round_robin.sql", 1, "Round robin migration"),
+    ("docs/security/field-limits.md", 40, "internal/domain/job.go", 1, "Job domain model & limits"),
+    ("docs/security/field-limits.md", 50, "internal/config/config.go", 1, "Config defaults"),
+    ("docs/security/findings.md", 45, "internal/api/server.go", 10, "Server timeouts"),
+    ("docs/security/findings.md", 110, "internal/domain/state.go", 25, "State transition validation"),
+    ("docs/security/findings.md", 250, "internal/executor/registry.go", 1, "Executor registry"),
+    ("docs/adr/0014-lease-model-and-expiry.md", 30, "internal/domain/state.go", 1, "Lease expiry transition"),
+    ("docs/adr/0015-bounded-retries-and-backoff.md", 25, "internal/domain/state.go", 1, "Retry count validation"),
+    ("docs/adr/0016-cooperative-cancellation.md", 20, "internal/domain/state.go", 1, "Cancel transition"),
+    ("docs/adr/0017-assignment-round-robin.md", 40, "internal/domain/assignment.go", 1, "Round-robin assignment policy"),
+    ("docs/adr/0019-worker-concurrency-semantics.md", 50, "internal/worker/agent.go", 1, "Worker agent concurrency"),
+    ("docs/adr/0019-worker-concurrency-semantics.md", 60, "internal/config/config.go", 20, "Worker slots config"),
+    ("docs/post-v1/CURRENT_BASELINE.md", 15, "internal/domain/state.go", 1, "Baseline domain model"),
+    ("docs/post-v1/CURRENT_BASELINE.md", 30, "internal/storage/postgres/repository.go", 10, "Baseline persistence"),
+    ("docs/post-v1/ARCHITECTURE.md", 40, "internal/executor/executor.go", 1, "Executor interface"),
+    ("docs/post-v1/WORKFLOW_MODEL.md", 50, "internal/domain/job.go", 1, "Job definition"),
+    ("docs/post-v1/NODE_CAPABILITIES.md", 30, "internal/worker/client.go", 1, "Worker client registration"),
+    ("docs/failure-model.md", 30, "internal/storage/postgres/repository.go", 1, "Repository error handling"),
+    ("docs/testing-postgres.md", 20, "deployments/docker-compose.yml", 1, "Compose config"),
+    ("AGENTS.md", 40, "docs/roadmap.md", 1, "Roadmap reference"),
+    ("AGENTS.md", 70, "docs/source/MINICLOUD_SECURITY_INSTRUCTIONS.md", 1, "Security instructions"),
+    ("CHANGELOG.md", 15, "internal/api/handlers.go", 1, "API handler changes"),
+    ("CHANGELOG.md", 35, "internal/worker/client.go", 1, "Worker client changes"),
+    ("CHANGELOG.md", 50, "internal/domain/assignment.go", 1, "Assignment domain model"),
+    ("docs/phase4-plan.md", 30, "internal/domain/state.go", 1, "State transitions"),
+    ("docs/PROJECT_STATE.md", 10, "docs/adr/0019-worker-concurrency-semantics.md", 1, "ADR-0019 reference"),
+    ("docs/security/threat-model.md", 30, "internal/api/handlers.go", 1, "HTTP API threat surface"),
+    ("docs/security/security-testing.md", 25, "docs/security/findings.md", 1, "Security findings register"),
+    ("docs/security/field-limits.md", 67, "internal/domain/errors.go", 15, "ErrPayloadTooLarge"),
+    ("docs/security/field-limits.md", 68, "internal/domain/errors.go", 16, "ErrOutputTooLarge"),
+    ("docs/security/field-limits.md", 73, "internal/storage/postgres/repository.go", 1613, "Supported tasks count check"),
+    ("docs/adr/0019-worker-concurrency-semantics.md", 120, "internal/config/config.go", 1, "Worker concurrency configuration"),
+    ("docs/post-v1/ROADMAP.md", 15, "docs/adr/0018-ai-assisted-workflow-dispatch.md", 1, "ADR-0018 reference")
+]
+
+def main():
+    print(f"--- Spot Checking {len(CITATIONS_TO_CHECK)} Citations Across Repo ---")
+    verified = 0
+    mismatches = 0
+    for doc, doc_line, path, target_line, topic in CITATIONS_TO_CHECK:
+        full_target = os.path.join(REPO_ROOT, path)
+        if not os.path.exists(full_target):
+            print(f"FAILED (file missing): {doc}:{doc_line} cites {path}:{target_line} ({topic})")
+            mismatches += 1
+            continue
+        lines = open(full_target).readlines()
+        if target_line > len(lines):
+            print(f"FAILED (line out of bounds): {doc}:{doc_line} cites {path}:{target_line} (file has {len(lines)} lines)")
+            mismatches += 1
+            continue
+        line_content = lines[target_line - 1].strip()
+        print(f"OK: {doc} -> {path}:{target_line} | line content: {line_content[:60]}")
+        verified += 1
+    
+    print(f"\nSummary: Verified={verified}, Mismatches={mismatches}")
+
+if __name__ == "__main__":
+    main()
