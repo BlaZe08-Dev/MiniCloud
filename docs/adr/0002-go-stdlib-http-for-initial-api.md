@@ -1,5 +1,8 @@
 # ADR 0002: Go Standard Library net/http for Initial API
 
+## Status
+Accepted
+
 ## Context
 MiniCloud requires an HTTP API for client job submission, status querying, worker registration, heartbeats, and result reporting. We need to decide whether to use a third-party web framework (such as Gin, Echo, or Chi) or Go's standard library `net/http` (specifically Go 1.22+ enhanced pattern routing with method and wildcard matching).
 

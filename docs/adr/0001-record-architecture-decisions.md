@@ -1,5 +1,8 @@
 # ADR 0001: Record Architecture Decisions
 
+## Status
+Accepted
+
 ## Context
 MiniCloud is a multi-month distributed systems project developed through iterative, verified milestones. Systems engineering choices—such as consistency models, protocols, persistence abstractions, and concurrency handling—involve trade-offs that must remain transparent, documented, and traceable as the codebase evolves.
 
