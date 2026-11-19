@@ -68,7 +68,7 @@ Tag `v1.0.0` on `main` at 166c719; V1 code baseline `d7a397c` (tag message). Rec
   - Additive poll assignment metadata (`lease_expires_at`, `lease_duration_seconds`).
   - Grace configuration settings (`MINICLOUD_STARTUP_GRACE_PERIOD`, `MINICLOUD_OUTAGE_GRACE_WINDOW`) with validation rules (`grace >= lease`).
 - **Phase 4, Slice 4b — Leases, Sweeper Methods, Migration 000004 & Backoff (P4-4b, PR #20):**
-  - Schema migration `000004_phase4_coordination.sql`: added `error_class` column on `attempts` and `results` with check constraint, `lease_expires_at` timestamp with time zone, and sweeper candidate partial index.
+  - Schema migration `000004_leases_retries_cancellation.sql`: added `error_class` column on `attempts` and `results` with check constraint, `lease_expires_at` timestamp with time zone, and sweeper candidate partial index.
   - Implemented `RenewLease` and `SweepExpiredLeases` across in-memory and PostgreSQL repositories with row locking (`jobs -> workers -> attempts`), in-lock grace suppression, and terminal job handling.
   - Implemented pure backoff function `ComputeBackoff` in `internal/domain` with full jitter [0.5, 1.5] capped at 30s.
 - **P4-02 (docs):** Repaired 4a-drifted line citations in live docs to function and section references, applied the 4b/4c slice split to docs/phase4-plan.md, registered SEC-024, added six audit-record names to the citation allowlist, imported the P4-01 and P4-4a audits.
