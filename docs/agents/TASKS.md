@@ -24,11 +24,11 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 |---|---|---|---|---|---|
 | DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | Gemini | orchestrator review | agent/gemini/DOC-SYNC-1 | active |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
-| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`) | Claude Code | to be assigned | agent/claude/V2-2 | Stage A (ADR-0021 Proposed) awaiting orchestrator approval |
+| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`) | Claude Code | to be assigned | agent/claude/V2-2 | Stage B complete; ADR-0021 Accepted; awaiting audit |
 
 ### V2-2 — Workload generator and benchmark harness
-- Builder: Claude Code (Sonnet). Auditor: to be assigned. Branch: `agent/claude/V2-2`. Status: Stage A (docs only) done; Stage B starts only after the orchestrator writes "ADR APPROVED". Own database only: `minicloud_claude_test`.
-- Goal: a repeatable, honest measurement of job flow, claim cost and per-worker built-in task speed, with a recorded environment; supplies the median-of-N speed inputs for the proposed V2-3 score and real numbers for SEC-036/SEC-037. ADR: [`0021-benchmark-harness.md`](../adr/0021-benchmark-harness.md) (Proposed until approved).
+- Builder: Claude Code (Sonnet). Auditor: to be assigned. Branch: `agent/claude/V2-2`. Status: Stage A and Stage B complete, ADR-0021 Accepted, awaiting audit. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
+- Goal: a repeatable, honest measurement of job flow, claim cost and per-worker built-in task speed, with a recorded environment; supplies the median-of-N speed inputs for the proposed V2-3 score and real numbers for SEC-036/SEC-037. ADR: [`0021-benchmark-harness.md`](../adr/0021-benchmark-harness.md) (Accepted).
 - Acceptance criteria (Stage B, as accepted in ADR-0021):
   - `cmd/mcbench` (stdlib only) drives a coordinator and workers over the real HTTP API on 127.0.0.1; zero changes under `internal/`.
   - Scenarios S1 throughput, S2 claim cost, S3 worker speed, S4 burst with built-in tasks only; warm-up discarded and labelled; every repeat recorded; min, median, p95, max and N reported.

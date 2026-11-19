@@ -1,13 +1,25 @@
 # ADR 0021: Benchmark Harness (`cmd/mcbench`)
 
 ## Status
-Proposed (2026-11-20, Stage A of task V2-2, branch `agent/claude/V2-2`). Docs only; no code exists. The orchestrator approves this ADR before Stage B. Nothing below is Decided until the orchestrator writes "ADR APPROVED"; every statement is labelled **[Proposed]** or **[Decided, <source>]**. Builds on [ADR 0017](0017-assignment-round-robin.md), [ADR 0019](0019-worker-concurrency-semantics.md) and [ADR 0020](0020-round-robin-real-slots.md) (the dispatch and worker designs measured here). Version gate: V2, slice V2-2, before V2-3.
+Accepted (2026-11-20, Stage B of task V2-2, branch `agent/claude/V2-2`). Proposed in Stage A; approved by the orchestrator ("ADR APPROVED") with the decisions below; the record is [`V2-2-orchestrator-decisions.md`](../agents/handoffs/V2-2-orchestrator-decisions.md). Statements labelled **[Proposed]** below became **[Decided, orchestrator 2026-11-20; the owner can overrule]** with this approval, except where a decision below changes them. Builds on [ADR 0017](0017-assignment-round-robin.md), [ADR 0019](0019-worker-concurrency-semantics.md) and [ADR 0020](0020-round-robin-real-slots.md). Version gate: V2, slice V2-2, before V2-3.
+
+**Decided (orchestrator, 2026-11-20; the owner can overrule):**
+- Q1: both modes; `-start` is on by default; `mcbench` never runs migrations and stops with a clear message on an unmigrated database.
+- Q2: the pgx driver already in go.mod for one read-only `SHOW server_version` over the same database URL; no docker exec, no psql. "Stdlib only" in section 1 reads "stdlib plus the pgx dependency already in go.mod".
+- Q3: S3 uses the attempt fields `started_at` and `finished_at` (checked in a real run, see the V2-2 handoff); duration = `finished_at` minus `started_at`, labelled "claim to commit, includes result delivery".
+- Q4: placeholders S3 N=5 and S2 200 polls, both flags and both recorded; not the V2-3 value (OD-22 stays with the owner).
+- Q5: `--max-load` default 1.0 (absolute 1-minute load average); an override is recorded and marks `idle_check: overridden`.
+- Q6: a result file under `docs/benchmarks/` needs a "kept by orchestrator decision" line in the V2-2 handoff; one real run per scenario.
+- Q7: only 127.0.0.1:5433; any other database host is refused.
+- A result is a baseline of this machine and these settings, not a performance claim. Real runs are made only on an idle machine; an idle-check failure is never worked around by raising `--max-load`.
+
+Evidence: [`V2-2.md`](../agents/handoffs/V2-2.md).
 
 ## Purpose
 **[Proposed]** A repeatable, honest way to measure MiniCloud: how fast jobs flow, how long a claim takes, how fast each worker runs a built-in task. No invented numbers. It produces the median-of-N speed inputs for the proposed V2-3 placement score ([`NODE_CAPABILITIES.md`](../post-v1/NODE_CAPABILITIES.md), "Placement algorithm (proposed)"), and gives measured data for SEC-036 (service mutex) and SEC-037 (poll cost, 20 flights per claiming poll) so the owner can decide with data. **[Decided, ADR-0018 / roadmap V2-2]** The harness uses built-in tasks only.
 
 ## 1. Shape
-- **[Proposed]** A new Go command `cmd/mcbench`, standard library only (no new module dependency, `go.mod` and `go.sum` unchanged).
+- **[Proposed]** A new Go command `cmd/mcbench`, standard library plus the pgx dependency already in go.mod (no change to `go.mod` or `go.sum`).
 - **[Proposed]** It starts, or targets, a coordinator and W workers and drives them only over the real HTTP API (`POST /v1/jobs`, `GET /v1/jobs/{id}`, `GET /v1/jobs/{id}/attempts`, `POST /v1/workers/register`, `POST /v1/workers/{id}/poll`, `GET /v1/workers`). "Start" means `exec` of the `coordinator` and `worker` binaries built by `make build` from the same commit; the commit is recorded.
 - **[Proposed]** Zero changes to production behaviour: nothing under `internal/` (domain, storage, api, coordinator, worker, executor, config) is edited. The coordinator is configured only through its existing `MINICLOUD_*` variables (for example `MINICLOUD_DISPATCH_POLICY`, `MINICLOUD_WORKER_SLOTS`, `MINICLOUD_DATABASE_URL`).
 - **[Proposed]** Every address is `127.0.0.1`; `mcbench` refuses a coordinator URL whose host is not a loopback address.
@@ -54,11 +66,5 @@ Fields: git commit (and a `dirty` flag), Go version, OS and kernel (`uname`), CP
 ## 7. Out of scope (**[Decided, task V2-2 scope]**)
 Changing dispatch behaviour; the SEC-036 and SEC-037 fixes (the harness only measures); new migrations (none in this task; 000007 stays reserved for V2-1); Docker; authentication; Redis; any network outside `127.0.0.1`; `internal/` production changes; `tests/docs/citation_allowlist.txt`.
 
-## 8. Open questions for the orchestrator (none answered here)
-- **Q1.** Does `mcbench` start its own coordinator by default, or only target one already running on the agent's database? **[Proposed]** both, `--start` default on, because a started coordinator makes the policy, slots and commit repeatable.
-- **Q2.** Is reading `SHOW server_version` through a read-only connection acceptable, or must the PostgreSQL version come from `psql --version` / the container only? (stdlib only means no driver; **[Proposed]** use `docker exec ... psql -tAc 'SHOW server_version'` or the coordinator-adjacent `psql` binary, and mark the field `unknown`/invalid if unavailable.)
-- **Q3.** Does the API expose per-attempt start and finish times for S3? If not, is claim-to-terminal time acceptable as the worker-speed measure, or does S3 need a small additive field (a production change, therefore a separate task)?
-- **Q4.** The default N for S3 and the default repeat counts for S2 (poll sample size). **[Proposed]** S3 N=5, S2 200 polls, placeholders only; OD-22 stays with the owner.
-- **Q5.** The default `--max-load` and whether it should scale with core count. **[Proposed]** absolute 1-minute load average 1.0.
-- **Q6.** Should result files kept under `docs/benchmarks/` need an owner or orchestrator "keep" note in the handoff before commit? **[Proposed]** yes.
-- **Q7.** Is 127.0.0.1 PostgreSQL on port 5433 (the `.env.example` default) the only database host `mcbench` may use?
+## 8. Open questions
+All seven (Q1 to Q7) were answered by the orchestrator; see Status.
