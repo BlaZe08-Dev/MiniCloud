@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""
+Check 1: Status Claims Audit
+Verifies rows in TASKS.md, PROJECT_STATE.md, roadmap.md, post-v1/ROADMAP.md against git log.
+"""
+import subprocess
+import re
+
+def run_cmd(cmd):
+    return subprocess.check_output(cmd, shell=True, text=True).strip()
+
+print("=== Check 1: Status Claims ===")
+merges = run_cmd("git log --merges --format='%H %s'")
+print(f"Total merge commits: {len(merges.splitlines())}")
+
+# Check TASKS.md Active section
+with open("docs/agents/TASKS.md") as f:
+    tasks_content = f.read()
+
+active_section = re.search(r'## Active\s*\n(.*?)\n## Done', tasks_content, re.DOTALL)
+if active_section:
+    table_lines = [l for l in active_section.group(1).splitlines() if l.startswith("|")]
+    print("\n--- Active Table Rows in TASKS.md ---")
+    for l in table_lines:
+        print(l)
+
+print("\n--- Checking recent PRs in git log ---")
+for line in merges.splitlines()[:15]:
+    print(line)

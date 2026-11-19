@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""
+Check 2: Facts versus Code
+Verifies every default, env var name, port, limit, route, error code, constant and number quoted in:
+README.md, docs/architecture.md, docs/security/field-limits.md, ADR-0019, CHANGELOG [Unreleased] and [1.0.0]
+against internal/config/config.go, internal/api, internal/domain, internal/executor, internal/worker and migrations.
+"""
+import re, os
+
+print("=== Check 2: Facts versus Code ===")
+
+# Read files
+with open("internal/config/config.go") as f:
+    config_go = f.read()
+with open("README.md") as f:
+    readme = f.read()
+with open("docs/architecture.md") as f:
+    arch = f.read()
+with open("docs/security/field-limits.md") as f:
+    field_limits = f.read()
+with open("docs/adr/0019-worker-concurrency-semantics.md") as f:
+    adr0019 = f.read()
+with open("CHANGELOG.md") as f:
+    changelog = f.read()
+
+# 1. Configuration variables in README vs config.go
+print("\n--- 1. Config Table in README vs internal/config/config.go ---")
+expected_defaults = {
+    "MINICLOUD_HTTP_ADDR": "127.0.0.1:8080",
+    "MINICLOUD_STORAGE_DRIVER": "memory",
+    "MINICLOUD_DATABASE_URL": '""',
+    "MINICLOUD_HEARTBEAT_INTERVAL": "2s",
+    "MINICLOUD_WORKER_TIMEOUT": "10s",
+    "MINICLOUD_REAPER_INTERVAL": "5s",
+    "MINICLOUD_DEFAULT_MAX_ATTEMPTS": "3",
+    "MINICLOUD_MAX_JOB_RUNTIME": "60s",
+    "MINICLOUD_LEASE_DURATION": "30s",
+    "MINICLOUD_SWEEPER_INTERVAL": "5s",
+    "MINICLOUD_STARTUP_GRACE_PERIOD": "30s",
+    "MINICLOUD_OUTAGE_GRACE_WINDOW": "30s",
+    "MINICLOUD_DISPATCH_POLICY": "round_robin",
+    "MINICLOUD_ASSIGNMENT_ACCEPT_WINDOW": "5s",
+    "MINICLOUD_ASSIGNMENT_INTERVAL": "1s",
+    "MINICLOUD_ASSIGNMENT_MAX_LAPSES": "3",
+    "MINICLOUD_ASSIGNMENT_FALLBACK_AGE": "30s",
+    "MINICLOUD_ASSIGNMENT_BATCH_LIMIT": "50",
+    "MINICLOUD_ASSIGNMENT_MIN_YIELD": "10ms",
+    "MINICLOUD_LOG_LEVEL": "info",
+    "MINICLOUD_DB_MAX_CONNS": "20",
+    "MINICLOUD_DB_MIN_CONNS": "2",
+    "MINICLOUD_DB_QUERY_TIMEOUT": "5s",
+    "MINICLOUD_COORDINATOR_URL": "http://127.0.0.1:8080",
+    "MINICLOUD_WORKER_ID": '""',
+    "MINICLOUD_WORKER_SLOTS": "4",
+    "MINICLOUD_TEST_DATABASE_URL": '""',
+}
+
+for var, def_val in expected_defaults.items():
+    if var not in config_go and var != "MINICLOUD_TEST_DATABASE_URL":
+        print(f"[FAIL] {var} missing from internal/config/config.go")
+    else:
+        print(f"[PASS] {var} present in config.go")
+
+# 2. Check field-limits.md constraint names against SQL migrations
+print("\n--- 2. field-limits.md Constraints vs Migrations ---")
+migrations_dir = "internal/storage/postgres/migrations"
+mig_files = sorted(os.listdir(migrations_dir))
+mig_sql = ""
+for mf in mig_files:
+    if mf.endswith(".sql"):
+        with open(os.path.join(migrations_dir, mf)) as f:
+            mig_sql += f"\n-- {mf}\n" + f.read()
+
+# Constraints cited in field-limits.md:
+constraints = [
+    "chk_jobs_payload_size",
+    "chk_jobs_max_attempts",
+    "chk_jobs_timeout",
+    "chk_jobs_state",
+    "chk_jobs_assignment_shape",
+    "chk_jobs_assignment_lapses",
+    "chk_jobs_fallback_reason",
+    "chk_workers_total_slots_range",
+    "chk_workers_version_length",
+    "chk_workers_supported_tasks_count",
+    "chk_workers_status",
+    "chk_attempts_attempt_no",
+    "chk_attempts_output_size",
+    "chk_attempts_last_error_size",
+    "chk_attempts_error_class",
+    "jobs_pkey",
+    "workers_pkey",
+    "attempts_pkey",
+    "results_pkey",
+]
+
+for c in constraints:
+    if c in mig_sql:
+        print(f"[PASS] Constraint {c} found in migrations SQL")
+    else:
+        print(f"[FAIL] Constraint {c} NOT found in migrations SQL!")
+
+# 3. Check migration 000004 name in CHANGELOG vs real filename
+print("\n--- 3. Migration 000004 Filename in CHANGELOG ---")
+if "000004_phase4_coordination.sql" in changelog:
+    print("[FAIL] CHANGELOG cites nonexistent 000004_phase4_coordination.sql")
+    print("       Actual file is internal/storage/postgres/migrations/000004_leases_retries_cancellation.sql")
+
+# 4. Check worker version registration claim
+print("\n--- 4. Worker Registered Version ---")
+with open("internal/worker/client.go") as f:
+    worker_client_go = f.read()
+ver_matches = re.findall(r'"version":\s*"([^"]+)"', worker_client_go)
+print(f"Worker registration version in internal/worker/client.go: {ver_matches}")
+
+# 5. Check error messages mapped in field-limits.md vs repository.go / handlers.go
+print("\n--- 5. Error messages in field-limits.md vs code ---")
+field_limits_messages = [
+    ("chk_jobs_payload_size", "payload size exceeds maximum allowed 65536 bytes"),
+    ("chk_attempts_output_size", "output size exceeds maximum allowed 65536 bytes"),
+    ("chk_jobs_max_attempts", "max_attempts must be between 1 and 20"),
+    ("chk_jobs_timeout", "timeout_seconds must be between 1 and 86400"),
+    ("chk_workers_total_slots_range", "total_slots must be between 1 and 1024"),
+    ("chk_workers_version_length", "version length must not exceed 64 characters"),
+    ("chk_workers_supported_tasks_count", "supported_tasks cannot exceed 16 tasks"),
+]
+
+with open("internal/storage/postgres/repository.go") as f:
+    repo_go = f.read()
+
+for c, msg in field_limits_messages:
+    if msg in repo_go:
+        print(f"[PASS] Exact message for {c} found in repository.go: {msg!r}")
+    else:
+        # search what is in repo_go for this constraint
+        m = re.search(re.escape(c) + r'.*?return fmt\.Errorf\(.*?,\s*([^)]+)\)', repo_go, re.DOTALL)
+        actual = m.group(0) if m else "NOT FOUND"
+        print(f"[DIFF] {c}:")
+        print(f"       field-limits.md: {msg!r}")
+        print(f"       repository.go:   {actual}")

@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+import os
+import re
+import glob
+import subprocess
+
+REPO_ROOT = "/home/blazeee/MiniCloud-gemini"
+
+def get_all_markdown_files():
+    files = glob.glob(os.path.join(REPO_ROOT, "docs/**/*.md"), recursive=True)
+    files.append(os.path.join(REPO_ROOT, "README.md"))
+    files.append(os.path.join(REPO_ROOT, "AGENTS.md"))
+    files.append(os.path.join(REPO_ROOT, "CHANGELOG.md"))
+    return [f for f in files if "reviews/DOC-AUDIT-1-evidence" not in f]
+
+def check_relative_links():
+    print("--- 1. Relative Markdown Links Audit ---")
+    md_files = get_all_markdown_files()
+    broken_links = []
+    link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    total_links = 0
+    for f in md_files:
+        rel_f = os.path.relpath(f, REPO_ROOT)
+        content = open(f).read()
+        # strip code blocks to avoid false positives in code snippets
+        clean_content = re.sub(r'```.*?```', '', content, flags=re.DOTALL)
+        for text, target in link_pattern.findall(clean_content):
+            if target.startswith("http://") or target.startswith("https://") or target.startswith("mailto:") or target.startswith("#"):
+                continue
+            total_links += 1
+            # handle target with anchor
+            target_path = target.split("#")[0]
+            if not target_path:
+                continue
+            # resolve relative to directory of f
+            dir_f = os.path.dirname(f)
+            resolved = os.path.normpath(os.path.join(dir_f, target_path))
+            if not os.path.exists(resolved):
+                broken_links.append((rel_f, target, resolved))
+    
+    print(f"Total markdown links checked: {total_links}")
+    print(f"Broken links found: {len(broken_links)}")
+    for source, target, res in broken_links:
+        print(f"  In {source}: link target '{target}' does not exist on disk (looked for {os.path.relpath(res, REPO_ROOT)})")
+
+def check_file_line_citations():
+    print("\n--- 2. File:Line Citations Audit ---")
+    md_files = get_all_markdown_files()
+    # match patterns like internal/api/handlers.go:123 or docs/schema.md:45
+    # or `internal/domain/state.go:88`
+    cite_pattern = re.compile(r'(?:`|\b)((?:internal|cmd|pkg|tests|docs)/[a-zA-Z0-9_\-\./]+\.[a-zA-Z0-9]+):(\d+)\b')
+    citations = []
+    for f in md_files:
+        rel_f = os.path.relpath(f, REPO_ROOT)
+        content = open(f).read()
+        for path, line_str in cite_pattern.findall(content):
+            citations.append((rel_f, path, int(line_str)))
+    
+    print(f"Total path:line citations found: {len(citations)}")
+    invalid_files = []
+    out_of_range = []
+    file_line_counts = {}
+    for source, target_path, line_no in citations:
+        full_path = os.path.join(REPO_ROOT, target_path)
+        if not os.path.exists(full_path):
+            invalid_files.append((source, target_path, line_no))
+            continue
+        if target_path not in file_line_counts:
+            file_line_counts[target_path] = len(open(full_path).readlines())
+        total_lines = file_line_counts[target_path]
+        if line_no > total_lines:
+            out_of_range.append((source, target_path, line_no, total_lines))
+    
+    print(f"Invalid target file citations: {len(invalid_files)}")
+    for s, p, l in invalid_files:
+        print(f"  In {s}: cited file '{p}' does not exist")
+    print(f"Out-of-range line citations: {len(out_of_range)}")
+    for s, p, l, max_l in out_of_range:
+        print(f"  In {s}: cited {p}:{l} exceeds file line count ({max_l})")
+
+    return citations
+
+def check_env_vars():
+    print("\n--- 3. Environment Variables Audit ---")
+    md_files = get_all_markdown_files()
+    env_pattern = re.compile(r'\b(MINICLOUD_[A-Z0-9_]+)\b')
+    doc_envs = set()
+    for f in md_files:
+        content = open(f).read()
+        for env in env_pattern.findall(content):
+            doc_envs.add(env)
+    
+    # Check in Go code
+    go_files = glob.glob(os.path.join(REPO_ROOT, "**/*.go"), recursive=True)
+    code_envs = set()
+    for f in go_files:
+        content = open(f).read()
+        for env in env_pattern.findall(content):
+            code_envs.add(env)
+    
+    print(f"Env vars in docs ({len(doc_envs)}): {sorted(list(doc_envs))}")
+    print(f"Env vars in code ({len(code_envs)}): {sorted(list(code_envs))}")
+    only_in_docs = doc_envs - code_envs
+    print(f"Env vars in docs but NOT in code ({len(only_in_docs)}): {sorted(list(only_in_docs))}")
+
+def check_test_names():
+    print("\n--- 4. Test Names in Docs Audit ---")
+    md_files = get_all_markdown_files()
+    test_pattern = re.compile(r'\b(Test[A-Za-z0-9_]+)\b')
+    doc_tests = set()
+    for f in md_files:
+        content = open(f).read()
+        for t in test_pattern.findall(content):
+            doc_tests.add(t)
+    
+    # Get all real tests in repo
+    res = subprocess.run(["go", "test", "-list", ".*", "./..."], cwd=REPO_ROOT, stdout=subprocess.PIPE, text=True)
+    real_tests = set()
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("Test"):
+            real_tests.add(line)
+    
+    print(f"Test names found in docs: {len(doc_tests)}")
+    print(f"Real test names in repo: {len(real_tests)}")
+    # Allowlist or check which are missing
+    allowlist_file = os.path.join(REPO_ROOT, "tests/docs/citation_allowlist.txt")
+    allowed = set()
+    if os.path.exists(allowlist_file):
+        for line in open(allowlist_file):
+            line = line.strip()
+            if line and not line.startswith("#"):
+                allowed.add(line)
+    
+    missing_tests = doc_tests - real_tests - allowed
+    print(f"Test names in docs that are NOT in codebase and NOT in citation allowlist: {len(missing_tests)}")
+    for t in sorted(list(missing_tests)):
+        # find where it is referenced
+        refs = []
+        for f in md_files:
+            if t in open(f).read():
+                refs.append(os.path.relpath(f, REPO_ROOT))
+        print(f"  {t} in {refs}")
+
+if __name__ == "__main__":
+    check_relative_links()
+    citations = check_file_line_citations()
+    check_env_vars()
+    check_test_names()
