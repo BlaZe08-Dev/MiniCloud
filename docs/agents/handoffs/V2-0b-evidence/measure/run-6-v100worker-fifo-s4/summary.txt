@@ -1,0 +1,25 @@
+label=6-v100worker-fifo-s4 policy=fifo_pull slots=4 jobs=8 sleep_ms=5000 coordinator=coordinator worker=worker
+== worker row: total_slots, executes_concurrently (NULL column = coordinator schema has none)
+4
+f
+== job states
+SUCCEEDED|8
+== attempts per job (max)
+1
+== max concurrent attempts
+1
+== wall time: first job created -> last attempt finished (s)
+40.40
+== lapse events (JOB_ASSIGNMENT_LAPSED)
+0
+== JOB_DISPATCHED by policy
+fifo_pull|8
+== attempt timeline (job, attempt_no, state, start, finish, relative to first job created)
+job_1_28215d9475c9|1|COMPLETED|0.21|5.23
+job_2_5f5a2d9f8549|1|COMPLETED|5.26|10.27
+job_3_96e3775e47ce|1|COMPLETED|10.29|15.30
+job_4_67678170949e|1|COMPLETED|15.31|20.31
+job_5_93363b40e435|1|COMPLETED|20.32|25.33
+job_6_a328fb9bc23e|1|COMPLETED|25.36|30.36
+job_7_8034cd9a43bf|1|COMPLETED|30.37|35.39
+job_8_e496ab4ce46e|1|COMPLETED|35.39|40.40

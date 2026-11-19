@@ -1,0 +1,14 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ActiveAttemptsCountAgainstSlots|TestConformance_Assign_SkipsWorkerWithRunningAttempt)$ ./internal/storage/
+=== RUN   TestConformance_Assign_SkipsWorkerWithRunningAttempt
+    assignment.go:378: reserved 1 jobs to a worker with a RUNNING attempt
+--- FAIL: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.00s)
+=== RUN   TestConformance_Assign_ActiveAttemptsCountAgainstSlots
+=== RUN   TestConformance_Assign_ActiveAttemptsCountAgainstSlots/one_running_of_three_slots_leaves_two
+    assignment_slots.go:104: reserved 3 to a 3-slot worker with 1 RUNNING attempt, want 2
+=== RUN   TestConformance_Assign_ActiveAttemptsCountAgainstSlots/three_running_of_three_slots_leaves_none
+--- FAIL: TestConformance_Assign_ActiveAttemptsCountAgainstSlots (0.00s)
+    --- FAIL: TestConformance_Assign_ActiveAttemptsCountAgainstSlots/one_running_of_three_slots_leaves_two (0.00s)
+    --- PASS: TestConformance_Assign_ActiveAttemptsCountAgainstSlots/three_running_of_three_slots_leaves_none (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.003s
+FAIL

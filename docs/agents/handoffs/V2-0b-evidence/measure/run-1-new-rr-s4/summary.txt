@@ -1,0 +1,25 @@
+label=1-new-rr-s4 policy=round_robin slots=4 jobs=8 sleep_ms=5000 coordinator=coordinator worker=worker
+== worker row: total_slots, executes_concurrently (NULL column = coordinator schema has none)
+4
+t
+== job states
+SUCCEEDED|8
+== attempts per job (max)
+1
+== max concurrent attempts
+4
+== wall time: first job created -> last attempt finished (s)
+10.39
+== lapse events (JOB_ASSIGNMENT_LAPSED)
+0
+== JOB_DISPATCHED by policy
+round_robin|8
+== attempt timeline (job, attempt_no, state, start, finish, relative to first job created)
+job_1_127f8f9b9160|1|COMPLETED|0.07|5.10
+job_2_d4bdd8ff2f4d|1|COMPLETED|0.09|5.12
+job_3_4e29988cdd65|1|COMPLETED|0.15|5.16
+job_4_b0051b43f0c2|1|COMPLETED|0.19|5.20
+job_5_e3029a83605c|1|COMPLETED|5.35|10.36
+job_6_88de46758f03|1|COMPLETED|5.36|10.37
+job_7_642d208b9134|1|COMPLETED|5.37|10.38
+job_8_4c070459dec8|1|COMPLETED|5.38|10.39

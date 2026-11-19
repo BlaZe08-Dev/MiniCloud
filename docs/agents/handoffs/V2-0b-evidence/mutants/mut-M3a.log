@@ -1,0 +1,10 @@
+go test -count=1 -v -run ^(TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot|TestConformance_Assign_SkipsWorkerWithRunningAttempt)$ ./internal/storage/
+=== RUN   TestConformance_Assign_SkipsWorkerWithRunningAttempt
+    assignment.go:378: reserved 1 jobs to a worker with a RUNNING attempt
+--- FAIL: TestConformance_Assign_SkipsWorkerWithRunningAttempt (0.00s)
+=== RUN   TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot
+    assignment_slots.go:186: first pass reserved 3 to an undeclared 4-slot worker, want 1
+--- FAIL: TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot (0.00s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage	0.004s
+FAIL

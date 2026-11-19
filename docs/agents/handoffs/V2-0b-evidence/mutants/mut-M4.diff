@@ -1,0 +1,13 @@
+diff --git a/internal/domain/assignment.go b/internal/domain/assignment.go
+index e11aa5f..3ea1fe0 100644
+--- a/internal/domain/assignment.go
++++ b/internal/domain/assignment.go
+@@ -37,7 +37,7 @@ func AssignableSlots(executesConcurrently bool, totalSlots int) int {
+ // and live reservations may receive one more reservation (ADR-0020 Section 2.1, INV-10r):
+ // active + reserved < assignable and reserved < MaxReservationsPerWorker.
+ func CanReserve(assignable, active, reserved int) bool {
+-	return active+reserved < assignable && reserved < MaxReservationsPerWorker
++	return active+reserved < assignable
+ }
+ 
+ // HasFallbackRoom reports whether a fallback claim may give the worker one more attempt (ADR-0020

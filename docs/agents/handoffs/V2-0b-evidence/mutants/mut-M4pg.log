@@ -1,0 +1,7 @@
+go test -count=1 -v -run ^(TestConformance_Assign_ReservationCapPerWorker)$ ./internal/storage/postgres/
+=== RUN   TestConformance_Assign_ReservationCapPerWorker
+    assignment_slots.go:136: pass reserved 50 to a 1024-slot worker, want the cap 8
+--- FAIL: TestConformance_Assign_ReservationCapPerWorker (0.87s)
+FAIL
+FAIL	github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres	0.875s
+FAIL

@@ -16,19 +16,21 @@ const migration000005Name = "000005_assignment_round_robin.sql"
 // TestMigrator_Migration000005_FreshSchema applies every embedded migration to an empty schema and
 // checks the ADR-0017 Section 5.3 objects: the jobs assignment columns, the three CHECKs (validated),
 // workers.last_poll_at, assignment_cursor, the one-row assignment_pass_state and the three partial
-// indexes. It also pins the migration list: 000005 is the fifth and last embedded migration.
+// indexes. It also pins the migration list: 000005 is the fifth embedded migration. Since V2-0b the
+// pin on the last migration is in TestMigrator_Migration000006_FreshSchema; this test applies the
+// first five migrations only, so it still checks the schema exactly as 000005 leaves it.
 func TestMigrator_Migration000005_FreshSchema(t *testing.T) {
 	conn, schema := setupTestSchema(t)
 	ctx := context.Background()
 
-	m := postgres.NewMigrator()
-	all, err := m.LoadMigrations()
+	all, err := postgres.NewMigrator().LoadMigrations()
 	if err != nil {
 		t.Fatalf("LoadMigrations failed: %v", err)
 	}
-	if len(all) != 5 || all[4].Name != migration000005Name {
-		t.Fatalf("expected the fifth and last embedded migration to be %s, got %d migrations (last %q)", migration000005Name, len(all), all[len(all)-1].Name)
+	if len(all) < 5 || all[4].Name != migration000005Name {
+		t.Fatalf("expected the fifth embedded migration to be %s, got %d migrations (last %q)", migration000005Name, len(all), all[len(all)-1].Name)
 	}
+	m, _ := migrationsUpTo(t, 5)
 	if n, err := m.Migrate(ctx, conn); err != nil || n != 5 {
 		t.Fatalf("Migrate: applied=%d err=%v", n, err)
 	}

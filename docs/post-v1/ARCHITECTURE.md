@@ -125,7 +125,7 @@ PostgreSQL remains authoritative. New schema concepts are expected for:
 - approval/audit records
 - coordinator leadership epoch only if/when failover is designed
 
-All changes require forward-only migrations (the next free number is `000006`), an ADR, lock-order analysis, concurrency tests, and compatibility review. Large artifact bytes should not be placed in ordinary job rows; store content-addressed artifact objects separately and keep metadata/checksums in PostgreSQL.
+All changes require forward-only migrations (the next free number is `000007`; `000006` is taken by V2-0b, ADR-0020), an ADR, lock-order analysis, concurrency tests, and compatibility review. Large artifact bytes should not be placed in ordinary job rows; store content-addressed artifact objects separately and keep metadata/checksums in PostgreSQL.
 
 ## 9. Coordinator availability
 
@@ -165,7 +165,7 @@ A layer may only depend on layers below it:
 Compatibility rules for every slice:
 
 - `/v1` stays additive-only; new workflow and node endpoints are additive under `/v1`; a breaking change needs `/v2`, an ADR and a deprecation note (ADR-0004).
-- Migrations are forward-only and start at `000006`; each needs an ADR, lock-order analysis and concurrency tests.
+- Migrations are forward-only and start at `000007` (`000006` is taken by V2-0b, ADR-0020); each needs an ADR, lock-order analysis and concurrency tests.
 - `domain.Worker` `supported_tasks` is not overloaded with hardware or provider metadata. `jobs.task_type` stays an allowlist; AI CLI work is a registered execution kind with a typed spec, not a free task name.
 - Device model (D3): see section 6.
 - The 64 KiB V1 payload and output limits stay; prompts and artifacts are referenced, not inlined.

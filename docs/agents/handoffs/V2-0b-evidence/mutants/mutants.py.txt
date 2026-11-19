@@ -1,0 +1,53 @@
+import subprocess, sys, os
+W=os.path.expanduser('~/mc-mut-claude')
+URL=[l.split('=',1)[1].strip() for l in open(W+'/.env') if l.startswith('MINICLOUD_TEST_DATABASE_URL=')][0]
+DOM='internal/domain/assignment.go'; MEM='internal/storage/inmemory_assignment.go'; PG='internal/storage/postgres/assignment.go'; REPO='internal/storage/postgres/repository.go'
+SUM_RES="\n\t\t\t    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp())\n"
+CAP=" < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)\n\t\t\tAND (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id AND rj.assignment_expires_at > clock_timestamp()) < $4"
+MEMRUN="TestConformance_Assign_|TestConformance_Claim_"
+muts=[
+ ("M1","ignore reservations in the count (domain)",[(DOM,"return active+reserved < assignable && reserved < MaxReservationsPerWorker","return active < assignable && reserved < MaxReservationsPerWorker",1)],"./internal/storage/","TestConformance_Assign_ReservationsUpToDeclaredSlots|TestConformance_Assign_OneReservationPerWorker",False),
+ ("M1pg","ignore reservations in the count (PostgreSQL SQL, both copies)",[(PG,SUM_RES,"\n",2)],"./internal/storage/postgres/","TestConformance_Assign_ReservationsUpToDeclaredSlots|TestConformance_Assign_OneReservationPerWorker",True),
+ ("M2","ignore active attempts (domain)",[(DOM,"return active+reserved < assignable && reserved < MaxReservationsPerWorker","return reserved < assignable && reserved < MaxReservationsPerWorker",1)],"./internal/storage/","TestConformance_Assign_ActiveAttemptsCountAgainstSlots|TestConformance_Assign_SkipsWorkerWithRunningAttempt",False),
+ ("M3a","ignore the declaration, always total_slots",[(DOM,"\tif executesConcurrently {\n\t\treturn totalSlots\n\t}\n\treturn 1","\treturn totalSlots",1)],"./internal/storage/","TestConformance_Assign_UndeclaredFourSlotWorkerKeepsOneSlot|TestConformance_Assign_SkipsWorkerWithRunningAttempt",False),
+ ("M3b","ignore the declaration, always 1",[(DOM,"\tif executesConcurrently {\n\t\treturn totalSlots\n\t}\n\treturn 1","\treturn 1",1)],"./internal/storage/","TestConformance_Assign_ReservationsUpToDeclaredSlots",False),
+ ("M4","drop the bound (domain)",[(DOM,"return active+reserved < assignable && reserved < MaxReservationsPerWorker","return active+reserved < assignable",1)],"./internal/storage/ ./tests/abuse/","TestConformance_Assign_ReservationCapPerWorker|TestAbuse_Register_LargeDeclaredSlots_ReservationCap",False),
+ ("M4pg","drop the bound (PostgreSQL SQL, both copies)",[(PG,CAP," < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)\n\t\t\tAND $4 > 0",2)],"./internal/storage/postgres/","TestConformance_Assign_ReservationCapPerWorker",True),
+ ("M5","count a lapsed reservation (in-memory)",[(MEM,"*j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {\n\t\t\tn++","*j.AssignedWorkerID == workerID {\n\t\t\tn++",1)],"./internal/storage/","TestConformance_Assign_ExpiredReservationDoesNotHoldSlot",False),
+ ("M5pg","count a lapsed reservation (PostgreSQL SQL, sum term, both copies)",[(PG,SUM_RES,"\n\t\t\t    + (SELECT COUNT(*) FROM jobs rj WHERE rj.assigned_worker_id = w.id)\n",2)],"./internal/storage/postgres/","TestConformance_Assign_ExpiredReservationDoesNotHoldSlot",True),
+ ("M6","fallback claim keeps today's check (in-memory)",[(MEM,"if !domain.HasFallbackRoom(assignable, r.activeAttemptsLocked(workerID), r.liveReservationsLocked(workerID, now)) {","if !domain.HasFallbackRoom(assignable, r.activeAttemptsLocked(workerID), 0) && false {",1)],"./internal/storage/","TestConformance_Claim_FallbackRespectsReservedSlots",False),
+ ("M6pg","fallback claim keeps today's check (PostgreSQL)",[(PG,"if policy == domain.DispatchPolicyRoundRobinFallback {","if false {",1)],"./internal/storage/postgres/","TestConformance_Claim_FallbackRespectsReservedSlots",True),
+ ("M7","<= instead of < (domain)",[(DOM,"return active+reserved < assignable && reserved < MaxReservationsPerWorker","return active+reserved <= assignable && reserved < MaxReservationsPerWorker",1)],"./internal/storage/ ./internal/domain/","TestConformance_Assign_ReservationsUpToDeclaredSlots|TestReservationRoom_Table",False),
+ ("M8","PostgreSQL re-check drops the slot-sum clause (snapshot unchanged)",[],"./internal/storage/postgres/","TestPostgresRepository_Assign_RecheckUsesSlotRule",True),
+ ("M9","UpsertWorker does not overwrite the field on conflict",[(REPO,"\t\t\texecutes_concurrently = EXCLUDED.executes_concurrently,\n","",1)],"./internal/storage/postgres/","TestConformance_Worker_ExecutesConcurrentlyRoundTrip",True),
+]
+only=sys.argv[1:] 
+for mid,desc,edits,pkgs,run,pg in muts:
+    if only and mid not in only: continue
+    subprocess.run(['git','checkout','-q','--','.'],cwd=W,check=True)
+    if mid=="M8":
+        s=open(W+'/'+PG).read()
+        i=s.index('func assignLockAndRecheck')
+        head,tail=s[:i],s[i:]
+        old="\t\t\tAND (SELECT COUNT(*) FROM attempts a WHERE a.worker_id = w.id AND a.state IN ('PENDING', 'RUNNING'))"+SUM_RES.rstrip('\n')+"\n\t\t\t    < (CASE WHEN w.executes_concurrently THEN w.total_slots ELSE 1 END)\n"
+        assert tail.count(old)==1, "M8 anchor"
+        open(W+'/'+PG,'w').write(head+tail.replace(old,""))
+    for f,a,b,n in edits:
+        s=open(W+'/'+f).read()
+        assert s.count(a)==n,(mid,f,s.count(a))
+        open(W+'/'+f,'w').write(s.replace(a,b))
+    diff=subprocess.run(['git','diff'],cwd=W,capture_output=True,text=True).stdout
+    open(f"{W}-logs/mut-{mid}.diff",'w').write(diff)
+    env=dict(os.environ)
+    if pg: env['MINICLOUD_TEST_DATABASE_URL']=URL
+    else: env.pop('MINICLOUD_TEST_DATABASE_URL',None)
+    cmd=['go','test','-count=1','-v','-run','^('+run+')$']+pkgs.split()
+    r=subprocess.run(cmd,cwd=W,capture_output=True,text=True,env=env)
+    out=r.stdout+r.stderr
+    fails=[l for l in out.splitlines() if l.startswith('--- FAIL')]
+    passes=[l for l in out.splitlines() if l.startswith('--- PASS')]
+    build_fail='build failed' in out or '[build failed]' in out
+    verdict='KILLED' if fails else ('BUILD-FAIL' if build_fail else 'SURVIVED')
+    print(f"{mid} | {desc} | mutated: {verdict} | top-level FAIL {len(fails)} PASS {len(passes)} | {' '.join(l.split()[2] for l in fails)}")
+    open(f"{W}-logs/mut-{mid}.log",'w').write(' '.join(cmd)+"\n"+out)
+subprocess.run(['git','checkout','-q','--','.'],cwd=W,check=True)

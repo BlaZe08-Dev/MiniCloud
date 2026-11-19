@@ -1,0 +1,13 @@
+diff --git a/internal/storage/postgres/assignment.go b/internal/storage/postgres/assignment.go
+index d508cb0..995f015 100644
+--- a/internal/storage/postgres/assignment.go
++++ b/internal/storage/postgres/assignment.go
+@@ -661,7 +661,7 @@ func (r *Repository) claimTx(ctx context.Context, workerID string, supportedTask
+ 	if totalSlots-activeWorkerAttempts <= 0 {
+ 		return nil, domain.ErrWorkerNoCapacity
+ 	}
+-	if policy == domain.DispatchPolicyRoundRobinFallback {
++	if false {
+ 		// A fallback claim never makes active + live reservations exceed the assignable slots
+ 		// (ADR-0020 Section 2.4). The own arm needs no such check: it turns a reservation, already
+ 		// counted, into an attempt.

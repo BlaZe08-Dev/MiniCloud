@@ -1,0 +1,13 @@
+diff --git a/internal/storage/inmemory_assignment.go b/internal/storage/inmemory_assignment.go
+index 1271c99..afcbba5 100644
+--- a/internal/storage/inmemory_assignment.go
++++ b/internal/storage/inmemory_assignment.go
+@@ -44,7 +44,7 @@ func (r *InMemoryRepository) activeAttemptsLocked(workerID string) int {
+ func (r *InMemoryRepository) liveReservationsLocked(workerID string, now time.Time) int {
+ 	n := 0
+ 	for _, j := range r.jobs {
+-		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID && j.AssignmentExpiresAt != nil && j.AssignmentExpiresAt.After(now) {
++		if j.AssignedWorkerID != nil && *j.AssignedWorkerID == workerID {
+ 			n++
+ 		}
+ 	}

@@ -44,12 +44,14 @@ const (
 	minDurationSeconds = int(math.MinInt64 / int64(time.Second))
 
 	// MaxPollResponseBytes bounds the HTTP response body read in pollWork (SEC-060).
-	// The coordinator's writeJSON (internal/api/handlers.go) uses json.NewEncoder with HTML
-	// escaping enabled: a legal task payload of up to executor.MaxPayloadSizeBytes (64 KiB)
-	// containing characters like '<', '>', or '&' is re-encoded as 6-byte escape sequences
-	// (e.g. '\u003c', '\u003e', '\u0026'), expanding up to 6x on the wire (~384 KiB).
-	// We size MaxPollResponseBytes to 6*executor.MaxPayloadSizeBytes plus 64 KiB of headroom
-	// for the JSON envelope, identifiers, and lease metadata (448 KiB / 458,752 bytes total).
+	// The coordinator's writeJSON (internal/api/handlers.go) no longer HTML-escapes responses
+	// (SEC-067), so '<', '>' and '&' in a task payload are no longer expanded to 6-byte escape
+	// sequences and the poll response is no longer inflated up to 6x by HTML escaping. U+2028 and
+	// U+2029 are still escaped by encoding/json in plain string fields only (such as error
+	// messages), where each expands 2x; the payload itself is a json.RawMessage and is not
+	// touched. The limit is kept at 6*executor.MaxPayloadSizeBytes plus 64 KiB of headroom for
+	// the JSON envelope, identifiers and lease metadata (448 KiB / 458,752 bytes), which stays
+	// a safe upper bound; it is deliberately not lowered in this comment-only change.
 	MaxPollResponseBytes = 6*executor.MaxPayloadSizeBytes + 64*1024
 
 	renewBackoffBase    = time.Second
@@ -353,6 +355,10 @@ func (a *Agent) register(ctx context.Context) error {
 		"total_slots":     a.cfg.TotalSlots,
 		"available_slots": a.availableSlots(),
 		"supported_tasks": []string{"echo", "sleep", "sha256_loop"},
+		// This worker executes up to total_slots attempts at once (ADR-0019), so the round-robin
+		// pass may reserve it that many jobs (ADR-0020 Section 2.6). Older workers omit the field
+		// and keep one slot.
+		"executes_concurrently": true,
 	})
 	if err != nil {
 		return err

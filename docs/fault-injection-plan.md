@@ -168,6 +168,15 @@ ADR-0017 Section 6.1 defines FS-14 to FS-24 for assignment-based round-robin (th
 | FS-23 Restart or outage, no age claim before a refresh (INV-19, INV-24) | `TestFault_RestartThenPoll_NoAgeClaim`, `TestFault_OutageRecovery_NoAgeClaim`, `TestFault_OutageRecovery_RateWindow` |
 | FS-24 Deep backlog, polls not starved (INV-20, INV-21) | `TestFault_DeepBacklog_PollsNotStarved` |
 
+ADR-0020 (V2-0b) adds FS-25 to FS-28 for a pass that reserves up to the worker's real slots. Tests in `tests/faultinject/real_slots_test.go` (both backends) unless named otherwise:
+
+| Scenario | Executed test |
+| :--- | :--- |
+| FS-25 A worker holding several reservations dies; all revoked, no counted lapse | `TestFault_MultiReservationWorkerDies_AllRevoked` |
+| FS-26 Reservations reach a locally full worker (zombie attempts); each lapses once | `TestFault_ReservationToFullWorker_LapsesOnce` |
+| FS-27 Mixed versions: an undeclared worker keeps one slot | `TestFault_UndeclaredWorker_NoExtraReservations` |
+| FS-28 Re-registration lowers slots or drops the declaration | `TestConformance_Assign_ReRegisterLowerSlots_NoNewReservations` (`internal/storage/storagetest/assignment_slots.go`) |
+
 Related executed tests: `TestProperty_AssignmentSubState_ModelConformance` (`internal/coordinator/assignment_test.go`) and `TestPollTiming_AcceptWindowExceedsBackoff` (`internal/worker/poll_timing_test.go`, INV-17).
 
 ## 5. Operating Rules for Running These Suites
