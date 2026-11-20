@@ -8,30 +8,29 @@ This checklist documents the procedure for producing official MiniCloud releases
 
 ### Step 1 [Proposed]: Preconditions
 
-1. **Verify branch state:**
+1. **Environment preparation and branch state:**
+   - Close the browser and IDE first to eliminate background CPU load and memory contention.
    - Working tree must be completely clean on `main`:
      ```bash
      git checkout main
      git pull --ff-only origin main
      test -z "$(git status -s)" || { echo "ERROR: working tree not clean"; exit 1; }
      ```
-2. **Execute standard quality gates on `main`:**
-   ```bash
-   test -z "$(gofmt -l .)" || { gofmt -l .; echo "GOFMT FAILED"; }
-   go vet ./...
-   go build ./...
-   make test-docs
-   env -u MINICLOUD_TEST_DATABASE_URL go test -race -count=1 ./... > /tmp/gate-unset.log 2>&1; tail -5 /tmp/gate-unset.log
-   make test-db > /tmp/gate-db.log 2>&1; tail -5 /tmp/gate-db.log
-   ```
-3. **Execute docs citation gate:**
-   ```bash
-   go test -v ./tests/docs
-   ```
-4. **Execute container outage recovery gate (last, while every agent is idle):**
-   ```bash
-   make test-outage CONFIRM=minicloud-postgres
-   ```
+2. **Execute quality gates on `main`:**
+   - Execute the gate commands in order:
+     ```bash
+     gofmt -l .                                                    # must be empty
+     go vet ./...
+     go build ./...
+     go clean -testcache
+     make test-docs
+     env -u MINICLOUD_TEST_DATABASE_URL go test -v -count=1 ./...
+     env -u MINICLOUD_TEST_DATABASE_URL make test-race
+     make test-db
+     make test-security
+     make test-outage CONFIRM=minicloud-postgres                  # run last with every agent idle
+     ```
+   - Count top-level lines starting with `--- PASS`, `--- SKIP`, and `--- FAIL` to verify gate results.
 
 ---
 
@@ -92,13 +91,17 @@ This checklist documents the procedure for producing official MiniCloud releases
    git tag -a "${RELEASE_TAG}" -m "MiniCloud ${RELEASE_TAG}: minor release"
    git push origin "${RELEASE_TAG}"
    ```
-2. **Publish GitHub release:**
+2. **Prepare release notes outside the repository:**
+   - Copy `docs/release/v1.1.0-notes.md` to a temporary file outside the repository (e.g. `/tmp/release-notes-${RELEASE_TAG}.md`).
+   - Append the final gate results from the owner's verification run to that temporary file.
+   - Do not put gate numbers in the committed notes.
+3. **Publish GitHub release:**
    ```bash
    gh release create "${RELEASE_TAG}" \
      "minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" \
      SHA256SUMS.txt \
      --title "MiniCloud ${RELEASE_TAG}" \
-     --notes-file "docs/release/${RELEASE_TAG}-notes.md"
+     --notes-file "/tmp/release-notes-${RELEASE_TAG}.md"
    ```
    *(Fact verified from v1.0.0: Release body begins with `MiniCloud <tag>: ...` and summarizes final gate verification counts).*
 
@@ -110,5 +113,5 @@ This checklist documents the procedure for producing official MiniCloud releases
    - Record tag, commit hash, and final gate counts.
 2. Update `README.md`:
    - Update current release badges, version statements, and download links.
-3. Update `AGENTS.md`:
-   - Update Project context and baselines where appropriate.
+3. Update the Project context (orchestrator):
+   - Update project context and release state across documentation.
