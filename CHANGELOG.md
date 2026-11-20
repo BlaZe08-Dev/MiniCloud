@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-20
+
+MiniCloud v1.1.0 is a minor release introducing visible behaviour changes: real worker concurrency (V2-0) running up to `MINICLOUD_WORKER_SLOTS` (default 4) attempts in parallel, real slot reservation under the default `round_robin` policy for workers declaring concurrent execution (V2-0b), and byte-exact JSON payload delivery fixing payload corruption from HTML escaping (SEC-067). The release includes an additive `/v1` API change (optional `executes_concurrently` field on worker registration and worker views) and forward-only database migration `000006_worker_executes_concurrently.sql`.
+
 ### Added
 - **Benchmark harness (V2-2, ADR-0021):** new command `cmd/mcbench` (stdlib plus the pgx already in go.mod) measuring throughput (S1), claim cost (S2), per-worker `sha256_loop` speed (S3) and burst drain (S4) over the real HTTP API on 127.0.0.1, with a warm-up, every repeat recorded, an idle-machine check, an own-database guard (refuses `minicloud_test`), and a mandatory environment record. `make bench` added (own database only, not part of any gate). `docs/benchmarks/` holds the README and one real result per scenario, a baseline of one machine and not a performance claim. No change under `internal/`, no migration.
 - **Post-V1 documentation reconciliation and design freeze (PV-01, docs only):** `docs/post-v1/` architecture pack (design only, nothing implemented), ADR-0018 (amends ADR-0004 with a new V4; trust model D2; device model D3), amendment note in ADR-0004, implementation note in ADR-0008, merged V2/V3/V4 roadmap, post-release section in `docs/PROJECT_STATE.md`, scoped post-V1 rule, standing rules and precedence list in `AGENTS.md`, task board reconciled (next migration `000006`). No Go source, migration, dependency, API route or test change.
