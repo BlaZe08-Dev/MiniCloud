@@ -108,7 +108,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000007 (000006 is taken by V2-0b) with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
-- Builder: Claude Code. Auditor: to be assigned. Status: planned, after V2-0.
+- Builder: Claude Code. Auditor: to be assigned. Status: design written, [ADR-0022](../adr/0022-node-capability-model.md) (Proposed, awaiting owner acceptance; task V2-1-ADR, branch `agent/claude/V2-1-ADR`); no code until the owner accepts the ADR and approves the implementation slices.
 
 ### P4-21 — Docs part 2 from the P4-18 audit
 - Goal: Fix docs drift identified in P4-18 audit: README (configuration table, env error handling, dispatch statement, make targets, SEC-012 timeout clamping), phase4-plan.md (C21 assignment pass vs lease sweeper), schema.md (migrations 000004 & 000005 merged), field-limits.md (chk_attempts_last_error_size and 000004/000005 constraints), roadmap.md & state-machine.md (default policy wording), architecture.md (Scheduler row and Slice 3d default policy), ADR-0003 & ADR-0011 (amendment line for default policy), and .env.example (commented-out coordinator variables).
