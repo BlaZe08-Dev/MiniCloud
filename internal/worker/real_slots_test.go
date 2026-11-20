@@ -15,6 +15,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/version"
 	"github.com/BlaZe08-Dev/Minicloud/internal/worker"
 )
 
@@ -70,5 +71,47 @@ func TestRegister_SendsExecutesConcurrently(t *testing.T) {
 	}
 	if v, _ := body["total_slots"].(float64); v != 4 {
 		t.Fatalf("register body total_slots = %v, want 4", body["total_slots"])
+	}
+}
+
+// TestRegister_SendsRealVersion: V1x-03, the register body carries version.Version and not the
+// old hard-coded "v0.1.0". The registration is reached through a heartbeat 404.
+func TestRegister_SendsRealVersion(t *testing.T) {
+	var (
+		mu   sync.Mutex
+		body map[string]any
+	)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/heartbeat"):
+			w.WriteHeader(http.StatusNotFound)
+		case r.URL.Path == "/v1/workers/register":
+			raw, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			_ = json.Unmarshal(raw, &body)
+			mu.Unlock()
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"REGISTERED"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	agent := worker.NewAgent(&config.WorkerConfig{WorkerID: "w-ver", CoordinatorURL: ts.URL, HeartbeatInterval: time.Second, TotalSlots: 1}, executor.NewRegistry())
+	if err := worker.SendHeartbeatForTest(context.Background(), agent); err != nil {
+		t.Fatalf("heartbeat with re-register: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if body == nil {
+		t.Fatal("no register request reached the coordinator")
+	}
+	got, _ := body["version"].(string)
+	if got != version.Version {
+		t.Fatalf("register body version = %q, want %q", got, version.Version)
+	}
+	if got == "v0.1.0" {
+		t.Fatal("register body still carries the hard-coded v0.1.0")
 	}
 }
