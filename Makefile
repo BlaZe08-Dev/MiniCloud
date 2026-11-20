@@ -1,4 +1,4 @@
-.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage test-security
+.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage test-security bench
 
 BIN_DIR := bin
 
@@ -143,3 +143,16 @@ test-outage:
 
 clean:
 	rm -rf $(BIN_DIR)
+
+# Benchmark harness (ADR-0021). Not part of any test gate. Own database only: the database name
+# must equal BENCH_ALLOWED_DB (default minicloud_claude_test) and the host must be 127.0.0.1:5433;
+# minicloud_test is always refused. The database must already be migrated (mcbench never migrates).
+# Usage: make bench SCENARIO=s1 BENCH_OUT=docs/benchmarks BENCH_ARGS="-policy fifo_pull"
+# Close other work first: mcbench aborts above a 1-minute load average of 1.0 (-max-load).
+BENCH_ALLOWED_DB ?= minicloud_claude_test
+SCENARIO ?= s1
+bench: build
+	@if [ ! -f .env ]; then echo ".env file missing" >&2; exit 1; fi
+	@URL=$$(grep -E '^MINICLOUD_TEST_DATABASE_URL=' .env | cut -d= -f2-); \
+	if [ -z "$$URL" ]; then echo "MINICLOUD_TEST_DATABASE_URL not set in .env" >&2; exit 1; fi; \
+	go run ./cmd/mcbench -scenario $(SCENARIO) -db-url "$$URL" -allowed-db $(BENCH_ALLOWED_DB) -bin-dir $(BIN_DIR) $(if $(BENCH_OUT),-out $(BENCH_OUT)) $(BENCH_ARGS)
