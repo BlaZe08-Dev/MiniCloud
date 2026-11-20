@@ -128,7 +128,7 @@ Returns the complete attempt history for a job.
   "job_id": "job_01j7xyz...",
   "attempts": [
     {
-      "attempt_id": "att_01j7abc...",
+      "id": "att_01j7abc...",
       "attempt_no": 1,
       "worker_id": "worker-1",
       "state": "COMPLETED",
