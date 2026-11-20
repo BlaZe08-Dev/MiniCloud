@@ -22,12 +22,10 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | Gemini | orchestrator review | agent/gemini/DOC-SYNC-1 | active |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
-| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`) | Claude Code | to be assigned | agent/claude/V2-2 | Stage B complete; ADR-0021 Accepted; awaiting audit |
 
 ### V2-2 — Workload generator and benchmark harness
-- Builder: Claude Code (Sonnet). Auditor: to be assigned. Branch: `agent/claude/V2-2`. Status: Stage A and Stage B complete, ADR-0021 Accepted, awaiting audit. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
+- Builder: Claude Code (Sonnet). Auditor: Gemini. Branch: `agent/claude/V2-2`. Status: merged in PR #67 (implementation, merge commit f6ef868) and PR #68 (audit, merge commit bd94138). ADR-0021 Accepted. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
 - Goal: a repeatable, honest measurement of job flow, claim cost and per-worker built-in task speed, with a recorded environment; supplies the median-of-N speed inputs for the proposed V2-3 score and real numbers for SEC-036/SEC-037. ADR: [`0021-benchmark-harness.md`](../adr/0021-benchmark-harness.md) (Accepted).
 - Acceptance criteria (Stage B, as accepted in ADR-0021):
   - `cmd/mcbench` (stdlib only) drives a coordinator and workers over the real HTTP API on 127.0.0.1; zero changes under `internal/`.
@@ -95,6 +93,12 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - [Proposed] Candidate from V2-0b fix round 1 (ADR-0020 Section 2.3 amendment): map the refused fallback claim (`ErrWorkerNoCapacity`, now 503 `NO_WORKERS_AVAILABLE`) to 204 in a later patch, so the worker idles 200 ms instead of backing off up to `MaxPollBackoff` (3 s).
 - [Proposed] Candidate from V2-0b (ADR-0020 Q8, not a slice): trigger an assignment pass when a full worker frees a slot, to cut the per-wave `round_robin` overhead measured in `docs/agents/handoffs/V2-0b.md`.
 - F-V1x02-1 (V1x-02 audit, comment only): the `MaxPollResponseBytes` comment in `internal/worker/client.go` is stale after SEC-067 (poll payloads are no longer HTML-escaped, so the escaping headroom it describes no longer applies); update the comment.
+
+### Follow-up candidates from V2-2 audit and ARCH-REVIEW-1 (not started)
+- [Proposed] Refuse a second coordinator on the same database: currently no leader lock or startup guard exists in `cmd/coordinator/main.go:120-194` (only `pool.Ping` at line 163 and schema version check at line 176) or `internal/storage/postgres` (advisory locks are used only for migrations in `internal/storage/postgres/migrator.go:153` and round-robin pass serialization in `internal/storage/postgres/assignment.go:134`). A second coordinator connecting to the same database runs conflicting background sweeper/reaper loops and diverges memory state (SEC-028). Candidate: take a PostgreSQL advisory lock at coordinator startup (e.g. `pg_try_advisory_lock` on a dedicated connection) so a second coordinator exits immediately. Source: ARCH-REVIEW-1 weakness 3, SEC-028.
+- [Proposed] At-least-once contract: author a short document for task authors clarifying that a job may run twice following a partition or crash, late results are rejected, but external side effects executed by workers are not undone (at-least-once execution semantics under retries). Source: ARCH-REVIEW-1 scenarios 3 and 9, ADR-0014.
+- [Proposed] V4 design line: design a validation step before an attempt is accepted as successful; currently success is decided solely by exit code and error field (`domain.IsFailedOutcome` in `internal/domain/failure.go:7`). Source: ARCH-REVIEW-1 scenario 10.
+- [Proposed] Measure before changing locks: SEC-036 and SEC-037 are Informational; the V2-2 results in `docs/benchmarks/` are the first measurement; do not change `s.mu` or collapse the poll queries until a measured need exists. Do not draw performance conclusions yourself. Source: ARCH-REVIEW-1, SEC-036, SEC-037.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
 - Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000007 (000006 is taken by V2-0b) with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
@@ -343,6 +347,9 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads | PR #60, merge commit 73c21cd; audit PR #61, merge commit 26b440a |
 | DOC-AUDIT-1 | Documentation accuracy and consistency audit | PR #62, merge commit c0351d6 |
 | V2-0b | Round-robin uses every free slot (ADR-0020, migration 000006) | PR #63, merge commit 211569b; audit PR #64, merge commit 3b8d486 |
+| ARCH-REVIEW-1 | Architectural review and stress scenarios | PR #65, merge commit e465578 |
+| DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | PR #66, merge commit 6fe5fa9 |
+| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`, ADR-0021) | PR #67, merge commit f6ef868; audit PR #68, merge commit bd94138 |
 
 Rows from PR #31 onward were added from `git log --merges`.
 
