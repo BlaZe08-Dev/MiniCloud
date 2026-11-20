@@ -112,3 +112,52 @@ rc=0
 - I did not run `go test -race ./...` or `make test-db` (no Go code or schema changed; not in the task gates).
 - The audit's PostgreSQL 16 lock-compatibility quote was not re-checked by me.
 - Earlier "did not verify" items from the first report still stand, except that the TASKS.md:26 item is now fixed.
+
+# Fix round 2 (task V2-1-ADR-FIX2)
+
+Date: 2026-11-20. Branch agent/claude/V2-1-ADR, started from tip 24f3d5e (clean, same branch). Docs only. Work tip before this report: db24a31. Files changed: docs/adr/0022-node-capability-model.md (ADR), docs/security/findings.md, docs/agents/TASKS.md (V2-1 status bullet, line 111), docs/agents/handoffs/V2-1-owner-answers.md (new), this report. Line numbers are in the files after this round. Owner answers are labelled `[Decided: owner answer Q<n>, 2026-11-20]` in the ADR; added mechanism is labelled [Proposed]. No Decided statement from earlier rounds was removed.
+
+Owner answers copy: `cmp /home/blazeee/Downloads/v2-1-owner-answers.txt docs/agents/handoffs/V2-1-owner-answers.md` printed no difference ("identical").
+
+## Per answer
+
+- **Q1 hardware history.** ADR 3.2 (:98-99): newest 10 rows kept, constant `MaxHardwareHistory` (not a setting, the owner fixed it); versions never reused. 4.1 (:220-226): rate-limit rule. It limits only a registration that would insert a new version, one per node per `MINICLOUD_NODE_HARDWARE_MIN_INTERVAL` on database time from the newest `reported_at`. The caller gets 429 `RATE_LIMITED` with `Retry-After` and writes nothing. I said why no existing code fits (503 means outage, 400 means bad body, 409 has no retry hint). Unchanged hash writes the `nodes` row only if the name changed or `last_seen_at` is older than the interval. 8.1 (:488-501): transaction steps (insert-do-nothing, lock `FOR NO KEY UPDATE`, compare hash, decide, prune). The limit value is a setting; the placeholder `60s` is labelled "placeholder, not measured" and is new question OQ-8 (:799). Tests (14.2, :631-653; 14.3, :654-687) and mutants N10, N13, N14, N15 (14.5, :714-762). T3 rewritten (:595). V2-1b blocker wording removed (3.2, T3, 16).
+- **Q2 opt-in.** 4.5 (:275-290): `MINICLOUD_NODE_REPORTING_ENABLED` (strict `true`/`false`, unset is false, other values are a startup error naming key and value, in the style of `internal/config`), `MINICLOUD_NODE_STATE_DIR` (absolute, read only when on). Directory set but reporting off: nothing read, created, stat-ed or sent, one warning line with no path. Reporting on: default `~/.minicloud` via `os.UserHomeDir`. No home and no directory: the worker stops with a startup error (I chose stop over legacy; reasons at :289). Section 5 (:298) gets a "consent first" row. Section 10 (:552) adds the 404, 429, 409 and startup-error behaviour. `TestWorker_NoStateDir_LegacyRegistration` became `TestWorker_ReportingOff_LegacyRegistration` plus five new worker tests and three config tests (14.3); mutants N16-N19.
+- **Q3 telemetry.** 3.3 (:101-150): `session_id` and `seq` columns and CHECKs; rule (accept if no row, different session, or higher seq); why a session (a bare counter locks the node out after a restart); the atomic conditional upsert SQL (one `clock_timestamp()` for both times so `sampled_at <= received_at` holds); one-line reason an age replaces a node timestamp (:123). 4.2 (:228-248): 409 `TELEMETRY_OUT_OF_ORDER`, stored sample untouched; worker uses a new seq for every attempt and starts a new session on 409; `MINICLOUD_NODE_TELEMETRY_INTERVAL` with no default (unset: no telemetry, one info line). Section 9 limits (:511-539). T11 (:603) says plainly what a forged seq can do: a new session ID is always accepted, so the sequence number does not stop an attacker; a forged huge seq in the honest session rejects honest reports until the worker starts a new session; neither raises capacity. Tests and mutants N20-N24.
+- **Q4 GPU.** 6.3 (:345-355) and Section 10 (:540-553): GPU fields always nil in V2-1, never 0, schema extensible. Test `TestProbeLinux_GPUFieldsAlwaysNil`, mutant N25.
+- **Q5 headroom.** New 7.7 (:448-482): effective capacity = hardware total minus headroom, minus `reserved`; memory reserve is the larger of a minimum and a percentage, plus a fresh-telemetry `MemAvailable` bound; CPU uses load-average estimates (idle cores, utilization percent) and I say they are estimates. Headroom and telemetry only refuse (OD-09). Six `MINICLOUD_RESOURCE_*` variables with types and validation. The owner's YAML values (2048, 15, 80, 1) are called examples, not defaults; unset means not configured and non-zero demand is refused. Windows `GlobalMemoryStatusEx` is a future adapter (OD-08). Worker-final-decision direction is Decided; mechanism is open item D-1 (:800) with six questions (state of a declined claim, retry cost under ADR-0015, demand release, ADR-0019 and ADR-0020 interaction including lapses, which inputs the worker uses, double counting of running jobs). 7.2 and 7.3 updated to use effective capacity. Tests and mutants R11-R13 in 14.4 and 14.5.
+- **Q6 local-only.** 4.4 (:263-273): decided once at startup from `MINICLOUD_HTTP_ADDR`: only a literal loopback IP counts (`localhost` and any host name fail closed), never per request, no override flag. Not local-only: the four node routes return 404, `GET /v1/workers` omits `node_id` (absent, not null), the worker register ignores `node_id`; an opted-in worker logs once and runs as a legacy worker without retrying. Sensitive fields listed and placed (only in `GET /v1/nodes/{id}`; `GET /v1/nodes` is a summary; never in workers, events or logs). Honest limits stated (reverse proxy on loopback defeats it, local processes, host-network containers, configured address only, not authentication). T1 rewritten (:593), T12 added (:604). Tests and mutants N26-N29.
+- **Q7 SEC-070.** docs/security/findings.md: table row :82 and detail section :646, Low, linked to SEC-004, status "Open (within SEC-004 until V3-2; designed, not executed)", the owner's severity note included, SEC-068/069 format. ADR Section 13 (:608) now says it is registered; slice V2-1e (:775) no longer writes the register. TASKS.md :111 updated (V2-1 lines only).
+- **Principle (item 8).** ADR Section 2 item 5 (:45) as Decided; new 7.0 (:360); Section 13 intro (:589) and T1; Section 5 UUID row; Section 17.
+- **Section 16 (item 9)** (:779-800): OQ-1..OQ-7 are "Answered" with the decision and where it is carried out; still open: OD-20..OD-25, OD-23 values (TTL, default interval and bounds, headroom values), availability model and scale, OQ-8, D-1.
+- **Consistency check (item 10).** I grepped the ADR for `OQ-`, `V2-1b`, `blocks`, `unset means`, `ship the read`, `state directory`, `NoStateDir` and `before V3-2`. The remaining `OQ-` hits are OQ-8, the Section 16 "Answered" table and the status paragraph; no old OQ text, "state directory unset means legacy" or "ship the read views" wording remains. Line :97 (disk size of the state directory) still holds because it applies only when reporting is on.
+
+## Things I decided that you may want to change
+
+- The `sample_age_ms` encoding stands in for the "timestamp" the owner asked every report to carry (:123). This departs from the literal wording; I flagged it in the ADR as reversible.
+- The `MINICLOUD_RESOURCE_*` settings are defined but not parsed in V2-1 (parsing unused settings is dead surface); V2-3 reads them.
+- A start-up failure (no resolvable state directory) stops the worker; a run-time coordinator failure does not.
+- The 60s placeholder (OQ-8), and the hardware limit being per node, not per caller.
+
+## Gates (executed; log copied verbatim)
+
+```
+gofmt: clean
+--- go vet
+rc=0
+--- go build
+rc=0
+--- make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.554s
+rc=0
+```
+
+## Not verified
+
+- No planned test or mutant exists or was run. Every new SQL (the conditional telemetry upsert, the registration steps) is designed, not executed against PostgreSQL; I did not check that `ON CONFLICT DO UPDATE ... WHERE` re-evaluates against the locked latest row under concurrency, or that `make_interval`-free arithmetic `ms * interval '1 millisecond'` accepts a bound parameter as written.
+- I did not check `net.IP.IsLoopback` against every table case in `TestConfig_NodeLocalOnly_Table`, nor how the Go listener treats `localhost`.
+- I did not check the load-average estimates against real hosts, and I did not run any benchmark; all example headroom values are the owner's, unmeasured.
+- I did not run `go test -race ./...` or `make test-db` (no Go code or schema changed).
+- Line numbers in this report come from `grep -n` after the final edit of each file; I did not re-read every cited range.
+- Earlier "did not verify" items from the first report and round 1 still stand.
