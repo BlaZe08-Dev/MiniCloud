@@ -4,7 +4,7 @@ MiniCloud is a learning-oriented distributed job-execution platform written in G
 
 ## Status
 
-- **Release:** V1.0.0 released (tag `v1.0.0`, 2026-11-15; code baseline `d7a397c`). Still a learning-oriented, pre-production system.
+- **Release:** v1.1.0 released (tag `v1.1.0`, 2026-11-20; commit `b55a1d8`). Still a learning-oriented, pre-production system.
 - **Next:** V2-0 (worker concurrency semantics, ADR-0019) and V2-0b (round-robin uses the worker's real slots, ADR-0020) are merged; next milestone is V2-1. The post-V1 direction is design only and nothing in it is implemented: [docs/post-v1/README.md](docs/post-v1/README.md).
 - **Security Posture:** The HTTP API and worker endpoints currently lack authentication, authorization, and TLS (documented as accepted risk SEC-004 in [docs/security/findings.md](docs/security/findings.md)); network security is deferred to V3. The coordinator defaults to binding strictly on localhost (`127.0.0.1:8080`) and must not be exposed to untrusted networks.
 - **Living Status:** The authoritative implementation progress, active milestones, and verified test passes are tracked in [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md).

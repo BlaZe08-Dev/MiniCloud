@@ -1,12 +1,12 @@
 # MiniCloud Release Checklist
 
-This checklist documents the procedure for producing official MiniCloud releases. All steps are labelled **[Proposed]** based on reverse-engineered facts from the `v1.0.0` release assets and repository conventions, as formal release instructions were not previously committed.
+This checklist documents the procedure for producing official MiniCloud releases. These release steps are labelled **[Decided]** by the `v1.1.0` release (2026-11-20), formalizing the procedure, build flags, and packaging conventions from verified release facts.
 
 > **Ownership rule:** Only the repository owner executes tags and GitHub releases (Steps 5 and 6). Agents and the orchestrator never tag a commit or publish a release.
 
 ---
 
-### Step 1 [Proposed]: Preconditions
+### Step 1 [Decided]: Preconditions
 
 1. **Environment preparation and branch state:**
    - Close the browser and IDE first to eliminate background CPU load and memory contention.
@@ -34,7 +34,7 @@ This checklist documents the procedure for producing official MiniCloud releases
 
 ---
 
-### Step 2 [Proposed]: Version verification
+### Step 2 [Decided]: Version verification
 
 1. Check compiled version in `internal/version/version.go`:
    - `internal/version.Version` must match the release tag (e.g. `v1.1.0`).
@@ -42,34 +42,36 @@ This checklist documents the procedure for producing official MiniCloud releases
 
 ---
 
-### Step 3 [Proposed]: Build release binaries and archive
+### Step 3 [Decided]: Build release binaries and archive
 
-1. Propose building static binaries for `linux/amd64` using `-trimpath`:
-   *(Note: Exact compiler flags used for `v1.0.0` were not recorded; the owner may compare compiled sizes against `v1.0.0` assets).*
+1. **Build static binaries for `linux/amd64` in a folder outside the repository:**
+   Build with `-trimpath` and `-ldflags "-s -w"` into a staging folder outside the repository. This matches the `v1.0.0` build flags: the resulting `mc` binary has exactly the same size as in `v1.0.0` (5,132,440 bytes), while `coordinator`, `migrate`, and `worker` are 4 to 12 KB larger due to v1.1.0 changes.
    ```bash
    RELEASE_TAG="v1.1.0"
-   DIST_DIR="minicloud-${RELEASE_TAG}-linux-amd64"
+   DIST_DIR="/tmp/minicloud-${RELEASE_TAG}-linux-amd64"
+   rm -rf "${DIST_DIR}"
    mkdir -p "${DIST_DIR}"
 
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "${DIST_DIR}/coordinator" ./cmd/coordinator
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "${DIST_DIR}/worker" ./cmd/worker
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "${DIST_DIR}/mc" ./cmd/mc
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o "${DIST_DIR}/migrate" ./cmd/migrate
+   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o "${DIST_DIR}/coordinator" ./cmd/coordinator
+   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o "${DIST_DIR}/worker" ./cmd/worker
+   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o "${DIST_DIR}/mc" ./cmd/mc
+   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o "${DIST_DIR}/migrate" ./cmd/migrate
    cp README.md "${DIST_DIR}/"
    ```
-2. Create release tarball:
+2. **Create release tarball outside the repository:**
    ```bash
-   tar -czvf "minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" "${DIST_DIR}"
+   cd /tmp
+   tar -czvf "minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" "minicloud-${RELEASE_TAG}-linux-amd64"
    ```
-3. Generate checksum file:
+3. **Generate checksum file:**
    ```bash
    sha256sum "minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" > SHA256SUMS.txt
    ```
-   *(Fact verified from v1.0.0: `SHA256SUMS.txt` contains exactly one line formatted as `<sha256>  minicloud-<version>-linux-amd64.tar.gz`).*
+   *(Fact verified from v1.0.0 and v1.1.0: `SHA256SUMS.txt` contains exactly one line formatted as `<sha256>  minicloud-<version>-linux-amd64.tar.gz`).*
 
 ---
 
-### Step 4 [Proposed]: Verify archive and binaries
+### Step 4 [Decided]: Verify archive and binaries
 
 1. **Verify checksum integrity:**
    ```bash
@@ -84,7 +86,7 @@ This checklist documents the procedure for producing official MiniCloud releases
 
 ---
 
-### Step 5 [Proposed]: Tag and GitHub release
+### Step 5 [Decided]: Tag and GitHub release
 
 1. **Create annotated tag on `main` merge commit:**
    ```bash
@@ -98,8 +100,9 @@ This checklist documents the procedure for producing official MiniCloud releases
 3. **Publish GitHub release:**
    ```bash
    gh release create "${RELEASE_TAG}" \
-     "minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" \
-     SHA256SUMS.txt \
+     --verify-tag \
+     "/tmp/minicloud-${RELEASE_TAG}-linux-amd64.tar.gz" \
+     /tmp/SHA256SUMS.txt \
      --title "MiniCloud ${RELEASE_TAG}" \
      --notes-file "/tmp/release-notes-${RELEASE_TAG}.md"
    ```
@@ -107,7 +110,7 @@ This checklist documents the procedure for producing official MiniCloud releases
 
 ---
 
-### Step 6 [Proposed]: Post-release updates
+### Step 6 [Decided]: Post-release updates
 
 1. Update `docs/PROJECT_STATE.md`:
    - Record tag, commit hash, and final gate counts.
