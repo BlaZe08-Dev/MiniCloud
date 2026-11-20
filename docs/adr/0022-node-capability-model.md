@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed** (2026-11-20, task V2-1-ADR, branch `agent/claude/V2-1-ADR`). The owner accepts or changes it later. Design only: no Go code, no migration file and no test exists for anything in this ADR yet. Every test named below is a planned test.
+**Proposed** (2026-11-20, task V2-1-ADR, branch `agent/claude/V2-1-ADR`). The owner accepts or changes it later. Revised once after the Gemini audit (`reports/gemini/V2-1-ADR-audit.md`, fix round 1); the orchestrator decisions of that round are labelled Proposed where they appear. Design only: no Go code, no migration file and no test exists for anything in this ADR yet. Every test named below is a planned test.
 
 Owner answers used here: OD-08, OD-09 and OD-19, recorded verbatim in [`docs/agents/handoffs/V2-1-orchestrator-decisions.md`](../agents/handoffs/V2-1-orchestrator-decisions.md). Still open and not answered here: OD-20, OD-21, OD-22, OD-23 (values), OD-24, OD-25, the coordinator availability model and the target scale.
 
@@ -209,7 +209,8 @@ Response 200 `{"status": "ACK"}`. 404 `NODE_NOT_FOUND` (new code, new endpoint) 
 
 - Absent or `null`: `workers.node_id` becomes NULL and the worker is legacy; the request and response are exactly as today. This keeps the v1.0.0, V2-0 and V2-0b workers unchanged. [Decided: C2; mechanism Proposed]
 - Present: must be a canonical UUID of a node that is already registered. A malformed value or an unregistered node returns 400 `INVALID_REQUEST` (an existing code on this endpoint, so no new status semantics). The worker registers its node first, then itself. [Proposed]
-- Every registration rewrites `node_id` (as `UpsertWorker` already rewrites every field, `internal/storage/postgres/repository.go:383-392`), so the latest registration under a worker ID wins. [Proposed]
+- Every registration rewrites `node_id` (as `UpsertWorker` already rewrites every field, `internal/storage/postgres/repository.go:383-392`; in memory `internal/storage/inmemory.go:284-302`), so the latest registration under a worker ID wins. Registration never rejects a change or a clearing of `node_id`, because a restart may legitimately move a worker to another node. [Proposed; orchestrator decision of fix round 1]
+- `workers.node_id` is therefore **mutable and not an accounting key**. Running attempts and live reservations keep the node they were placed on: V2-3 snapshots the node ID onto the attempt at claim time (`attempts.node_id`) and onto the job at reservation time (`jobs.assigned_node_id`), and `reserved(node)` sums by those snapshot columns, never by joining `workers` (Section 7.2). A re-registration, honest or forged, changes where the worker's **future** placements go and nothing already placed. [Proposed; orchestrator decision of fix round 1]
 - Because unknown fields are ignored today (C8), a new worker that sends `node_id` to an old coordinator registers as a legacy worker; it may also get 404 from the new node routes, which it logs once and then works as a legacy worker. [Proposed]
 
 ### 4.4 Read views
@@ -303,12 +304,19 @@ Implemented in V2-3, designed here. Everything in this section is [Proposed] unl
 
   ```
   reserved(node, dim) =
-      sum of the demand snapshot of every attempt in PENDING or RUNNING whose worker has node_id = node
+      sum of the demand snapshot of every attempt in PENDING or RUNNING
+          with attempts.node_id = node
     + sum of the demand of every job with a live round-robin reservation
-      (assignment_expires_at > database now) to a worker with node_id = node
+          (assignment_expires_at > database now) with jobs.assigned_node_id = node
   ```
 
-  This follows the V1 rule that capacity is derived from attempt rows (C5) and the ADR-0020 rule that live reservations count (A + R). The demand is snapshotted onto the attempt at claim time, in columns added by the V2-3 migration together with the OD-24 job fields, so a later change of a job cannot change what a running attempt holds. The claim that consumes a reservation clears `assigned_worker_id` in the same transaction that inserts the attempt (`internal/storage/postgres/assignment.go:721`), so demand moves from the second sum to the first without being counted twice or dropped.
+  **The node ID is a snapshot, not a join.** `reserved(node)` never reads `workers.node_id`, because that column is rewritten by every worker registration (Section 4.3) and a join would let a re-registration move demand between nodes or erase it. [Proposed; orchestrator decision of fix round 1]
+  - `attempts.node_id` (nullable TEXT) is written once, at claim time, in the transaction that inserts the attempt, from the node the claim locked and admitted against (Section 7.4). It is never updated afterwards.
+  - `jobs.assigned_node_id` (nullable TEXT) is written at reservation time, in the same statement that sets `assigned_worker_id`, from the node the reservation was admitted against, and is cleared by every statement that clears `assigned_worker_id`.
+  - Both columns, the demand snapshot columns and the OD-24 job fields are added by the **V2-3** migration. V2-1's tables need no change for them.
+  - An attempt or job whose node ID is NULL (a legacy worker, or a row from before V2-3) holds no node demand. Such a row has zero demand by construction: a legacy worker only takes zero-demand jobs (Section 7.3), and rows created before V2-3 have no demand fields.
+
+  This follows the V1 rule that capacity is derived from attempt rows (C5) and the ADR-0020 rule that live reservations count (A + R). The demand is snapshotted onto the attempt at claim time, so a later change of a job cannot change what a running attempt holds. The claim that consumes a reservation clears `assigned_worker_id` in the same transaction that inserts the attempt (`internal/storage/postgres/assignment.go:701` and `:719-721`), so demand moves from the second sum to the first without being counted twice or dropped. The claim copies the node it locked into `attempts.node_id`; a reservation whose `assigned_node_id` differs from the claiming worker's current `workers.node_id` is not honoured (Section 7.4).
 
 ### 7.3 Admission rule
 
@@ -327,7 +335,7 @@ A job with demand `d` may be reserved to, or claimed by, a worker on node `n` on
 
 [Decided: OD-09 requires atomicity; mechanism Proposed]
 
-- **PostgreSQL.** Every transaction that creates node demand (the assignment pass reserving a job, and every claim arm) locks the node row with `SELECT ... FROM nodes WHERE id = $1 FOR NO KEY UPDATE` after the job row and before the worker row, then computes `reserved(n)` with a new statement, checks the rule, and inserts the attempt or sets the reservation in the same transaction. Two transactions for two workers of the same node serialise on that node row. Under READ COMMITTED each statement takes a new snapshot, so the second transaction's `reserved(n)` query, run after it gets the lock, sees the first one's committed attempt. No two transactions can both reserve the same capacity.
+- **PostgreSQL.** Every transaction that creates node demand (the assignment pass reserving a job, and every claim arm) first reads the worker's `node_id` without a lock, then locks the node row with `SELECT ... FROM nodes WHERE id = $1 FOR NO KEY UPDATE` after the job row and before the worker row, then locks the worker row and **re-reads** `workers.node_id`. If it no longer equals the locked node, the transaction rolls back and refuses or retries, because the worker re-registered between the unlocked read and the lock. It then computes `reserved(n)` with a new statement, checks the rule, and inserts the attempt (with `attempts.node_id = n`) or sets the reservation (with `jobs.assigned_node_id = n`) in the same transaction. A claim that consumes a reservation whose `jobs.assigned_node_id` differs from the worker's current node does not honour it: the reservation is cleared as if lapsed and the job is placed again. [Proposed; orchestrator decision of fix round 1] Two transactions for two workers of the same node serialise on that node row. Under READ COMMITTED each statement takes a new snapshot, so the second transaction's `reserved(n)` query, run after it gets the lock, sees the first one's committed attempt. No two transactions can both reserve the same capacity.
 - **New lock order:** jobs, nodes, workers, attempts, results, job_events. Paths that do not touch node demand (sweeper, commit, cancel, renew) keep their current order and never lock `nodes`.
 - **Why `FOR NO KEY UPDATE`.** Inserting or updating a worker with a `node_id` makes PostgreSQL take `FOR KEY SHARE` on the node row through the FK while the worker row is already locked, which is the order workers then nodes. `FOR KEY SHARE` does not conflict with `FOR NO KEY UPDATE`, so this does not deadlock with a claim. It would conflict with `FOR UPDATE`, a key update or a delete, so node rows are never locked `FOR UPDATE`, `nodes.id` is never updated, and node rows are never deleted in V2 (`ON DELETE RESTRICT`). A planned deadlock test covers this (Section 14).
 - **In-memory repository.** `PollWork` holds the service mutex for the whole claim (`internal/coordinator/service.go:416-418`), and the assignment pass runs under the same mutex (ADR-0020 F6); the in-memory check runs inside that critical section. A conformance test runs against both repositories.
@@ -338,12 +346,26 @@ Because `reserved(n)` is derived from attempt and job rows, a reservation is rel
 
 | Path | What happens to the node demand | Code that already changes the state (confirmed by code reading) |
 |---|---|---|
-| Completion | Commit success sets the attempt `COMPLETED`; demand is released in that transaction. | `internal/storage/postgres/repository.go:1197-1198` |
-| Failure | Commit failure sets the attempt `FAILED` (job `RETRYING`, `CANCELLED` or `FAILED`); demand released. A late commit on an already terminal job closes a still `RUNNING` attempt as `LOST` or `CANCELLED`; released. A retry is a new attempt that must pass admission again. | `internal/storage/postgres/repository.go:1199-1204`, `:1347-1352` |
-| Cancellation | A `QUEUED` or `RETRYING` job: cancel clears its round-robin reservation, so its job demand is released. A `RUNNING` job: cancel only sets `CANCEL_REQUESTED`; the attempt stays `RUNNING` and **keeps** its demand until the worker commits or the lease is swept, because the worker may still be running it (invariant 6). | `internal/storage/postgres/repository.go:1459` and `:1466` |
-| Lease expiry | The sweeper sets the attempt `LOST` or `CANCELLED`; demand released. A lapsed or revoked round-robin reservation is cleared by the pass; released. A worker marked `UNHEALTHY` by the reaper does **not** release demand; its attempts keep it until their leases are swept. | `internal/storage/postgres/leases.go:357-411`; `internal/storage/postgres/assignment.go:216` and `:231`; `internal/storage/postgres/repository.go:503-510` |
-| Coordinator restart | Nothing to rebuild: demand is a query over durable rows, so it is exactly what the database holds after restart. Attempts that were running keep their demand; the startup grace period (`internal/coordinator/sweeper.go:19`) delays sweeping, so surviving workers can still commit, and the sweeper releases the rest after grace. The in-memory backend keeps no state across a restart at all, so its jobs, attempts and demand all disappear together. | `docs/schema.md` "Startup and Outage Grace Mechanisms" |
-| Hardware change (reconciliation) | A new hardware version with a lower total does not cancel or preempt running attempts. If `reserved(n) > capacity(n)`, the node accepts no new demand on that dimension until enough attempts finish. A total that becomes unknown blocks new demand on that dimension. | [Proposed] |
+| Completion | Commit success sets the attempt `COMPLETED`; demand is released in that transaction. | `internal/storage/postgres/repository.go:1236-1252` (`UPDATE attempts`) and `:1257-1264` (`UPDATE jobs`) |
+| Failure | Commit failure sets the attempt `FAILED` (job `RETRYING`, `CANCELLED` or `FAILED`); demand released. A late commit on an already terminal job closes a still `RUNNING` attempt as `LOST` or `CANCELLED`; released. A retry is a new attempt that must pass admission again. | `internal/storage/postgres/repository.go:1236-1252` (`UPDATE attempts`), `:1257-1264` (`UPDATE jobs`); late terminal commit: `:1347-1352` (`UPDATE attempts`, executed at `:1352`) |
+| Cancellation | A `QUEUED` or `RETRYING` job: cancel clears its round-robin reservation, so its job demand is released. A `RUNNING` job: cancel only sets `CANCEL_REQUESTED`; the attempt stays `RUNNING` and **keeps** its demand until the worker commits or the lease is swept, because the worker may still be running it (invariant 6). | `internal/storage/postgres/repository.go:1456-1459` (`UPDATE jobs` that clears `assigned_worker_id` for a queued or retrying job) and `:1465-1466` (`UPDATE jobs` that sets `cancel_requested_at` for a running job) |
+| Lease expiry | The sweeper sets the attempt `LOST` or `CANCELLED`; demand released. A lapsed or revoked round-robin reservation is cleared by the pass; released. A worker marked `UNHEALTHY` by the reaper does **not** release demand; its attempts keep it until their leases are swept. | `internal/storage/postgres/leases.go:302-317` (`closeAttempt`, `UPDATE attempts` at `:310`) and the switch arms `:354-414` that call it (calls at `:361`, `:371`, `:392`, `:412`); `internal/storage/postgres/assignment.go:216` and `:231`; `internal/storage/postgres/repository.go:503-510` |
+| Coordinator restart | Nothing to rebuild: demand is a query over durable rows, so it is exactly what the database holds after restart. Attempts that were running keep their demand; the startup grace period (`internal/coordinator/sweeper.go:19`) delays sweeping, so surviving workers can still commit, and the sweeper releases the rest after grace. The in-memory backend keeps no state across a restart at all, so its jobs, attempts and demand all disappear together. The snapshot columns are durable rows, so a worker that re-registers with another node after the restart does not move the demand that survived it. | `docs/schema.md` "Startup and Outage Grace Mechanisms" |
+| Worker re-registers with NULL or another node while it holds attempts or live reservations | Nothing. `reserved(node)` sums `attempts.node_id` and `jobs.assigned_node_id`, so no node's total changes (Section 7.2). The re-registration only changes where the worker's future placements go, and the claim re-check of Section 7.4 refuses a placement that raced with it. Registration does not reject the change (Section 4.3). | `internal/storage/postgres/repository.go:383-392` (`UpsertWorker` rewrites `node_id`); `internal/storage/inmemory.go:284-302`; the snapshot columns are new in V2-3 |
+| Hardware change (reconciliation) | A new hardware version with a lower total does not cancel or preempt running attempts. If `reserved(n) > capacity(n)`, the node accepts no new demand on that dimension until enough attempts finish. A total that becomes unknown blocks new demand on that dimension. Capacity is read from `node_hardware` by the snapshot node ID, never through `workers`, so a worker re-registration cannot change it. | [Proposed] |
+
+**In-memory repository equivalents** (`origin/main` at 588fcfd, confirmed by code reading). The V2-3 fields are set at the same points as in PostgreSQL, under the repository mutex, and `reserved` is computed by the same rule over `r.attempts` and `r.jobs`.
+
+| Path | PostgreSQL | In-memory |
+|---|---|---|
+| Completion, failure | `repository.go:1236-1252`, `:1257-1264` | `internal/storage/inmemory.go:720` (`TransitionTo`), `:724` (`att.State = attState`) |
+| Late terminal commit | `repository.go:1347-1352` | `inmemory.go:784-788` (`rejectTerminalCommitLocked`) |
+| Cancellation | `repository.go:1456-1459`, `:1465-1466` | `inmemory.go:857-858` (running: `CancelRequestedAt`), `:859-861` (queued or retrying: `ClearAssignment`) |
+| Lease expiry | `leases.go:302-317`, `:354-414` | `inmemory.go:1026` (`markLost`), `:1047` and `:1061` (`AttemptCancelled`) |
+| Revocation, lapse | `assignment.go:216`, `:231` | `internal/storage/inmemory_assignment.go:136`, `:150` (`ClearAssignment`) |
+| Claim consumes reservation | `assignment.go:701`, `:719-721` | `inmemory_assignment.go:307` (`ClearAssignment`), `:338` (`r.attempts[attemptID] = stored`) |
+| Worker marked `UNHEALTHY` (demand kept) | `repository.go:503-510` | `inmemory.go:350-364` |
+| Worker registration | `repository.go:383-392` | `inmemory.go:284-302` |
 
 ### 7.6 Tests that prove each path
 
@@ -359,7 +381,7 @@ One transaction: upsert `nodes` (takes the row lock implicitly); read the curren
 
 ### 8.2 Worker registration with `node_id`
 
-The existing upsert gains `node_id = EXCLUDED.node_id`. The FK check takes `FOR KEY SHARE` on the node row (Section 7.4). No other lock is added.
+The existing upsert gains `node_id = EXCLUDED.node_id`. The FK check takes `FOR KEY SHARE` on the node row (Section 7.4). No other lock is added, and the registration does not look at the worker's attempts: it rewrites `node_id` freely, and `reserved(node)` does not depend on it (Section 4.3).
 
 ### 8.3 Telemetry
 
@@ -448,6 +470,7 @@ All endpoints stay unauthenticated until V3-2 (SEC-004); the `127.0.0.1` bind de
 | T7 | Cloned image with `node_id`. | Two machines report as one node. | Operator guidance; warning on alternating hardware hashes for one ID. Detection is a heuristic, not a guarantee. | [Proposed] |
 | T8 | Probe reads host values inside a container. | Inflated capacity on an honest node. | cgroup v2 limits applied in the Linux adapter (Section 6.3). | [Proposed] |
 | T9 | Reservation race between two workers of one node. | Over-commitment. | Node row lock (Section 7.4); planned race test. | [Proposed] |
+| T10 | **Re-registration of a worker ID with NULL or another `node_id` while it holds attempts or reservations** (an honest restart that moves, a misconfiguration, or a forged registration, which is T1 applied to workers: registration is unauthenticated). | If `reserved(node)` joined `workers.node_id`, the worker's running demand would vanish from its node (over-commitment, possible out-of-memory on the real machine) or appear on another node (phantom reservations). | `reserved(node)` sums the snapshot columns `attempts.node_id` and `jobs.assigned_node_id`, never `workers.node_id` (Section 7.2); the claim re-reads `workers.node_id` after locking the worker (Section 7.4). Registration still accepts the change (Section 4.3). It does **not** stop a forged registration from steering that worker's future placements, which stays T1 until V3-2. Planned tests and mutant R9, R10 (Section 14). | [Proposed; orchestrator decision of fix round 1] |
 
 **The SEC-004 limit.** Nothing in this ADR authenticates a node, a worker or a caller. Every row above that says "closed with authentication" depends on V3-2. [Decided: SEC-004]
 
@@ -485,6 +508,7 @@ Every test in this section is a planned test; none exists yet. Database tests ru
 | `TestConformance_Node_HardwareRetentionBound` (planned test) | History never exceeds the OQ-1 bound under alternating contents. |
 | `TestConformance_Node_TelemetryDoesNotTouchHardware` (planned test) | A telemetry upsert leaves the `node_hardware` rows and `nodes.last_seen_at` byte-identical. |
 | `TestConformance_Node_UnknownStaysNull` (planned test) | Absent fields read back nil, not 0; a sent 0 reads back 0. |
+| `TestSchemaInvariants_NodeDeleteRestrictedWhileReferenced` (planned test) | `DELETE FROM nodes` fails with a foreign-key violation while a `workers` row or a `node_hardware` row references the node, and succeeds once none does (the test deletes the referencing rows first). Also covers `node_telemetry`. |
 | `TestConformance_Worker_NodeIDRoundTrip` (planned test) | `node_id` stored, read back, and reset to NULL by a registration without it. |
 | `TestPostgresRepository_Node_ConcurrentRegister_GapFreeVersions` (planned test) | Concurrent registrations with different contents yield unique consecutive versions. |
 
@@ -516,6 +540,11 @@ Every test in this section is a planned test; none exists yet. Database tests ru
 | Cancellation | `TestConformance_NodeReserve_QueuedCancelReleasesJobDemand` (planned test) and `TestConformance_NodeReserve_RunningCancelKeepsUntilCommitOrSweep` (planned test) |
 | Lease expiry | `TestConformance_NodeReserve_ReleasedOnLeaseSweep` (planned test), `TestConformance_NodeReserve_LapsedReservationReleased` (planned test), `TestConformance_NodeReserve_UnhealthyWorkerKeepsDemand` (planned test) |
 | Coordinator restart | `TestPostgresWiring_NodeReserve_SurvivesCoordinatorRestart` (planned test): restart with running attempts; reserved equals the pre-restart value; after commit or sweep it drops to zero. |
+| Lock order (hierarchy) | `TestPostgresRepository_NodeLock_HierarchyEnforced` (planned test): one connection holds the node row `FOR NO KEY UPDATE`, a claim starts and blocks on it; a third connection must still take the claiming worker's row `SELECT ... FOR UPDATE NOWAIT` successfully, which proves the claim has not locked `workers` before `nodes`. |
+| Re-registration (attempts) | `TestConformance_Worker_ReRegisterWithActiveAttemptsKeepsNodeDemand` (planned test): a worker on node A with a `RUNNING` attempt re-registers with `node_id` NULL, then with node B, then back; `reserved(A)` and `reserved(B)` are unchanged at every step; both repositories. |
+| Re-registration (reservation) | `TestConformance_Worker_ReRegisterWithLiveReservationKeepsNodeDemand` (planned test): the same for a live round-robin reservation, using `jobs.assigned_node_id`; the claim after the move does not honour the reservation (Section 7.4). |
+| Re-registration race | `TestPostgresRepository_NodeReserve_ClaimRechecksWorkerNodeAfterLock` (planned test): a second connection changes `workers.node_id` after the claim's unlocked read and before it locks the worker row; the claim must roll back and not insert an attempt on the old node. |
+| Live reservation blocks placement | `TestConformance_NodeReserve_LiveReservationBlocksPlacement` (planned test): a live, unclaimed reservation for node A fills its capacity; a second job that needs the same capacity is refused for any worker of A until the reservation is claimed or lapses. Both repositories. |
 | Claim moves demand | `TestConformance_NodeReserve_ClaimMovesDemandWithoutDoubleCount` (planned test) |
 | Telemetry never guarantees | `TestConformance_NodeReserve_FreshTelemetryCannotExceedCapacity` (planned test) and `TestConformance_NodeReserve_StaleTelemetryNeverSatisfies` (planned test) |
 | Unknown | `TestConformance_NodeReserve_UnknownCapacityRefusesDemand` (planned test) and `TestConformance_NodeReserve_LegacyWorkerZeroDemandUnchanged` (planned test) |
@@ -539,12 +568,16 @@ Each mutant is applied in a throwaway worktree under `~/mc-mut-claude`, must mak
 | N10 | Drop the retention prune | `TestConformance_Node_HardwareRetentionBound` (planned) |
 | N11 | Ignore cgroup `memory.max` | `TestProbeLinux_CgroupLowersMemory` (planned) |
 | R1 | Claim without the node row lock | `TestConformance_NodeReserve_TwoWorkersOneNode_NoOvercommit` (planned), `TestPostgresRepository_NodeReserve_RecheckUnderNodeLock` (planned) |
-| R2 | `reserved` ignores live round-robin reservations | `TestConformance_NodeReserve_ClaimMovesDemandWithoutDoubleCount` (planned) |
+| R2 | `reserved` ignores live round-robin reservations | `TestConformance_NodeReserve_LiveReservationBlocksPlacement` (planned), `TestConformance_NodeReserve_ClaimMovesDemandWithoutDoubleCount` (planned) |
 | R3 | `reserved` counts terminal attempts | `TestConformance_NodeReserve_ReleasedOnCommitSuccess` (planned) |
 | R4 | Telemetry free memory used instead of capacity minus reserved | `TestConformance_NodeReserve_FreshTelemetryCannotExceedCapacity` (planned) |
 | R5 | Unknown capacity treated as unlimited | `TestConformance_NodeReserve_UnknownCapacityRefusesDemand` (planned) |
 | R6 | Lock the node row `FOR UPDATE` | `TestPostgresRepository_NodeLock_NoDeadlockWithWorkerRegister` (planned) |
 | R7 | `<` instead of `<=` in the admission rule | `TestConformance_NodeReserve_TwoWorkersOneNode_NoOvercommit` (planned) with an exact-fit case |
+| R8 | A claim locks the worker row before the node row | `TestPostgresRepository_NodeLock_HierarchyEnforced` (planned) |
+| R9 | `reserved` joins `workers.node_id` instead of summing `attempts.node_id` and `jobs.assigned_node_id`, so a re-registration changes `reserved(node)` | `TestConformance_Worker_ReRegisterWithActiveAttemptsKeepsNodeDemand` (planned), `TestConformance_Worker_ReRegisterWithLiveReservationKeepsNodeDemand` (planned) |
+| R10 | The claim does not re-read `workers.node_id` after locking the worker | `TestPostgresRepository_NodeReserve_ClaimRechecksWorkerNodeAfterLock` (planned) |
+| N12 | A foreign key to `nodes` uses `ON DELETE CASCADE` (or no action) instead of `RESTRICT` | `TestSchemaInvariants_NodeDeleteRestrictedWhileReferenced` (planned) |
 
 ## 15. Implementation slices and owned files
 
@@ -557,7 +590,7 @@ Each slice needs an owner-approved task entry before code (`docs/post-v1/ROADMAP
 | V2-1c | API routes and coordinator methods; docs | internal/api/nodes.go (new); `internal/api/handlers.go`; `internal/api/server.go`; internal/coordinator/nodes.go (new); `internal/coordinator/service.go`; `docs/protocol.md`; `docs/schema.md`; `docs/security/field-limits.md` |
 | V2-1d | Worker reports its node | internal/worker/node.go (new); `internal/worker/client.go`; `internal/config/config.go`; `.env.example` |
 | V2-1e | Security register and abuse tests | `docs/security/findings.md` (reserved touch point); tests/abuse/nodes_test.go (new) |
-| V2-3 | Reservations and placement (Section 7) | its own ADR and task; not part of V2-1 |
+| V2-3 | Reservations and placement (Section 7). Its migration adds `attempts.node_id`, `jobs.assigned_node_id` and the demand snapshot columns (with the OD-24 job fields), so V2-1's tables need no change | its own ADR and task; not part of V2-1 |
 | V4-3 | `node_tools` | its own task |
 
 Builder: Claude Code for V2-1b and V2-1c (migration, repository, locking); V2-1a, V2-1d and V2-1e may go to either agent under `AGENTS.md` section 7. [Proposed]

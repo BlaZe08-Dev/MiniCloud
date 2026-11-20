@@ -23,7 +23,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | REL-2 | Record v1.1.0 release and checklist updates | Gemini | orchestrator review | agent/gemini/REL-2 | in progress |
-| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
+| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; the V2-1 ADR (ADR-0022) is written and Proposed, with OD-19 answered |
 
 ### REL-2 — Record v1.1.0 release and checklist updates (docs only)
 - Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/REL-2`. Status: in progress.

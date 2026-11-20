@@ -68,3 +68,47 @@ I did not run `go test -race ./...` or `make test-db`, because the task changes 
 - docs/agents/TASKS.md:26 (the Active table row for V2-1) still says "needs the V2-1 ADR". I left it as it is because the task said to change nothing else.
 
 The branch is pushed. I did not open a PR or merge anything.
+
+# Fix round 1 (task V2-1-ADR-FIX1)
+
+Date: 2026-11-20. Branch agent/claude/V2-1-ADR, started from tip 846f882. Docs only. Audit: reports/gemini/V2-1-ADR-audit.md on agent/gemini/V2-1-ADR-audit (tip 2146b07). Files changed: docs/adr/0022-node-capability-model.md, this report, docs/agents/TASKS.md (row 26 only). Line numbers below are in the ADR after this round. The decisions are labelled Proposed in the ADR; the owner accepts the ADR later.
+
+## Per finding
+
+- **F-01 (Critical).** `reserved(node)` no longer depends on `workers.node_id`.
+  - docs/adr/0022-node-capability-model.md Section 7.2 (:302-325): reserved sums `attempts.node_id` (written once at claim) and `jobs.assigned_node_id` (written at reservation, cleared with `assigned_worker_id`). Both columns come with the V2-3 migration.
+  - Section 4.3 (:212-213): registration may change `node_id` freely and never rejects it; running attempts and live reservations keep their node.
+  - Section 7.4 (:344): the claim reads `node_id` unlocked, locks the node, locks the worker, and re-reads `workers.node_id`; a mismatch rolls back. A reservation whose `assigned_node_id` differs from the worker's current node is not honoured. This race was not in the audit; I found it while placing the snapshot.
+  - Section 7.5: new row for re-registration while holding attempts or reservations. Section 13: new threat T10 (links T1). Section 14.4: new rows for re-registration with attempts, with a live reservation, and the claim race.
+  - Self-check of the other rows: the OD-09 restart row and the hardware-change row had the same class of problem only through the join. Restart: now says the snapshot columns are durable, so a post-restart re-registration moves nothing. Hardware change: now says capacity is read from `node_hardware` by the snapshot node ID, never through `workers`. Rows from before V2-3 have NULL node ID and zero demand; stated in Section 7.2.
+- **F-02 (Major).** Section 7.5 cites SQL now. Completion and failure: repository.go:1236-1252 (`UPDATE attempts`) and :1257-1264 (`UPDATE jobs`); late terminal commit :1347-1352. Cancellation: :1456-1459 and :1465-1466 (the `UPDATE jobs` statements). Revocation and lapse: assignment.go:216, :231. Claim: assignment.go:701 (`INSERT INTO attempts`) and :719-721 (`UPDATE jobs`). Reaper: :503-510 (`UPDATE workers`). I re-read each range on origin/main (588fcfd) with `git show`.
+- **F-03 (Minor).** Lease expiry cites leases.go:302-317 (`closeAttempt`, `UPDATE attempts` at :310) and the switch arms :354-414 (calls at :361, :371, :392, :412). Re-read on origin/main.
+- **F-04 (Major).** Section 14.5 gains R8 (lock order, test `TestPostgresRepository_NodeLock_HierarchyEnforced`), R9 (join on `workers.node_id`, tests `TestConformance_Worker_ReRegisterWithActiveAttemptsKeepsNodeDemand` and `..._ReRegisterWithLiveReservationKeepsNodeDemand`), R10 (claim skips the post-lock re-read, test `TestPostgresRepository_NodeReserve_ClaimRechecksWorkerNodeAfterLock`) and N12 (`ON DELETE RESTRICT`, test `TestSchemaInvariants_NodeDeleteRestrictedWhileReferenced`, also added to Section 14.2). R10 and N12 go beyond the exact list in the task; R10 covers the race I added, N12 is the `ON DELETE RESTRICT` mutant the task asked for. All are planned tests.
+- **F-05 (Minor).** Planned test `TestConformance_NodeReserve_LiveReservationBlocksPlacement` added to Section 14.4 and paired with R2 (R2 keeps its old test too).
+- **In-memory equivalents.** Section 7.5 has a second table: inmemory.go:720, :724, :784-788, :857-861, :1026, :1047, :1061, :350-364, :284-302; inmemory_assignment.go:136, :150, :307, :338. Lines checked on origin/main with `git show` and `awk`.
+- **Section 15, V2-3 row.** States the V2-3 migration adds `attempts.node_id`, `jobs.assigned_node_id` and the demand snapshot columns, so V2-1's tables need no change.
+- **TASKS.md row 26.** Only the phrase "needs the V2-1 ADR with OD-19 answered" changed, to "the V2-1 ADR (ADR-0022) is written and Proposed, with OD-19 answered".
+- **Section 16.** OQ-1 to OQ-7 and the open-items list are unchanged. No Decided statement was touched. I added one sentence to the Status section naming the audit and this round.
+
+## Gates (executed; log copied verbatim)
+
+```
+gofmt: clean
+--- go vet
+rc=0
+--- go build
+rc=0
+--- make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.890s
+rc=0
+```
+
+## Not verified
+
+- No planned test or mutant exists or was run. The new SQL ideas (snapshot columns, re-read after the worker lock) are designed, not executed against PostgreSQL.
+- The `NOWAIT` technique in `TestPostgresRepository_NodeLock_HierarchyEnforced` is a design; I did not try it.
+- I did not check the in-memory line numbers against the audit; I re-read them myself on origin/main only.
+- I did not run `go test -race ./...` or `make test-db` (no Go code or schema changed; not in the task gates).
+- The audit's PostgreSQL 16 lock-compatibility quote was not re-checked by me.
+- Earlier "did not verify" items from the first report still stand, except that the TASKS.md:26 item is now fixed.
