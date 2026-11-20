@@ -20,7 +20,7 @@ Date: 2026-11-20
   - The reserved amount is computed from PENDING/RUNNING attempts plus live round-robin reservations. It is never a stored counter.
   - It is reserved atomically under a `FOR NO KEY UPDATE` lock on the node row. The new lock order is jobs, nodes, workers, attempts (:326-334).
   - The release table covers completion, failure, cancellation, lease expiry and coordinator restart, and cites the code that changes each state (:335-347).
-  - Planned tests for each path are at :504-522.
+  - Planned tests for each path are at :507-522.
   - Reservations are built in V2-3, not V2-1, because the per-job resource demand depends on OD-24, which is still open (:43, :301).
 - **OD-23:** the ADR sets no TTL or interval values. It says how they will be derived from measurement (:572).
 
