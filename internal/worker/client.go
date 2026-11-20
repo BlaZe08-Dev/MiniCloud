@@ -20,6 +20,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/version"
 )
 
 const (
@@ -351,7 +352,7 @@ func (a *Agent) register(ctx context.Context) error {
 
 	payload, err := json.Marshal(map[string]any{
 		"id":              a.cfg.WorkerID,
-		"version":         "v0.1.0",
+		"version":         version.Version,
 		"total_slots":     a.cfg.TotalSlots,
 		"available_slots": a.availableSlots(),
 		"supported_tasks": []string{"echo", "sleep", "sha256_loop"},

@@ -22,6 +22,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| V1x-03 | Worker reports its real version (internal/version) | Claude Code | to be assigned | agent/claude/V1x-03 | built, awaiting orchestrator review |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
 
 ### V2-2 — Workload generator and benchmark harness
