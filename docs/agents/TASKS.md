@@ -22,12 +22,10 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
-| DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | Gemini | orchestrator review | agent/gemini/DOC-SYNC-1 | active |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
-| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`) | Claude Code | to be assigned | agent/claude/V2-2 | Stage B complete; ADR-0021 Accepted; awaiting audit |
 
 ### V2-2 — Workload generator and benchmark harness
-- Builder: Claude Code (Sonnet). Auditor: to be assigned. Branch: `agent/claude/V2-2`. Status: Stage A and Stage B complete, ADR-0021 Accepted, awaiting audit. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
+- Builder: Claude Code (Sonnet). Auditor: Gemini. Branch: `agent/claude/V2-2`. Status: merged in PR #67 (implementation, merge commit f6ef868) and PR #68 (audit, merge commit bd94138). ADR-0021 Accepted. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
 - Goal: a repeatable, honest measurement of job flow, claim cost and per-worker built-in task speed, with a recorded environment; supplies the median-of-N speed inputs for the proposed V2-3 score and real numbers for SEC-036/SEC-037. ADR: [`0021-benchmark-harness.md`](../adr/0021-benchmark-harness.md) (Accepted).
 - Acceptance criteria (Stage B, as accepted in ADR-0021):
   - `cmd/mcbench` (stdlib only) drives a coordinator and workers over the real HTTP API on 127.0.0.1; zero changes under `internal/`.
@@ -343,6 +341,9 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | V1x-02 | Fix SEC-067: stop HTML escaping inflating poll payloads | PR #60, merge commit 73c21cd; audit PR #61, merge commit 26b440a |
 | DOC-AUDIT-1 | Documentation accuracy and consistency audit | PR #62, merge commit c0351d6 |
 | V2-0b | Round-robin uses every free slot (ADR-0020, migration 000006) | PR #63, merge commit 211569b; audit PR #64, merge commit 3b8d486 |
+| ARCH-REVIEW-1 | Architectural review and stress scenarios | PR #65, merge commit e465578 |
+| DOC-SYNC-1 | Fix documentation drift found by DOC-AUDIT-1 (DA-1..12) | PR #66, merge commit 6fe5fa9 |
+| V2-2 | Workload generator and benchmark harness (`cmd/mcbench`, ADR-0021) | PR #67, merge commit f6ef868; audit PR #68, merge commit bd94138 |
 
 Rows from PR #31 onward were added from `git log --merges`.
 
