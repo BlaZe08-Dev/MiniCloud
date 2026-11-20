@@ -22,8 +22,14 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
+| REL-1 | Prepare v1.1.0 release (CHANGELOG, release notes, release checklist) | Gemini | orchestrator review | agent/gemini/REL-1 | in progress |
 | V1x-03 | Worker reports its real version (internal/version) | Claude Code | to be assigned | agent/claude/V1x-03 | built, awaiting orchestrator review |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; needs the V2-1 ADR with OD-19 answered |
+
+### REL-1 — Prepare v1.1.0 release (docs only)
+- Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/REL-1`. Status: in progress.
+- Goal: prepare the v1.1.0 release documentation: CHANGELOG, release notes, and release checklist.
+- Owned files: `CHANGELOG.md`, `docs/release/v1.1.0-notes.md`, `docs/release/RELEASE_CHECKLIST.md`, `docs/agents/TASKS.md`, `docs/PROJECT_STATE.md`, `reports/gemini/REL-1.md`.
 
 ### V2-2 — Workload generator and benchmark harness
 - Builder: Claude Code (Sonnet). Auditor: Gemini. Branch: `agent/claude/V2-2`. Status: merged in PR #67 (implementation, merge commit f6ef868) and PR #68 (audit, merge commit bd94138). ADR-0021 Accepted. Orchestrator decisions: `docs/agents/handoffs/V2-2-orchestrator-decisions.md`. Handoff: `docs/agents/handoffs/V2-2.md`. Own database only: `minicloud_claude_test`.
