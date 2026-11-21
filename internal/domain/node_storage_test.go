@@ -88,6 +88,20 @@ func TestDomain_NodeHardwareContentHash(t *testing.T) {
 		}
 	})
 
+	t.Run("ambiguous_adjacent_strings", func(t *testing.T) {
+		// The example above is separated by integer markers, so it would stay distinct even without
+		// length prefixes. os and arch are adjacent strings. Without a length prefix the two
+		// inventories below encode to the same bytes (marker, "a", marker, "b", 0x01 ...): the
+		// first has arch "b\x01"; the second has os "a\x01b" and an empty arch. With a 4 byte length
+		// before each string they cannot collide. ContentHash does not validate, so it must be
+		// collision-free on any input.
+		x := NodeHardware{OS: "a", Arch: "b\x01"}
+		y := NodeHardware{OS: "a\x01b", Arch: ""}
+		if x.ContentHash() == y.ContentHash() {
+			t.Fatal("adjacent strings with embedded marker bytes collide: the length prefix is missing")
+		}
+	})
+
 	t.Run("field_order_stability", func(t *testing.T) {
 		// Swapping the values of two same-typed fields must change the hash: the hash depends on
 		// the fixed field order, not only on the multiset of values.
