@@ -28,8 +28,8 @@ Already decided by the owner (2026-11-15, recorded in ADR-0018): D1 version plac
 | OD-05 | Exact CLI versions and invocation modes? | Verify official docs and installed binary behavior per adapter/version. Do not guess flags. | V4-2 |
 | OD-06 | Authentication for remote nodes? | mTLS or another reviewed authenticated node identity mechanism, plus API client authorization. V1 unauthenticated endpoints are not acceptable remotely. | V3-2 (before any remote execution) |
 | OD-07 | Node Agent deployment model? | Evolve/extend the worker runtime while preserving V1 worker compatibility; avoid two daemons with conflicting responsibilities. | V3-3 |
-| OD-08 | Hardware telemetry libraries and platform support? | Define Linux-first support if necessary, but design versioned cross-platform capability contracts. | V2-1 |
-| OD-09 | Resource reservation model? | Hard constraints and reservation accounting in deterministic scheduler; do not use stale telemetry as a hard guarantee. | V2-1 (used by V2-3) |
+| OD-08 | Hardware telemetry libraries and platform support? | Define Linux-first support if necessary, but design versioned cross-platform capability contracts. **Answered 2026-11-20, ADR-0022.** | V2-1 |
+| OD-09 | Resource reservation model? | Hard constraints and reservation accounting in deterministic scheduler; do not use stale telemetry as a hard guarantee. **Answered 2026-11-20, ADR-0022.** | V2-1 (used by V2-3) |
 | OD-10 | Workflow-to-job relational model? | Prefer workflow parent + task DAG with each runnable task mapped to existing job/attempt lifecycle. Validate schema and lock-order implications before migration. | V4-1 |
 | OD-11 | Artifact store for initial deployment? | Local filesystem content-addressed store with PostgreSQL metadata is a reasonable first step; keep an object-store interface. | V4-1 |
 | OD-12 | Workspace isolation mechanism? | Git worktrees for Git repos, provider abstraction for other workspaces; do not share mutable working directories. | V4-1 |
@@ -39,7 +39,7 @@ Already decided by the owner (2026-11-15, recorded in ADR-0018): D1 version plac
 | OD-16 | SDK language? | Go SDK first is the natural default; add other languages only with concrete need. | V4-5 |
 | OD-17 | Coordinator failover? | Defer. If needed, evaluate Raft or database-backed leader leases with fencing. Design PostgreSQL HA separately. | Later |
 | OD-18 | Redis Streams? | Preserve the existing V2 evaluation. Do not introduce Redis as source of truth or before a measured need. | V2-4 |
-| OD-19 | Node identity before V3 authentication | How a stable node ID is chosen and kept (for example a configured ID or a persisted generated ID). V3-2 later binds it to an authenticated enrollment. | V2-1 |
+| OD-19 | Node identity before V3 authentication | How a stable node ID is chosen and kept (for example a configured ID or a persisted generated ID). V3-2 later binds it to an authenticated enrollment. **Answered 2026-11-20, ADR-0022.** | V2-1 |
 | OD-20 | Workers per node | How many worker processes one node runs, and whether one agent process hosts several worker identities. | V3-3 |
 | OD-21 | Placement score function and tie-break (proposed filter-and-score, [`NODE_CAPABILITIES.md`](NODE_CAPABILITIES.md)) | Options if known: weighted free capacity and measured speed; speed-only; capacity-only. Tie-break is proposed as ADR-0017 round-robin order. Not answered. Owner: owner. | V2-3 |
 | OD-22 | Smoothing parameters, hysteresis thresholds and N for median-of-N benchmarks | To be set from V2-2 measurements, not guessed. Options: exponential moving average factor and band widths. Not answered. Owner: owner. | V2-3 (after V2-2) |
