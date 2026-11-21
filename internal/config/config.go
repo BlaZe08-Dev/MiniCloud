@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -48,6 +49,33 @@ type CoordinatorConfig struct {
 	AssignmentFallbackAge  time.Duration
 	AssignmentBatchLimit   int
 	AssignmentMinYield     time.Duration
+
+	// NodeHardwareMinInterval is MINICLOUD_NODE_HARDWARE_MIN_INTERVAL (ADR-0022 Section 4.1):
+	// one new hardware version per node per interval. Default 60s, placeholder, not measured.
+	NodeHardwareMinInterval time.Duration
+	// NodeMaxCount is MINICLOUD_NODE_MAX_COUNT: the soft ceiling on registered nodes (audit A-04).
+	// Default 10000, placeholder, not measured.
+	NodeMaxCount int
+	// NodeLocalOnly is decided once from HTTPAddr (IsLocalOnlyAddr) and never recomputed.
+	NodeLocalOnly bool
+}
+
+// DefaultNodeHardwareMinInterval and DefaultNodeMaxCount are placeholders, not measured.
+const (
+	DefaultNodeHardwareMinInterval = 60 * time.Second
+	DefaultNodeMaxCount            = 10000
+)
+
+// IsLocalOnlyAddr reports whether the host part of addr is a literal loopback IP address, as
+// net.IP.IsLoopback decides (ADR-0022 Section 4.4). An empty host, 0.0.0.0, [::], any other IP,
+// any host name (localhost included) and an unparsable address are not local-only.
+func IsLocalOnlyAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil || host == "" {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // MaxWorkerSlots is the upper bound of MINICLOUD_WORKER_SLOTS (ADR-0019 Section 2.6). It equals
@@ -161,7 +189,11 @@ func LoadCoordinatorConfig() (*CoordinatorConfig, error) {
 		AssignmentFallbackAge:  strictDuration("MINICLOUD_ASSIGNMENT_FALLBACK_AGE", 30*time.Second),
 		AssignmentBatchLimit:   strictInt("MINICLOUD_ASSIGNMENT_BATCH_LIMIT", 50),
 		AssignmentMinYield:     strictDuration("MINICLOUD_ASSIGNMENT_MIN_YIELD", 10*time.Millisecond),
+
+		NodeHardwareMinInterval: posDuration("MINICLOUD_NODE_HARDWARE_MIN_INTERVAL", DefaultNodeHardwareMinInterval),
+		NodeMaxCount:            posInt("MINICLOUD_NODE_MAX_COUNT", DefaultNodeMaxCount),
 	}
+	cfg.NodeLocalOnly = IsLocalOnlyAddr(cfg.HTTPAddr)
 
 	if parseErr != nil {
 		return nil, parseErr

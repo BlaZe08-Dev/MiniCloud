@@ -102,6 +102,10 @@ type Service struct {
 	// and the buffer of one coalesces a burst of submits into one extra pass (ADR-0017
 	// Section 2.1).
 	assignKick chan struct{}
+
+	// Node settings (nodes.go). Set by SetNodeSettings; read without s.mu (set at startup).
+	nodeMinInterval time.Duration
+	nodeMaxCount    int
 }
 
 // NewService constructs a new Coordinator Service. Dispatch flows through repo.DispatchNextJob
@@ -125,6 +129,8 @@ func NewService(repo storage.Repository, sched scheduler.Scheduler, reg *executo
 		outageWindow:       DefaultOutageGraceWindow,
 		sweepRand:          newSweepRand(),
 		assignKick:         make(chan struct{}, 1),
+		nodeMinInterval:    DefaultNodeHardwareMinInterval,
+		nodeMaxCount:       DefaultNodeMaxCount,
 	}
 }
 
