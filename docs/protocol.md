@@ -591,7 +591,7 @@ The node ceiling is **soft**: the count check and the insert are not one transac
 
 ### 7.2 `POST /v1/nodes/{node_id}/telemetry`
 
-**Request:** `contract_version` (1), `session_id` (UUID, required), `seq` (1..2^53-1, required), `sample_age_ms` (0..2^31-1, default 0) and the optional `cpu_load_1m_milli`, `memory_available_bytes`, `disk_free_bytes`. `sampled_at` is the repository (database) receive time minus `sample_age_ms`; no client clock is used. A `sample_age_ms` that would put `sampled_at` before the node's `created_at` is rejected with 400 `INVALID_REQUEST` (checked by the coordinator with its own clock).
+**Request:** `contract_version` (1), `session_id` (UUID, required), `seq` (1..2^53-1, required), `sample_age_ms` (0..2^31-1, default 0) and the optional `cpu_load_1m_milli`, `memory_available_bytes`, `disk_free_bytes`. `sampled_at` is the repository (database) receive time minus `sample_age_ms`; no client clock is used. A `sample_age_ms` that would put `sampled_at` before the node's `created_at` is rejected with 400 `INVALID_REQUEST`. This is enforced by storage on the database clock (in memory, the injected clock), in the same transaction as the write and with the same time value that is stored, so a coordinator clock that lags or leads never causes a rejection. Order of outcomes: unknown node 404 `NODE_NOT_FOUND` first; then this rule (400); then the session and sequence rule (409 `TELEMETRY_OUT_OF_ORDER`). A rejected report writes nothing.
 
 **Response (200 OK):** `{"status":"ACK"}`.
 

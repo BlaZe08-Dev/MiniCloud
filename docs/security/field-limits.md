@@ -100,7 +100,7 @@ Limits are copied from migration `000007_node_capability_model.sql` and `interna
 | `memory_total_bytes`, `disk_total_bytes`, `gpu_vram_total_bytes` | `BIGINT` | NULL or 0..2^53-1 | integer | `chk_node_hardware_bytes` |
 | `memory_available_bytes`, `disk_free_bytes` | `BIGINT` | NULL or 0..2^53-1 | integer | `chk_node_telemetry_bytes` |
 | `cpu_load_1m_milli` | `INTEGER` | NULL or 0..2^31-1 | integer (the column type bounds it; the CHECK is `>= 0`) | `chk_node_telemetry_load` |
-| `sample_age_ms` | request only | 0..2^31-1 | integer; a value that puts `sampled_at` before the node's `created_at` is `400 INVALID_REQUEST` (coordinator check) | handler only |
+| `sample_age_ms` | request only | 0..2^31-1 | integer; a value that puts `sampled_at` before the node's `created_at` is `400 INVALID_REQUEST` (enforced by storage on the database clock; in memory, the injected clock) | handler and storage |
 | `session_id` | `TEXT` | 36 bytes | lowercase v4 UUID, required | `chk_node_telemetry_session` |
 | `seq` | `BIGINT` | 1..2^53-1, required | must exceed the stored `seq` in the same session, else `409 TELEMETRY_OUT_OF_ORDER` | `chk_node_telemetry_seq` |
 | `limit` (`GET /v1/nodes`) | query | 1..500, default 100 (`domain.MaxNodePageSize`, `domain.DefaultNodePageSize`, placeholders, not measured) | decimal digits only | `400 INVALID_REQUEST` |
