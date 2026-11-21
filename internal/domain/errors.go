@@ -38,6 +38,12 @@ var (
 	// ErrNodeRateLimited matches (errors.Is) the NodeRateLimitedError returned when a changed
 	// hardware report arrives inside the minimum interval (ADR-0022 Section 4.1).
 	ErrNodeRateLimited = errors.New("node hardware update rate limited")
+	// ErrUnsupportedContractVersion is returned for a node report whose contract_version is not in
+	// the supported set (ADR-0022 Section 4.1); the API maps it to 400 UNSUPPORTED_CONTRACT_VERSION.
+	ErrUnsupportedContractVersion = errors.New("unsupported contract version")
+	// ErrNodeLimitReached is returned when a new node ID would exceed MINICLOUD_NODE_MAX_COUNT; the
+	// API maps it to 429 NODE_LIMIT_REACHED without Retry-After (V2-1c, audit A-04).
+	ErrNodeLimitReached = errors.New("node limit reached")
 )
 
 // NodeRateLimitedError is the rate-limit rejection of a node registration. RetryAfter is a whole

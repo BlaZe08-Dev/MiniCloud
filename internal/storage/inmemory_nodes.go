@@ -171,27 +171,68 @@ func (r *InMemoryRepository) GetNode(ctx context.Context, nodeID string) (*domai
 	if !exists {
 		return nil, domain.ErrNodeNotFound
 	}
-	return r.nodeViewLocked(n), nil
+	return r.nodeViewLocked(n, r.workerIDsByNodeLocked()), nil
 }
 
-// ListNodes implements storage.Repository.
-func (r *InMemoryRepository) ListNodes(ctx context.Context) ([]*domain.NodeView, error) {
+// ListNodes implements storage.Repository: the nodes with id > afterID in ascending order, at most
+// limit of them. It never returns a nil slice (audit A-05a).
+func (r *InMemoryRepository) ListNodes(ctx context.Context, afterID string, limit int) ([]*domain.NodeView, error) {
+	if err := domain.ValidateNodePageLimit(limit); err != nil {
+		return nil, err
+	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	ids := make([]string, 0, len(r.nodes))
 	for id := range r.nodes {
-		ids = append(ids, id)
+		if id > afterID {
+			ids = append(ids, id)
+		}
 	}
 	sort.Strings(ids)
+	if len(ids) > limit {
+		ids = ids[:limit]
+	}
+	// One pass over the workers per call, not one per node (audit A-03).
+	byNode := r.workerIDsByNodeLocked()
 	views := make([]*domain.NodeView, 0, len(ids))
 	for _, id := range ids {
-		views = append(views, r.nodeViewLocked(r.nodes[id]))
+		views = append(views, r.nodeViewLocked(r.nodes[id], byNode))
 	}
 	return views, nil
 }
 
-// nodeViewLocked builds the read model of n. Must be called with mu held.
-func (r *InMemoryRepository) nodeViewLocked(n *inMemoryNode) *domain.NodeView {
+// CountNodes implements storage.Repository.
+func (r *InMemoryRepository) CountNodes(ctx context.Context) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.nodes), nil
+}
+
+// workerScanHook is set only by tests (inmemory_export_test.go). It is called once per worker entry
+// visited by workerIDsByNodeLocked, so a test can prove the cost is O(workers) per call.
+var workerScanHook func()
+
+// workerIDsByNodeLocked maps each node ID to the sorted IDs of the workers that name it, in one
+// pass over the workers. Must be called with mu held.
+func (r *InMemoryRepository) workerIDsByNodeLocked() map[string][]string {
+	byNode := make(map[string][]string)
+	for id, w := range r.workers {
+		if workerScanHook != nil {
+			workerScanHook()
+		}
+		if w.NodeID != nil {
+			byNode[*w.NodeID] = append(byNode[*w.NodeID], id)
+		}
+	}
+	for _, ids := range byNode {
+		sort.Strings(ids)
+	}
+	return byNode
+}
+
+// nodeViewLocked builds the read model of n from the per-call worker map. Must be called with mu
+// held.
+func (r *InMemoryRepository) nodeViewLocked(n *inMemoryNode, byNode map[string][]string) *domain.NodeView {
 	v := &domain.NodeView{
 		ID:          n.id,
 		DisplayName: n.displayName,
@@ -217,11 +258,8 @@ func (r *InMemoryRepository) nodeViewLocked(n *inMemoryNode) *domain.NodeView {
 			NodeTelemetry:   cloneTelemetry(t.telemetry),
 		}
 	}
-	for id, w := range r.workers {
-		if w.NodeID != nil && *w.NodeID == n.id {
-			v.WorkerIDs = append(v.WorkerIDs, id)
-		}
+	if ids := byNode[n.id]; len(ids) > 0 {
+		v.WorkerIDs = append(v.WorkerIDs, ids...)
 	}
-	sort.Strings(v.WorkerIDs)
 	return v
 }

@@ -1,9 +1,12 @@
 package storage_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage"
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/storagetest"
 )
@@ -108,10 +111,62 @@ func TestConformance_Node_Views(t *testing.T) {
 	storagetest.RunNodeViewsConformance(t, newInMemoryNodeHarness)
 }
 
+func TestConformance_Node_ListEmpty(t *testing.T) {
+	storagetest.RunNodeListEmptyConformance(t, newInMemoryNodeHarness)
+}
+
+func TestConformance_Node_Paging(t *testing.T) {
+	storagetest.RunNodePagingConformance(t, newInMemoryNodeHarness)
+}
+
 func TestConformance_Worker_NodeIDRoundTrip(t *testing.T) {
 	storagetest.RunWorkerNodeIDRoundTripConformance(t, newInMemoryNodeHarness)
 }
 
 func TestConformance_Worker_UnknownNodeRejected(t *testing.T) {
 	storagetest.RunWorkerUnknownNodeRejectedConformance(t, newInMemoryNodeHarness)
+}
+
+// TestInMemoryRepository_NodeReads_VisitEachWorkerOncePerCall pins audit A-03: GetNode and ListNodes
+// build one node-to-worker map per call, so the number of worker entries visited equals the worker
+// count and not nodes x workers. A counter, not a timing assertion.
+func TestInMemoryRepository_NodeReads_VisitEachWorkerOncePerCall(t *testing.T) {
+	repo, _ := newAssignRepo(t)
+	ctx := context.Background()
+	const nodes, workers = 12, 7
+	for n := 1; n <= nodes; n++ {
+		reg := domain.NodeRegistration{NodeID: storagetest.NodeTestID(n), DisplayName: "n", ContractVersion: domain.ContractVersion, AgentVersion: "v", Hardware: domain.NodeHardware{OS: "linux", Arch: "amd64"}}
+		if _, err := repo.RegisterNode(ctx, reg, time.Minute); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for w := 0; w < workers; w++ {
+		node := storagetest.NodeTestID(1 + w%nodes)
+		if err := repo.UpsertWorker(ctx, &domain.Worker{ID: fmt.Sprintf("w_%d", w), Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, NodeID: &node}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var listed []*domain.NodeView
+	if got := repo.WorkerEntriesVisitedForTest(func() {
+		var err error
+		if listed, err = repo.ListNodes(ctx, "", domain.MaxNodePageSize); err != nil {
+			t.Fatal(err)
+		}
+	}); got != workers || len(listed) != nodes {
+		t.Fatalf("ListNodes of %d nodes visited %d worker entries (nodes=%d), want exactly the worker count %d", nodes, got, len(listed), workers)
+	}
+	if got := repo.WorkerEntriesVisitedForTest(func() {
+		if _, err := repo.GetNode(ctx, storagetest.NodeTestID(1)); err != nil {
+			t.Fatal(err)
+		}
+	}); got != workers {
+		t.Fatalf("GetNode visited %d worker entries, want %d", got, workers)
+	}
+	if got := repo.WorkerEntriesVisitedForTest(func() {
+		if _, err := repo.ListNodes(ctx, storagetest.NodeTestID(10), 5); err != nil {
+			t.Fatal(err)
+		}
+	}); got != workers {
+		t.Fatalf("a short page visited %d worker entries, want %d", got, workers)
+	}
 }

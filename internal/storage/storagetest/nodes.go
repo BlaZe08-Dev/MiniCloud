@@ -158,7 +158,7 @@ func RunNodeRegisterIdempotentConformance(t *testing.T, newHarness func(t *testi
 	if res := mustRegister(t, h, nodeRegistration(a, "renamed", 100)); res.HardwareVersion != 1 {
 		t.Fatalf("second registration hardware version = %d, want 1", res.HardwareVersion)
 	}
-	nodes, err := h.Repo.ListNodes(ctx)
+	nodes, err := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize)
 	if err != nil || len(nodes) != 1 {
 		t.Fatalf("after two registrations of one ID: ListNodes = %d nodes (err=%v), want 1", len(nodes), err)
 	}
@@ -183,7 +183,7 @@ func RunNodeRegisterIdempotentConformance(t *testing.T, newHarness func(t *testi
 	}
 
 	mustRegister(t, h, nodeRegistration(b, "other", 100))
-	if nodes, _ := h.Repo.ListNodes(ctx); len(nodes) != 2 {
+	if nodes, _ := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize); len(nodes) != 2 {
 		t.Fatalf("a second node ID did not create a second node: %d nodes", len(nodes))
 	}
 }
@@ -210,7 +210,7 @@ func RunNodeInvalidRegistrationConformance(t *testing.T, newHarness func(t *test
 			t.Errorf("%s: err = %v, want ErrInvalidRequest", name, err)
 		}
 	}
-	if nodes, err := h.Repo.ListNodes(ctx); err != nil || len(nodes) != 0 {
+	if nodes, err := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize); err != nil || len(nodes) != 0 {
 		t.Fatalf("rejected registrations left %d nodes (err=%v)", len(nodes), err)
 	}
 }
@@ -651,7 +651,7 @@ func RunNodeViewsConformance(t *testing.T, newHarness func(t *testing.T) NodeHar
 	}
 	mustTelemetry(t, h, a, telemetryReport(NodeTestID(100), 1, 1500, 321))
 
-	nodes, err := h.Repo.ListNodes(ctx)
+	nodes, err := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize)
 	if err != nil || len(nodes) != 2 || nodes[0].ID != a || nodes[1].ID != b {
 		t.Fatalf("ListNodes = %v (err=%v), want [%s %s]", nodes, err, a, b)
 	}
@@ -760,5 +760,108 @@ func RunWorkerUnknownNodeRejectedConformance(t *testing.T, newHarness func(t *te
 	got, err := h.Repo.GetWorker(ctx, "w_ok")
 	if err != nil || got.NodeID == nil || *got.NodeID != known || got.Version != "v1" || got.TotalSlots != 1 {
 		t.Fatalf("a rejected move changed the worker: %+v (err=%v)", got, err)
+	}
+}
+
+// RunNodeListEmptyConformance: ListNodes with no nodes returns an empty non-nil slice in every
+// backend (audit A-05a), and CountNodes is 0.
+func RunNodeListEmptyConformance(t *testing.T, newHarness func(t *testing.T) NodeHarness) {
+	h := newHarness(t)
+	nodes, err := h.Repo.ListNodes(context.Background(), "", domain.DefaultNodePageSize)
+	if err != nil {
+		t.Fatalf("ListNodes on an empty repository: %v", err)
+	}
+	if nodes == nil || len(nodes) != 0 {
+		t.Fatalf("ListNodes on an empty repository = %#v, want an empty non-nil slice", nodes)
+	}
+	if n, err := h.Repo.CountNodes(context.Background()); err != nil || n != 0 {
+		t.Fatalf("CountNodes = %d (err=%v), want 0", n, err)
+	}
+}
+
+func nodeIDs(views []*domain.NodeView) []string {
+	out := make([]string, 0, len(views))
+	for _, v := range views {
+		out = append(out, v.ID)
+	}
+	return out
+}
+
+// RunNodePagingConformance (audit A-04): page order, the cursor boundary (afterID itself is
+// excluded), a last page shorter than limit, limit 1, an empty result past the end, limit
+// validation, a page that carries hardware, telemetry and worker IDs only for its own nodes, and
+// CountNodes.
+func RunNodePagingConformance(t *testing.T, newHarness func(t *testing.T) NodeHarness) {
+	h := newHarness(t)
+	ctx := context.Background()
+	// Register in a scrambled order so ID order is not insertion order.
+	order := []int{3, 1, 5, 2, 4}
+	for _, n := range order {
+		mustRegister(t, h, nodeRegistration(NodeTestID(n), fmt.Sprintf("n%d", n), int64(100+n)))
+	}
+	id := NodeTestID
+	node3 := id(3)
+	if err := h.Repo.UpsertWorker(ctx, &domain.Worker{ID: "w_on3", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, NodeID: &node3}); err != nil {
+		t.Fatal(err)
+	}
+	mustTelemetry(t, h, id(4), telemetryReport(NodeTestID(100), 1, 10, 7))
+
+	if n, err := h.Repo.CountNodes(ctx); err != nil || n != 5 {
+		t.Fatalf("CountNodes = %d (err=%v), want 5", n, err)
+	}
+
+	page := func(after string, limit int) []*domain.NodeView {
+		t.Helper()
+		v, err := h.Repo.ListNodes(ctx, after, limit)
+		if err != nil {
+			t.Fatalf("ListNodes(%q, %d): %v", after, limit, err)
+		}
+		if v == nil {
+			t.Fatalf("ListNodes(%q, %d) returned a nil slice", after, limit)
+		}
+		return v
+	}
+	want := func(name string, got []*domain.NodeView, ns ...int) {
+		t.Helper()
+		var w []string
+		for _, n := range ns {
+			w = append(w, id(n))
+		}
+		if w == nil {
+			w = []string{}
+		}
+		if !reflect.DeepEqual(nodeIDs(got), w) {
+			t.Fatalf("%s: ids = %v, want %v", name, nodeIDs(got), w)
+		}
+	}
+
+	want("whole list in id order", page("", 100), 1, 2, 3, 4, 5)
+	want("first page of 2", page("", 2), 1, 2)
+	want("cursor boundary: afterID itself is excluded", page(id(2), 2), 3, 4)
+	want("last page shorter than limit", page(id(4), 2), 5)
+	want("limit 1", page("", 1), 1)
+	want("limit 1 after 3", page(id(3), 1), 4)
+	want("empty result past the last id", page(id(5), 10))
+	want("cursor that names no node", page(id(2)+"0", 10), 3, 4, 5)
+
+	// The page carries the children of its own nodes and nothing else.
+	p := page(id(2), 2)
+	if len(p) != 2 || !reflect.DeepEqual(p[0].WorkerIDs, []string{"w_on3"}) || p[0].Hardware == nil || p[0].Hardware.Version != 1 {
+		t.Fatalf("page view of node 3 = %+v", p[0])
+	}
+	if p[1].Telemetry == nil || *p[1].Telemetry.CPULoad1mMilli != 7 || len(p[1].WorkerIDs) != 0 {
+		t.Fatalf("page view of node 4 = %+v", p[1])
+	}
+
+	for _, limit := range []int{0, -1, domain.MaxNodePageSize + 1} {
+		if _, err := h.Repo.ListNodes(ctx, "", limit); !errors.Is(err, domain.ErrInvalidRequest) {
+			t.Errorf("ListNodes(limit=%d) err = %v, want ErrInvalidRequest", limit, err)
+		}
+	}
+	if _, err := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize); err != nil {
+		t.Errorf("ListNodes(limit=MaxNodePageSize): %v", err)
+	}
+	if _, err := h.Repo.ListNodes(ctx, "a\x00b", 10); err != nil && !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Errorf("ListNodes with a NUL cursor: %v, want nil or ErrInvalidRequest", err)
 	}
 }

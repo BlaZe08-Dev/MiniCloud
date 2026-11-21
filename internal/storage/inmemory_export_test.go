@@ -68,3 +68,13 @@ func (r *InMemoryRepository) NodeRawForTest(id string) NodeRawForTest {
 	}
 	return out
 }
+
+// WorkerEntriesVisitedForTest runs f and returns how many worker entries the node read paths
+// visited while building worker-ID lists (audit A-03). It is deterministic: a count, not a timing.
+func (r *InMemoryRepository) WorkerEntriesVisitedForTest(f func()) int {
+	var n int
+	workerScanHook = func() { n++ }
+	defer func() { workerScanHook = nil }()
+	f()
+	return n
+}

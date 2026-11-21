@@ -81,8 +81,12 @@ type Repository interface {
 	RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error
 	// GetNode returns the read model of one node, or domain.ErrNodeNotFound.
 	GetNode(ctx context.Context, nodeID string) (*domain.NodeView, error)
-	// ListNodes returns every node ordered by ID.
-	ListNodes(ctx context.Context) ([]*domain.NodeView, error)
+	// ListNodes returns one page of nodes ordered by ID ascending: only IDs greater than afterID
+	// ("" means from the start), at most limit rows. limit must be 1..domain.MaxNodePageSize, else
+	// domain.ErrInvalidRequest. The result is never nil.
+	ListNodes(ctx context.Context, afterID string, limit int) ([]*domain.NodeView, error)
+	// CountNodes returns the number of registered nodes.
+	CountNodes(ctx context.Context) (int, error)
 
 	// Event operations
 	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
