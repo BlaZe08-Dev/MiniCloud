@@ -606,6 +606,9 @@ func TestAPI_ListNodes_Paging(t *testing.T) {
 		if st != 200 {
 			t.Fatalf("%s: %d %s", q, st, b)
 		}
+		if len(p.Nodes) > 2 {
+			t.Fatalf("%s returned %d nodes, want at most limit 2: %s", q, len(p.Nodes), b)
+		}
 		for _, n := range p.Nodes {
 			seen = append(seen, n.NodeID)
 		}
