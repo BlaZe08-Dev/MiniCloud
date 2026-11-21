@@ -14,7 +14,8 @@ const migration000006Name = "000006_worker_executes_concurrently.sql"
 
 // TestMigrator_Migration000006_FreshSchema applies every embedded migration to an empty schema and
 // checks the ADR-0020 Section 2.6 column: workers.executes_concurrently, boolean, NOT NULL, default
-// false. It pins the migration list: 000006 is the sixth and last embedded migration.
+// false. It pins 000006 as the sixth embedded migration (index 5); the "last migration" pin moved to
+// TestMigrator_Migration000007_FreshSchema when 000007 was added (V2-1b).
 func TestMigrator_Migration000006_FreshSchema(t *testing.T) {
 	conn, schema := setupTestSchema(t)
 	ctx := context.Background()
@@ -24,9 +25,11 @@ func TestMigrator_Migration000006_FreshSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadMigrations failed: %v", err)
 	}
-	if len(all) != 6 || all[5].Name != migration000006Name {
-		t.Fatalf("expected the sixth and last embedded migration to be %s, got %d migrations (last %q)", migration000006Name, len(all), all[len(all)-1].Name)
+	if len(all) < 6 || all[5].Name != migration000006Name {
+		t.Fatalf("expected the sixth embedded migration to be %s, got %d migrations (last %q)", migration000006Name, len(all), all[len(all)-1].Name)
 	}
+	// Apply exactly the first six migrations: later ones are covered by their own tests.
+	m, _ = migrationsUpTo(t, 6)
 	if n, err := m.Migrate(ctx, conn); err != nil || n != 6 {
 		t.Fatalf("Migrate: applied=%d err=%v", n, err)
 	}
