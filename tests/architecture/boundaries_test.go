@@ -48,7 +48,16 @@ var forbiddenQueueImports = []string{
 	"github.com/BlaZe08-Dev/Minicloud/internal/storage/postgres",
 }
 
+// checkPackageBoundaries scans the non-test files of one package directory. Test files are
+// skipped on purpose for these boundary rules.
 func checkPackageBoundaries(t *testing.T, relDir string, forbidden []string, boundaryDescription string) {
+	scanPackageBoundaries(t, relDir, forbidden, boundaryDescription, false)
+}
+
+// scanPackageBoundaries is checkPackageBoundaries with an explicit choice about *_test.go
+// files. Only the platform isolation rule includes them (AUD-01).
+func scanPackageBoundaries(t *testing.T, relDir string, forbidden []string, boundaryDescription string, includeTests bool) {
+	t.Helper()
 	pkgDir := filepath.Join("..", "..", relDir)
 	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
 		pkgDir = relDir
@@ -65,7 +74,7 @@ func checkPackageBoundaries(t *testing.T, relDir string, forbidden []string, bou
 	for _, pkg := range pkgs {
 		for fileName, file := range pkg.Files {
 			baseName := filepath.Base(fileName)
-			if strings.HasSuffix(baseName, "_test.go") {
+			if !includeTests && strings.HasSuffix(baseName, "_test.go") {
 				continue
 			}
 
@@ -150,8 +159,10 @@ func TestArchitecture_PlatformIsolation(t *testing.T) {
 		filepath.Join("internal", "api"),
 	} {
 		for _, dir := range packageDirs(t, relDir) {
-			checkPackageBoundaries(t, dir, forbiddenPlatformImports,
-				"internal/domain, internal/coordinator, internal/storage and internal/api must not import internal/platform (ADR-0022 Section 6.2).")
+			// Test files are included: a test in a core package must not import the OS
+			// adapter either (AUD-01).
+			scanPackageBoundaries(t, dir, forbiddenPlatformImports,
+				"internal/domain, internal/coordinator, internal/storage and internal/api must not import internal/platform, test files included (ADR-0022 Section 6.2).", true)
 		}
 	}
 

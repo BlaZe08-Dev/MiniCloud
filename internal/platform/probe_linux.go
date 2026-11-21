@@ -94,6 +94,11 @@ func (p *linuxProbe) Telemetry(ctx context.Context) (domain.NodeTelemetry, error
 	return t, nil
 }
 
+// Only the cgroup v2 root files /sys/fs/cgroup/memory.max and memory.current are read, so a
+// host process inside a nested cgroup (for example a systemd service slice) is not scoped:
+// threat T8 is partly covered. Reading /proc/self/cgroup to find the process's own cgroup is a
+// later improvement.
+
 // cgroupMemoryMax returns the cgroup v2 memory.max limit when the file is readable and holds
 // a number ("max" means no limit).
 func (p *linuxProbe) cgroupMemoryMax() (int64, bool) {

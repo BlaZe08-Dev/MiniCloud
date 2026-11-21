@@ -84,8 +84,12 @@ func defaultIDOps() idOps {
 // EEXIST if node_id exists, so it can never replace another process's ID. os.Rename is never
 // used and the final name is never written directly. If publication reports EEXIST the
 // existing file is read and validated by the same rules. The temporary file is removed on
-// every path. If hard links are unsupported the call fails with a clear error; it does not
+// every path except a crash: a temporary file orphaned by a crash is never swept
+// automatically (deleting it could remove a competing process's file mid-publication). It is
+// harmless, and the operator may delete .node_id.tmp-* files when no worker is starting. If hard links are unsupported the call fails with a clear error; it does not
 // fall back. After publication the directory is fsynced where the platform supports it.
+//
+// On unix an existing node_id that is not owned by the current user is refused as well.
 //
 // Every error names the path. The function never creates an identity in another directory.
 //
@@ -258,6 +262,8 @@ func createNodeID(dir, final string, ops idOps) (id string, err error) {
 		return "", fmt.Errorf("node id file %s: cannot publish: %w (hard links are required on this filesystem; there is no rename or direct-write fallback)", final, err)
 	}
 
+	// If syncDir fails after publication, node_id stays published: a retry reads the same ID,
+	// so the identity is stable. The worker may stop once and the next start succeeds.
 	if err := ops.syncDir(dir); err != nil {
 		return "", fmt.Errorf("node state directory %s: cannot sync after publishing %s: %w", dir, final, err)
 	}

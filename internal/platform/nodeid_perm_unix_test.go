@@ -202,12 +202,37 @@ func TestStateDir_OwnerCheck(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkOwner(dir, fi, os.Geteuid()); err != nil {
+	if err := checkOwner("node state directory", dir, fi, os.Geteuid()); err != nil {
 		t.Fatalf("own directory must pass: %v", err)
 	}
-	err = checkOwner(dir, fi, os.Geteuid()+1)
+	err = checkOwner("node state directory", dir, fi, os.Geteuid()+1)
 	if err == nil || !strings.Contains(err.Error(), "not by the current user") || !strings.Contains(err.Error(), dir) {
 		t.Fatalf("a directory of another uid must be refused naming the path, got %v", err)
+	}
+}
+
+// AUD-03: an ID file owned by another user is refused. Same technique as the directory test: a
+// different uid is passed, so no root is needed.
+func TestNodeIDFile_OwnerCheck(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "state")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := writeIDFile(t, dir, otherUUID+"\n", 0o600)
+	fi, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkFileAccessAs(path, fi, os.Geteuid()); err != nil {
+		t.Fatalf("own file must pass: %v", err)
+	}
+	err = checkFileAccessAs(path, fi, os.Geteuid()+1)
+	if err == nil || !strings.Contains(err.Error(), "not by the current user") || !strings.Contains(err.Error(), path) {
+		t.Fatalf("a file of another uid must be refused naming the path, got %v", err)
+	}
+	// The production path (os.Geteuid) still accepts our own file end to end.
+	if got, err := LoadOrCreateNodeID(dir); err != nil || got != otherUUID {
+		t.Fatalf("own 0600 file: %q, %v", got, err)
 	}
 }
 
