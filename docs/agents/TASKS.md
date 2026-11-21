@@ -23,7 +23,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | ID | Title | Builder | Auditor | Branch | Status |
 |---|---|---|---|---|---|
 | REL-2 | Record v1.1.0 release and checklist updates | Gemini | orchestrator review | agent/gemini/REL-2 | in progress |
-| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; the V2-1 ADR (ADR-0022) is written and Proposed, with OD-19 answered |
+| V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; ADR-0022 is Accepted (2026-11-21); implementation slices V2-1a to V2-1e are planned and each needs an owner-approved task entry |
 
 ### REL-2 — Record v1.1.0 release and checklist updates (docs only)
 - Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/REL-2`. Status: in progress.
@@ -107,8 +107,9 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 - [Proposed] Measure before changing locks: SEC-036 and SEC-037 are Informational; the V2-2 results in `docs/benchmarks/` are the first measurement; do not change `s.mu` or collapse the poll queries until a measured need exists. Do not draw performance conclusions yourself. Source: ARCH-REVIEW-1, SEC-036, SEC-037.
 
 ### V2-1 — Node and capability model (placeholder; full spec to be written by the orchestrator)
-- Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000007 (000006 is taken by V2-0b) with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Needs the V2-1 ADR with OD-08, OD-09 and OD-19 answered.
-- Builder: Claude Code. Auditor: to be assigned. Status: design written, [ADR-0022](../adr/0022-node-capability-model.md) (Proposed, awaiting owner acceptance; task V2-1-ADR, branch `agent/claude/V2-1-ADR`); the owner's answers Q1 to Q7 are recorded in it (`docs/agents/handoffs/V2-1-owner-answers.md`) and SEC-070 is registered; open: OD-20 to OD-25, OQ-8 and the V2-3 worker-declines design item; no code until the owner accepts the ADR and approves the implementation slices.
+- Goal: device model D3 per `docs/post-v1/NODE_CAPABILITIES.md`: additive forward-only migration 000007 (000006 is taken by V2-0b) with `nodes` (identity only), `node_hardware`, `node_telemetry` and nullable `workers.node_id`; `node_tools` is designed in the V2-1 ADR but created in V4-3. Designed in [ADR-0022](../adr/0022-node-capability-model.md) (OD-08, OD-09 and OD-19 answered).
+- Builder: Claude Code. Auditor: to be assigned. Status: design only; [ADR-0022](../adr/0022-node-capability-model.md) is Accepted (2026-11-21, owner decision; `docs/agents/handoffs/V2-1-owner-acceptance.md`). The owner's answers Q1 to Q7 and OQ-8 are recorded in it and SEC-070 is registered. Open: OD-20 to OD-25 and the V2-3 worker-declines design item. No code until the owner approves a task entry for a slice.
+- Slices (ADR-0022 Section 15), each planned, needs an owner-approved task entry: V2-1a (contract types, platform adapter, node ID file), V2-1b (migration 000007, storage, conformance suite), V2-1c (API routes, coordinator, local-only decision, docs), V2-1d (worker reports its node), V2-1e (abuse tests).
 
 ### P4-21 — Docs part 2 from the P4-18 audit
 - Goal: Fix docs drift identified in P4-18 audit: README (configuration table, env error handling, dispatch statement, make targets, SEC-012 timeout clamping), phase4-plan.md (C21 assignment pass vs lease sweeper), schema.md (migrations 000004 & 000005 merged), field-limits.md (chk_attempts_last_error_size and 000004/000005 constraints), roadmap.md & state-machine.md (default policy wording), architecture.md (Scheduler row and Slice 3d default policy), ADR-0003 & ADR-0011 (amendment line for default policy), and .env.example (commented-out coordinator variables).
