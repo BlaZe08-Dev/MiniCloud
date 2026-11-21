@@ -423,16 +423,27 @@ func TestAPI_RegisterNode_RateLimited_429RetryAfter(t *testing.T) {
 	id := nid(1)
 	e.mustRegisterNode(t, id, 100)
 	e.clk.Advance(10 * time.Second)
-	st, hdr, b := e.post(t, "/v1/nodes/register", nodeBody(id, 200))
-	if st != 429 || codeOf(t, b) != "RATE_LIMITED" || hdr.Get("Retry-After") != "50" {
-		t.Fatalf("changed hardware inside the interval: %d Retry-After=%q %s, want 429 RATE_LIMITED 50", st, hdr.Get("Retry-After"), b)
+	// An unchanged hardware body inside the interval is never limited (N14).
+	if st, _, b := e.post(t, "/v1/nodes/register", nodeBody(id, 100)); st != 200 {
+		t.Fatalf("unchanged hardware inside the interval: %d %s, want 200", st, b)
+	}
+	before, _ := e.repo.Repository.GetNode(context.Background(), id)
+	e.clk.Advance(time.Second)
+	// A rejected (429) registration writes nothing, not even display_name or last_seen_at (N15).
+	renamed := strings.Replace(nodeBody(id, 200), `"desk"`, `"renamed-by-429"`, 1)
+	st, hdr, b := e.post(t, "/v1/nodes/register", renamed)
+	if after, _ := e.repo.Repository.GetNode(context.Background(), id); after.DisplayName != before.DisplayName || !after.LastSeenAt.Equal(before.LastSeenAt) {
+		t.Fatalf("a 429 registration wrote the node row: %q %v -> %q %v", before.DisplayName, before.LastSeenAt, after.DisplayName, after.LastSeenAt)
+	}
+	if st != 429 || codeOf(t, b) != "RATE_LIMITED" || hdr.Get("Retry-After") != "49" {
+		t.Fatalf("changed hardware inside the interval: %d Retry-After=%q %s, want 429 RATE_LIMITED 49", st, hdr.Get("Retry-After"), b)
 	}
 	for _, s := range []string{"100", "memory", "cpu", "linux"} {
 		if strings.Contains(b, s) {
 			t.Errorf("429 body is not opaque, contains %q: %s", s, b)
 		}
 	}
-	e.clk.Advance(50 * time.Second)
+	e.clk.Advance(49 * time.Second)
 	if st, _, b := e.post(t, "/v1/nodes/register", nodeBody(id, 200)); st != 200 || !strings.Contains(b, `"hardware_version":2`) {
 		t.Fatalf("changed hardware after the interval: %d %s, want 200 version 2", st, b)
 	}
