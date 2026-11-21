@@ -327,6 +327,20 @@ func TestAPI_Node_SampleAgeBeforeCreatedIsRejected(t *testing.T) {
 	}
 }
 
+// TestAPI_NodeTelemetry_CoordinatorClockLagStillAccepted: the created_at rule is enforced by the
+// repository on its own clock, so a coordinator clock one hour behind the repository clock must not
+// reject a fresh report (sample_age_ms 0). It used to be a 100% false rejection (audit F-01).
+func TestAPI_NodeTelemetry_CoordinatorClockLagStillAccepted(t *testing.T) {
+	e := newNodeEnv(t, true)
+	e.mustRegisterNode(t, nid(1), 100)
+	e.clk.Advance(10 * time.Second)
+	e.svc.SetClock(&apiTestClock{now: e.clk.Now().Add(-time.Hour)}) // coordinator clock lags the repository clock
+	st, _, b := e.post(t, "/v1/nodes/"+nid(1)+"/telemetry", telBody(nid(100), 1, 0))
+	if st != 200 || !strings.Contains(b, "ACK") {
+		t.Fatalf("fresh report with a lagging coordinator clock: %d %s, want 200 ACK", st, b)
+	}
+}
+
 func TestAPI_ListNodes_SummaryOmitsSensitiveFields(t *testing.T) {
 	e := newNodeEnv(t, true)
 	id := nid(1)

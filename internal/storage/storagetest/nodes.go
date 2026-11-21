@@ -106,6 +106,15 @@ func mustRegister(t *testing.T, h NodeHarness, reg domain.NodeRegistration) *dom
 	return res
 }
 
+// ageNodes lets time pass after registration so that the sample ages used by the telemetry cases
+// below (10 ms to 1.5 s) cannot put sampled_at before created_at, which the repositories reject
+// (ADR-0022 Section 3.3 rule, enforced by storage). It is test setup only: no sleep, a repository
+// clock advance in memory and a direct timestamp shift in PostgreSQL (NodeHarness.Advance).
+func ageNodes(t *testing.T, h NodeHarness) {
+	t.Helper()
+	h.Advance(t, time.Hour)
+}
+
 func mustTelemetry(t *testing.T, h NodeHarness, nodeID string, r domain.NodeTelemetryReport) {
 	t.Helper()
 	if err := h.Repo.RecordNodeTelemetry(context.Background(), nodeID, r); err != nil {
@@ -438,6 +447,7 @@ func RunNodeTelemetryOutOfOrderRejectedConformance(t *testing.T, newHarness func
 	id := NodeTestID(1)
 	mustRegister(t, h, nodeRegistration(id, "n", 100))
 	s := NodeTestID(100)
+	ageNodes(t, h)
 	mustTelemetry(t, h, id, telemetryReport(s, 5, 120, 500))
 	h.Advance(t, time.Second) // a rewritten received_at would now differ
 	before := h.Dump(t, id)
@@ -468,6 +478,7 @@ func RunNodeTelemetryReplaySameSeqRejectedConformance(t *testing.T, newHarness f
 	id := NodeTestID(1)
 	mustRegister(t, h, nodeRegistration(id, "n", 100))
 	s := NodeTestID(100)
+	ageNodes(t, h)
 	mustTelemetry(t, h, id, telemetryReport(s, 7, 10, 500))
 	h.Advance(t, time.Second)
 	before := h.Dump(t, id)
@@ -489,6 +500,7 @@ func RunNodeTelemetryNewSessionAcceptedAfterRestartConformance(t *testing.T, new
 	mustRegister(t, h, nodeRegistration(id, "n", 100))
 	s1, s2, s3 := NodeTestID(101), NodeTestID(102), NodeTestID(103)
 
+	ageNodes(t, h)
 	mustTelemetry(t, h, id, telemetryReport(s1, 100000, 10, 500))
 	h.Advance(t, time.Second)
 	mustTelemetry(t, h, id, telemetryReport(s2, 1, 10, 800)) // worker restart: new session, seq 1
@@ -520,6 +532,7 @@ func RunNodeTelemetryOlderSessionAfterNewerIsAcceptedConformance(t *testing.T, n
 	mustRegister(t, h, nodeRegistration(id, "n", 100))
 	older, newer := NodeTestID(101), NodeTestID(102)
 
+	ageNodes(t, h)
 	mustTelemetry(t, h, id, telemetryReport(older, 5, 10, 500))
 	mustTelemetry(t, h, id, telemetryReport(newer, 3, 10, 600)) // the worker restarted
 	// A delayed report of the OLDER session arrives now: accepted, replaces the newer sample.
@@ -531,6 +544,93 @@ func RunNodeTelemetryOlderSessionAfterNewerIsAcceptedConformance(t *testing.T, n
 	mustTelemetry(t, h, id, telemetryReport(newer, 4, 10, 800))
 	if d := h.Dump(t, id); d.Telemetry.SessionID != newer || d.Telemetry.Seq != 4 {
 		t.Fatalf("live session next report: stored %+v, want the newer session's seq 4", d.Telemetry)
+	}
+}
+
+// RunNodeTelemetrySampleAgeBeforeCreatedAtRejectedConformance: a sample_age_ms that puts sampled_at
+// strictly before the node's created_at is ErrInvalidRequest and writes nothing (no row for a first
+// report; every column, received_at included, unchanged otherwise). The outcome order is unknown node,
+// then this rule, then the session and sequence rule. This case does NOT use ageNodes: it controls
+// its own timing, with margins on both sides and no sleeps. The node is 10 s old after the first
+// Advance (PostgreSQL adds a few real milliseconds, far below the 1 s margins).
+// (Mutants: created_at check removed from either repository, check after the write, rejected path
+// writing received_at.)
+func RunNodeTelemetrySampleAgeBeforeCreatedAtRejectedConformance(t *testing.T, newHarness func(t *testing.T) NodeHarness) {
+	h := newHarness(t)
+	ctx := context.Background()
+	id := NodeTestID(1)
+	mustRegister(t, h, nodeRegistration(id, "n", 100))
+	h.Advance(t, 10*time.Second)
+	s := NodeTestID(100)
+
+	// First report, age = elapsed + 1 s: rejected, and no telemetry row is created.
+	beforeFirst := h.Dump(t, id)
+	err := h.Repo.RecordNodeTelemetry(ctx, id, telemetryReport(s, 1, 11000, 500))
+	if !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("first report with age elapsed+1s: err = %v, want ErrInvalidRequest", err)
+	}
+	if after := h.Dump(t, id); after.Telemetry != nil || !sameDump(beforeFirst, after) {
+		t.Fatalf("a rejected first report wrote state:\nbefore %+v\nafter  %+v", beforeFirst, after)
+	}
+
+	// Age 0 is accepted (well inside the margin).
+	mustTelemetry(t, h, id, telemetryReport(s, 1, 0, 500))
+	h.Advance(t, time.Second) // a rewritten received_at would now differ; the node is 11 s old
+	before := h.Dump(t, id)
+	if before.Telemetry == nil || before.Telemetry.Seq != 1 {
+		t.Fatalf("stored telemetry = %+v, want seq 1", before.Telemetry)
+	}
+
+	// A greater seq with age elapsed+1s (12 s): rejected, stored sample byte-identical.
+	err = h.Repo.RecordNodeTelemetry(ctx, id, telemetryReport(s, 2, 12000, 999))
+	if !errors.Is(err, domain.ErrInvalidRequest) {
+		t.Fatalf("report with age elapsed+1s: err = %v, want ErrInvalidRequest", err)
+	}
+	if after := h.Dump(t, id); !sameDump(before, after) {
+		t.Fatalf("a rejected report changed stored state:\nbefore %+v\nafter  %+v", before, after)
+	}
+
+	// Order of outcomes: the same report that is also a replay (same session, seq 1) is a 400-class
+	// error, not ErrTelemetryOutOfOrder; and an unknown node is ErrNodeNotFound first.
+	err = h.Repo.RecordNodeTelemetry(ctx, id, telemetryReport(s, 1, 12000, 999))
+	if !errors.Is(err, domain.ErrInvalidRequest) || errors.Is(err, domain.ErrTelemetryOutOfOrder) {
+		t.Fatalf("replay with an impossible age: err = %v, want ErrInvalidRequest before ErrTelemetryOutOfOrder", err)
+	}
+	err = h.Repo.RecordNodeTelemetry(ctx, NodeTestID(9), telemetryReport(s, 1, 12000, 999))
+	if !errors.Is(err, domain.ErrNodeNotFound) {
+		t.Fatalf("unknown node with an impossible age: err = %v, want ErrNodeNotFound first", err)
+	}
+	if after := h.Dump(t, id); !sameDump(before, after) {
+		t.Fatalf("rejected reports changed stored state:\nbefore %+v\nafter  %+v", before, after)
+	}
+
+	// Age elapsed minus 1 s (10 s of 11 s) is accepted.
+	mustTelemetry(t, h, id, telemetryReport(s, 2, 10000, 700))
+	if d := h.Dump(t, id); d.Telemetry.Seq != 2 {
+		t.Fatalf("report with age elapsed-1s was not stored: %+v", d.Telemetry)
+	}
+}
+
+// RunNodeTelemetrySampledAtEqualsCheckedValueConformance: after an accepted report with age A,
+// sampled_at equals received_at minus A to the millisecond, so the value that was checked against
+// created_at is the value that is stored (one clock reading decides and stores).
+func RunNodeTelemetrySampledAtEqualsCheckedValueConformance(t *testing.T, newHarness func(t *testing.T) NodeHarness) {
+	h := newHarness(t)
+	id := NodeTestID(1)
+	mustRegister(t, h, nodeRegistration(id, "n", 100))
+	ageNodes(t, h)
+	s := NodeTestID(100)
+	for i, age := range []int64{0, 1, 1234, 600000} {
+		mustTelemetry(t, h, id, telemetryReport(s, int64(i+1), age, 5))
+		d := h.Dump(t, id)
+		recv, err1 := time.Parse(time.RFC3339Nano, d.Telemetry.ReceivedAt)
+		samp, err2 := time.Parse(time.RFC3339Nano, d.Telemetry.SampledAt)
+		if err1 != nil || err2 != nil {
+			t.Fatalf("parse stored timestamps: %v %v", err1, err2)
+		}
+		if got := recv.Sub(samp).Milliseconds(); got != age {
+			t.Fatalf("age %d ms: received_at - sampled_at = %d ms, want %d", age, got, age)
+		}
 	}
 }
 
@@ -649,6 +749,7 @@ func RunNodeViewsConformance(t *testing.T, newHarness func(t *testing.T) NodeHar
 	if err := h.Repo.UpsertWorker(ctx, &domain.Worker{ID: "w_legacy", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}}); err != nil {
 		t.Fatal(err)
 	}
+	ageNodes(t, h)
 	mustTelemetry(t, h, a, telemetryReport(NodeTestID(100), 1, 1500, 321))
 
 	nodes, err := h.Repo.ListNodes(ctx, "", domain.MaxNodePageSize)
@@ -804,6 +905,7 @@ func RunNodePagingConformance(t *testing.T, newHarness func(t *testing.T) NodeHa
 	if err := h.Repo.UpsertWorker(ctx, &domain.Worker{ID: "w_on3", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, NodeID: &node3}); err != nil {
 		t.Fatal(err)
 	}
+	ageNodes(t, h)
 	mustTelemetry(t, h, id(4), telemetryReport(NodeTestID(100), 1, 10, 7))
 
 	if n, err := h.Repo.CountNodes(ctx); err != nil || n != 5 {

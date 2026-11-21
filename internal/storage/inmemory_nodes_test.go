@@ -170,3 +170,11 @@ func TestInMemoryRepository_NodeReads_VisitEachWorkerOncePerCall(t *testing.T) {
 		t.Fatalf("a short page visited %d worker entries, want %d", got, workers)
 	}
 }
+
+func TestConformance_Node_Telemetry_SampleAgeBeforeCreatedAtRejected(t *testing.T) {
+	storagetest.RunNodeTelemetrySampleAgeBeforeCreatedAtRejectedConformance(t, newInMemoryNodeHarness)
+}
+
+func TestConformance_Node_Telemetry_SampledAtEqualsCheckedValue(t *testing.T) {
+	storagetest.RunNodeTelemetrySampledAtEqualsCheckedValueConformance(t, newInMemoryNodeHarness)
+}

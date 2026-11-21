@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -525,5 +526,61 @@ func TestPostgresRepository_Node_TelemetryTakesKeyShareOnNode(t *testing.T) {
 	}
 	if d := h.Dump(t, node); d.Telemetry == nil || d.Telemetry.Seq != 2 {
 		t.Fatalf("stored telemetry after the blocked report = %+v, want seq 2 unchanged", d.Telemetry)
+	}
+}
+
+func TestConformance_Node_Telemetry_SampleAgeBeforeCreatedAtRejected(t *testing.T) {
+	storagetest.RunNodeTelemetrySampleAgeBeforeCreatedAtRejectedConformance(t, newPostgresNodeHarness)
+}
+
+func TestConformance_Node_Telemetry_SampledAtEqualsCheckedValue(t *testing.T) {
+	storagetest.RunNodeTelemetrySampledAtEqualsCheckedValueConformance(t, newPostgresNodeHarness)
+}
+
+// TestPostgresRepository_Node_TelemetryOneTransactionTwoStatements guards ADR-0022 Section 8.3 and
+// audit F-01: one accepted report is one transaction and two statements (the existence read with
+// FOR KEY SHARE and the conditional upsert), and nothing else (no node view read). The statements
+// are counted by a pgx query tracer attached to a second pool on the same test schema
+// (StatementTracer in export_test.go); BEGIN and COMMIT are counted separately.
+func TestPostgresRepository_Node_TelemetryOneTransactionTwoStatements(t *testing.T) {
+	ctx := context.Background()
+	h, pool, _ := newPostgresNodeHarnessWithPool(t)
+	node, session := storagetest.NodeTestID(1), storagetest.NodeTestID(100)
+	reg := domain.NodeRegistration{NodeID: node, DisplayName: "n", ContractVersion: domain.ContractVersion, AgentVersion: "v1", Hardware: domain.NodeHardware{OS: "linux", Arch: "amd64"}}
+	if _, err := h.Repo.RegisterNode(ctx, reg, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	h.Advance(t, time.Hour)
+
+	tr := &postgres.StatementTracer{}
+	cfg := pool.Config().Copy()
+	cfg.ConnConfig.Tracer = tr
+	traced, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer traced.Close()
+	repo := postgres.NewRepository(traced)
+
+	for seq := int64(1); seq <= 2; seq++ { // first report (insert path) and a later one (update path)
+		tr.Reset()
+		rep := domain.NodeTelemetryReport{ContractVersion: domain.ContractVersion, SessionID: session, Seq: seq, SampleAgeMS: 250}
+		if err := repo.RecordNodeTelemetry(ctx, node, rep); err != nil {
+			t.Fatalf("seq %d: %v", seq, err)
+		}
+		var begins, commits, others int
+		for _, q := range tr.SQL() {
+			switch strings.ToLower(strings.TrimSpace(q)) {
+			case "begin":
+				begins++
+			case "commit":
+				commits++
+			default:
+				others++
+			}
+		}
+		if begins != 1 || commits != 1 || others != 2 {
+			t.Fatalf("seq %d: %d begin, %d commit, %d statements, want 1, 1, 2; statements: %q", seq, begins, commits, others, tr.SQL())
+		}
 	}
 }
