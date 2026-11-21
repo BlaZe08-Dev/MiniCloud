@@ -155,9 +155,6 @@ func RunNodeRegisterIdempotentConformance(t *testing.T, newHarness func(t *testi
 		t.Fatalf("first registration hardware version = %d, want 1", res.HardwareVersion)
 	}
 	h.Advance(t, time.Second)
-	// Read after the advance: in PostgreSQL the advance moves every stored timestamp, so only a value
-	// read after it can be compared with one read after the second registration.
-	created := h.Dump(t, a).CreatedAt
 	if res := mustRegister(t, h, nodeRegistration(a, "renamed", 100)); res.HardwareVersion != 1 {
 		t.Fatalf("second registration hardware version = %d, want 1", res.HardwareVersion)
 	}
@@ -170,8 +167,16 @@ func RunNodeRegisterIdempotentConformance(t *testing.T, newHarness func(t *testi
 		t.Fatalf("display_name = %q, want \"renamed\"", v.DisplayName)
 	}
 	d := h.Dump(t, a)
-	if d.CreatedAt != created {
-		t.Fatalf("created_at changed on re-registration: %s -> %s", created, d.CreatedAt)
+	// The row is the same row, not a new one: its created_at is still the first registration's, one
+	// second (plus the real time the test took, in PostgreSQL) before the second registration wrote
+	// last_seen_at. A new row would have created_at == last_seen_at.
+	created, err1 := time.Parse(time.RFC3339Nano, d.CreatedAt)
+	seen, err2 := time.Parse(time.RFC3339Nano, d.LastSeenAt)
+	if err1 != nil || err2 != nil {
+		t.Fatalf("unparseable node timestamps: %q %q", d.CreatedAt, d.LastSeenAt)
+	}
+	if gap := seen.Sub(created); gap < time.Second || gap > time.Second+2*time.Second {
+		t.Fatalf("last_seen_at - created_at = %v, want about 1s: the node row was replaced instead of updated", gap)
 	}
 	if len(d.Hardware) != 1 {
 		t.Fatalf("hardware rows = %v, want exactly version 1", hwVersions(d))
