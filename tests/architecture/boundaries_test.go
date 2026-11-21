@@ -105,3 +105,92 @@ func TestArchitecture_QueueIndependence(t *testing.T) {
 	checkPackageBoundaries(t, filepath.Join("internal", "queue"), forbiddenQueueImports,
 		"internal/queue must not depend on api, coordinator, worker, or scheduler.")
 }
+
+// modulePath is the import path prefix of every project package.
+const modulePath = "github.com/BlaZe08-Dev/Minicloud/"
+
+// platformPackage is the OS adapter of ADR-0022 Section 6.2.
+const platformPackage = modulePath + "internal/platform"
+
+// forbiddenPlatformImports is what the core packages must not import: the OS adapter is used
+// by the worker (later slices) only.
+var forbiddenPlatformImports = []string{platformPackage}
+
+// packageDirs returns relDir and every directory below it, so a rule covers subpackages
+// (internal/storage/postgres, internal/storage/storagetest).
+func packageDirs(t *testing.T, relDir string) []string {
+	root := filepath.Join("..", "..", relDir)
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		root = relDir
+	}
+	var dirs []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() && d.Name() != "testdata" {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to walk %s: %v", relDir, err)
+	}
+	return dirs
+}
+
+// TestArchitecture_PlatformIsolation enforces ADR-0022 Section 6.2: internal/domain,
+// internal/coordinator, internal/storage (and its subpackages) and internal/api never import
+// internal/platform, and internal/platform imports internal/domain only among project packages.
+func TestArchitecture_PlatformIsolation(t *testing.T) {
+	for _, relDir := range []string{
+		filepath.Join("internal", "domain"),
+		filepath.Join("internal", "coordinator"),
+		filepath.Join("internal", "storage"),
+		filepath.Join("internal", "api"),
+	} {
+		for _, dir := range packageDirs(t, relDir) {
+			checkPackageBoundaries(t, dir, forbiddenPlatformImports,
+				"internal/domain, internal/coordinator, internal/storage and internal/api must not import internal/platform (ADR-0022 Section 6.2).")
+		}
+	}
+
+	// internal/platform may import internal/domain and nothing else of the project.
+	pkgDir := filepath.Join("..", "..", "internal", "platform")
+	if _, err := os.Stat(pkgDir); os.IsNotExist(err) {
+		pkgDir = filepath.Join("internal", "platform")
+	}
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, pkgDir, nil, parser.ImportsOnly)
+	if err != nil {
+		t.Fatalf("failed to parse directory %s: %v", pkgDir, err)
+	}
+	var violations []string
+	sawDomain := false
+	for _, pkg := range pkgs {
+		for fileName, file := range pkg.Files {
+			baseName := filepath.Base(fileName)
+			if strings.HasSuffix(baseName, "_test.go") {
+				continue
+			}
+			for _, imp := range file.Imports {
+				importPath := strings.Trim(imp.Path.Value, `"`)
+				if !strings.HasPrefix(importPath, modulePath) {
+					continue
+				}
+				if importPath == modulePath+"internal/domain" {
+					sawDomain = true
+					continue
+				}
+				violations = append(violations, baseName+": imports project package "+importPath)
+			}
+		}
+	}
+	if len(violations) > 0 {
+		t.Errorf("Architecture boundary violation! internal/platform may import only internal/domain among project packages.\nFound violations:\n%s",
+			strings.Join(violations, "\n"))
+	}
+	if !sawDomain {
+		t.Errorf("internal/platform no longer imports internal/domain; the rule or the package moved, check this test")
+	}
+}
