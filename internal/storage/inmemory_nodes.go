@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -136,7 +137,10 @@ func (r *InMemoryRepository) RegisterNode(ctx context.Context, reg domain.NodeRe
 }
 
 // RecordNodeTelemetry implements storage.Repository (ADR-0022 Section 3.3) under the repository
-// mutex. The existence check comes first, so a missing node can never return ErrTelemetryOutOfOrder.
+// mutex. Order of outcomes: unknown node (ErrNodeNotFound), then a sample age that puts sampled_at
+// before the node's created_at (ErrInvalidRequest, nothing written), then the session and sequence
+// rule (ErrTelemetryOutOfOrder). The clock is read once; the same value decides and is stored. The
+// check is a direct map lookup only: no worker scan and no view building.
 func (r *InMemoryRepository) RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error {
 	if err := report.Validate(); err != nil {
 		return err
@@ -148,16 +152,20 @@ func (r *InMemoryRepository) RecordNodeTelemetry(ctx context.Context, nodeID str
 	if !exists {
 		return domain.ErrNodeNotFound
 	}
+	now := r.clock.Now().UTC()
+	sampledAt := now.Add(-time.Duration(report.SampleAgeMS) * time.Millisecond)
+	if sampledAt.Before(n.createdAt) {
+		return fmt.Errorf("%w: sample_age_ms puts sampled_at before the node was created", domain.ErrInvalidRequest)
+	}
 	if t := n.telemetry; t != nil && t.sessionID == report.SessionID && t.seq >= report.Seq {
 		return domain.ErrTelemetryOutOfOrder
 	}
-	now := r.clock.Now().UTC()
 	n.telemetry = &inMemoryTelemetryRow{
 		contractVersion: report.ContractVersion,
 		sessionID:       report.SessionID,
 		seq:             report.Seq,
 		receivedAt:      now,
-		sampledAt:       now.Add(-time.Duration(report.SampleAgeMS) * time.Millisecond),
+		sampledAt:       sampledAt,
 		telemetry:       cloneTelemetry(report.NodeTelemetry),
 	}
 	return nil

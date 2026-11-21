@@ -147,9 +147,13 @@ func (r *Repository) RegisterNode(ctx context.Context, reg domain.NodeRegistrati
 	return &domain.NodeRegistrationResult{HardwareVersion: version}, nil
 }
 
-// RecordNodeTelemetry implements storage.Repository (ADR-0022 Section 3.3). One transaction: an
-// existence check with FOR KEY SHARE (no row is ErrNodeNotFound and the upsert never runs), then
-// the conditional upsert. Zero returned rows means the report was rejected and nothing changed.
+// RecordNodeTelemetry implements storage.Repository (ADR-0022 Section 3.3). One transaction, two
+// statements. Statement 1 is the existence read with FOR KEY SHARE; it also returns created_at and
+// the database time, read once. Order of outcomes: no row is ErrNodeNotFound (the upsert never
+// runs); then sampled_at = dbNow - sample_age_ms strictly before created_at is ErrInvalidRequest
+// (nothing is written); then the conditional upsert, which is passed the same dbNow-derived values
+// so the stored sampled_at is the value that was checked. Zero upsert rows means ErrTelemetryOutOfOrder
+// and nothing changed.
 func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error {
 	if err := report.Validate(); err != nil {
 		return err
@@ -160,21 +164,24 @@ func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, rep
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var one int
-	if err := tx.QueryRow(ctx, `SELECT 1 FROM nodes WHERE id = $1 FOR KEY SHARE;`, nodeID).Scan(&one); err != nil {
+	var createdAt, dbNow time.Time
+	if err := tx.QueryRow(ctx, `SELECT created_at, clock_timestamp() FROM nodes WHERE id = $1 FOR KEY SHARE;`, nodeID).Scan(&createdAt, &dbNow); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrNodeNotFound
 		}
 		return mapPgError(err)
 	}
+	sampledAt := dbNow.Add(-time.Duration(report.SampleAgeMS) * time.Millisecond)
+	if sampledAt.Before(createdAt) {
+		return fmt.Errorf("%w: sample_age_ms puts sampled_at before the node was created", domain.ErrInvalidRequest)
+	}
 
 	var seq int64
 	err = tx.QueryRow(ctx, `
-		WITH c(ts) AS (SELECT clock_timestamp())
 		INSERT INTO node_telemetry AS t
 			(node_id, contract_version, session_id, seq, received_at, sampled_at,
 			 cpu_load_1m_milli, memory_available_bytes, disk_free_bytes)
-		SELECT $1, $2, $3, $4, c.ts, c.ts - ($5 * interval '1 millisecond'), $6, $7, $8 FROM c
+		VALUES ($1, $2, $3, $4, $5, $9, $6, $7, $8)
 		ON CONFLICT (node_id) DO UPDATE SET
 			contract_version = EXCLUDED.contract_version, session_id = EXCLUDED.session_id,
 			seq = EXCLUDED.seq, received_at = EXCLUDED.received_at, sampled_at = EXCLUDED.sampled_at,
@@ -183,8 +190,8 @@ func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, rep
 			disk_free_bytes = EXCLUDED.disk_free_bytes
 		WHERE t.session_id <> EXCLUDED.session_id OR t.seq < EXCLUDED.seq
 		RETURNING seq;`,
-		nodeID, report.ContractVersion, report.SessionID, report.Seq, report.SampleAgeMS,
-		report.CPULoad1mMilli, report.MemoryAvailableBytes, report.DiskFreeBytes).Scan(&seq)
+		nodeID, report.ContractVersion, report.SessionID, report.Seq, dbNow,
+		report.CPULoad1mMilli, report.MemoryAvailableBytes, report.DiskFreeBytes, sampledAt).Scan(&seq)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrTelemetryOutOfOrder

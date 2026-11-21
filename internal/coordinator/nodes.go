@@ -67,10 +67,12 @@ func (s *Service) RegisterNode(ctx context.Context, reg domain.NodeRegistration)
 	return res, nil
 }
 
-// RecordNodeTelemetry validates and stores a telemetry report. The rule that a sample age must not
-// put sampled_at before the node's created_at is not enforced by storage (the stored sampled_at is
-// repository time minus the age), so it is checked here against the node read through GetNode with
-// the coordinator clock. An unknown node returns domain.ErrNodeNotFound before anything is written.
+// RecordNodeTelemetry validates and stores a telemetry report. The coordinator keeps only the
+// stateless checks (node id, contract version, report.Validate). The rules that need state are
+// enforced by storage on the repository clock, in this order: unknown node (ErrNodeNotFound, 404),
+// then sample_age_ms putting sampled_at before the node's created_at (ErrInvalidRequest, 400), then
+// the session and sequence rule (ErrTelemetryOutOfOrder, 409). It never reads the node first
+// (ADR-0022 Section 8.3: one conditional upsert per report).
 func (s *Service) RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error {
 	if err := domain.ValidateNodeID(nodeID); err != nil {
 		return err
@@ -80,14 +82,6 @@ func (s *Service) RecordNodeTelemetry(ctx context.Context, nodeID string, report
 	}
 	if err := report.Validate(); err != nil {
 		return err
-	}
-	node, err := s.repo.GetNode(ctx, nodeID)
-	if err != nil {
-		return err
-	}
-	sampledAt := s.clock.Now().Add(-time.Duration(report.SampleAgeMS) * time.Millisecond)
-	if sampledAt.Before(node.CreatedAt) {
-		return fmt.Errorf("%w: sample_age_ms puts sampled_at before the node was created", domain.ErrInvalidRequest)
 	}
 	return s.repo.RecordNodeTelemetry(ctx, nodeID, report)
 }
