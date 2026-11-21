@@ -1,0 +1,32 @@
+processor	: 0
+vendor_id	: GenuineIntel
+model name	: Test CPU Model X @ 3.00GHz
+physical id	: 0
+siblings	: 4
+core id		: 0
+cpu cores	: 2
+
+processor	: 1
+vendor_id	: GenuineIntel
+model name	: Test CPU Model X @ 3.00GHz
+physical id	: 0
+siblings	: 4
+core id		: 1
+cpu cores	: 2
+
+processor	: 2
+vendor_id	: GenuineIntel
+model name	: Test CPU Model X @ 3.00GHz
+physical id	: 0
+siblings	: 4
+core id		: 0
+cpu cores	: 2
+
+processor	: 3
+vendor_id	: GenuineIntel
+model name	: Test CPU Model X @ 3.00GHz
+physical id	: 0
+siblings	: 4
+core id		: 1
+cpu cores	: 2
+
