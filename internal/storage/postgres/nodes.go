@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -145,9 +147,13 @@ func (r *Repository) RegisterNode(ctx context.Context, reg domain.NodeRegistrati
 	return &domain.NodeRegistrationResult{HardwareVersion: version}, nil
 }
 
-// RecordNodeTelemetry implements storage.Repository (ADR-0022 Section 3.3). One transaction: an
-// existence check with FOR KEY SHARE (no row is ErrNodeNotFound and the upsert never runs), then
-// the conditional upsert. Zero returned rows means the report was rejected and nothing changed.
+// RecordNodeTelemetry implements storage.Repository (ADR-0022 Section 3.3). One transaction, two
+// statements. Statement 1 is the existence read with FOR KEY SHARE; it also returns created_at and
+// the database time, read once. Order of outcomes: no row is ErrNodeNotFound (the upsert never
+// runs); then sampled_at = dbNow - sample_age_ms strictly before created_at is ErrInvalidRequest
+// (nothing is written); then the conditional upsert, which is passed the same dbNow-derived values
+// so the stored sampled_at is the value that was checked. Zero upsert rows means ErrTelemetryOutOfOrder
+// and nothing changed.
 func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error {
 	if err := report.Validate(); err != nil {
 		return err
@@ -158,21 +164,24 @@ func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, rep
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var one int
-	if err := tx.QueryRow(ctx, `SELECT 1 FROM nodes WHERE id = $1 FOR KEY SHARE;`, nodeID).Scan(&one); err != nil {
+	var createdAt, dbNow time.Time
+	if err := tx.QueryRow(ctx, `SELECT created_at, clock_timestamp() FROM nodes WHERE id = $1 FOR KEY SHARE;`, nodeID).Scan(&createdAt, &dbNow); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrNodeNotFound
 		}
 		return mapPgError(err)
 	}
+	sampledAt := dbNow.Add(-time.Duration(report.SampleAgeMS) * time.Millisecond)
+	if sampledAt.Before(createdAt) {
+		return fmt.Errorf("%w: sample_age_ms puts sampled_at before the node was created", domain.ErrInvalidRequest)
+	}
 
 	var seq int64
 	err = tx.QueryRow(ctx, `
-		WITH c(ts) AS (SELECT clock_timestamp())
 		INSERT INTO node_telemetry AS t
 			(node_id, contract_version, session_id, seq, received_at, sampled_at,
 			 cpu_load_1m_milli, memory_available_bytes, disk_free_bytes)
-		SELECT $1, $2, $3, $4, c.ts, c.ts - ($5 * interval '1 millisecond'), $6, $7, $8 FROM c
+		VALUES ($1, $2, $3, $4, $5, $9, $6, $7, $8)
 		ON CONFLICT (node_id) DO UPDATE SET
 			contract_version = EXCLUDED.contract_version, session_id = EXCLUDED.session_id,
 			seq = EXCLUDED.seq, received_at = EXCLUDED.received_at, sampled_at = EXCLUDED.sampled_at,
@@ -181,8 +190,8 @@ func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, rep
 			disk_free_bytes = EXCLUDED.disk_free_bytes
 		WHERE t.session_id <> EXCLUDED.session_id OR t.seq < EXCLUDED.seq
 		RETURNING seq;`,
-		nodeID, report.ContractVersion, report.SessionID, report.Seq, report.SampleAgeMS,
-		report.CPULoad1mMilli, report.MemoryAvailableBytes, report.DiskFreeBytes).Scan(&seq)
+		nodeID, report.ContractVersion, report.SessionID, report.Seq, dbNow,
+		report.CPULoad1mMilli, report.MemoryAvailableBytes, report.DiskFreeBytes, sampledAt).Scan(&seq)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.ErrTelemetryOutOfOrder
@@ -201,7 +210,7 @@ func (r *Repository) RecordNodeTelemetry(ctx context.Context, nodeID string, rep
 
 // GetNode implements storage.Repository.
 func (r *Repository) GetNode(ctx context.Context, nodeID string) (*domain.NodeView, error) {
-	views, err := r.loadNodeViews(ctx, &nodeID)
+	views, err := r.loadNodeViews(ctx, &nodeID, "", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -211,28 +220,74 @@ func (r *Repository) GetNode(ctx context.Context, nodeID string) (*domain.NodeVi
 	return views[0], nil
 }
 
-// ListNodes implements storage.Repository.
-func (r *Repository) ListNodes(ctx context.Context) ([]*domain.NodeView, error) {
-	return r.loadNodeViews(ctx, nil)
+// ListNodes implements storage.Repository: it selects the page of node IDs first (id > afterID,
+// ORDER BY id, LIMIT), then loads hardware, telemetry and worker IDs only for those IDs in the same
+// read-only REPEATABLE READ transaction.
+func (r *Repository) ListNodes(ctx context.Context, afterID string, limit int) ([]*domain.NodeView, error) {
+	if err := domain.ValidateNodePageLimit(limit); err != nil {
+		return nil, err
+	}
+	if strings.IndexByte(afterID, 0) >= 0 {
+		return nil, fmt.Errorf("%w: cursor contains NUL", domain.ErrInvalidRequest)
+	}
+	return r.loadNodeViews(ctx, nil, afterID, limit)
 }
 
-// loadNodeViews reads nodes (one, or all when only is nil) with their current hardware, latest
-// telemetry and worker IDs inside one read-only REPEATABLE READ transaction, so the view is one
-// consistent snapshot. Rows are ordered by node ID.
-func (r *Repository) loadNodeViews(ctx context.Context, only *string) ([]*domain.NodeView, error) {
+// CountNodes implements storage.Repository.
+func (r *Repository) CountNodes(ctx context.Context) (int, error) {
+	var n int
+	if err := r.pool.QueryRow(ctx, `SELECT count(*) FROM nodes;`).Scan(&n); err != nil {
+		return 0, mapPgError(err)
+	}
+	return n, nil
+}
+
+// loadNodeViews reads one node (only != nil) or one page of nodes (id > afterID, at most limit)
+// with their current hardware, latest telemetry and worker IDs inside one read-only REPEATABLE READ
+// transaction, so the view is one consistent snapshot. Rows are ordered by node ID and the result
+// is never nil. The three child queries are restricted to the selected IDs.
+func (r *Repository) loadNodeViews(ctx context.Context, only *string, afterID string, limit int) ([]*domain.NodeView, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, mapPgError(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	rows, err := tx.Query(ctx, `
-		SELECT id, display_name, created_at, last_seen_at FROM nodes
-		WHERE ($1::text IS NULL OR id = $1) ORDER BY id;`, only)
+	var idQuery string
+	var idArgs []any
+	if only != nil {
+		idQuery, idArgs = `SELECT id FROM nodes WHERE id = $1;`, []any{*only}
+	} else {
+		idQuery, idArgs = `SELECT id FROM nodes WHERE id > $1 ORDER BY id LIMIT $2;`, []any{afterID, limit}
+	}
+	idRows, err := tx.Query(ctx, idQuery, idArgs...)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
-	var views []*domain.NodeView
+	ids := []string{}
+	for idRows.Next() {
+		var id string
+		if err := idRows.Scan(&id); err != nil {
+			idRows.Close()
+			return nil, mapPgError(err)
+		}
+		ids = append(ids, id)
+	}
+	idRows.Close()
+	if err := idRows.Err(); err != nil {
+		return nil, mapPgError(err)
+	}
+	views := []*domain.NodeView{}
+	if len(ids) == 0 {
+		return views, nil
+	}
+
+	rows, err := tx.Query(ctx, `
+		SELECT id, display_name, created_at, last_seen_at FROM nodes
+		WHERE id = ANY($1) ORDER BY id;`, ids)
+	if err != nil {
+		return nil, mapPgError(err)
+	}
 	byID := map[string]*domain.NodeView{}
 	for rows.Next() {
 		v := &domain.NodeView{WorkerIDs: []string{}}
@@ -254,8 +309,8 @@ func (r *Repository) loadNodeViews(ctx context.Context, only *string) ([]*domain
 		       cpu_logical_cores, cpu_physical_cores, memory_total_bytes, disk_total_bytes, gpu_count, gpu_model,
 		       gpu_vram_total_bytes, reported_at
 		FROM node_hardware
-		WHERE ($1::text IS NULL OR node_id = $1)
-		ORDER BY node_id, version DESC;`, only)
+		WHERE node_id = ANY($1)
+		ORDER BY node_id, version DESC;`, ids)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
@@ -280,7 +335,7 @@ func (r *Repository) loadNodeViews(ctx context.Context, only *string) ([]*domain
 
 	tRows, err := tx.Query(ctx, `
 		SELECT node_id, contract_version, received_at, sampled_at, cpu_load_1m_milli, memory_available_bytes, disk_free_bytes
-		FROM node_telemetry WHERE ($1::text IS NULL OR node_id = $1);`, only)
+		FROM node_telemetry WHERE node_id = ANY($1);`, ids)
 	if err != nil {
 		return nil, mapPgError(err)
 	}
@@ -304,7 +359,7 @@ func (r *Repository) loadNodeViews(ctx context.Context, only *string) ([]*domain
 
 	wRows, err := tx.Query(ctx, `
 		SELECT node_id, id FROM workers
-		WHERE node_id IS NOT NULL AND ($1::text IS NULL OR node_id = $1) ORDER BY id;`, only)
+		WHERE node_id = ANY($1) ORDER BY id;`, ids)
 	if err != nil {
 		return nil, mapPgError(err)
 	}

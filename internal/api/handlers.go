@@ -145,6 +145,18 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 		return http.StatusBadRequest, "WORKER_TASK_UNSUPPORTED", err.Error()
 	case errors.Is(err, domain.ErrWorkerNoCapacity):
 		return http.StatusConflict, "WORKER_NO_CAPACITY", err.Error()
+	// Node codes (ADR-0022 Sections 4.1 and 4.2). The 409 and 429 RATE_LIMITED bodies are opaque:
+	// they do not say what is stored.
+	case errors.Is(err, domain.ErrNodeNotFound):
+		return http.StatusNotFound, "NODE_NOT_FOUND", "node not found"
+	case errors.Is(err, domain.ErrTelemetryOutOfOrder):
+		return http.StatusConflict, "TELEMETRY_OUT_OF_ORDER", "telemetry report out of order"
+	case errors.Is(err, domain.ErrNodeRateLimited):
+		return http.StatusTooManyRequests, "RATE_LIMITED", "node hardware update rate limited"
+	case errors.Is(err, domain.ErrUnsupportedContractVersion):
+		return http.StatusBadRequest, "UNSUPPORTED_CONTRACT_VERSION", "unsupported contract_version"
+	case errors.Is(err, domain.ErrNodeLimitReached):
+		return http.StatusTooManyRequests, "NODE_LIMIT_REACHED", "node limit reached"
 	default:
 		var invErr *domain.InvalidStateTransitionError
 		if errors.As(err, &invErr) {
@@ -158,6 +170,8 @@ func mapDomainErrorToHTTP(err error) (status int, code string, msg string) {
 // Handler holds dependencies for all API endpoints.
 type Handler struct {
 	coord *coordinator.Service
+	// localOnly mirrors Server.localOnly: node routes served, node_id visible and accepted.
+	localOnly bool
 }
 
 func NewHandler(coord *coordinator.Service) *Handler {
@@ -273,6 +287,13 @@ func (h *Handler) HandleCancelJob(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// workerWithNodeID is the local-only shape of a worker: node_id is always present, a string or
+// null. The shallower NodeID field shadows the embedded omitempty one.
+type workerWithNodeID struct {
+	domain.Worker
+	NodeID *string `json:"node_id"`
+}
+
 func (h *Handler) HandleListWorkers(w http.ResponseWriter, r *http.Request) {
 	workers, err := h.coord.ListWorkers(r.Context())
 	if err != nil {
@@ -281,17 +302,42 @@ func (h *Handler) HandleListWorkers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Copies are marshalled so a stored NodeID is stripped (not local-only: the V1 shape, key
+	// absent, even if a row carries one after a rollback or a manual insert) or rendered as a string
+	// or null (local-only) without touching the repository's values.
+	out := make([]any, 0, len(workers))
+	for _, wk := range workers {
+		cp := *wk
+		if h.localOnly {
+			nid := cp.NodeID
+			cp.NodeID = nil
+			out = append(out, workerWithNodeID{Worker: cp, NodeID: nid})
+		} else {
+			cp.NodeID = nil
+			out = append(out, cp)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"workers": workers,
+		"workers": out,
 	})
 }
 
+// registerWorkerRequest decodes the worker body with node_id kept as a raw JSON value, so a wrong
+// type can never fail the whole request when the field must be ignored (audit A-01). The shallower
+// RawNodeID shadows the embedded Worker.NodeID.
+type registerWorkerRequest struct {
+	domain.Worker
+	RawNodeID json.RawMessage `json:"node_id"`
+}
+
 func (h *Handler) HandleRegisterWorker(w http.ResponseWriter, r *http.Request) {
-	var worker domain.Worker
-	if err := json.NewDecoder(r.Body).Decode(&worker); err != nil {
+	var req registerWorkerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "MALFORMED_JSON", "malformed JSON request body")
 		return
 	}
+	worker := req.Worker
+	worker.NodeID = nil
 
 	if !isValidIdentifier(worker.ID) {
 		writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid worker id")
@@ -305,7 +351,31 @@ func (h *Handler) HandleRegisterWorker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// node_id (ADR-0022 Section 4.3): ignored completely, whatever its type, unless the node routes
+	// are served. When served: absent or null is NULL; a string must be a valid node ID; any other
+	// type is 400.
+	if h.localOnly {
+		raw := strings.TrimSpace(string(req.RawNodeID))
+		if raw != "" && raw != "null" {
+			var id string
+			if err := json.Unmarshal(req.RawNodeID, &id); err != nil {
+				writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "node_id must be a string")
+				return
+			}
+			if err := domain.ValidateNodeID(id); err != nil {
+				writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "invalid node_id")
+				return
+			}
+			worker.NodeID = &id
+		}
+	}
+
 	if err := h.coord.RegisterWorker(r.Context(), &worker); err != nil {
+		if worker.NodeID != nil && errors.Is(err, domain.ErrNodeNotFound) {
+			// An unregistered node is a client error on this endpoint, never a 500 or a 404.
+			writeError(w, http.StatusBadRequest, "INVALID_REQUEST", "node_id names no registered node")
+			return
+		}
 		status, code, msg := mapDomainErrorToHTTP(err)
 		writeError(w, status, code, msg)
 		return

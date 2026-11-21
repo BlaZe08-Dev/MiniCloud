@@ -42,6 +42,10 @@ func testConfig() *config.CoordinatorConfig {
 		AssignmentFallbackAge:  30 * time.Second,
 		AssignmentBatchLimit:   50,
 		AssignmentMinYield:     10 * time.Millisecond,
+
+		// V2-1c node settings, as LoadCoordinatorConfig fills them.
+		NodeHardwareMinInterval: config.DefaultNodeHardwareMinInterval,
+		NodeMaxCount:            config.DefaultNodeMaxCount,
 	}
 }
 

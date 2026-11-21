@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -162,6 +163,14 @@ func TestConformance_Node_UnknownStaysNull(t *testing.T) {
 
 func TestConformance_Node_Views(t *testing.T) {
 	storagetest.RunNodeViewsConformance(t, newPostgresNodeHarness)
+}
+
+func TestConformance_Node_ListEmpty(t *testing.T) {
+	storagetest.RunNodeListEmptyConformance(t, newPostgresNodeHarness)
+}
+
+func TestConformance_Node_Paging(t *testing.T) {
+	storagetest.RunNodePagingConformance(t, newPostgresNodeHarness)
 }
 
 func TestConformance_Worker_NodeIDRoundTrip(t *testing.T) {
@@ -461,5 +470,117 @@ func TestPostgresRepository_Node_ForeignKeyMapping_ExactConstraintOnly(t *testin
 	node := storagetest.NodeTestID(90)
 	if err := repo.UpsertWorker(ctx, &domain.Worker{ID: "w_repo", Version: "v", TotalSlots: 1, Status: domain.WorkerStatusHealthy, SupportedTasks: []string{"echo"}, NodeID: &node}); !errors.Is(err, domain.ErrNodeNotFound) {
 		t.Fatalf("UpsertWorker with an unknown node: %v, want ErrNodeNotFound", err)
+	}
+}
+
+// TestPostgresRepository_Node_TelemetryTakesKeyShareOnNode guards the FOR KEY SHARE existence check
+// of RecordNodeTelemetry (ADR-0022 Section 3.3, audit A-06). On the update path (a telemetry row
+// already exists) the foreign key is not re-checked, so the SELECT ... FOR KEY SHARE is the only
+// thing that locks the node row. Another transaction holds the node row FOR UPDATE: a report with a
+// greater seq and a 2 s context must block until the context ends and change nothing. With no lock
+// held the same kind of report succeeds.
+func TestPostgresRepository_Node_TelemetryTakesKeyShareOnNode(t *testing.T) {
+	ctx := context.Background()
+	h, pool, _ := newPostgresNodeHarnessWithPool(t)
+	node, session := storagetest.NodeTestID(1), storagetest.NodeTestID(100)
+	mustReg := domain.NodeRegistration{NodeID: node, DisplayName: "n", ContractVersion: domain.ContractVersion, AgentVersion: "v1", Hardware: domain.NodeHardware{OS: "linux", Arch: "amd64"}}
+	if _, err := h.Repo.RegisterNode(ctx, mustReg, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	report := func(seq int64) domain.NodeTelemetryReport {
+		return domain.NodeTelemetryReport{ContractVersion: domain.ContractVersion, SessionID: session, Seq: seq}
+	}
+	if err := h.Repo.RecordNodeTelemetry(ctx, node, report(1)); err != nil {
+		t.Fatalf("first report: %v", err)
+	}
+	// No lock held: a greater seq succeeds at once.
+	if err := h.Repo.RecordNodeTelemetry(ctx, node, report(2)); err != nil {
+		t.Fatalf("report with no lock held: %v", err)
+	}
+
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = holder.Rollback(ctx) }()
+	if _, err := holder.Exec(ctx, `SELECT id FROM nodes WHERE id = $1 FOR UPDATE`, node); err != nil {
+		t.Fatalf("hold the node row: %v", err)
+	}
+
+	blockedCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	err = h.Repo.RecordNodeTelemetry(blockedCtx, node, report(3))
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatalf("report returned nil while the node row was held FOR UPDATE: the FOR KEY SHARE existence check is missing")
+	}
+	if elapsed < 1500*time.Millisecond {
+		t.Fatalf("report returned after %v with %v, want it to block until the 2 s context ended", elapsed, err)
+	}
+	if !errors.Is(blockedCtx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("context error = %v, want DeadlineExceeded", blockedCtx.Err())
+	}
+	if err := holder.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if d := h.Dump(t, node); d.Telemetry == nil || d.Telemetry.Seq != 2 {
+		t.Fatalf("stored telemetry after the blocked report = %+v, want seq 2 unchanged", d.Telemetry)
+	}
+}
+
+func TestConformance_Node_Telemetry_SampleAgeBeforeCreatedAtRejected(t *testing.T) {
+	storagetest.RunNodeTelemetrySampleAgeBeforeCreatedAtRejectedConformance(t, newPostgresNodeHarness)
+}
+
+func TestConformance_Node_Telemetry_SampledAtEqualsCheckedValue(t *testing.T) {
+	storagetest.RunNodeTelemetrySampledAtEqualsCheckedValueConformance(t, newPostgresNodeHarness)
+}
+
+// TestPostgresRepository_Node_TelemetryOneTransactionTwoStatements guards ADR-0022 Section 8.3 and
+// audit F-01: one accepted report is one transaction and two statements (the existence read with
+// FOR KEY SHARE and the conditional upsert), and nothing else (no node view read). The statements
+// are counted by a pgx query tracer attached to a second pool on the same test schema
+// (StatementTracer in export_test.go); BEGIN and COMMIT are counted separately.
+func TestPostgresRepository_Node_TelemetryOneTransactionTwoStatements(t *testing.T) {
+	ctx := context.Background()
+	h, pool, _ := newPostgresNodeHarnessWithPool(t)
+	node, session := storagetest.NodeTestID(1), storagetest.NodeTestID(100)
+	reg := domain.NodeRegistration{NodeID: node, DisplayName: "n", ContractVersion: domain.ContractVersion, AgentVersion: "v1", Hardware: domain.NodeHardware{OS: "linux", Arch: "amd64"}}
+	if _, err := h.Repo.RegisterNode(ctx, reg, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	h.Advance(t, time.Hour)
+
+	tr := &postgres.StatementTracer{}
+	cfg := pool.Config().Copy()
+	cfg.ConnConfig.Tracer = tr
+	traced, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer traced.Close()
+	repo := postgres.NewRepository(traced)
+
+	for seq := int64(1); seq <= 2; seq++ { // first report (insert path) and a later one (update path)
+		tr.Reset()
+		rep := domain.NodeTelemetryReport{ContractVersion: domain.ContractVersion, SessionID: session, Seq: seq, SampleAgeMS: 250}
+		if err := repo.RecordNodeTelemetry(ctx, node, rep); err != nil {
+			t.Fatalf("seq %d: %v", seq, err)
+		}
+		var begins, commits, others int
+		for _, q := range tr.SQL() {
+			switch strings.ToLower(strings.TrimSpace(q)) {
+			case "begin":
+				begins++
+			case "commit":
+				commits++
+			default:
+				others++
+			}
+		}
+		if begins != 1 || commits != 1 || others != 2 {
+			t.Fatalf("seq %d: %d begin, %d commit, %d statements, want 1, 1, 2; statements: %q", seq, begins, commits, others, tr.SQL())
+		}
 	}
 }

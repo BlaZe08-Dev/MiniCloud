@@ -71,6 +71,22 @@ const (
 	MaxHardwareHistory = 10
 )
 
+// Node listing page sizes (V2-1c, audit A-04). Both are placeholders, not measured.
+const (
+	// MaxNodePageSize is the largest page ListNodes and GET /v1/nodes serve.
+	MaxNodePageSize = 500
+	// DefaultNodePageSize is the page size GET /v1/nodes uses when limit is absent.
+	DefaultNodePageSize = 100
+)
+
+// ValidateNodePageLimit checks 1..MaxNodePageSize.
+func ValidateNodePageLimit(limit int) error {
+	if limit < 1 || limit > MaxNodePageSize {
+		return invalidNode("limit must be 1..%d", MaxNodePageSize)
+	}
+	return nil
+}
+
 // NodeHardware is the static inventory of one node (ADR-0022 Section 3.2). OS and Arch are
 // always known (runtime.GOOS and runtime.GOARCH); every other field is nil when unknown.
 type NodeHardware struct {

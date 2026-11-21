@@ -80,3 +80,34 @@ To ensure server-side diagnostics do not leak sensitive infrastructure internals
 | `22003` (numeric_value_out_of_range) | Any | `domain.ErrInvalidRequest` | `400 INVALID_REQUEST` | `{"error":{"code":"INVALID_REQUEST","message":"numeric value out of range"}}` |
 | Connection / I/O Timeout | Dial / DeadlineExceeded | Connection / Timeout Error | `503 SERVICE_UNAVAILABLE` | `{"error":{"code":"SERVICE_UNAVAILABLE","message":"service temporarily unavailable"}}` (Header: `Retry-After: 1`) |
 | Unmapped Driver Error | Unhandled SQLSTATE | Unmapped internal error | `500 INTERNAL_ERROR` | `{"error":{"code":"INTERNAL_ERROR","message":"internal server error"}}` (Scrubbed server logs) |
+
+---
+
+## 4. Node and Capability Fields (ADR-0022, V2-1c)
+
+Limits are copied from migration `000007_node_capability_model.sql` and `internal/domain/node.go`, not from the ADR text where they differ. Checked at the API boundary with `400 INVALID_REQUEST` and again by the named CHECK. A value of the wrong JSON type (a string where a number is expected, a fraction, an integer beyond 64 bits) fails decoding with `400 MALFORMED_JSON`. JSON `null` and an absent key both mean unknown.
+
+| Field | Type | Bounds | Charset / rule | CHECK |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_id` | `TEXT` | 36 bytes | lowercase RFC 9562 v4 UUID | `chk_nodes_id_uuid` |
+| `display_name` | `VARCHAR(64)` | 0..64 bytes | valid UTF-8, no control character, no NUL | `chk_nodes_display_name` (`octet_length`) |
+| `contract_version` | `SMALLINT` | supported set `{1}` | integer; other value is `400 UNSUPPORTED_CONTRACT_VERSION` | handler only |
+| `agent_version` | `VARCHAR(64)` | 0..64 bytes | no NUL | `chk_node_hardware_agent_version` |
+| `os`, `arch` | `VARCHAR(32)` | 1..32 bytes | `^[a-z0-9_]{1,32}$` | `chk_node_hardware_os_arch` |
+| `cpu_model`, `gpu_model` | `VARCHAR(128)` | NULL or 1..128 bytes | printable ASCII (0x20..0x7e) | `chk_node_hardware_models` |
+| `cpu_logical_cores`, `cpu_physical_cores` | `INTEGER` | NULL or 1..2^31-1; logical >= physical | integer | `chk_node_hardware_counts` |
+| `gpu_count` | `INTEGER` | NULL or 0..2^31-1 | integer | `chk_node_hardware_counts` |
+| `memory_total_bytes`, `disk_total_bytes`, `gpu_vram_total_bytes` | `BIGINT` | NULL or 0..2^53-1 | integer | `chk_node_hardware_bytes` |
+| `memory_available_bytes`, `disk_free_bytes` | `BIGINT` | NULL or 0..2^53-1 | integer | `chk_node_telemetry_bytes` |
+| `cpu_load_1m_milli` | `INTEGER` | NULL or 0..2^31-1 | integer (the column type bounds it; the CHECK is `>= 0`) | `chk_node_telemetry_load` |
+| `sample_age_ms` | request only | 0..2^31-1 | integer; a value that puts `sampled_at` before the node's `created_at` is `400 INVALID_REQUEST` (enforced by storage on the database clock; in memory, the injected clock) | handler and storage |
+| `session_id` | `TEXT` | 36 bytes | lowercase v4 UUID, required | `chk_node_telemetry_session` |
+| `seq` | `BIGINT` | 1..2^53-1, required | must exceed the stored `seq` in the same session, else `409 TELEMETRY_OUT_OF_ORDER` | `chk_node_telemetry_seq` |
+| `limit` (`GET /v1/nodes`) | query | 1..500, default 100 (`domain.MaxNodePageSize`, `domain.DefaultNodePageSize`, placeholders, not measured) | decimal digits only | `400 INVALID_REQUEST` |
+| `after` (`GET /v1/nodes`) | query | 36 bytes | canonical node ID | `400 INVALID_REQUEST` |
+| `MINICLOUD_NODE_HARDWARE_MIN_INTERVAL` | duration (coordinator) | positive; default `60s` (placeholder, not measured) | strict parse; an error names the key and the value | startup |
+| `MINICLOUD_NODE_MAX_COUNT` | integer (coordinator) | positive; default `10000` (placeholder, not measured) | strict parse; an error names the key and the value | startup |
+| hardware history | rows per node | newest 10 kept | `domain.MaxHardwareHistory` | pruning in the registration transaction |
+| request body | | 1 MiB | the global limit (section 2 of `docs/protocol.md`) | n/a |
+
+**Node ceiling (`MINICLOUD_NODE_MAX_COUNT`).** A registration of a node ID that does not exist is refused with `429 NODE_LIMIT_REACHED` (no `Retry-After`) when the node count is at or above the ceiling; existing nodes still register and update. The ceiling is **soft**: the count check and the insert are not one transaction, so concurrent registrations of new IDs can overshoot it by at most the number of concurrent requests. It bounds growth of unauthenticated registrations (SEC-070, T2); it does not replace authentication (V3-2).

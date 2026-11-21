@@ -566,3 +566,57 @@ MiniCloud V1 coordinator and worker binaries **deploy together as a synchronized
 |---|---|
 | **Old Worker (Phase 1–3) vs New Coordinator (Phase 4)** | **Unsupported for tasks longer than lease duration (30 s)**: Old workers do not call `/renew`. Tasks completing within the initial 30s lease commit successfully. Tasks running > 30s expire, are marked `LOST` by the sweeper, and receive HTTP 409 `LEASE_EXPIRED` or `STALE_ATTEMPT_REJECTED` on late commit. Furthermore, because `/renew` is the single cancellation delivery channel, old workers never receive cooperative cancellation requests; cancelled jobs resolve only through sweeper expiry or worker commit. Coordinator and workers must deploy together in V1. |
 | **New Worker (Phase 4) vs Old Coordinator (Phase 1–3)** | **Graceful Degradation**: New worker attempts `POST /renew`. On an old coordinator lacking the endpoint, a 404 response without a recognized error envelope is returned. The new worker logs a single compatibility warning, disables periodic renewal for that attempt, and falls back to Phase 3 run-to-completion behavior, reporting the outcome via `POST /result`. New worker handles static `{"status": "ACK"}` heartbeat response without errors. |
+
+---
+
+## 7. Node Routes (V2-1c, ADR-0022)
+
+Additive within `/v1`. The four node routes are **registered only when the coordinator is local-only** (Section 7.5). Otherwise they do not exist and the router's normal 404 for an unknown route applies. The body limit (1 MiB), the JSON error envelope and "unknown JSON fields are ignored" are the same as everywhere in `/v1`. A node ID is a lowercase RFC 9562 version 4 UUID in canonical form, and it is validated before any repository call, in the body and in the path.
+
+### 7.1 `POST /v1/nodes/register`
+
+**Request:** `node_id`, `display_name` (0..64 bytes, valid UTF-8, no control character), `contract_version` (must be `1`), `agent_version` (0..64 bytes, no NUL) and `hardware` (`os`, `arch` and the optional `cpu_model`, `cpu_logical_cores`, `cpu_physical_cores`, `memory_total_bytes`, `disk_total_bytes`, `gpu_count`, `gpu_model`, `gpu_vram_total_bytes`). An absent or `null` measurement is unknown (stored NULL); `0` is a measured zero. Limits: `docs/security/field-limits.md` section 4.
+
+**Response (200 OK):** `{"status":"REGISTERED","node_id":"...","hardware_version":3}`. Idempotent per `node_id`. A new hardware version is created only when the hardware content hash changed; at most the newest 10 versions are kept.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `MALFORMED_JSON` | the body cannot be decoded, including a value of the wrong JSON type (a string where a number is expected, a fraction or an integer beyond 64 bits) |
+| 400 | `INVALID_REQUEST` | a bad node ID, string or out-of-range value |
+| 400 | `UNSUPPORTED_CONTRACT_VERSION` | `contract_version` is absent or not in the supported set |
+| 429 | `RATE_LIMITED` | the hardware changed less than `MINICLOUD_NODE_HARDWARE_MIN_INTERVAL` after the newest version. `Retry-After` is whole seconds, rounded up, from the repository clock. The body is opaque (no stored hardware) and nothing is written. |
+| 429 | `NODE_LIMIT_REACHED` | the node does not exist and the node count is at or above `MINICLOUD_NODE_MAX_COUNT`. **No `Retry-After` header.** Existing nodes still register and update. |
+
+The node ceiling is **soft**: the count check and the insert are not one transaction, so concurrent registrations of new IDs may overshoot it by at most the number of concurrent requests.
+
+### 7.2 `POST /v1/nodes/{node_id}/telemetry`
+
+**Request:** `contract_version` (1), `session_id` (UUID, required), `seq` (1..2^53-1, required), `sample_age_ms` (0..2^31-1, default 0) and the optional `cpu_load_1m_milli`, `memory_available_bytes`, `disk_free_bytes`. `sampled_at` is the repository (database) receive time minus `sample_age_ms`; no client clock is used. A `sample_age_ms` that would put `sampled_at` before the node's `created_at` is rejected with 400 `INVALID_REQUEST`. This is enforced by storage on the database clock (in memory, the injected clock), in the same transaction as the write and with the same time value that is stored, so a coordinator clock that lags or leads never causes a rejection. Order of outcomes: unknown node 404 `NODE_NOT_FOUND` first; then this rule (400); then the session and sequence rule (409 `TELEMETRY_OUT_OF_ORDER`). A rejected report writes nothing.
+
+**Response (200 OK):** `{"status":"ACK"}`.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `MALFORMED_JSON`, `INVALID_REQUEST`, `UNSUPPORTED_CONTRACT_VERSION` | as in 7.1, plus a missing or invalid `session_id` or `seq` |
+| 404 | `NODE_NOT_FOUND` | the node has not registered (first report or any `seq`; never 409 or 500) |
+| 409 | `TELEMETRY_OUT_OF_ORDER` | same session and `seq` not greater than the stored one. Opaque body; the stored sample is not touched. |
+
+### 7.3 `GET /v1/nodes?limit=&after=`
+
+Summary only, ordered by `node_id` ascending. `limit` is 1..500 (default 100); `after` is a canonical node ID and only IDs greater than it are returned. Anything else is 400 `INVALID_REQUEST` (an empty `limit=` or `after=` included). Both defaults are placeholders, not measured.
+
+**Response (200 OK):** `{"nodes":[{"node_id","display_name","os","arch","hardware_version","worker_count","telemetry_age_ms"}],"next_cursor":"<last node_id>"|null}`. `next_cursor` is the last `node_id` of the page when the page is full (more may follow; the next page can still be empty), otherwise `null`. `os`, `arch` and `hardware_version` are `null` for a node without hardware; `telemetry_age_ms` is `null` without telemetry. It is display only: the coordinator clock minus the stored `received_at`.
+
+### 7.4 `GET /v1/nodes/{node_id}`
+
+The full view: `node_id`, `display_name`, `created_at`, `last_seen_at`, `hardware` (`version`, `contract_version`, `agent_version`, `reported_at` and the hardware fields, or `null`), `telemetry` (`contract_version`, `received_at`, `sampled_at` and the three values, or `null`) and `worker_ids`. It carries neither `session_id` nor `seq`. Unknown values are JSON `null`, never `0`. This is the only response that carries the sensitive fields: `cpu_model`, `gpu_model`, the core and GPU counts, `memory_total_bytes`, `disk_total_bytes`, `gpu_vram_total_bytes`, `agent_version` and every telemetry value. 404 `NODE_NOT_FOUND` for an unknown node.
+
+### 7.5 The local-only rule and its honest limits
+
+At startup the coordinator decides once, from `MINICLOUD_HTTP_ADDR`, whether it is local-only: true if and only if the host part is a literal loopback IP address (`net.IP.IsLoopback`). An empty host, `0.0.0.0`, `[::]`, any other IP, any host name (`localhost` included) and an unparsable address are not local-only. The boolean is logged once, kept for the process lifetime, never recomputed per request and never read from a header. There is no override setting.
+
+When not local-only: the four routes return 404; `GET /v1/workers` has no `node_id` key (the V1 shape); `POST /v1/workers/register` ignores `node_id` completely, whatever its JSON type, and stores NULL.
+
+When local-only: `GET /v1/workers` shows `node_id` on every worker, a string or `null`. `POST /v1/workers/register` takes `node_id` absent or `null` as NULL; a string must be a valid node ID of a registered node, else 400 `INVALID_REQUEST`; any other JSON type is 400 `INVALID_REQUEST`.
+
+This is a network restriction, not authentication. Anything that reaches the loopback address passes (every local process, a container with host networking, a port forward). A reverse proxy on the same machine defeats it, because the coordinator cannot see that the client is remote. The check reads the configured address, not the sockets actually opened. A UUID is not proof of identity, so a caller who can reach the routes can impersonate a node. Authentication is V3-2.

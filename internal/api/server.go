@@ -28,10 +28,22 @@ type Server struct {
 	httpServer *http.Server
 	mux        *http.ServeMux
 	handler    *Handler
+	// localOnly is the startup decision of ADR-0022 Section 4.4 (config.IsLocalOnlyAddr). It is
+	// fixed at construction and never recomputed or read from a request.
+	localOnly bool
+}
+
+// Option configures NewServer.
+type Option func(*Server)
+
+// WithLocalOnly sets the local-only decision. The default is false: the node routes are not
+// registered and the V1 shapes are kept.
+func WithLocalOnly(localOnly bool) Option {
+	return func(s *Server) { s.localOnly = localOnly }
 }
 
 // NewServer configures an HTTP server with route pattern matching, limits, and timeouts.
-func NewServer(addr string, coord *coordinator.Service) *Server {
+func NewServer(addr string, coord *coordinator.Service, opts ...Option) *Server {
 	mux := http.NewServeMux()
 	h := NewHandler(coord)
 
@@ -39,6 +51,10 @@ func NewServer(addr string, coord *coordinator.Service) *Server {
 		mux:     mux,
 		handler: h,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	h.localOnly = s.localOnly
 	s.registerRoutes()
 
 	// Apply global middleware: Panic Recovery and Request Size Limit (1 MiB)
@@ -77,6 +93,15 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/workers/{id}/poll", s.handler.HandlePollWork)
 	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/result", s.handler.HandleReportResult)
 	s.mux.HandleFunc("POST /v1/jobs/{id}/attempts/{attempt_id}/renew", s.handler.HandleRenewLease)
+
+	// Node routes (ADR-0022 Section 4.4): registered only when local-only; otherwise the router's
+	// normal 404 for an unknown route applies.
+	if s.localOnly {
+		s.mux.HandleFunc("POST /v1/nodes/register", s.handler.HandleRegisterNode)
+		s.mux.HandleFunc("POST /v1/nodes/{node_id}/telemetry", s.handler.HandleNodeTelemetry)
+		s.mux.HandleFunc("GET /v1/nodes", s.handler.HandleListNodes)
+		s.mux.HandleFunc("GET /v1/nodes/{node_id}", s.handler.HandleGetNode)
+	}
 }
 
 // Handler returns the underlying http.Handler (useful for httptest.Server in tests).

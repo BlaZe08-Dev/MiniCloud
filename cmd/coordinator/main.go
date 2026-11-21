@@ -64,6 +64,9 @@ func configureService(svc *coordinator.Service, cfg *config.CoordinatorConfig) e
 	if err := svc.SetDispatchPolicy(cfg.DispatchPolicy); err != nil {
 		return fmt.Errorf("dispatch policy: %w", err)
 	}
+	if err := svc.SetNodeSettings(cfg.NodeHardwareMinInterval, cfg.NodeMaxCount); err != nil {
+		return fmt.Errorf("node settings: %w", err)
+	}
 	slog.Info("dispatch policy configured",
 		"policy", svc.DispatchPolicy(),
 		"assignment_accept_window", settings.AcceptWindow.String(),
@@ -196,7 +199,10 @@ func main() {
 		slog.Error("invalid coordinator configuration", "err", err)
 		os.Exit(1)
 	}
-	server := api.NewServer(cfg.HTTPAddr, svc)
+	// The local-only decision is taken once, from the configured address (ADR-0022 Section 4.4),
+	// logged once with the boolean only, and never recomputed.
+	slog.Info("node routes local-only decision", "local_only", cfg.NodeLocalOnly)
+	server := api.NewServer(cfg.HTTPAddr, svc, api.WithLocalOnly(cfg.NodeLocalOnly))
 
 	// Start the worker reaper, the lease sweeper and, under round_robin, the assignment loop (once;
 	// stopped on shutdown below).
