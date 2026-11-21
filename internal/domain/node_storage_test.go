@@ -198,6 +198,11 @@ func TestDomain_HardwareUpdateLimit(t *testing.T) {
 		{"non whole interval rounds up when clock moved back", -time.Second, 90*time.Second + time.Nanosecond, true, 91 * time.Second},
 		{"sub-second interval, limited, never below one second", 0, 100 * time.Millisecond, true, time.Second},
 		{"sub-second interval, boundary accepted", 100 * time.Millisecond, 100 * time.Millisecond, false, 0},
+		// Non-positive intervals are not valid configuration, but the function must stay total: a
+		// clock that moved backwards is always limited, and a limit is never below one second.
+		{"zero interval accepts zero elapsed", 0, 0, false, 0},
+		{"zero interval, clock moved back one nanosecond, limited with the one second floor", -1, 0, true, time.Second},
+		{"negative interval, clock moved back, still limited", -time.Second, -time.Hour, true, time.Second},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
