@@ -161,3 +161,42 @@ rc=0
 - I did not run `go test -race ./...` or `make test-db` (no Go code or schema changed).
 - Line numbers in this report come from `grep -n` after the final edit of each file; I did not re-read every cited range.
 - Earlier "did not verify" items from the first report and round 1 still stand.
+
+# Fix round 3 (V2-1-ADR-FIX3, branch agent/claude/V2-1-ADR-fix3, content commit 334e341, 2026-11-21)
+
+Docs only. Source: `reports/gemini/V2-1-ADR-audit2.md` (tip b1b1c7f; no Critical or Major finding). All ADR lines are `docs/adr/0022-node-capability-model.md`, numbered after the final edit.
+
+## Per change
+
+1. **Status and labels.** Status is "Accepted (2026-11-21, owner decision)", still design only, each slice needs an owner-approved task entry (:5). Labels sentence on [Proposed] after acceptance and [Decided: code] (:19). Owner-answer paragraph updated (:7). No statement was relabelled one by one.
+2. **F-11 (OQ-8).** Section 4.1 (:223): 60 s default confirmed, configurable, revisit after OD-23, still "placeholder, not measured". Section 9 row (:534) updated. Section 16: OQ-8 removed from the open list and added to the answered table (:799), plus rows for the Q3 wording (:800) and the acceptance (:801); OD-23 bullet notes the 60 s revisit (:807).
+3. **F-12.** Section 3.3 (:125): label [Decided: owner confirmation, 2026-11-20].
+4. **F-10.** Section 4.5 (:292) and Section 5 (:305): unwritable or uncreatable state directory, or a failed ID file write, refuses to enable reporting with a startup error; no identity elsewhere, no silent fallback. Section 10 startup-error list (:556). Planned test `TestNodeIDFile_DirectoryUnwritable_Refuses` (:629) and mutant N30 (:754).
+5. **F-08.** N12 moved between N11 and N13 (:736).
+6. **F-09.** One expectation sentence added to each 14.4 row that lacked one: Completion, Failure, Cancellation, Lease expiry, Claim moves demand, Telemetry never guarantees, Unknown, Hardware shrink (:700-713). Each was checked against Section 7.5 (:427-430 and the hardware-change row) so it says what that section says; none adds a rule.
+7. **F-13.** Preamble sentence in 14.5 (:721).
+8. **Telemetry 404 versus FK (orchestrator check).** You were right: the upsert would raise a foreign-key violation first. Section 3.3 (:147) now says the 404 comes from an existence check in the same transaction before the upsert (`SELECT 1 FROM nodes WHERE id = $1 FOR KEY SHARE`), that a 23503 escaping anyway maps to 404 (never 500, never 409), and that 409 happens only after the check found the node and the upsert returned zero rows. Section 4.2 (:246) points to it. `TestAPI_NodeTelemetry_UnknownNode404` (:664) now asserts first-report and high-seq cases, never 409, nothing written; mutant N31 (:755). The `FOR KEY SHARE` choice does not conflict with the `FOR NO KEY UPDATE` in Section 7.4 (inferred).
+9. **Other files.** `docs/agents/TASKS.md` :26, :110-112 (V2-1 lines only): ADR-0022 Accepted, slices V2-1a..V2-1e planned and need an owner-approved task entry, "needs the V2-1 ADR" removed. `docs/post-v1/OPEN_DECISIONS.md` :31, :32, :42 (OD-08, OD-09, OD-19 only): "Answered 2026-11-20, ADR-0022". New `docs/agents/handoffs/V2-1-owner-acceptance.md` (OQ-8, Q3 wording, acceptance, with dates). No ADR index file exists in `docs/adr/`, so none was edited.
+10. **Stale-text grep.** `Proposed` in the Status section: none left. `OQ-8`: only the new answered rows, the :223 and :534 mentions and the label sentence. `may reverse`: none. Places that still say the V2-1 ADR is pending or needed, NOT edited (a later docs pass owns them): `docs/post-v1/IMPLEMENTATION_PLAN.md:25` ("needs the V2-1 ADR with OD-19 answered"). `docs/PROJECT_STATE.md` and `README.md` do not mention ADR-0022 or a pending V2-1 ADR. Also not edited: `docs/roadmap.md:37`, `docs/post-v1/ROADMAP.md:19` and `docs/agents/TASKS.md:376` (outside the V2-1 lines) were not checked for pending wording beyond the grep hit.
+
+## Gates (executed; log copied verbatim)
+
+```
+gofmt:
+--- go vet
+rc=0
+--- go build
+rc=0
+--- make test-docs
+go test ./tests/docs
+ok  	github.com/BlaZe08-Dev/Minicloud/tests/docs	1.903s
+rc=0
+```
+
+## Not verified
+
+- No planned test or mutant (including the new N30, N31 and the new test) exists or was run.
+- The `SELECT ... FOR KEY SHARE` existence check and the 23503 mapping are designed, not executed against PostgreSQL.
+- I did not run `go test -race ./...` or `make test-db` (docs only).
+- I did not re-verify the code citations that audit 2 already checked.
+- Line numbers come from `grep -n` after the last edit; I did not re-read every cited range.
