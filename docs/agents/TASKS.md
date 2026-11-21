@@ -25,6 +25,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | REL-2 | Record v1.1.0 release and checklist updates | Gemini | orchestrator review | agent/gemini/REL-2 | in progress |
 | V2-1 | Node and capability model (D3) and migration 000007 | Claude Code | to be assigned | not started | planned, after V2-0b; ADR-0022 is Accepted (2026-11-21); implementation slices V2-1a to V2-1e are planned and each needs an owner-approved task entry |
 | V2-1a | Node contract types, platform probe, node ID file, architecture test (ADR-0022 slice V2-1a) | Claude Code | to be assigned | agent/claude/V2-1a | in progress (owner-approved 2026-11-21) |
+| V2-1b | Migration 000007 and node storage: PostgreSQL, in-memory, conformance suite (ADR-0022 slice V2-1b) | Claude Code | to be assigned | agent/claude/V2-1b | in progress (owner-approved 2026-11-21) |
 
 ### REL-2 — Record v1.1.0 release and checklist updates (docs only)
 - Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/REL-2`. Status: in progress.

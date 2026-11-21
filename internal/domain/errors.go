@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 var (
@@ -27,7 +28,35 @@ var (
 	// ErrLeaseExpired is returned when a renewal or commit names an attempt that the lease
 	// sweeper already marked LOST (ADR-0014).
 	ErrLeaseExpired = errors.New("attempt lease expired and was marked lost")
+
+	// ErrNodeNotFound is returned when a node ID names no registered node: for telemetry, and for
+	// a worker registration whose node_id is unknown (ADR-0022 Sections 3.3 and 4.3).
+	ErrNodeNotFound = errors.New("node not found")
+	// ErrTelemetryOutOfOrder is returned for a telemetry report in the same session whose seq is not
+	// greater than the stored one (ADR-0022 Section 3.3). It is never returned for a missing node.
+	ErrTelemetryOutOfOrder = errors.New("telemetry report out of order")
+	// ErrNodeRateLimited matches (errors.Is) the NodeRateLimitedError returned when a changed
+	// hardware report arrives inside the minimum interval (ADR-0022 Section 4.1).
+	ErrNodeRateLimited = errors.New("node hardware update rate limited")
 )
+
+// NodeRateLimitedError is the rate-limit rejection of a node registration. RetryAfter is a whole
+// number of seconds (rounded up, at least one second), computed from the repository clock. It
+// matches errors.Is(err, ErrNodeRateLimited).
+type NodeRateLimitedError struct {
+	RetryAfter time.Duration
+}
+
+func (e *NodeRateLimitedError) Error() string {
+	return fmt.Sprintf("%s: retry after %d s", ErrNodeRateLimited.Error(), e.RetryAfterSeconds())
+}
+
+// RetryAfterSeconds returns RetryAfter in whole seconds.
+func (e *NodeRateLimitedError) RetryAfterSeconds() int {
+	return int(e.RetryAfter / time.Second)
+}
+
+func (e *NodeRateLimitedError) Unwrap() error { return ErrNodeRateLimited }
 
 // InvalidStateTransitionError is returned when a requested state transition violates the state machine.
 type InvalidStateTransitionError struct {

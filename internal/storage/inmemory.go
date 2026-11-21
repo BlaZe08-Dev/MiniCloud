@@ -28,6 +28,7 @@ type InMemoryRepository struct {
 	jobs       map[string]*domain.Job
 	attempts   map[string]*domain.Attempt
 	workers    map[string]*domain.Worker
+	nodes      map[string]*inMemoryNode // ADR-0022; guarded by mu, like every other map
 	events     []*domain.JobEvent
 	jobOrder   []string // Preserves FIFO insertion order for queued jobs
 	idSeq      int64
@@ -72,6 +73,7 @@ func NewInMemoryRepository(opts ...InMemoryOption) *InMemoryRepository {
 		jobs:     make(map[string]*domain.Job),
 		attempts: make(map[string]*domain.Attempt),
 		workers:  make(map[string]*domain.Worker),
+		nodes:    make(map[string]*inMemoryNode),
 		events:   make([]*domain.JobEvent, 0),
 		jobOrder: make([]string, 0),
 		clock:    realClock{},
@@ -285,7 +287,16 @@ func (r *InMemoryRepository) UpsertWorker(ctx context.Context, worker *domain.Wo
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// A worker that names a node must name a registered one, as the PostgreSQL foreign key
+	// fk_workers_node enforces (ADR-0022 Section 4.3). Node rows are never deleted, so the check
+	// cannot go stale.
+	if worker.NodeID != nil {
+		if _, ok := r.nodes[*worker.NodeID]; !ok {
+			return domain.ErrNodeNotFound
+		}
+	}
 	copied := *worker
+	copied.NodeID = cloneString(worker.NodeID)
 	if existing, exists := r.workers[worker.ID]; exists {
 		copied.RegisteredAt = existing.RegisteredAt
 		copied.LastPollAt = existing.LastPollAt
@@ -311,6 +322,7 @@ func (r *InMemoryRepository) GetWorker(ctx context.Context, id string) (*domain.
 	}
 
 	copied := *w
+	copied.NodeID = cloneString(w.NodeID)
 	copied.AvailableSlots = r.computeAvailableSlotsLocked(w.ID, w.TotalSlots)
 	return &copied, nil
 }
@@ -339,6 +351,7 @@ func (r *InMemoryRepository) ListWorkers(ctx context.Context) ([]*domain.Worker,
 	workers := make([]*domain.Worker, 0, len(r.workers))
 	for _, w := range r.workers {
 		copied := *w
+		copied.NodeID = cloneString(w.NodeID)
 		copied.AvailableSlots = r.computeAvailableSlotsLocked(w.ID, w.TotalSlots)
 		workers = append(workers, &copied)
 	}

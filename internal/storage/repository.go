@@ -62,6 +62,28 @@ type Repository interface {
 	// in-lock grace check share one clock domain (owner decision Q-1).
 	Now(ctx context.Context) (time.Time, error)
 
+	// Node operations (ADR-0022, slice V2-1b). Time is the repository clock: database time in
+	// PostgreSQL, the injected Clock in memory.
+	//
+	// RegisterNode registers or re-registers a node (ADR-0022 Section 8.1). It is idempotent per
+	// node ID. The hardware content hash decides: no hardware row yet inserts version 1; the same
+	// hash inserts nothing and refreshes display_name and last_seen_at only when the name changed
+	// or last_seen_at is at least minInterval old; a different hash is limited by
+	// domain.HardwareUpdateLimit (a rejection returns *domain.NodeRateLimitedError, matches
+	// domain.ErrNodeRateLimited, and writes nothing) and otherwise inserts version + 1 and prunes
+	// to the newest domain.MaxHardwareHistory rows in the same transaction. An invalid
+	// registration returns domain.ErrInvalidRequest and writes nothing.
+	RegisterNode(ctx context.Context, reg domain.NodeRegistration, minInterval time.Duration) (*domain.NodeRegistrationResult, error)
+	// RecordNodeTelemetry stores the latest telemetry sample of a registered node. An unknown node
+	// returns domain.ErrNodeNotFound (never ErrTelemetryOutOfOrder). A report of the same session
+	// whose seq is not greater than the stored one returns domain.ErrTelemetryOutOfOrder and
+	// changes nothing, received_at included (ADR-0022 Section 3.3).
+	RecordNodeTelemetry(ctx context.Context, nodeID string, report domain.NodeTelemetryReport) error
+	// GetNode returns the read model of one node, or domain.ErrNodeNotFound.
+	GetNode(ctx context.Context, nodeID string) (*domain.NodeView, error)
+	// ListNodes returns every node ordered by ID.
+	ListNodes(ctx context.Context) ([]*domain.NodeView, error)
+
 	// Event operations
 	ListEventsByJob(ctx context.Context, jobID string) ([]*domain.JobEvent, error)
 
