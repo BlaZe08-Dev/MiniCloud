@@ -1,8 +1,12 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -325,4 +329,129 @@ func (r NodeTelemetryReport) Validate() error {
 		return invalidNode("sample_age_ms must be 0..%d", MaxSampleAgeMS)
 	}
 	return r.NodeTelemetry.Validate()
+}
+
+// hardwareHashDomain is the versioned domain separator that starts every hardware content hash
+// (ADR-0022 Section 3.2, task V2-1b clarification K1). A change of the encoding needs a new
+// version string, which changes every hash.
+const hardwareHashDomain = "minicloud.node.hardware.v1"
+
+// ContentHash returns the SHA-256 (lowercase hex, 64 characters) of a canonical encoding of the
+// hardware fields only: os, arch, cpu_model, cpu_logical_cores, cpu_physical_cores,
+// memory_total_bytes, disk_total_bytes, gpu_count, gpu_model, gpu_vram_total_bytes, in that fixed
+// order. agent_version and contract_version are not hashed, so a new agent build on the same
+// machine is not a hardware change.
+//
+// Encoding: the ASCII bytes of hardwareHashDomain and one zero byte, then each field as a one-byte
+// marker (0 absent, 1 present) followed, when present, by the value: an integer as 8 bytes big
+// endian two's complement, a string as a 4 byte big endian length and then its bytes. The length
+// prefix and the markers make the encoding unambiguous: nil and 0 differ, an absent string and an
+// empty string differ, and moving bytes between two adjacent strings changes the hash.
+func (h NodeHardware) ContentHash() string {
+	return h.contentHashWithDomain(hardwareHashDomain)
+}
+
+func (h NodeHardware) contentHashWithDomain(domainSep string) string {
+	buf := make([]byte, 0, 256)
+	buf = append(buf, domainSep...)
+	buf = append(buf, 0)
+	buf = appendHashString(buf, &h.OS)
+	buf = appendHashString(buf, &h.Arch)
+	buf = appendHashString(buf, h.CPUModel)
+	buf = appendHashInt(buf, h.CPULogicalCores)
+	buf = appendHashInt(buf, h.CPUPhysicalCores)
+	buf = appendHashInt(buf, h.MemoryTotalBytes)
+	buf = appendHashInt(buf, h.DiskTotalBytes)
+	buf = appendHashInt(buf, h.GPUCount)
+	buf = appendHashString(buf, h.GPUModel)
+	buf = appendHashInt(buf, h.GPUVRAMTotalBytes)
+	sum := sha256.Sum256(buf)
+	return hex.EncodeToString(sum[:])
+}
+
+func appendHashInt(buf []byte, v *int64) []byte {
+	if v == nil {
+		return append(buf, 0)
+	}
+	buf = append(buf, 1)
+	return binary.BigEndian.AppendUint64(buf, uint64(*v))
+}
+
+func appendHashString(buf []byte, v *string) []byte {
+	if v == nil {
+		return append(buf, 0)
+	}
+	buf = append(buf, 1)
+	buf = binary.BigEndian.AppendUint32(buf, uint32(len(*v)))
+	return append(buf, *v...)
+}
+
+// HardwareUpdateLimit is the one decision of the hardware update rate limit (ADR-0022 Section 4.1,
+// task V2-1b clarification K3), used by both repositories. reportedAt is the newest hardware row's
+// reported_at and now is the repository clock (database time in PostgreSQL).
+//
+// elapsed = now - reportedAt. elapsed < minInterval is limited; elapsed == minInterval and
+// elapsed > minInterval are accepted. When limited, retryAfter is (minInterval - elapsed) rounded
+// UP to whole seconds and never below one second. A clock that moved backwards (elapsed < 0) is
+// limited with retryAfter = minInterval rounded up.
+func HardwareUpdateLimit(reportedAt, now time.Time, minInterval time.Duration) (retryAfter time.Duration, limited bool) {
+	elapsed := now.Sub(reportedAt)
+	if elapsed >= minInterval && elapsed >= 0 {
+		return 0, false
+	}
+	remaining := minInterval - elapsed
+	if elapsed < 0 {
+		remaining = minInterval
+	}
+	retryAfter = ceilSeconds(remaining)
+	if retryAfter < time.Second {
+		retryAfter = time.Second
+	}
+	return retryAfter, true
+}
+
+// ceilSeconds rounds a non-negative duration up to a whole number of seconds.
+func ceilSeconds(d time.Duration) time.Duration {
+	if d <= 0 {
+		return 0
+	}
+	return ((d + time.Second - 1) / time.Second) * time.Second
+}
+
+// NodeRegistrationResult is what a node registration returns (ADR-0022 Section 4.1): the
+// hardware version that is current after the call.
+type NodeRegistrationResult struct {
+	HardwareVersion int
+}
+
+// NodeHardwareView is the current hardware row of a node as a read model. It carries no
+// content hash: the hash is coordinator-internal.
+type NodeHardwareView struct {
+	Version         int       `json:"version"`
+	ContractVersion int       `json:"contract_version"`
+	AgentVersion    string    `json:"agent_version"`
+	ReportedAt      time.Time `json:"reported_at"`
+	NodeHardware
+}
+
+// NodeTelemetryView is the latest telemetry sample of a node as a read model. It does not carry
+// session_id and seq: those are write-path ordering state, not observations.
+type NodeTelemetryView struct {
+	ContractVersion int       `json:"contract_version"`
+	ReceivedAt      time.Time `json:"received_at"`
+	SampledAt       time.Time `json:"sampled_at"`
+	NodeTelemetry
+}
+
+// NodeView is the read model of one node: identity, the current hardware (nil when the node has
+// none), the latest telemetry (nil when none) and the IDs of the workers that name the node.
+// Unknown values stay nil.
+type NodeView struct {
+	ID          string             `json:"node_id"`
+	DisplayName string             `json:"display_name"`
+	CreatedAt   time.Time          `json:"created_at"`
+	LastSeenAt  time.Time          `json:"last_seen_at"`
+	Hardware    *NodeHardwareView  `json:"hardware"`
+	Telemetry   *NodeTelemetryView `json:"telemetry"`
+	WorkerIDs   []string           `json:"worker_ids"`
 }

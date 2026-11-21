@@ -21,6 +21,11 @@ type Worker struct {
 	// the v1.0.0 and V2-0 workers, which do not send it, at their one-slot behaviour.
 	ExecutesConcurrently bool `json:"executes_concurrently"`
 
+	// NodeID is the optional node this worker runs on (ADR-0022 Section 4.3). nil means a legacy
+	// worker, which keeps its V1 JSON byte-identical (omitempty): the API slice V2-1c decides how
+	// null is rendered through its own view. Every registration rewrites it.
+	NodeID *string `json:"node_id,omitempty"`
+
 	// LastPollAt is the time of the last poll that reached this worker while it was HEALTHY
 	// (ADR-0017 Section 2.2). nil means the worker has never polled, so it is not assignable.
 	// It is internal: it is not part of any response.
