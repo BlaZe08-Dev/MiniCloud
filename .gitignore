@@ -33,3 +33,8 @@ tmp/
 data/
 scratch/
 MiniCloud_Project_Blueprint_for_Claude.pdf
+
+# Quality gate log (make gate)
+.gate.log
+.gate.hash
+.gate.lock

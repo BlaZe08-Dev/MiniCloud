@@ -27,6 +27,13 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | V2-1a | Node contract types, platform probe, node ID file, architecture test (ADR-0022 slice V2-1a) | Claude Code | to be assigned | agent/claude/V2-1a | in progress (owner-approved 2026-11-21) |
 | V2-1b | Migration 000007 and node storage: PostgreSQL, in-memory, conformance suite (ADR-0022 slice V2-1b) | Claude Code | to be assigned | agent/claude/V2-1b | in progress (owner-approved 2026-11-21) |
 | V2-1c | Node API, coordinator, config and docs (ADR-0022 slice V2-1c), plus V2-1b audit follow-ups | Claude Code | to be assigned | agent/claude/V2-1c | in progress (owner-approved 2026-11-21) |
+| DEV-HOOKS-1 | Claude Code hooks and `make gate` quality gate (tooling only) | Claude Code | owner review | agent/claude/setup-hooks | in progress |
+
+### DEV-HOOKS-1 — Claude Code hooks and `make gate` quality gate (tooling only)
+- Builder: Claude Code. Auditor: owner review. Branch: `agent/claude/setup-hooks`. Status: in progress.
+- Goal: enforce the AGENTS.md section 3 and 6 rules mechanically for Claude Code sessions: a `make gate` target (gofmt -l, go vet, go build, make test-docs, `go test -race` with the database URL unset, PASS/SKIP/FAIL counts, log in `.gate.log`), a PreToolUse guard for the forbidden git and database commands and for `.env` and `go.sum` edits, a PostToolUse gofmt and vet check on edited Go files, and a Stop hook that runs the gate only when the `.go` state changed since the last pass. No new rules: AGENTS.md stays the single source.
+- Owned files: `.claude/` (`settings.json`, `hooks/`), `scripts/gate.sh`, `Makefile` (the `gate` target and its `.PHONY` entry only), `docs/agents/templates/`, `.gitignore` (the `.gate.log`, `.gate.hash` and `.gate.lock` lines only), `docs/agents/TASKS.md` (this entry), `reports/claude/DEV-HOOKS-1*.md`.
+- Out of scope: any `.go` file outside a throwaway failure check that is reverted, `go.mod`/`go.sum`, `AGENTS.md`, `CLAUDE.md`, ADRs, migrations, `make test-db` and any database or Docker change.
 
 ### REL-2 — Record v1.1.0 release and checklist updates (docs only)
 - Builder: Gemini. Auditor: orchestrator review. Branch: `agent/gemini/REL-2`. Status: in progress.

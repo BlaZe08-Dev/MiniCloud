@@ -1,4 +1,4 @@
-.PHONY: all build test test-race test-docs fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage test-security bench
+.PHONY: all build test test-race test-docs gate fmt vet run-coordinator run-worker demo clean db-up db-down db-psql db-reset-test test-db test-outage test-security bench
 
 BIN_DIR := bin
 
@@ -24,6 +24,10 @@ test-race:
 
 test-docs:
 	go test ./tests/docs
+
+# AGENTS.md section 6 gates, logged to .gate.log; DB tests excluded (use test-db).
+gate:
+	./scripts/gate.sh
 
 fmt:
 	gofmt -s -w .
