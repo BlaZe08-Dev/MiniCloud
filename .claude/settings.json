@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(env -u MINICLOUD_TEST_DATABASE_URL go test *)",
+      "Bash(make test-db)",
+      "Bash(make test-docs)",
+      "Bash(make gate)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [{ "type": "command", "command": "python3 -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "python3 -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/post_go.py\"", "timeout": 300 }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "python3 -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop_gate.py\"", "timeout": 1200 }]
+      }
+    ]
+  }
+}
