@@ -4,6 +4,9 @@
 set -u
 cd "$(dirname "$0")/.."
 LOG=.gate.log
+# One gate at a time per worktree: concurrent runs wait here instead of overwriting the log.
+exec 9> .gate.lock
+if ! flock -n 9; then echo "another gate run is in progress; waiting for it"; flock 9; fi
 : > "$LOG"
 fail=0
 

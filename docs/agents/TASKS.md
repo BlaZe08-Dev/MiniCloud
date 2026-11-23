@@ -32,7 +32,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 ### DEV-HOOKS-1 — Claude Code hooks and `make gate` quality gate (tooling only)
 - Builder: Claude Code. Auditor: owner review. Branch: `agent/claude/setup-hooks`. Status: in progress.
 - Goal: enforce the AGENTS.md section 3 and 6 rules mechanically for Claude Code sessions: a `make gate` target (gofmt -l, go vet, go build, make test-docs, `go test -race` with the database URL unset, PASS/SKIP/FAIL counts, log in `.gate.log`), a PreToolUse guard for the forbidden git and database commands and for `.env` and `go.sum` edits, a PostToolUse gofmt and vet check on edited Go files, and a Stop hook that runs the gate only when the `.go` state changed since the last pass. No new rules: AGENTS.md stays the single source.
-- Owned files: `.claude/` (`settings.json`, `hooks/`), `scripts/gate.sh`, `Makefile` (the `gate` target and its `.PHONY` entry only), `docs/agents/templates/`, `.gitignore` (the `.gate.log` and `.gate.hash` lines only), `docs/agents/TASKS.md` (this entry), `reports/claude/DEV-HOOKS-1*.md`.
+- Owned files: `.claude/` (`settings.json`, `hooks/`), `scripts/gate.sh`, `Makefile` (the `gate` target and its `.PHONY` entry only), `docs/agents/templates/`, `.gitignore` (the `.gate.log`, `.gate.hash` and `.gate.lock` lines only), `docs/agents/TASKS.md` (this entry), `reports/claude/DEV-HOOKS-1*.md`.
 - Out of scope: any `.go` file outside a throwaway failure check that is reverted, `go.mod`/`go.sum`, `AGENTS.md`, `CLAUDE.md`, ADRs, migrations, `make test-db` and any database or Docker change.
 
 ### REL-2 — Record v1.1.0 release and checklist updates (docs only)
