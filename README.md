@@ -1,6 +1,39 @@
 # MiniCloud
 
-MiniCloud is a learning-oriented distributed job-execution platform written in Go (standard library plus pgx v5), with PostgreSQL 16 as the durable source of truth. A central coordinator accepts computational jobs, independent worker processes pull and execute allowlisted tasks under a per-attempt lease (design: [ADR-0014](docs/adr/0014-lease-model-and-expiry.md) and [docs/protocol.md](docs/protocol.md)), lifecycle transitions are validated by a central domain state machine, and state changes are recorded in durable storage. MiniCloud is designed to explore, implement, and measure real distributed-systems behavior—state transitions, worker coordination, leases, bounded retries, and failure recovery. It is not a production-ready cloud service, does not support multi-tenancy, is not designed to be exposed to untrusted networks, and never runs arbitrary untrusted shell commands on the host.
+<p align="center">
+  <strong>Distributed job execution, built around explicit state and failure semantics.</strong><br/>
+  <sub>Go · PostgreSQL 16 · Coordinator / Worker · Durable job state</sub>
+</p>
+
+<p align="center">
+  <img src="assets/readme/minicloud-flow.svg" alt="Animated MiniCloud execution topology: client, coordinator, worker pool and PostgreSQL" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/BlaZe08-Dev/MiniCloud/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/release-v1.1.0-8DA697?style=flat-square&labelColor=171b1a" alt="Release v1.1.0"/></a>
+  <img src="https://img.shields.io/badge/Go-1.22.2-71A8A0?style=flat-square&labelColor=171b1a" alt="Go 1.22.2"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-16-2F32FE?style=flat-square&labelColor=171b1a" alt="PostgreSQL 16"/>
+  <img src="https://img.shields.io/badge/status-pre--production-EDA231?style=flat-square&labelColor=171b1a" alt="Pre-production"/>
+</p>
+
+MiniCloud is a learning-oriented distributed job-execution platform written in Go (standard library plus pgx v5), with PostgreSQL 16 as the durable source of truth. A central coordinator accepts computational jobs, independent worker processes pull and execute allowlisted tasks under a per-attempt lease (design: [ADR-0014](docs/adr/0014-lease-model-and-expiry.md) and [docs/protocol.md](docs/protocol.md)), lifecycle transitions are validated by a central domain state machine, and state changes are recorded in durable storage.
+
+MiniCloud is designed to explore, implement, and measure real distributed-systems behavior—state transitions, worker coordination, leases, bounded retries, and failure recovery. It is **not production-ready**, does not support multi-tenancy, is not designed to be exposed to untrusted networks, and never runs arbitrary untrusted shell commands on the host.
+
+> [!IMPORTANT]
+> **Security boundary:** the HTTP API and worker endpoints currently lack authentication, authorization, and TLS (accepted risk SEC-004). The coordinator defaults to 127.0.0.1:8080. Keep it on trusted local networks only; do not expose it to untrusted networks.
+
+## At a glance
+
+| Area | Current implementation |
+|---|---|
+| Control plane | Coordinator HTTP API, worker registration and heartbeats |
+| Execution | Independent worker processes with bounded concurrent slots |
+| Scheduling | Assignment-based round-robin by default; FIFO pull selectable |
+| Reliability | Per-attempt leases, bounded retries, recovery and cancellation |
+| Persistence | In-memory or PostgreSQL 16 storage |
+| Interfaces | mc CLI and HTTP API |
+| Current release | v1.1.0 · pre-production |
 
 ## Status
 
@@ -35,46 +68,9 @@ MiniCloud consists of four core executables and an authoritative PostgreSQL data
 - **Migrator (`cmd/migrate`):** Applies forward-only SQL migrations to PostgreSQL before the coordinator starts.
 - **PostgreSQL 16 (`deployments/docker-compose.yml`):** Durable source of truth for jobs, attempts, workers, execution results, and audit events.
 
-```text
-+-----------------------------------------------------------------+
-|                          Client / CLI                           |
-|                           (cmd/mc)                              |
-+-----------------------------------------------------------------+
-                                |
-                                | HTTP REST (/v1/jobs, /v1/workers)
-                                v
-+-----------------------------------------------------------------+
-|                      Coordinator Service                        |
-|                       (cmd/coordinator)                         |
-|                                                                 |
-|   +---------------------+             +---------------------+   |
-|   |   HTTP API Server   |             |  Domain State Mach. |   |
-|   |   (internal/api)    |             |  (internal/domain)  |   |
-|   +---------------------+             +---------------------+   |
-|              |                                   |              |
-|              +-----------------+-----------------+              |
-|                                |                                |
-|                                v                                |
-|   +---------------------------------------------------------+   |
-|   |                     Storage Driver                      |   |
-|   |   (in-memory repository or internal/storage/postgres)   |   |
-|   +---------------------------------------------------------+   |
-+-----------------------------------------------------------------+
-          ^                              |
-          | HTTP Poll / Heartbeat        | PostgreSQL 16
-          | (/v1/workers/*)              | (deployments/docker-compose.yml)
-          v                              v
-+-----------------------+      +----------------------------------+
-|     Worker Agent      |      |           PostgreSQL             |
-|     (cmd/worker)      |      |   jobs, attempts, workers,       |
-|                       |      |   results, job_events            |
-|  +-----------------+  |      +----------------------------------+
-|  | Task Executor   |  |
-|  | (echo, sleep,   |  |
-|  |  sha256_loop)   |  |
-|  +-----------------+  |
-+-----------------------+
-```
+<p align="center">
+  <img src="assets/readme/minicloud-flow.svg" alt="MiniCloud architecture: CLI submits jobs to the coordinator, workers execute allowlisted tasks, and PostgreSQL stores durable state" width="100%"/>
+</p>
 
 ## Quick Start
 
