@@ -68,9 +68,7 @@ MiniCloud consists of four core executables and an authoritative PostgreSQL data
 - **Migrator (`cmd/migrate`):** Applies forward-only SQL migrations to PostgreSQL before the coordinator starts.
 - **PostgreSQL 16 (`deployments/docker-compose.yml`):** Durable source of truth for jobs, attempts, workers, execution results, and audit events.
 
-<p align="center">
-  <img src="assets/readme/minicloud-flow.svg" alt="MiniCloud architecture: CLI submits jobs to the coordinator, workers execute allowlisted tasks, and PostgreSQL stores durable state" width="100%"/>
-</p>
+
 
 ## Quick Start
 
