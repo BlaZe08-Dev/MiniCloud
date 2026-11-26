@@ -237,14 +237,17 @@ func (n *nodeRun) apply(ctx context.Context, out nodeOutcome, retryAfter time.Du
 		if inLoop {
 			// Give the worker row its node_id. If the coordinator rejects it, register() has
 			// already fallen back, detached and woken us; back off instead of looping (D5).
-			if err := n.a.register(ctx); err != nil {
-				slog.Warn("worker re-registration with the node failed", logsafe.Err(err))
+			regErr := n.a.register(ctx)
+			if regErr != nil {
+				slog.Warn("worker re-registration with the node failed", logsafe.Err(regErr))
 			}
 			select {
 			case <-n.a.nodeWake:
 			default:
 			}
-			if n.a.nodeAttached.Load() == nil {
+			// Detach on any failure, not only the D5 fallback: otherwise telemetry would flow for a
+			// worker row that never got node_id and nothing would retry it (F-01).
+			if regErr != nil || n.a.nodeAttached.Load() == nil {
 				n.detach()
 				n.retryRegistration()
 			}

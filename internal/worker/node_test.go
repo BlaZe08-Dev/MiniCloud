@@ -715,6 +715,40 @@ func TestWorker_Node429_RegistersWithNodeIDAndRetriesAfter(t *testing.T) {
 	}
 }
 
+// F-01: the node goroutine's own worker registration fails with a 500 (not the D5 400). The worker
+// must detach and register the node and then the worker again after the backoff.
+func TestWorker_InLoopWorkerRegisterFailure_Retried(t *testing.T) {
+	r := ntSetup(t, ntOn(ntDir(t), 0), func(path string, hit int, _ string) ntReply {
+		switch {
+		case path == "/v1/nodes/register" && hit == 0:
+			return ntErr(500, "INTERNAL_ERROR", nil)
+		case path == "/v1/workers/register" && hit == 1:
+			return ntErr(500, "INTERNAL_ERROR", nil)
+		}
+		return ntReply{}
+	})
+	r.start()
+	ntWaitFor(t, "the first backoff timer", func() bool { return len(r.nodeTimers()) >= 1 })
+	if d := r.tickNext(); d < 500*time.Millisecond || d >= time.Second {
+		t.Fatalf("first backoff = %v, want within [0.5 s, 1 s)", d)
+	}
+	// Node register 200, then the worker register carrying node_id fails with 500.
+	r.waitCount(ntWorkReg, 2)
+	ntWaitFor(t, "the second backoff timer", func() bool { return len(r.nodeTimers()) >= 2 })
+	if d := r.tickNext(); d < 500*time.Millisecond || d >= time.Second {
+		t.Fatalf("second backoff = %v, want within [0.5 s, 1 s)", d)
+	}
+	r.waitCount(ntWorkReg, 3)
+	want := []string{ntNodeReg, ntWorkReg, ntNodeReg, ntWorkReg, ntNodeReg, ntWorkReg}
+	if got := r.flow(); !slices.Equal(got, want) {
+		t.Fatalf("flow = %v, want %v", got, want)
+	}
+	b := r.bodies(ntWorkReg)
+	if strings.Contains(b[0], "node_id") || !strings.Contains(b[1], `"node_id"`) || !strings.Contains(b[2], `"node_id"`) {
+		t.Fatalf("node_id presence in the worker registrations is wrong: %q", b)
+	}
+}
+
 func TestWorker_NodeRegisterFails_FallsBackToLegacy(t *testing.T) {
 	r := ntSetup(t, ntOn(ntDir(t), 0), func(path string, hit int, _ string) ntReply {
 		switch {
