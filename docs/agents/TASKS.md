@@ -27,6 +27,7 @@ Report file rule (AGENTS.md section 8): Every agent, before its final chat messa
 | V2-1a | Node contract types, platform probe, node ID file, architecture test (ADR-0022 slice V2-1a) | Claude Code | to be assigned | agent/claude/V2-1a | in progress (owner-approved 2026-11-21) |
 | V2-1b | Migration 000007 and node storage: PostgreSQL, in-memory, conformance suite (ADR-0022 slice V2-1b) | Claude Code | to be assigned | agent/claude/V2-1b | in progress (owner-approved 2026-11-21) |
 | V2-1c | Node API, coordinator, config and docs (ADR-0022 slice V2-1c), plus V2-1b audit follow-ups | Claude Code | to be assigned | agent/claude/V2-1c | in progress (owner-approved 2026-11-21) |
+| V2-1d | Worker reports its node (ADR-0022 slice V2-1d) | Claude Code | to be assigned | agent/claude/V2-1d | in progress (owner-approved 2026-11-27) |
 | DEV-HOOKS-1 | Claude Code hooks and `make gate` quality gate (tooling only) | Claude Code | owner review | agent/claude/setup-hooks | in progress |
 
 ### DEV-HOOKS-1 — Claude Code hooks and `make gate` quality gate (tooling only)
