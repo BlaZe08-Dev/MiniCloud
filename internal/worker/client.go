@@ -20,6 +20,7 @@ import (
 	"github.com/BlaZe08-Dev/Minicloud/internal/coordinator"
 	"github.com/BlaZe08-Dev/Minicloud/internal/domain"
 	"github.com/BlaZe08-Dev/Minicloud/internal/executor"
+	"github.com/BlaZe08-Dev/Minicloud/internal/platform"
 	"github.com/BlaZe08-Dev/Minicloud/internal/version"
 )
 
@@ -130,6 +131,13 @@ type Agent struct {
 	// onAttemptDone, when set, is called by each attempt goroutine right after it released its
 	// slot (tests only; set before Run).
 	onAttemptDone func()
+
+	// Node reporting (node.go). nodeAttached is the node ID register() sends while the worker is
+	// attached to a node, nil otherwise; the node goroutine sets it, register() reads it. nodeWake
+	// tells the node goroutine that register() lost the node (D5). newProbe is a test seam.
+	nodeAttached atomic.Pointer[string]
+	nodeWake     chan struct{}
+	newProbe     func(stateDir string) platform.Probe
 }
 
 // availableSlots is TotalSlots minus the attempts currently running (ADR-0019 Section 2.1), the
@@ -159,6 +167,8 @@ func NewAgent(cfg *config.WorkerConfig, registry *executor.Registry) *Agent {
 		cfg:      cfg,
 		registry: registry,
 		clock:    realClock{},
+		nodeWake: make(chan struct{}, 1),
+		newProbe: platform.NewProbe,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -172,6 +182,16 @@ func (a *Agent) Run(ctx context.Context) error {
 		"coordinator_url", a.cfg.CoordinatorURL,
 		"slots", a.cfg.TotalSlots,
 	)
+
+	// 0. Node reporting (opt-in): startup checks, then one synchronous node registration, before any
+	// worker registration (D2, D9, D10). nil when reporting is off.
+	node, err := a.startNode(ctx)
+	if err != nil {
+		return err
+	}
+	if node != nil {
+		defer node.stopAll()
+	}
 
 	// 1. Register with coordinator
 	if err := a.register(ctx); err != nil {
@@ -196,6 +216,17 @@ func (a *Agent) Run(ctx context.Context) error {
 			}
 		}
 	}()
+
+	// The node goroutine never blocks the heartbeat or the job loop. Run waits for it (D8).
+	if node != nil {
+		var nodeWG sync.WaitGroup
+		defer nodeWG.Wait()
+		nodeWG.Add(1)
+		go func() {
+			defer nodeWG.Done()
+			node.loop(ctx)
+		}()
+	}
 
 	// 3. Work polling loop: a bounded pool of TotalSlots concurrent attempts (ADR-0019). A slot is
 	// acquired before every poll, so a worker with no free slot never polls (Section 2.2).
@@ -350,7 +381,37 @@ func (a *Agent) register(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	payload, err := json.Marshal(map[string]any{
+	nodeID := a.nodeAttached.Load()
+	status, err := a.postRegister(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusBadRequest && nodeID != nil {
+		// The coordinator no longer knows the node (D5): register once more without node_id, detach
+		// and wake the node goroutine, which registers the node and then the worker again.
+		if a.nodeAttached.CompareAndSwap(nodeID, nil) {
+			slog.Warn("coordinator rejected the worker registration carrying node_id; registering without it", "worker_id", a.cfg.WorkerID)
+			select {
+			case a.nodeWake <- struct{}{}:
+			default:
+			}
+		}
+		if status, err = a.postRegister(ctx, nil); err != nil {
+			return err
+		}
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("registration returned HTTP status %d", status)
+	}
+
+	slog.Info("worker successfully registered with coordinator", "worker_id", a.cfg.WorkerID)
+	return nil
+}
+
+// postRegister sends one worker registration and returns the HTTP status. node_id is in the body
+// only when nodeID is non-nil (D4); otherwise the body is the legacy one.
+func (a *Agent) postRegister(ctx context.Context, nodeID *string) (int, error) {
+	body := map[string]any{
 		"id":              a.cfg.WorkerID,
 		"version":         version.Version,
 		"total_slots":     a.cfg.TotalSlots,
@@ -360,30 +421,28 @@ func (a *Agent) register(ctx context.Context) error {
 		// pass may reserve it that many jobs (ADR-0020 Section 2.6). Older workers omit the field
 		// and keep one slot.
 		"executes_concurrently": true,
-	})
+	}
+	if nodeID != nil {
+		body["node_id"] = *nodeID
+	}
+	payload, err := json.Marshal(body)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	url := fmt.Sprintf("%s/v1/workers/register", a.cfg.CoordinatorURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("registration returned HTTP status %d", resp.StatusCode)
-	}
-
-	slog.Info("worker successfully registered with coordinator", "worker_id", a.cfg.WorkerID)
-	return nil
+	return resp.StatusCode, nil
 }
 
 func (a *Agent) sendHeartbeat(ctx context.Context) error {

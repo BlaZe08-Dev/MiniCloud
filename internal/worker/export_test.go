@@ -1,6 +1,11 @@
 package worker
 
-import "context"
+import (
+	"context"
+	"time"
+
+	"github.com/BlaZe08-Dev/Minicloud/internal/platform"
+)
 
 // The result-delivery backoff settings are unexported production constants. The external tests read
 // them through these names so a row for that caller tracks the production values.
@@ -28,3 +33,10 @@ func SendHeartbeatForTest(ctx context.Context, a *Agent) error { return a.sendHe
 
 // CloseIdleConnectionsForTest closes the agent's idle HTTP connections (goroutine-leak checks).
 func CloseIdleConnectionsForTest(a *Agent) { a.httpClient.CloseIdleConnections() }
+
+// SetProbeFactoryForTest replaces the probe constructor Run uses when node reporting is on (test
+// only; call before Run).
+func SetProbeFactoryForTest(a *Agent, f func(stateDir string) platform.Probe) { a.newProbe = f }
+
+// SetHTTPTimeoutForTest sets the agent's HTTP client timeout (test only; call before Run).
+func SetHTTPTimeoutForTest(a *Agent, d time.Duration) { a.httpClient.Timeout = d }
