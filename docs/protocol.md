@@ -620,3 +620,13 @@ When not local-only: the four routes return 404; `GET /v1/workers` has no `node_
 When local-only: `GET /v1/workers` shows `node_id` on every worker, a string or `null`. `POST /v1/workers/register` takes `node_id` absent or `null` as NULL; a string must be a valid node ID of a registered node, else 400 `INVALID_REQUEST`; any other JSON type is 400 `INVALID_REQUEST`.
 
 This is a network restriction, not authentication. Anything that reaches the loopback address passes (every local process, a container with host networking, a port forward). A reverse proxy on the same machine defeats it, because the coordinator cannot see that the client is remote. The check reads the configured address, not the sockets actually opened. A UUID is not proof of identity, so a caller who can reach the routes can impersonate a node. Authentication is V3-2.
+
+### 7.6 Worker node reporting (V2-1d)
+
+Opt-in: with `MINICLOUD_NODE_REPORTING_ENABLED` not `true` the worker sends no node request and its `POST /v1/workers/register` body has no `node_id` key (a state directory setting alone is not consent). With it on, the worker resolves its state directory and node ID before any request (a failure stops the worker), registers its node once synchronously, then registers itself, carrying `node_id` only while attached. Every later node call runs in a background goroutine; the job loop and heartbeat never wait for it. `display_name` is always `""`.
+
+`POST /v1/nodes/register` outcomes: 200 attached. 429 `RATE_LIMITED` attached, and the registration is sent again after `Retry-After` (whole seconds; absent, invalid or negative is 60 s, placeholder not measured; at most 24 h). 404, any 400 and 429 `NODE_LIMIT_REACHED`: legacy for the life of the process, one log line, no further node request. 5xx, transport error, timeout or anything else: stay detached and retry after a jittered backoff (1 s to 30 s, placeholders).
+
+`POST /v1/workers/register` carrying `node_id` answered 400: register again at once without it, detach, then register the node and the worker again (one fallback per failure).
+
+`POST /v1/nodes/{node_id}/telemetry` (only with `MINICLOUD_NODE_TELEMETRY_INTERVAL` set; no default): one report at a time, one per interval, `seq` from 1 and +1 per attempt, a failed report is never resent. 200 next after the interval. 409 `TELEMETRY_OUT_OF_ORDER` new `session_id`, `seq` 1. 404 detach and register the node and the worker again. 400 log the code and go on. 5xx, transport error or timeout wait the longer of the interval and the failure backoff.
