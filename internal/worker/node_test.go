@@ -163,6 +163,22 @@ func (r *ntRig) start() {
 	r.t.Cleanup(func() { r.stop() })
 }
 
+// runExpectingError runs a worker that must fail at startup. A run that keeps going (a fallback to
+// legacy mode) is cancelled and reported as a failure instead of hanging the test.
+func (r *ntRig) runExpectingError() error {
+	r.t.Helper()
+	r.start()
+	select {
+	case err := <-r.done:
+		r.cancel = nil
+		return err
+	case <-time.After(3 * time.Second):
+		r.stop()
+		r.t.Fatal("Run kept running; a startup error was expected")
+		return nil
+	}
+}
+
 func (r *ntRig) stop() {
 	if r.cancel == nil {
 		return
@@ -460,7 +476,7 @@ func TestWorker_ReportingOn_NoHomeNoDir_StartupError(t *testing.T) {
 			os.Unsetenv("HOME")
 		}
 		r := ntSetup(t, ntOn("", 10*time.Second), nil)
-		err := r.agent.Run(context.Background())
+		err := r.runExpectingError()
 		if err == nil || !strings.Contains(err.Error(), "MINICLOUD_NODE_REPORTING_ENABLED") || !strings.Contains(err.Error(), "MINICLOUD_NODE_STATE_DIR") {
 			t.Fatalf("unset=%v: Run error = %v, want one naming both settings", unset, err)
 		}
@@ -517,7 +533,7 @@ func TestWorker_StartupErrors_NoFallback(t *testing.T) {
 			parent := t.TempDir()
 			dir := mk(t, parent)
 			r := ntSetup(t, ntOn(dir, 10*time.Second), nil)
-			if err := r.agent.Run(context.Background()); err == nil {
+			if err := r.runExpectingError(); err == nil {
 				t.Fatal("Run returned nil, want a startup error")
 			}
 			if n := len(r.all()); n != 0 {
