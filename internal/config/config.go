@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -92,6 +93,13 @@ type WorkerConfig struct {
 	TotalSlots        int
 	HeartbeatInterval time.Duration
 	LogLevel          string
+
+	// Node reporting (ADR-0022 Section 4.5, V2-1d). Off unless NodeReportingEnabled is true; a state
+	// directory alone is not consent. NodeStateDir is stored as given; it is checked only when
+	// reporting is on. NodeTelemetryInterval 0 means unset (no default, OD-23).
+	NodeReportingEnabled  bool
+	NodeStateDir          string
+	NodeTelemetryInterval time.Duration
 }
 
 // LoadCoordinatorConfig loads and validates configuration from environment variables.
@@ -313,12 +321,18 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	reporting, err := getStrictBoolEnv("MINICLOUD_NODE_REPORTING_ENABLED")
+	if err != nil {
+		return nil, err
+	}
 	cfg := &WorkerConfig{
-		WorkerID:          getEnv("MINICLOUD_WORKER_ID", ""),
-		CoordinatorURL:    getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
-		TotalSlots:        slots,
-		HeartbeatInterval: heartbeat,
-		LogLevel:          getEnv("MINICLOUD_LOG_LEVEL", "info"),
+		NodeReportingEnabled: reporting,
+		NodeStateDir:         getEnv("MINICLOUD_NODE_STATE_DIR", ""),
+		WorkerID:             getEnv("MINICLOUD_WORKER_ID", ""),
+		CoordinatorURL:       getEnv("MINICLOUD_COORDINATOR_URL", "http://127.0.0.1:8080"),
+		TotalSlots:           slots,
+		HeartbeatInterval:    heartbeat,
+		LogLevel:             getEnv("MINICLOUD_LOG_LEVEL", "info"),
 	}
 
 	if cfg.CoordinatorURL == "" {
@@ -334,7 +348,33 @@ func LoadWorkerConfig() (*WorkerConfig, error) {
 		return nil, fmt.Errorf("MINICLOUD_HEARTBEAT_INTERVAL must be positive")
 	}
 
+	// Examined only when reporting is on; with it off these settings are ignored (the worker warns).
+	if cfg.NodeReportingEnabled {
+		if cfg.NodeStateDir != "" && !filepath.IsAbs(cfg.NodeStateDir) {
+			return nil, fmt.Errorf("MINICLOUD_NODE_STATE_DIR must be an absolute path")
+		}
+		if os.Getenv("MINICLOUD_NODE_TELEMETRY_INTERVAL") != "" { // unset or empty stays 0: no default (OD-23)
+			cfg.NodeTelemetryInterval, err = getPositiveDurationEnv("MINICLOUD_NODE_TELEMETRY_INTERVAL", 0)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	return cfg, nil
+}
+
+// getStrictBoolEnv is false when key is unset or empty; "true" and "false" in any case are accepted
+// and anything else (no trimming) is an error naming key and the value.
+func getStrictBoolEnv(key string) (bool, error) {
+	v := os.Getenv(key)
+	switch {
+	case v == "" || strings.EqualFold(v, "false"):
+		return false, nil
+	case strings.EqualFold(v, "true"):
+		return true, nil
+	}
+	return false, fmt.Errorf("%s must be true or false (got %q)", key, v)
 }
 
 // dispatchPolicyFromEnv returns the dispatch policy: round_robin when MINICLOUD_DISPATCH_POLICY is
