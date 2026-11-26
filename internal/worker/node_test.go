@@ -458,7 +458,7 @@ func TestWorker_ReportingOn_DefaultStateDirIsHomeMinicloud(t *testing.T) {
 	t.Setenv("HOME", home)
 	r := ntSetup(t, ntOn("", 0), nil)
 	r.start()
-	r.waitCount(ntWorkReg, 1)
+	ntWaitFor(t, "a poll", func() bool { return r.polls() >= 1 }) // Run is past registration
 	r.stop()
 	dir := filepath.Join(home, ".minicloud")
 	if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o700 {
